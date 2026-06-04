@@ -1,0 +1,30 @@
+---
+description: OpenEPaperLink drawcustom YAML spec reference and export rules
+globs: src/core/**,tests/**,docs/spec/**
+alwaysApply: false
+---
+
+# YAML spec
+
+Canonical spec (vendored upstream):
+
+`docs/spec/supported_types.md`
+
+Upstream source: https://github.com/OpenEPaperLink/Home_Assistant_Integration/blob/main/docs/drawcustom/supported_types.md
+
+## HA-clean export rules
+
+YAML copied for Home Assistant must contain **only** valid drawcustom fields:
+
+- No designer metadata fields
+- No `preview_data_url` or similar preview hacks
+- No YAML comments added by the designer for asset substitution
+- Template strings preserved verbatim (`{{ ... }}`)
+
+## Service options (top-level, not per-element)
+
+`background`, `rotate`, `dither`, `ttl`, `dry-run` — modeled separately from element payload.
+
+## Fixtures
+
+When adding tests, create golden YAML under `tests/fixtures/spec/` or `tests/fixtures/elements/` from spec examples. Do not search the workspace for `supported_types.md` elsewhere.

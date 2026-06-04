@@ -1,0 +1,7 @@
+- type: text
+  value: Hello World!
+  font: ppb.ttf
+  x: 0
+  y: 0
+  size: 40
+  color: red

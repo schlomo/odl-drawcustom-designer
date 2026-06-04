@@ -1,0 +1,29 @@
+---
+description: TDD workflow and CI gates for oepl-designer
+globs: src/core/**,tests/**,.github/**
+alwaysApply: true
+---
+
+# TDD required
+
+Follow Red → Green → Refactor for all `src/core/` work.
+
+- Tests live in `tests/core/` mirroring core module structure.
+- Golden YAML fixtures in `tests/fixtures/`.
+- Run `npm test` before finishing any core task.
+
+## CI gates (non-negotiable)
+
+```
+npm ci → npm test → npm run build → deploy
+```
+
+Deploy only when tests and build pass. See ADR-008.
+
+## Phase boundaries
+
+- **Phase 0:** scaffold, ADRs, one golden round-trip test, React shell stub
+- **Phase 1:** full YAML engine (Zod schema, all 16 types, validate)
+- **Phase 2+:** UI panels, renderer, IndexedDB
+
+Do not implement later-phase modules when the current phase scope is narrower.

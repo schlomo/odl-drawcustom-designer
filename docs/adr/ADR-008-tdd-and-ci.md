@@ -1,0 +1,38 @@
+# ADR-008: TDD policy and CI gates
+
+## Status
+
+Accepted
+
+## Context
+
+Correctness of YAML round-trip, template evaluation, and rendering is the product's core value. Regressions must not reach GitHub Pages deploy.
+
+## Decision
+
+**TDD workflow:** Red → Green → Refactor
+
+| Layer | Tool | Scope |
+|-------|------|-------|
+| Core (yaml, schema, templates, assets, renderer) | Vitest | Golden fixtures from `docs/spec/supported_types.md` |
+| UI smoke | Playwright (Phase 2+) | Load app, add element, edit property, copy YAML |
+
+**Rules:**
+
+- No feature merges without tests in the **core** layer first
+- UI tests follow for wiring, not business logic
+- ESLint core boundary must pass
+- CI: `npm ci` → `npm test` → `npm run build` → deploy to GH Pages
+
+Fixtures live in `tests/fixtures/` derived from vendored spec at `docs/spec/supported_types.md`.
+
+## Consequences
+
+- Phase 0 establishes Vitest harness + one golden YAML round-trip test
+- GitHub Actions blocks deploy on test or build failure
+- Agents use `tests/fixtures/` as source of truth for spec examples
+
+## Alternatives considered
+
+- **UI-first development** — rejected; YAML/renderer bugs hard to catch without golden tests
+- **Manual QA only** — rejected; 16 element types need automated coverage

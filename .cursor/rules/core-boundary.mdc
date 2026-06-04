@@ -1,0 +1,29 @@
+---
+description: Enforce core/UI boundary and TDD for src/core changes
+globs: src/core/**,tests/core/**
+alwaysApply: false
+---
+
+# Core boundary
+
+- `src/core/**` must **never** import `react`, `react-dom`, or any React subpath.
+- Core code is pure TypeScript. No JSX, no hooks, no DOM APIs unless wrapped for testability.
+- ESLint `no-restricted-imports` enforces this — do not disable without an ADR update.
+
+## TDD required for core changes
+
+1. Write or update Vitest tests first (Red).
+2. Implement minimal code (Green).
+3. Refactor without changing behavior.
+
+Fixtures: `tests/fixtures/` — examples derived from `docs/spec/supported_types.md`.
+
+## Module layout
+
+- `src/core/yaml/` — parse, serialize, validate
+- `src/core/schema/` — Zod types from spec
+- `src/core/templates/` — scan + evaluate
+- `src/core/assets/` — scanner + resolver
+- `src/core/renderer/` — canvas, colors, dither, element renderers
+
+UI code in `src/ui/` calls core via `src/core/index.ts` exports only.
