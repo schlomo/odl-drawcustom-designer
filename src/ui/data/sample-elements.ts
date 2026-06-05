@@ -3,12 +3,12 @@ import type { DrawElement } from '../../core/schema/elements'
 export const SAMPLE_ELEMENTS: DrawElement[] = [
   {
     type: 'text',
-    value: 'OEPL Designer',
+    value: "{{ states('sensor.temperature') }}°C",
     font: 'ppb.ttf',
     x: 10,
     y: 10,
     size: 32,
-    color: 'black',
+    color: "{{ 'red' if is_state('binary_sensor.door', 'on') else 'black' }}",
   },
   {
     type: 'rectangle',
@@ -37,5 +37,13 @@ export const SAMPLE_ELEMENTS: DrawElement[] = [
     y_end: 140,
     width: 2,
     fill: 'black',
+  },
+  {
+    type: 'dlimg',
+    url: '/local/logo.png',
+    x: 270,
+    y: 50,
+    xsize: 64,
+    ysize: 32,
   },
 ]

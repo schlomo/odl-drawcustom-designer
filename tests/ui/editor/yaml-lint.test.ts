@@ -82,4 +82,14 @@ describe('lintYamlDocument', () => {
 `
     expect(lintYamlDocument(source)).toEqual([])
   })
+
+  it('accepts template strings in color fields', () => {
+    const source = `- type: text
+  value: Status
+  x: 10
+  y: 10
+  color: "{{ 'red' if is_state('binary_sensor.door', 'on') else 'black' }}"
+`
+    expect(lintYamlDocument(source)).toEqual([])
+  })
 })

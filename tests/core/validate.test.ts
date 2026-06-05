@@ -92,6 +92,19 @@ describe('validatePayload', () => {
     ])
     expect(result.success).toBe(true)
   })
+
+  it('accepts Jinja template strings in color fields', () => {
+    const result = validatePayload([
+      {
+        type: 'text',
+        value: 'Status',
+        x: 0,
+        y: 0,
+        color: "{{ 'red' if is_state('binary_sensor.door', 'on') else 'black' }}",
+      },
+    ])
+    expect(result.success).toBe(true)
+  })
 })
 
 describe('validateServiceOptions', () => {

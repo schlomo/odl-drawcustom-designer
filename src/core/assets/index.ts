@@ -6,6 +6,15 @@ export {
   resolveAsset,
   setAsset,
 } from './resolver'
+export {
+  guessMimeFromAssetKey,
+  isFontExtension,
+  isFontMime,
+  isImageExtension,
+  isImageMime,
+  resolveUploadMime,
+} from './mime'
+export { validateAssetUpload, type AssetUploadResult } from './validateUpload'
 export type {
   AssetEntry,
   AssetKind,

@@ -30,6 +30,7 @@ interface YamlPanelProps {
   onElementsChange: (elements: DrawElement[]) => void
   colorScheme: ResolvedTheme
   containerRef: RefObject<HTMLDivElement | null>
+  extraEntityIds?: readonly string[]
 }
 
 export function YamlPanel({
@@ -40,6 +41,7 @@ export function YamlPanel({
   onElementsChange,
   colorScheme,
   containerRef,
+  extraEntityIds = [],
 }: YamlPanelProps) {
   const serialized = useMemo(() => serializeYamlPayload(elements), [elements])
   const [yamlText, setYamlText] = useState(serialized)
@@ -130,6 +132,7 @@ export function YamlPanel({
         <YamlEditor
           className="h-full min-h-0 [&_.cm-editor]:h-full [&_.cm-scroller]:min-h-0"
           colorScheme={colorScheme}
+          extraEntityIds={extraEntityIds}
           fontSizePx={fontSize}
           height="100%"
           scrollCommand={scrollCommand}

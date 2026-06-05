@@ -6,9 +6,11 @@ Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcus
 
 **Phase 1** — core complete (YAML engine, templates, assets, renderer stubs for all 16 types).
 
-**Phase 2a** — UI shell baseline (uncommitted): app layout, canvas preview, read-only property panel (schema-driven editing in Phase 2d), and **YamlEditor** (CodeMirror 6 with schema + Jinja autocomplete, inline lint, YAML↔canvas linking). Content Manager and State Simulator UI deferred to Phase 2d.
+**Phase 2a–2c** — UI shell + YamlEditor (**committed** `84d2164`).
 
-See [`docs/PLAN.md`](docs/PLAN.md) §7 progress tracker, §2, and [`docs/adr/ADR-009-yaml-jinja-editor.md`](docs/adr/ADR-009-yaml-jinja-editor.md) for YamlEditor behavior.
+**Phase 2d** — Content Manager, State Simulator, live template preview on canvas (**uncommitted**): upload fonts/images by YAML path, mock HA entity states (persisted in `localStorage`), evaluated templates render on canvas while YAML stays verbatim.
+
+**Next:** Phase **2e** — canvas drag/resize and schema-driven property forms. See [`docs/PLAN.md`](docs/PLAN.md) §7 and §16d.
 
 ## Spec
 

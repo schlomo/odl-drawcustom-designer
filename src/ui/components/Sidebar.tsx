@@ -1,4 +1,7 @@
-import type { DrawElement } from '../../core'
+import type { AssetKind, AssetUploadResult, DrawElement } from '../../core'
+import type { HaMockContext } from '../../core'
+import { ContentManager } from './ContentManager'
+import { StateSimulator } from './StateSimulator'
 import { DISPLAY_PRESETS, findPresetByDimensions } from '../data/display-presets'
 import type { CanvasConfig, CanvasRotation } from '../hooks/useProjectState'
 import { shell } from '../styles/shell'
@@ -7,10 +10,17 @@ interface SidebarProps {
   elements: DrawElement[]
   selectedIndex: number | null
   canvas: CanvasConfig
+  mockContext: HaMockContext
+  assetRevision: number
   onSelectElement: (index: number) => void
   onApplyPreset: (presetId: string) => void
   onCanvasSizeChange: (width: number, height: number) => void
   onRotationChange: (rotation: CanvasRotation) => void
+  onSetMockState: (entityId: string, value: string) => void
+  onAddMockEntity: (entityId: string, value: string) => void
+  onRemoveMockEntity: (entityId: string) => void
+  onUploadAsset: (key: string, kind: AssetKind, file: File) => Promise<AssetUploadResult>
+  onClearAsset: (key: string) => void
 }
 
 const ROTATION_OPTIONS: CanvasRotation[] = [0, 90, 180, 270]
@@ -24,16 +34,23 @@ export function Sidebar({
   elements,
   selectedIndex,
   canvas,
+  mockContext,
+  assetRevision,
   onSelectElement,
   onApplyPreset,
   onCanvasSizeChange,
   onRotationChange,
+  onSetMockState,
+  onAddMockEntity,
+  onRemoveMockEntity,
+  onUploadAsset,
+  onClearAsset,
 }: SidebarProps) {
   const matchingPreset = findPresetByDimensions(canvas.width, canvas.height)
   const presetValue = matchingPreset?.id ?? 'custom'
 
   return (
-    <aside className={`flex w-64 shrink-0 flex-col border-r ${shell.panelBorder} ${shell.panel}`}>
+    <aside className={`flex w-72 shrink-0 flex-col border-r ${shell.panelBorder} ${shell.panel}`}>
       <section className={`border-b ${shell.panelBorder} p-4`}>
         <h2 className={shell.heading}>Display config</h2>
         <label className={`mt-3 block text-xs ${shell.muted}`}>
@@ -96,6 +113,21 @@ export function Sidebar({
           </div>
         </fieldset>
       </section>
+
+      <StateSimulator
+        elements={elements}
+        mockContext={mockContext}
+        onSetMockState={onSetMockState}
+        onAddEntity={onAddMockEntity}
+        onRemoveEntity={onRemoveMockEntity}
+      />
+
+      <ContentManager
+        elements={elements}
+        assetRevision={assetRevision}
+        onUpload={onUploadAsset}
+        onClear={onClearAsset}
+      />
 
       <section className="flex min-h-0 flex-1 flex-col p-4">
         <h2 className={shell.heading}>Elements</h2>

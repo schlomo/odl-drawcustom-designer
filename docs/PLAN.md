@@ -24,8 +24,8 @@ todos:
     content: "Phase 1d: renderer stubs for all 16 types + render-element fixture sweep"
     status: completed
   - id: ha-simulator
-    content: "HA state simulator UI: entity→value map, wired to preview; persist in IndexedDB per project"
-    status: pending
+    content: "State Simulator UI + template preview wiring (localStorage mocks; IndexedDB per-project in Phase 3)"
+    status: completed
   - id: canvas-core
     content: "Build canvas interaction layer: selection, drag, resize, snap, keyboard shortcuts, layer ordering"
     status: pending
@@ -33,8 +33,8 @@ todos:
     content: "Phase 3: upgrade renderer stubs to full fidelity (opentype, MDI, QR, plot, dlimg)"
     status: pending
   - id: content-manager
-    content: IndexedDB (Dexie) asset store + scanner + Content Manager UI keyed by exact YAML paths
-    status: pending
+    content: "Content Manager UI + in-memory upload (IndexedDB persistence in Phase 3)"
+    status: completed
   - id: fonts-images
     content: Integrate opentype.js font loading, dlimg from IndexedDB, bundle default ppb/rbm fonts
     status: pending
@@ -48,13 +48,19 @@ todos:
     content: "CodeMirror 6 YAML panel: syntax highlighting (YAML + embedded Jinja), schema-driven autocomplete, lint diagnostics"
     status: completed
   - id: phase2-shell-partial
-    content: "Phase 2 partial: app layout, canvas shell, property panel, YamlEditor, YAML↔canvas coupling (uncommitted)"
+    content: "Phase 2 partial: app layout, canvas shell, property panel, YamlEditor, YAML↔canvas coupling"
     status: completed
   - id: phase2-stabilize
-    content: "Phase 2a: lint CI, dead-code removal, test consolidation — gate before commit (§11d)"
+    content: "Phase 2a: lint CI, dead-code removal, test consolidation (§11d)"
     status: completed
   - id: phase2-commit
-    content: "Commit Phase 2 partial after §11d stabilization passes (§11c)"
+    content: "Commit Phase 2 partial after stabilization (§11c)"
+    status: completed
+  - id: phase2d-content-simulator
+    content: "Phase 2d: Content Manager + State Simulator + template preview (§16c)"
+    status: completed
+  - id: phase2d-commit
+    content: "Commit Phase 2d after verification (§11e)"
     status: pending
 isProject: false
 ---
@@ -624,19 +630,18 @@ flowchart LR
 |-------|--------|--------|-------|-------|
 | **0** Bootstrap | ✅ Done | `133e960` | — | ADRs, rules, agents, spec vendored |
 | **1a** YAML + schema | ✅ Done | `8f6cc3d` | 33 | 16 Zod types, fixtures, completions, HA-clean export |
-| **1b** Templates | ✅ Done | `a56eee6` | +24 | Nunjucks + `states`/`is_state`; ADR-004 |
-| **1c** Assets | ✅ Done | `a56eee6` | +10 | Scanner + in-memory map |
-| **1d** Renderer | ✅ Done | `a56eee6` | +29 | **16/16** stubs; exhaustiveness + stub smoke tests |
-| **2a** Stabilize | ✅ Done | *uncommitted* | 219 (27 files) | Lint CI, dead code, test consolidation — **gate before commit** |
-| **2b** YamlEditor | ✅ Done | *uncommitted* | 13 editor test files | ADR-009; user-tested 2026-06-05 |
-| **2c** UI shell commit | ⬜ Blocked on 2a | — | — | Layout, canvas, read-only properties, YAML↔canvas coupling |
-| **2d** Phase 2 remainder | ⬜ After commit | — | — | Content Manager + State Simulator (§16c), canvas interaction, schema-driven property forms |
-| **3** Fidelity | ⬜ | — | — | IndexedDB, opentype, template preview pipeline, real icons/QR/plot/dlimg, rich spec fixtures |
+| **1b–1d** Core | ✅ Done | `a56eee6` | 108 | Templates, assets, renderer stubs (16/16) |
+| **2a** Stabilize | ✅ Done | `84d2164` | 220 (27 files) | Lint CI, dead code removed, renderer tests slimmed |
+| **2b** YamlEditor | ✅ Done | `84d2164` | 13 editor test files | ADR-009; Jinja scaffolding; user-tested |
+| **2c** UI shell | ✅ Done | `84d2164` | — | Layout, canvas, read-only properties, YAML↔canvas coupling |
+| **2d** Content + templates | ✅ Done | *uncommitted* | 247 (32 files) | Content Manager, State Simulator, template preview, asset upload validation |
+| **2e** Canvas + forms | ⬜ **Next** | — | — | Drag/resize/snap, property forms, Add Element (§16d) |
+| **3** Fidelity | ⬜ | — | — | IndexedDB, opentype metrics, real icons/QR/plot renderer stubs |
 | **4** Polish | ⬜ | — | — | Share hash, history, dither, parse_colors renderer, Playwright e2e |
 
-**Current repo health:** `npm run lint` → clean · `npm test` → **219 passed** (27 files) · `npm run build` → clean · **uncommitted** Phase 2 UI + YamlEditor on `main`
+**Current repo health:** `npm run lint` → clean · `npm test` → **247 passed** (32 files) · `npm run build` → clean · Phase 2d **uncommitted** on `main` (last commit `84d2164`)
 
-**Next:** commit via §11c → then §16c (Content Manager + State Simulator).
+**Next:** commit Phase 2d (§11e) → Phase **2e** (§16d).
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -646,7 +651,7 @@ flowchart LR
 - Vite + React scaffold with ESLint rule: `src/core/` must not import React
 - Half-day sanity check: canvas placeholder + one property form wired to core
 
-### Phase 1 — Core (TDD) ✅ complete (uncommitted)
+### Phase 1 — Core (TDD) ✅ complete (`a56eee6`)
 
 - ✅ Schema + YAML parse/serialize/validate (all 16 types) — tests from spec fixtures
 - ✅ **`src/core/schema/completions.ts`** — completion metadata for editor
@@ -657,9 +662,9 @@ flowchart LR
 
 **Stub vs fidelity (Phase 3 upgrades):** line/rectangle/circle are real SVG; text/multiline/dlimg/qrcode/plot/icon* are `-stub` primitives with bounds/placeholders only.
 
-### Phase 2a — Stabilize before commit (§11d) ✅
+### Phase 2a — Stabilize before commit (§11d) ✅ (`84d2164`)
 
-Quality gate on uncommitted work. **No new features** until this passes.
+Quality gate — no new features. All items delivered and committed.
 
 - ✅ `npm run lint` clean (fix `YamlEditor.tsx` ref-during-render violations)
 - ✅ CI: add `npm run lint` to `.github/workflows/deploy.yml` (ADR-008)
@@ -674,37 +679,45 @@ Quality gate on uncommitted work. **No new features** until this passes.
 | Item | Target phase | Why |
 |------|--------------|-----|
 | Template eval → canvas preview | **2d** (with State Simulator UI) | Feature wiring, not stabilization |
-| Content Manager + State Simulator panels | **2d** §16c | Next Phase 2 chunk after commit |
-| Canvas drag/resize/snap/keyboard | **2d** | Interaction layer |
-| Schema-driven editable property forms | **2d** | Replaces read-only `PropertyPanel` |
-| Add Element grid + Load Example dropdown | **2d** | Sidebar parity |
-| Playwright e2e smoke | **4** (or late 2d) | ADR-008 allows after core wiring |
+| Content Manager + State Simulator panels | **2d** §16c | First Phase 2 remainder chunk |
+| Canvas drag/resize/snap/keyboard | **2e** §16d | Interaction layer |
+| Schema-driven editable property forms | **2e** §16d | Replaces read-only `PropertyPanel` |
+| Add Element grid + Load Example dropdown | **2e** §16d | Sidebar parity |
+| Playwright e2e smoke | **4** (or late 2e) | ADR-008 allows after core wiring |
 | Rich spec fixtures (plot legends, icon_sequence, …) | **3** | Needed for fidelity tests, not commit gate |
 | `parse_colors` renderer pipeline | **3/4** | ADR-004 post-processing |
 | Replace stub snapshots with PNG/geometry tests | **3** | When stubs become real renderers |
 
-### Phase 2c — UI shell commit (§11c)
+### Phase 2c — UI shell commit (§11c) ✅ (`84d2164`)
 
-After 2a passes: commit layout, canvas, YamlEditor, tests. See §11c.
+Committed: layout, canvas, YamlEditor, stabilization fixes, ADR-009, `elementTemplates.ts`, bundled fonts in `public/fonts/`.
 
-### Phase 2d — Remaining Phase 2 parity
+### Phase 2d — Content Manager + State Simulator (§16c) ✅ (uncommitted)
 
-- ⬜ Content Manager + State Simulator panels (§16c)
-- ⬜ Wire `evaluateTemplate` + mock map to preview (depends on State Simulator)
-- ⬜ Canvas interaction (drag, resize, snap, keyboard)
+- ✅ `ContentManager.tsx` — `scanPayloadForAssets`, upload/clear, resolved / bundled / missing badges
+- ✅ `StateSimulator.tsx` — scanned entity IDs, editable mock values, manual add/remove
+- ✅ `applyTemplateContextToPayload` (`src/core/templates/preview.ts`) — deep-copy preview with evaluated templates
+- ✅ Canvas uses `previewElements`; YAML panel keeps raw template strings
+- ✅ Mock states persist in `localStorage` (`mockStates.ts`); auto-seed scanned entities as `unknown`
+- ✅ Asset upload validation (`validateAssetUpload.ts`) — reject font/image mismatches
+- ✅ Canvas draws uploaded dlimg + loaded font faces (`load-asset-images.ts`, `load-font-faces.ts`); sample payload includes template text + dlimg
+
+### Phase 2e — Canvas interaction + property forms (§16d) ⬜ next
+
+- ⬜ Canvas: drag, resize, snap, keyboard nudge/delete, layer reorder
 - ⬜ Schema-driven property forms (replace read-only panel)
 - ⬜ Sidebar: Add Element grid (16 types), Load Example dropdown
 - ⬜ Dark mode polish (theme toggle exists)
 
 ### Phase 3 — Fidelity (upgrade stubs → real preview)
 
-- IndexedDB persistence for content map (`src/storage/` — Dexie per ADR-003)
-- opentype.js fonts; dlimg from local map (`dlimg-stub` → real image)
+- IndexedDB persistence for content map + per-project mocks (`src/storage/` — Dexie per ADR-003)
+- opentype.js font metrics (uploaded/bundled fonts load for canvas text today; metrics/layout still stub)
 - Full MDI via `@mdi/js` (`icon-stub` → paths); real QR (`qrcode` package)
 - Plot sample data + curves (`plot-stub` → mock history)
 - Rich golden fixtures from `docs/spec/supported_types.md` (plot nested objects, icon_sequence, …)
 - Renderer fidelity tests (geometry checksums or PNG hashes — replace stub snapshot lock-in)
-- `public/fonts/` for ppb.ttf / rbm.ttf
+- `public/fonts/` — ppb.ttf, rbm.ttf bundled (ShlomosemiStam.ttf also present); opentype wiring still Phase 3
 
 ### Phase 4 — Differentiators + polish
 
@@ -907,80 +920,44 @@ Each PR ≤ ~500 lines of meaningful diff → easier for you to spot-check in Gi
 
 ---
 
-## 11d. Phase 2a — Stabilization prompt (run before §11c commit)
+## 11d. Phase 2a — Stabilization prompt ✅ (included in `84d2164`)
 
-**Prerequisite for commit.** Resolves quality review findings; no new Phase 2 features.
+**Delivered:** lint clean, CI lint step, dead code removed, `@uiw/react-codemirror` dropped, renderer tests slimmed to 4 files (sweep + colors + line + visibility), UI helper tests consolidated.
+
+<!-- prompt archived — phase complete -->
+
+---
+
+## 11e. Commit Phase 2d prompt
+
+**Use now** — Phase 2d verified; work is uncommitted.
 
 ```
-Read docs/PLAN.md §7 Phase 2a, docs/adr/ADR-001, ADR-008, ADR-009.
-Workspace: oepl-designer/ repo root. Follow .cursor/rules/.
+Read docs/PLAN.md §7 progress tracker.
 
-Goal: stabilize uncommitted Phase 2 work so I can commit a clean baseline.
-Do NOT start Content Manager, State Simulator, canvas drag/resize, or template preview wiring.
+Pre-flight: npm run lint && npm test && npm run build
 
-## Must pass before finishing
-npm run lint && npm test && npm run build
+Commit Phase 2d work:
+- src/ui/components/ContentManager.tsx, StateSimulator.tsx
+- src/core/templates/preview.ts, src/core/assets/validateUpload.ts, mime.ts
+- src/ui/hooks/useProjectState.ts, lib/load-asset-images.ts, load-font-faces.ts, verify-asset-upload.ts
+- src/ui/preferences/mockStates.ts, Sidebar/App/DesignerCanvas wiring
+- tests/core/templates/preview.test.ts, tests/core/assets/validate-upload.test.ts
+- tests/ui/preferences/mock-states.test.ts, tests/ui/lib/*
+- docs/PLAN.md, README.md
 
-## Tasks (in order)
+Message: "Phase 2d: content manager, state simulator, template preview"
 
-1. **Lint + CI (ADR-008)**
-   - Fix all ESLint errors (YamlEditor.tsx react-hooks/refs — refs updated during render).
-   - Add `npm run lint` to `.github/workflows/deploy.yml` after `npm ci`, before `npm test`.
-
-2. **Dead code removal**
-   - Delete `src/core/elements/text.ts`, `src/ui/components/TextPropertyForm.tsx`, and `tests/core/text-element.test.ts`.
-   - Remove their exports from `src/core/index.ts`. Grep for remaining imports.
-
-3. **Dependency cleanup**
-   - Remove unused `@uiw/react-codemirror` from package.json (ADR-009: direct EditorView mount).
-   - Run npm install; verify build still clean.
-
-4. **Test consolidation (keep coverage, drop vanity)**
-   - Merge trivial selection/helper tests into one file (e.g. tests/ui/editor/yaml-selection-helpers.test.ts):
-     shouldShowActiveLineHighlight, shouldReportYamlCursorPosition, shouldMoveCursorOnLinkedScroll, shouldApplyExternalYamlSync.
-   - Renderer tests: keep render-element.test.ts exhaustiveness sweep, colors.test.ts, line percentage-coords test, visibility behavior.
-     Remove or merge per-type stub snapshot tests that only assert hard-coded stub coordinates (plot, qrcode, icon, dlimg, etc.) — the sweep already guards "renders without error".
-   - Do NOT delete: yaml-roundtrip, templates/evaluate, templates/scan, assets/*, elementTemplates, yaml editor jinja/lint/sync tests.
-
-5. **Docs**
-   - Update README.md status: Phase 2a done, property panel is read-only (schema-driven editing in Phase 2d).
-   - Update docs/PLAN.md §7 progress tracker test count after consolidation.
-
-## Out of scope (defer per §7 Phase 2a table)
-- Template evaluation wired to canvas preview
-- Content Manager / State Simulator UI
-- Playwright e2e
-- Rich spec fixtures beyond existing 16 minimal YAMLs
-- parse_colors renderer
-- Zustand migration (useState is fine for now)
-
-Run full gate. Summarize: lint/test/build counts, files deleted, tests removed/merged.
-Do not commit unless I ask.
+Do not push unless I ask.
 ```
 
 ---
 
-## 11c. Commit Phase 2 (partial) prompt
+## 11c. Commit Phase 2 (partial) prompt ✅ (`84d2164`)
 
-**Use only after §11d stabilization passes.**
+Commit message used: `Phase 2a complete (YAML Editor)` — includes stabilization + UI shell + YamlEditor.
 
-```
-Read docs/PLAN.md §7 progress tracker and §2 Jinja scaffolding notes.
-
-Pre-flight (all must pass):
-  npm run lint && npm test && npm run build
-
-Commit Phase 2 partial work:
-- src/ui/ (layout, canvas, properties, YamlPanel, editor/)
-- tests/ui/
-- .github/workflows/deploy.yml (lint step)
-- package.json deps (@codemirror/*, etc.)
-- docs/PLAN.md, README.md (stabilization updates)
-
-Suggested message: "Phase 2 partial: designer shell and YamlEditor with Jinja scaffolding"
-
-Do not push unless I ask.
-```
+<!-- prompt archived — phase complete -->
 
 ---
 
@@ -994,7 +971,7 @@ Do not push unless I ask.
 
 ## 13. Phase 1b — Template scanner + evaluator ✅
 
-**After Phase 1a.** ✅ Delivered (uncommitted):
+**After Phase 1a.** ✅ Delivered (`a56eee6`):
 
 - `src/core/templates/` — `scanPayloadForTemplates`, `evaluateTemplate` (Nunjucks + Jinja compat)
 - `states`, `is_state`, `|float`, conditionals — all plan §2 priority patterns tested
@@ -1007,12 +984,12 @@ Do not push unless I ask.
 
 ## 14. Phase 1c — Asset scanner + content map resolver ✅
 
-**After Phase 1a.** ✅ Delivered (uncommitted):
+**After Phase 1a.** ✅ Delivered (`a56eee6`):
 
 - `src/core/assets/scanner.ts` — fonts on text/multiline/plot/progress_bar/debug_grid + dlimg URLs
 - `src/core/assets/resolver.ts` — in-memory map; `bundled` status for ppb.ttf/rbm.ttf
 - Skips template strings in font/url fields
-- **Gap:** `public/fonts/` not yet populated (Phase 3); bundled = logical fallback only
+- **Bundled fonts:** `public/fonts/ppb.ttf`, `rbm.ttf` present (committed `84d2164`); resolver still uses logical `bundled` status until opentype Phase 3
 
 <!-- prompt archived — phase complete -->
 
@@ -1020,7 +997,7 @@ Do not push unless I ask.
 
 ## 15. Phase 1d — Renderer skeleton ✅
 
-**Delivered (uncommitted, §15b completed):**
+**Delivered (`a56eee6`, §15b completed):**
 
 | Type | Layer | Renderer | Quality |
 |------|-------|----------|---------|
@@ -1045,7 +1022,7 @@ Shared: `colors.ts`, `coordinates.ts`, `bounds.ts`, `text-metrics.ts`, `visibili
 
 - `renderElement` — exhaustive switch over all 16 types (TypeScript `never` exhaustiveness)
 - `renderPayload` — renders all elements (no skip list)
-- **18 renderer test files** (16 per-type + `colors` + `render-element.test.ts` fixture sweep)
+- **4 renderer test files** (exhaustiveness sweep + colors + line coords + visibility) after stabilization slim-down
 
 <!-- prompt archived — phase complete -->
 
@@ -1059,52 +1036,42 @@ Shared: `colors.ts`, `coordinates.ts`, `bounds.ts`, `text-metrics.ts`, `visibili
 
 ---
 
-## 16. Phase 2 — starter prompts ⬜ after §11c commit
+## 16. Phase 2 — starter prompts
 
-Phase 2 is large — use **one Agent chat per panel** (see §9 PR sequence). **Complete §11d stabilization and §11c commit first.**
+§16a and §16b delivered in `84d2164`. §16c (Phase 2d) delivered uncommitted. **Next: §11e commit, then §16d (Phase 2e).**
 
-Suggested order:
+### §16a — App layout + canvas shell ✅ (`84d2164`)
 
-### §16a — App layout + canvas shell
+<!-- prompt archived — phase complete -->
 
-```
-Execute Phase 2a — app layout and canvas shell.
-
-Read docs/PLAN.md §7 Phase 2, docs/adr/ADR-006, ADR-007.
-
-Wire src/ui/ to src/core/:
-- 3-column layout (sidebar | canvas | properties) + YAML panel bottom
-- Canvas displays renderPayload() output (SVG + canvas stub layers)
-- Display size presets from plan (tag sizes list)
-- Select element from list / canvas click (no drag yet)
-
-React in src/ui/ only. npm test && npm run lint. Do not commit unless I ask.
-Next: docs/PLAN.md §16b.
-```
-
-### §16b — YamlEditor (CodeMirror) ✅ delivered (uncommitted)
+### §16b — YamlEditor (CodeMirror) ✅ (`84d2164`)
 
 Delivered — see §2 *Jinja delimiter scaffolding* for behavior contract validated in testing.
 
+Key files: `src/ui/editor/YamlEditor.tsx`, `jinjaCompletions.ts`, `jinjaBracketHandling.ts`
+
+<!-- prompt archived — phase complete -->
+
+### §16c — Content Manager + State Simulator (Phase 2d) ✅ (uncommitted)
+
+Delivered — see §7 Phase 2d checklist.
+
+Key files: `ContentManager.tsx`, `StateSimulator.tsx`, `src/core/templates/preview.ts`, `mockStates.ts`
+
+<!-- prompt archived — phase complete -->
+
+### §16d — Canvas interaction + property forms (Phase 2e) ⬜ next
+
 ```
-# Archived prompt — phase complete. Regression tests: tests/ui/editor/
+Execute Phase 2e — canvas interaction and schema-driven property forms.
 
-Key files: src/ui/editor/YamlEditor.tsx, jinjaCompletions.ts, jinjaBracketHandling.ts
-Do not re-enable default {/} closeBrackets without updating Jinja scaffolding tests.
-```
+Read docs/PLAN.md §7 Phase 2e, docs/adr/ADR-006.
 
-### §16c — Content Manager + State Simulator panels (Phase 2d)
+Canvas: drag to move, resize handles, snap grid, keyboard nudge/delete, layer reorder.
+Properties: replace read-only PropertyPanel with schema-driven forms per element type.
+Sidebar: Add Element grid (16 types via elementTemplates.ts), Load Example dropdown.
 
-**After §11c commit.** Do not start before stabilization commit.
-
-```
-Execute Phase 2d — Content Manager and State Simulator UI.
-
-Read docs/PLAN.md §2 (local content map + HA state simulator), §7 Phase 2d.
-
-Content Manager: scanPayloadForAssets, upload to setAsset(), show resolved/missing/bundled.
-State Simulator: scanPayloadForTemplates entity IDs, editable mock map, wire evaluateTemplate to preview.
-Persist mocks per project in memory for now (IndexedDB Phase 3).
+React in src/ui/ only. npm test && npm run lint. Do not commit unless I ask.
 ```
 
 ### §16 — YamlEditor prompt (detail) ✅

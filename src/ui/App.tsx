@@ -16,6 +16,7 @@ export function App() {
   const { mode, resolvedTheme, cycleMode } = useThemePreference()
   const {
     elements,
+    previewElements,
     selectedIndex,
     selectionSource,
     selectedElement,
@@ -26,6 +27,14 @@ export function App() {
     setCanvasSize,
     setRotation,
     setElements,
+    mockContext,
+    setMockState,
+    addMockEntity,
+    removeMockEntity,
+    extraEntityIds,
+    assetRevision,
+    uploadAsset,
+    clearAsset,
   } = useProjectState()
 
   const elementsRef = useRef(elements)
@@ -50,7 +59,7 @@ export function App() {
       <header className={`${shell.header} flex items-center justify-between gap-4`}>
         <div>
           <h1 className="text-lg font-semibold tracking-tight">OpenEPaperLink HA YAML Designer</h1>
-          <p className={`text-xs ${shell.muted}`}>Phase 2 — layout, canvas, and YAML editor</p>
+          <p className={`text-xs ${shell.muted}`}>Phase 2d — content manager and state simulator</p>
         </div>
         <ThemeToggle mode={mode} resolvedTheme={resolvedTheme} onCycle={cycleMode} />
       </header>
@@ -60,10 +69,17 @@ export function App() {
           elements={elements}
           selectedIndex={selectedIndex}
           canvas={canvas}
+          mockContext={mockContext}
+          assetRevision={assetRevision}
           onSelectElement={selectElement}
           onApplyPreset={applyPreset}
           onCanvasSizeChange={setCanvasSize}
           onRotationChange={setRotation}
+          onSetMockState={setMockState}
+          onAddMockEntity={addMockEntity}
+          onRemoveMockEntity={removeMockEntity}
+          onUploadAsset={uploadAsset}
+          onClearAsset={clearAsset}
         />
 
         <div ref={columnRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -72,10 +88,11 @@ export function App() {
             style={{ minHeight: MIN_CANVAS_PREVIEW_HEIGHT }}
           >
             <DesignerCanvas
-              elements={elements}
+              elements={previewElements}
               renderContext={renderContext}
               rotation={canvas.rotation}
               selectedIndex={selectedIndex}
+              assetRevision={assetRevision}
               onSelectElement={selectElement}
             />
           </div>
@@ -83,6 +100,7 @@ export function App() {
             colorScheme={resolvedTheme}
             containerRef={columnRef}
             elements={elements}
+            extraEntityIds={extraEntityIds}
             onElementsChange={handleYamlElementsChange}
             onSelectElement={selectElement}
             selectedIndex={selectedIndex}

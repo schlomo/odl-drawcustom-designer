@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { hasTemplateSyntax } from '../templates/patterns'
 
 /** Named color aliases from docs/spec/supported_types.md */
 export const COLOR_ALIASES = [
@@ -27,9 +28,13 @@ export const COLOR_ALIASES = [
   'none',
 ] as const
 
+/** Jinja template strings used for dynamic color (and similar) fields in HA YAML. */
+export const jinjaTemplateStringSchema = z.string().refine((value) => hasTemplateSyntax(value))
+
 export const colorSchema = z.union([
   z.enum(COLOR_ALIASES),
   z.string().regex(/^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/),
+  jinjaTemplateStringSchema,
   z.null(),
 ])
 

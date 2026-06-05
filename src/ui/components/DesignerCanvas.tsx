@@ -2,6 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { renderElement, type DrawElement, type RenderContext } from '../../core'
 import type { RenderResult } from '../../core/renderer/types'
 import { drawCanvasStub } from '../lib/draw-canvas-stubs'
+import {
+  areAssetImageMapsEqual,
+  collectDlimgAssetKeysFromElements,
+  loadAssetImageMap,
+  pruneAssetImagesForKeys,
+} from '../lib/load-asset-images'
+import {
+  areFontFamilyMapsEqual,
+  collectFontKeysFromElements,
+  loadFontFamilyMap,
+} from '../lib/load-font-faces'
 import { getPrimitiveBounds, pointInBounds } from '../lib/primitive-bounds'
 import type { CanvasRotation } from '../hooks/useProjectState'
 import { shell } from '../styles/shell'
@@ -12,6 +23,7 @@ interface DesignerCanvasProps {
   renderContext: RenderContext
   rotation: CanvasRotation
   selectedIndex: number | null
+  assetRevision: number
   onSelectElement: (index: number | null) => void
 }
 
@@ -30,12 +42,15 @@ export function DesignerCanvas({
   renderContext,
   rotation,
   selectedIndex,
+  assetRevision,
   onSelectElement,
 }: DesignerCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null)
   const [fitScale, setFitScale] = useState(1)
+  const [assetImages, setAssetImages] = useState<Map<string, HTMLImageElement>>(() => new Map())
+  const [fontFamilies, setFontFamilies] = useState<Map<string, string>>(() => new Map())
 
   useEffect(() => {
     const container = containerRef.current
@@ -63,6 +78,48 @@ export function DesignerCanvas({
   const svgPrimitives = renderedElements.filter((entry) => entry.result.layer === 'svg')
   const canvasPrimitives = renderedElements.filter((entry) => entry.result.layer === 'canvas')
 
+  const dlimgAssetKeys = useMemo(
+    () => collectDlimgAssetKeysFromElements(elements),
+    [elements],
+  )
+
+  const fontAssetKeys = useMemo(() => collectFontKeysFromElements(elements), [elements])
+
+  useEffect(() => {
+    let cancelled = false
+
+    void loadAssetImageMap(dlimgAssetKeys).then((images) => {
+      if (!cancelled) {
+        setAssetImages((current) => (areAssetImageMapsEqual(current, images) ? current : images))
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [assetRevision, dlimgAssetKeys])
+
+  useEffect(() => {
+    let cancelled = false
+
+    void loadFontFamilyMap(fontAssetKeys).then((families) => {
+      if (!cancelled) {
+        setFontFamilies((current) =>
+          areFontFamilyMapsEqual(current, families) ? current : families,
+        )
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [assetRevision, fontAssetKeys])
+
+  const displayAssetImages = useMemo(() => {
+    void assetRevision
+    return pruneAssetImagesForKeys(assetImages, dlimgAssetKeys)
+  }, [assetImages, assetRevision, dlimgAssetKeys])
+
   const selectionBounds = useMemo(() => {
     if (selectedIndex == null) {
       return null
@@ -86,10 +143,10 @@ export function DesignerCanvas({
     ctx.clearRect(0, 0, renderContext.width, renderContext.height)
     for (const entry of canvasPrimitives) {
       if (entry.result.layer === 'canvas') {
-        drawCanvasStub(ctx, entry.result.primitive)
+        drawCanvasStub(ctx, entry.result.primitive, displayAssetImages, fontFamilies)
       }
     }
-  }, [canvasPrimitives, renderContext.height, renderContext.width])
+  }, [canvasPrimitives, displayAssetImages, fontFamilies, renderContext.height, renderContext.width])
 
   const mapClientToCanvas = useCallback(
     (clientX: number, clientY: number): { x: number; y: number } | null => {

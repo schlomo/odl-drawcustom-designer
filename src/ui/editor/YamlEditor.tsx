@@ -29,6 +29,11 @@ export interface YamlEditorProps {
   scrollCommand?: YamlScrollCommand | null
   onCursorPositionChange?: (position: number) => void
   className?: string
+  extraEntityIds?: readonly string[]
+}
+
+function mergeEntityIds(scanned: readonly string[], extra: readonly string[]): string[] {
+  return [...new Set([...scanned, ...extra])].sort()
 }
 
 function resolveEntityIds(yamlSource: string): string[] {
@@ -53,6 +58,7 @@ export function YamlEditor({
   scrollCommand = null,
   onCursorPositionChange,
   className,
+  extraEntityIds = [],
 }: YamlEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -61,7 +67,11 @@ export function YamlEditor({
   const onChangeRef = useRef(onChange)
   const onCursorPositionChangeRef = useRef(onCursorPositionChange)
   const lastEmittedValueRef = useRef(value)
-  const entityIds = useMemo(() => resolveEntityIds(value), [value])
+  const scannedEntityIds = useMemo(() => resolveEntityIds(value), [value])
+  const entityIds = useMemo(
+    () => mergeEntityIds(scannedEntityIds, extraEntityIds),
+    [scannedEntityIds, extraEntityIds],
+  )
 
   useEffect(() => {
     onChangeRef.current = onChange

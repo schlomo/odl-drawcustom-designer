@@ -1,8 +1,11 @@
 import type { CanvasPrimitive } from '../../core/renderer/types'
+import { resolveCanvasFontFamily } from './load-font-faces'
 
 export function drawCanvasStub(
   ctx: CanvasRenderingContext2D,
   primitive: CanvasPrimitive,
+  assetImages: ReadonlyMap<string, HTMLImageElement> = new Map(),
+  fontFamilies: ReadonlyMap<string, string> = new Map(),
 ): void {
   switch (primitive.kind) {
     case 'text-stub': {
@@ -12,7 +15,7 @@ export function drawCanvasStub(
       ctx.setLineDash([4, 2])
       ctx.strokeRect(primitive.x, primitive.y, primitive.width, primitive.height)
       ctx.setLineDash([])
-      ctx.font = `${primitive.fontSize}px sans-serif`
+      ctx.font = `${primitive.fontSize}px ${resolveCanvasFontFamily(primitive.font, fontFamilies)}, sans-serif`
       ctx.fillText(primitive.value, primitive.x + 2, primitive.y + primitive.fontSize)
       break
     }
@@ -23,7 +26,7 @@ export function drawCanvasStub(
       ctx.setLineDash([4, 2])
       ctx.strokeRect(primitive.x, primitive.y, primitive.width, primitive.height)
       ctx.setLineDash([])
-      ctx.font = `${primitive.fontSize}px sans-serif`
+      ctx.font = `${primitive.fontSize}px ${resolveCanvasFontFamily(primitive.font, fontFamilies)}, sans-serif`
       primitive.lines.forEach((line, index) => {
         const lineHeight = primitive.fontSize + (primitive.lineSpacing ?? 4)
         ctx.fillText(line, primitive.x + 2, primitive.y + primitive.fontSize + index * lineHeight)
@@ -31,6 +34,12 @@ export function drawCanvasStub(
       break
     }
     case 'dlimg-stub': {
+      const image = assetImages.get(primitive.url)
+      if (image) {
+        ctx.drawImage(image, primitive.x, primitive.y, primitive.width, primitive.height)
+        break
+      }
+
       ctx.fillStyle = '#e2e8f0'
       ctx.fillRect(primitive.x, primitive.y, primitive.width, primitive.height)
       ctx.strokeStyle = '#64748b'
