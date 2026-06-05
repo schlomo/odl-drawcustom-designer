@@ -1,0 +1,7 @@
+- type: line
+  x_start: 20
+  x_end: 380
+  y_start: 15
+  y_end: 15
+  width: 1
+  fill: red

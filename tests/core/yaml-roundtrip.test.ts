@@ -1,31 +1,51 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { parseYamlPayload, roundTripYaml } from '../../src/core/yaml/stub'
+import {
+  parseYamlPayload,
+  roundTripYaml,
+  serializeYamlPayload,
+  validatePayload,
+} from '../../src/core/yaml'
 
 const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), '../fixtures/spec')
 
-describe('golden YAML round-trip (text-minimal)', () => {
-  const source = readFileSync(join(fixtureDir, 'text-minimal.yaml'), 'utf8')
+const fixtureFiles = readdirSync(fixtureDir)
+  .filter((name) => name.endsWith('.yaml'))
+  .sort()
 
-  it('parses the minimal text element from supported_types.md', () => {
-    const elements = parseYamlPayload(source)
-    expect(elements).toHaveLength(1)
-    expect(elements[0]).toMatchObject({
-      type: 'text',
-      value: 'Hello World!',
-      font: 'ppb.ttf',
-      x: 0,
-      y: 0,
-      size: 40,
-      color: 'red',
-    })
-  })
+describe('golden YAML round-trip (all spec fixtures)', () => {
+  it.each(fixtureFiles)('%s validates and round-trips without semantic loss', (filename) => {
+    const source = readFileSync(join(fixtureDir, filename), 'utf8')
+    const parsed = parseYamlPayload(source)
+    const validation = validatePayload(parsed)
 
-  it('round-trips fixture without semantic loss', () => {
+    expect(validation.success, validation.success ? undefined : validation.issues.join('; ')).toBe(
+      true,
+    )
+
     const roundTripped = roundTripYaml(source)
     const reparsed = parseYamlPayload(roundTripped)
-    expect(reparsed).toEqual(parseYamlPayload(source))
+    expect(reparsed).toEqual(parsed)
+  })
+})
+
+describe('HA-clean serialize', () => {
+  it('strips designer-only fields from exported YAML', () => {
+    const elements = parseYamlPayload(`
+- type: text
+  value: Hello
+  x: 0
+  y: 0
+  preview_data_url: data:image/png;base64,abc
+  _yaml_comments:
+    value: preview comment
+`)
+
+    const exported = serializeYamlPayload(elements)
+    expect(exported).not.toContain('preview_data_url')
+    expect(exported).not.toContain('_yaml_comments')
+    expect(validatePayload(parseYamlPayload(exported)).success).toBe(true)
   })
 })

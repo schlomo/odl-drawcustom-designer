@@ -1,0 +1,5 @@
+- type: ellipse
+  x_start: 50
+  x_end: 100
+  y_start: 50
+  y_end: 100

@@ -1,0 +1,12 @@
+- type: progress_bar
+  x_start: 10
+  y_start: 10
+  x_end: 280
+  y_end: 30
+  fill: red
+  outline: black
+  width: 1
+  progress: 42
+  direction: right
+  show_percentage: true
+  font: ppb.ttf

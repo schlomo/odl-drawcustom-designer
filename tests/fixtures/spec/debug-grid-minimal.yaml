@@ -1,0 +1,3 @@
+- type: debug_grid
+  spacing: 20
+  line_color: black

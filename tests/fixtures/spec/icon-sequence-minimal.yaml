@@ -1,0 +1,9 @@
+- type: icon_sequence
+  x: 10
+  y: 10
+  icons:
+    - mdi:home
+    - mdi:arrow-right
+    - mdi:office-building
+  size: 24
+  direction: right

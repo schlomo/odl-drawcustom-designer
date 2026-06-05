@@ -1,0 +1,12 @@
+- type: rectangle_pattern
+  x_start: 5
+  x_size: 35
+  x_offset: 10
+  y_start: 28
+  y_size: 18
+  y_offset: 2
+  fill: white
+  outline: red
+  width: 1
+  x_repeat: 1
+  y_repeat: 4
