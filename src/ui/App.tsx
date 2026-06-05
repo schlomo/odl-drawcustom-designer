@@ -1,31 +1,97 @@
-import { useState } from 'react'
-import {
-  createDefaultTextElement,
-  describeTextElement,
-  updateTextValue,
-  type TextElement,
-} from '../core/elements/text'
-import { CanvasPlaceholder } from './components/CanvasPlaceholder'
-import { TextPropertyForm } from './components/TextPropertyForm'
+import { useCallback, useEffect, useRef } from 'react'
+import type { DrawElement } from '../core'
+import { DesignerCanvas } from './components/DesignerCanvas'
+import { PropertyPanel } from './components/PropertyPanel'
+import { Sidebar } from './components/Sidebar'
+import { ThemeToggle } from './components/ThemeToggle'
+import { YamlPanel } from './components/YamlPanel'
+import { remapSelectedIndex } from './editor/yamlElementsSync'
+import { MIN_CANVAS_PREVIEW_HEIGHT } from './hooks/useResizablePanelHeight'
+import { useProjectState } from './hooks/useProjectState'
+import { useThemePreference } from './hooks/useThemePreference'
+import { shell } from './styles/shell'
 
 export function App() {
-  const [element, setElement] = useState<TextElement>(createDefaultTextElement)
+  const columnRef = useRef<HTMLDivElement>(null)
+  const { mode, resolvedTheme, cycleMode } = useThemePreference()
+  const {
+    elements,
+    selectedIndex,
+    selectionSource,
+    selectedElement,
+    selectElement,
+    canvas,
+    renderContext,
+    applyPreset,
+    setCanvasSize,
+    setRotation,
+    setElements,
+  } = useProjectState()
+
+  const elementsRef = useRef(elements)
+
+  useEffect(() => {
+    elementsRef.current = elements
+  }, [elements])
+
+  const handleYamlElementsChange = useCallback(
+    (next: DrawElement[]) => {
+      const nextIndex = remapSelectedIndex(elementsRef.current, next, selectedIndex)
+      setElements(next)
+      if (nextIndex !== selectedIndex) {
+        selectElement(nextIndex, 'yaml')
+      }
+    },
+    [selectedIndex, selectElement, setElements],
+  )
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100">
-      <header className="border-b border-slate-700 px-6 py-4">
-        <h1 className="text-xl font-semibold tracking-tight">OEPL Designer</h1>
-        <p className="mt-1 text-sm text-slate-400">
-          Phase 0 shell — canvas and property form wired to core stubs
-        </p>
+    <div className={shell.app}>
+      <header className={`${shell.header} flex items-center justify-between gap-4`}>
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">OpenEPaperLink HA YAML Designer</h1>
+          <p className={`text-xs ${shell.muted}`}>Phase 2 — layout, canvas, and YAML editor</p>
+        </div>
+        <ThemeToggle mode={mode} resolvedTheme={resolvedTheme} onCycle={cycleMode} />
       </header>
-      <main className="mx-auto grid max-w-5xl gap-6 p-6 md:grid-cols-2">
-        <CanvasPlaceholder summary={describeTextElement(element)} />
-        <TextPropertyForm
-          element={element}
-          onChange={(value) => setElement(updateTextValue(element, value))}
+
+      <div className="flex min-h-0 flex-1">
+        <Sidebar
+          elements={elements}
+          selectedIndex={selectedIndex}
+          canvas={canvas}
+          onSelectElement={selectElement}
+          onApplyPreset={applyPreset}
+          onCanvasSizeChange={setCanvasSize}
+          onRotationChange={setRotation}
         />
-      </main>
+
+        <div ref={columnRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div
+            className="min-h-0 flex-1 overflow-hidden p-2"
+            style={{ minHeight: MIN_CANVAS_PREVIEW_HEIGHT }}
+          >
+            <DesignerCanvas
+              elements={elements}
+              renderContext={renderContext}
+              rotation={canvas.rotation}
+              selectedIndex={selectedIndex}
+              onSelectElement={selectElement}
+            />
+          </div>
+          <YamlPanel
+            colorScheme={resolvedTheme}
+            containerRef={columnRef}
+            elements={elements}
+            onElementsChange={handleYamlElementsChange}
+            onSelectElement={selectElement}
+            selectedIndex={selectedIndex}
+            selectionSource={selectionSource}
+          />
+        </div>
+
+        <PropertyPanel element={selectedElement} index={selectedIndex} />
+      </div>
     </div>
   )
 }

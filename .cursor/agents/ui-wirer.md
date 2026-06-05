@@ -17,6 +17,12 @@ You implement the **React 19 shell** in `src/ui/` and wire it to core APIs.
 4. Run `npm run build` and `npm run lint` after UI changes.
 5. Add Playwright smoke tests only when Phase 2 UI scope requires them.
 
+## YamlEditor (`src/ui/editor/`)
+
+- CodeMirror 6 via direct `EditorView` mount — business logic stays in completion/lint modules, not `YamlEditor.tsx`.
+- Jinja: opening `{{` / `{%` must scaffold closers; inner completions omit `}}` / `%}` (ADR-009).
+- Do not re-enable default `{`/`}` `closeBrackets` without updating `tests/ui/editor/jinja-bracket-handling.test.ts`.
+
 ## Do not
 
 - Import React into `src/core/`.

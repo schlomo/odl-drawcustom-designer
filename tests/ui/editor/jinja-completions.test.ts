@@ -1,0 +1,129 @@
+import { describe, expect, it } from 'vitest'
+import {
+  HA_DELIMITER_COMPLETIONS,
+  HA_EXPRESSION_COMPLETIONS,
+  HA_FILTER_COMPLETIONS,
+  HA_TAG_COMPLETIONS,
+  resolveJinjaCompletionContext,
+} from '../../../src/ui/editor/jinjaCompletions'
+
+function mockContext(doc: string, pos: number, explicit = false) {
+  const lineStart = doc.lastIndexOf('\n', pos - 1) + 1
+  const lineText = doc.slice(lineStart, doc.indexOf('\n', pos) === -1 ? doc.length : doc.indexOf('\n', pos))
+
+  return {
+    state: {
+      doc: {
+        toString: () => doc,
+        lineAt: (p: number) => {
+          const lines = doc.split('\n')
+          let offset = 0
+          for (let index = 0; index < lines.length; index += 1) {
+            const line = lines[index] ?? ''
+            const end = offset + line.length
+            if (p <= end) {
+              return { from: offset, text: line }
+            }
+            offset = end + 1
+          }
+          return { from: 0, text: lines[0] ?? '' }
+        },
+      },
+      sliceDoc: (from: number, to: number) => doc.slice(from, to),
+    },
+    pos,
+    explicit,
+    matchBefore: (pattern: RegExp) => {
+      const lineBefore = lineText.slice(0, pos - lineStart)
+      const match = lineBefore.match(new RegExp(`(${pattern.source})$`))
+      if (!match) {
+        return null
+      }
+      const text = match[1] ?? match[0] ?? ''
+      return { from: lineStart + lineBefore.length - text.length, to: pos, text }
+    },
+  } as never
+}
+
+describe('HA jinja completion catalog', () => {
+  it('prioritizes homeassistant functions over generic jinja', () => {
+    const labels = HA_EXPRESSION_COMPLETIONS.map((entry) => entry.label)
+    expect(labels).toContain('states')
+    expect(labels).not.toContain('sameas')
+    expect(labels).not.toContain('string')
+  })
+
+  it('includes homeassistant filters', () => {
+    const labels = HA_FILTER_COMPLETIONS.map((entry) => entry.label)
+    expect(labels).toEqual(expect.arrayContaining(['float', 'int']))
+  })
+
+  it('includes statement tags used in drawcustom template strings', () => {
+    const labels = HA_TAG_COMPLETIONS.map((entry) => entry.label)
+    expect(labels).toEqual(
+      expect.arrayContaining(['set', 'if', 'elif', 'else', 'endif', 'for', 'endfor']),
+    )
+  })
+
+  it('offers jinja delimiters after a lone open brace', () => {
+    const labels = HA_DELIMITER_COMPLETIONS.map((entry) => entry.label)
+    expect(labels).toEqual(['{{', '{%'])
+  })
+})
+
+describe('resolveJinjaCompletionContext', () => {
+  it('offers delimiters after a lone { in a yaml value', () => {
+    const doc = '  y_start: 50 {'
+    const pos = doc.length
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, true))).toEqual({
+      kind: 'delimiter',
+      from: pos,
+      prefix: '',
+    })
+  })
+
+  it('returns null after a plain quoted yaml value', () => {
+    const doc = '  color: "red"'
+    expect(resolveJinjaCompletionContext(mockContext(doc, doc.length))).toBeNull()
+  })
+
+  it('offers tag keywords right after opening {%', () => {
+    const doc = '  size: 32 {%'
+    const pos = doc.length
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, true))).toEqual({
+      kind: 'tag',
+      from: pos,
+      prefix: '',
+    })
+  })
+
+  it('matches partial tag keywords inside {%', () => {
+    const doc = '  size: 32 {% se'
+    const pos = doc.length
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, true))).toEqual({
+      kind: 'tag',
+      from: doc.indexOf('se'),
+      prefix: 'se',
+    })
+  })
+
+  it('still resolves expression helpers inside {{', () => {
+    const doc = '  value: "{{ stat'
+    const pos = doc.length
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, true))).toEqual({
+      kind: 'expression',
+      from: doc.indexOf('stat'),
+      prefix: 'stat',
+    })
+  })
+
+  it('resolves tag keywords inside a scaffolded {% %} block', () => {
+    const doc = '  size: 32 {% %}'
+    const pos = doc.indexOf('{%') + 2
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, true))).toEqual({
+      kind: 'tag',
+      from: pos,
+      prefix: '',
+    })
+  })
+})

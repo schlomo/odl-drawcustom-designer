@@ -4,7 +4,11 @@ Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcus
 
 ## Status
 
-**Phase 0** — scaffold, ADRs, golden YAML round-trip test, React shell placeholder.
+**Phase 1** — core complete (YAML engine, templates, assets, renderer stubs for all 16 types).
+
+**Phase 2a** — UI shell baseline (uncommitted): app layout, canvas preview, read-only property panel (schema-driven editing in Phase 2d), and **YamlEditor** (CodeMirror 6 with schema + Jinja autocomplete, inline lint, YAML↔canvas linking). Content Manager and State Simulator UI deferred to Phase 2d.
+
+See [`docs/PLAN.md`](docs/PLAN.md) §7 progress tracker, §2, and [`docs/adr/ADR-009-yaml-jinja-editor.md`](docs/adr/ADR-009-yaml-jinja-editor.md) for YamlEditor behavior.
 
 ## Spec
 
@@ -14,6 +18,7 @@ Vendored from upstream: [`docs/spec/supported_types.md`](docs/spec/supported_typ
 
 ```bash
 npm install
+npm run lint
 npm test
 npm run dev
 npm run build

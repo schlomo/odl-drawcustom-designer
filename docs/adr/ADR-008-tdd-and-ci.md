@@ -22,7 +22,7 @@ Correctness of YAML round-trip, template evaluation, and rendering is the produc
 - No feature merges without tests in the **core** layer first
 - UI tests follow for wiring, not business logic
 - ESLint core boundary must pass
-- CI: `npm ci` → `npm test` → `npm run build` → deploy to GH Pages
+- CI: `npm ci` → `npm run lint` → `npm test` → `npm run build` → deploy to GH Pages
 
 Fixtures live in `tests/fixtures/` derived from vendored spec at `docs/spec/supported_types.md`.
 

@@ -31,21 +31,6 @@ describe('renderLine', () => {
     })
   })
 
-  it('returns null when visible is false', () => {
-    const result = renderLine(
-      {
-        type: 'line',
-        x_start: 0,
-        x_end: 10,
-        y_start: 0,
-        y_end: 10,
-        visible: false,
-      },
-      context,
-    )
-    expect(result).toBeNull()
-  })
-
   it('resolves percentage coordinates', () => {
     const result = renderLine(
       {

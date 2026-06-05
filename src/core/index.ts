@@ -25,13 +25,13 @@ export {
   getPropertyCompletions,
   getServiceOptionCompletions,
   getEnumCompletions,
+  getElementTypeInsertion,
+  getElementTypeInsertionForBlock,
+  parseListItemPropertyKeys,
+  isDrawElementType,
+  type CompletionEntry,
+  type CompletionKind,
 } from './schema'
-export {
-  createDefaultTextElement,
-  updateTextValue,
-  describeTextElement,
-  type TextElement,
-} from './elements/text'
 export {
   scanPayloadForAssets,
   BUNDLED_FONT_KEYS,

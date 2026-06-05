@@ -1,6 +1,32 @@
 @import 'tailwindcss';
 
+:root {
+  color-scheme: light;
+  --shell-bg: #f8fafc;
+  --shell-surface: #ffffff;
+  --shell-surface-2: #f1f5f9;
+  --shell-border: #cbd5e1;
+  --shell-text: #0f172a;
+  --shell-muted: #64748b;
+  --shell-hover: #e2e8f0;
+  --shell-accent: #2563eb;
+}
+
+.dark {
+  color-scheme: dark;
+  --shell-bg: #0f172a;
+  --shell-surface: #1e293b;
+  --shell-surface-2: #0f172a;
+  --shell-border: #475569;
+  --shell-text: #f1f5f9;
+  --shell-muted: #94a3b8;
+  --shell-hover: #334155;
+  --shell-accent: #60a5fa;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
+  background: var(--shell-bg);
+  color: var(--shell-text);
 }

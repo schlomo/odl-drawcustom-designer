@@ -34,3 +34,10 @@ export {
   type CompletionEntry,
   type CompletionKind,
 } from './completions'
+export {
+  ELEMENT_TYPE_INSERTIONS,
+  getElementTypeInsertion,
+  getElementTypeInsertionForBlock,
+  parseListItemPropertyKeys,
+  isDrawElementType,
+} from './elementTemplates'

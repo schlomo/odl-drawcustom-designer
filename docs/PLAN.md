@@ -46,6 +46,15 @@ todos:
     status: pending
   - id: yaml-jinja-editor
     content: "CodeMirror 6 YAML panel: syntax highlighting (YAML + embedded Jinja), schema-driven autocomplete, lint diagnostics"
+    status: completed
+  - id: phase2-shell-partial
+    content: "Phase 2 partial: app layout, canvas shell, property panel, YamlEditor, YAML↔canvas coupling (uncommitted)"
+    status: completed
+  - id: phase2-stabilize
+    content: "Phase 2a: lint CI, dead-code removal, test consolidation — gate before commit (§11d)"
+    status: completed
+  - id: phase2-commit
+    content: "Commit Phase 2 partial after §11d stabilization passes (§11c)"
     status: pending
 isProject: false
 ---
@@ -239,10 +248,10 @@ The bottom YAML panel is a primary editing surface — not a plain textarea. Mat
 
 | Package                                    | Role                                                     |
 | ------------------------------------------ | -------------------------------------------------------- |
-| **CodeMirror 6** + `@uiw/react-codemirror` | Editor widget in React shell                             |
+| **CodeMirror 6** (`EditorView` direct mount) | YAML panel — stable extensions, no `@uiw/react-codemirror` re-init churn |
 | `@codemirror/lang-yaml`                    | YAML syntax highlighting                                 |
-| `@codemirror/lang-jinja`                   | Jinja highlighting inside quoted YAML string values      |
-| `@codemirror/autocomplete`                 | Completion provider API                                  |
+| `@codemirror/lang-jinja`                   | Jinja highlighting inside quoted YAML string values (mixed parser via `parseMixed`) |
+| `@codemirror/autocomplete`                 | Completion provider API + custom Jinja delimiter scaffolding |
 | `@codemirror/lint`                         | Inline diagnostics from Zod validate + yaml parse errors |
 
 
@@ -261,18 +270,39 @@ The bottom YAML panel is a primary editing surface — not a plain textarea. Mat
 | After `type: text` (etc.) | Property keys valid for that element type                                                                           |
 | Enum fields               | `color`, `fill`, `outline`, `background` — spec color aliases; `font` — bundled + content-map keys                  |
 | `icon` / `icon_sequence`  | MDI icon name search (`@mdi/js` metadata)                                                                           |
-| Inside `{{ … }}`          | HA template functions: `states`, `is_state`, `state_attr`; filters: `float`, `int`; keywords: `if`, `else`, `endif` |
-| Entity IDs in templates   | Entity IDs from template scanner + State Simulator mock list                                                        |
-| Service options           | `background`, `rotate`, `dither`, `ttl`, `dry-run` keys and allowed values                                          |
+| Lone `{` in a YAML value  | Delimiter choice: `{{` (expression) or `{%` (statement) — both scaffold their closing tags |
+| Inside `{{ … }}`          | HA expression helpers: `states`, `is_state`, `state_attr`; filters: `float`, `int` |
+| Inside `{% … %}`          | Statement tags: `set`, `if`, `elif`, `else`, `endif`, `for`, `endfor` |
+| Entity IDs in templates   | Entity IDs from template scanner + State Simulator mock list (when wired) |
+| Service options           | `background`, `rotate`, `dither`, `ttl`, `dry-run` keys and allowed values (when modeled) |
 
 
 **Lint / validation in editor:**
 
 - Red squiggles on Zod schema violations (unknown keys, wrong types)
 - Warn (not block) on missing content-map assets referenced in YAML
-- Preserve template strings verbatim — autocomplete inserts must not corrupt `{{ … }}`
+- Preserve template strings verbatim — autocomplete inserts must not corrupt `{{ … }}` / `{% … %}`
+- Unrecognized keys: squiggle on the **key**, not the value
 
-**Bidirectional sync:** visual edits update YAML; manual YAML edits require explicit **Import** (or debounced auto-import toggle) — editor stays source of truth until user confirms parse.
+**Jinja delimiter scaffolding (ADR-009 — validated in user testing, do not regress):**
+
+CodeMirror’s default `{`/`}` auto-close fights Jinja. Implemented rules:
+
+| User action | Editor result | Cursor |
+|-------------|---------------|--------|
+| `{` then `{` (or pick `{{`) | `{{ }}` | inside expression |
+| `{` then `%` (or pick `{%`) | `{% %}` | after `{%` |
+| Pick expression inside `{{ }}` | e.g. `{{ states('') }}` | inner snippets omit `}}` |
+| Pick tag inside `{% %}` | e.g. `{% set name = value %}` | inner snippets omit `%}`; one leading space after `{%` |
+
+Implementation notes:
+
+- `closeBrackets` from basicSetup is **off** for `{`; `()`, `[]`, `'` and `"` still auto-close (`jinjaBracketHandling.ts`).
+- Opening delimiters always insert the closing pair; inner completions never repeat closers.
+- Expression apply pads when replacing the scaffold placeholder space so both `{{ …` and `… }}` keep single spaces.
+- Autocomplete + lint tooltips use `document.body` fixed positioning; **no** global `scrollMargins` (first-line tooltips broke when margins inset the anchor).
+
+**Bidirectional sync:** visual edits update YAML; manual YAML edits require explicit **Import** (or debounced auto-import toggle) — editor stays source of truth until user confirms parse. **Implemented:** linked YAML↔canvas coupling with optional toggle; element click scrolls/highlights YAML line.
 
 ### Share via hash (without external content)
 
@@ -469,6 +499,7 @@ Maintain `docs/adr/` in repo (for future-you and contributors):
 | ADR-006 | UI framework: **React** for shell (AI-maintainability); core stays framework-free |
 | ADR-007 | Hybrid SVG + Canvas rendering                                                     |
 | ADR-008 | TDD policy and CI gates                                                           |
+| ADR-009 | YamlEditor: CodeMirror 6 mount, Jinja delimiter scaffolding, tooltip/bracket UX |
 
 
 Each ADR: context, decision, consequences, alternatives considered.
@@ -518,11 +549,20 @@ oepl-designer/
       App.tsx
       components/{Canvas,PropertyPanel,YamlPanel,ContentManager,StateSimulator,...}
     ui/editor/                   # CodeMirror setup (UI only — completion data from core/schema)
-      YamlEditor.tsx
-      yamlLanguage.ts            # lang-yaml + jinja-in-string nested highlighter
+      YamlEditor.tsx             # EditorView mount, external value sync, theme/fontSize
+      yamlEditorExtensions.ts    # extension bundle + keymaps
+      yamlEditorSetup.ts         # basicSetup options (autocomplete/closeBrackets off — custom)
+      yamlLanguage.ts            # lang-yaml + jinja mixed parser in string literals
       yamlCompletions.ts         # schema-driven property/type completions
-      jinjaCompletions.ts        # states, is_state, filters, scanned entity IDs
-      yamlLint.ts                # wires Zod validate + parse errors to @codemirror/lint
+      yamlCompletionSource.ts    # override providers, insert-from for type:/enum lines
+      jinjaCompletions.ts        # delimiter + expression + tag completions
+      jinjaBracketHandling.ts    # Jinja-aware delimiter scaffolding; ()/[] close only
+      jinjaContext.ts            # inside-template / lone-{ / value-context detection
+      yamlLint.ts                # Zod validate → @codemirror/lint
+      yamlIssueRanges.ts         # key vs value squiggle ranges for Zod issues
+      yamlTheme.ts               # slate theme, tooltip parent
+      locateElementInYaml.ts     # canvas selection → YAML line
+      yamlElementsSync.ts        # linked mode element list sync
   tests/
     core/                        # golden YAML, template eval, renderer
     fixtures/                    # spec examples from supported_types.md
@@ -584,20 +624,23 @@ flowchart LR
 |-------|--------|--------|-------|-------|
 | **0** Bootstrap | ✅ Done | `133e960` | — | ADRs, rules, agents, spec vendored |
 | **1a** YAML + schema | ✅ Done | `8f6cc3d` | 33 | 16 Zod types, fixtures, completions, HA-clean export |
-| **1b** Templates | ✅ Done | *uncommitted* | +24 | Nunjucks + `states`/`is_state`; ADR-004 |
-| **1c** Assets | ✅ Done | *uncommitted* | +10 | Scanner + in-memory map |
-| **1d** Renderer | ✅ Done | *uncommitted* | +29 | **16/16** stubs; `render-element.test.ts` sweeps all fixtures |
-| **2** UI shell | ⬜ Next | — | — | Canvas, YamlEditor, Content Manager, State Simulator |
-| **3** Fidelity | ⬜ | — | — | IndexedDB, opentype, real icons/QR/plot/dlimg (replace stubs) |
-| **4** Polish | ⬜ | — | — | Share hash, history, dither, layers |
+| **1b** Templates | ✅ Done | `a56eee6` | +24 | Nunjucks + `states`/`is_state`; ADR-004 |
+| **1c** Assets | ✅ Done | `a56eee6` | +10 | Scanner + in-memory map |
+| **1d** Renderer | ✅ Done | `a56eee6` | +29 | **16/16** stubs; exhaustiveness + stub smoke tests |
+| **2a** Stabilize | ✅ Done | *uncommitted* | 219 (27 files) | Lint CI, dead code, test consolidation — **gate before commit** |
+| **2b** YamlEditor | ✅ Done | *uncommitted* | 13 editor test files | ADR-009; user-tested 2026-06-05 |
+| **2c** UI shell commit | ⬜ Blocked on 2a | — | — | Layout, canvas, read-only properties, YAML↔canvas coupling |
+| **2d** Phase 2 remainder | ⬜ After commit | — | — | Content Manager + State Simulator (§16c), canvas interaction, schema-driven property forms |
+| **3** Fidelity | ⬜ | — | — | IndexedDB, opentype, template preview pipeline, real icons/QR/plot/dlimg, rich spec fixtures |
+| **4** Polish | ⬜ | — | — | Share hash, history, dither, parse_colors renderer, Playwright e2e |
 
-**Current repo health:** `npm test` → **108 passed** (25 files) · `npm run lint` → clean · **uncommitted** Phase 1b–1d on `main`
+**Current repo health:** `npm run lint` → clean · `npm test` → **219 passed** (27 files) · `npm run build` → clean · **uncommitted** Phase 2 UI + YamlEditor on `main`
 
-**Before Phase 2:** commit Phase 1 complete (see §11b).
+**Next:** commit via §11c → then §16c (Content Manager + State Simulator).
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
-- ADR-001 through ADR-008 drafted (ADR-006 locks React)
+- ADR-001 through ADR-009 drafted (ADR-006 locks React; ADR-009 YamlEditor UX)
 - **`docs/spec/supported_types.md` vendored from upstream GitHub**
 - Vitest harness + one golden YAML round-trip test
 - Vite + React scaffold with ESLint rule: `src/core/` must not import React
@@ -614,21 +657,53 @@ flowchart LR
 
 **Stub vs fidelity (Phase 3 upgrades):** line/rectangle/circle are real SVG; text/multiline/dlimg/qrcode/plot/icon* are `-stub` primitives with bounds/placeholders only.
 
-### Phase 2 — UI shell + MVP parity
+### Phase 2a — Stabilize before commit (§11d) ✅
 
-- Layout, canvas interaction (select, drag, resize, snap, keyboard)
-- Property forms (schema-driven)
-- **YAML panel (`YamlEditor`)** — CodeMirror 6 with `@codemirror/lang-yaml` + `@codemirror/lang-jinja` highlighting; schema autocomplete; Jinja autocomplete (`states`, `is_state`, filters, scanned entity IDs); inline lint from validate
-- Content Manager + State Simulator panels
-- Display presets, dark mode
+Quality gate on uncommitted work. **No new features** until this passes.
+
+- ✅ `npm run lint` clean (fix `YamlEditor.tsx` ref-during-render violations)
+- ✅ CI: add `npm run lint` to `.github/workflows/deploy.yml` (ADR-008)
+- ✅ Remove Phase 0 dead code: `src/core/elements/text.ts`, `TextPropertyForm.tsx`, exports, tests
+- ✅ Remove unused `@uiw/react-codemirror` from `package.json` (ADR-009 uses direct `EditorView` mount)
+- ✅ Consolidate trivial UI helper tests (`shouldShowActiveLineHighlight`, `shouldReportYamlCursorPosition`, `shouldMoveCursorOnLinkedScroll`, `shouldApplyExternalYamlSync`) into one file
+- ✅ Slim renderer tests: keep exhaustiveness sweep + behavior tests (colors, coords, visibility); drop redundant per-type stub snapshots where the sweep already covers them
+- ✅ Property panel label: read-only dump (not schema-driven forms yet) — document honestly in README
+
+**Explicitly deferred (do not implement in 2a):**
+
+| Item | Target phase | Why |
+|------|--------------|-----|
+| Template eval → canvas preview | **2d** (with State Simulator UI) | Feature wiring, not stabilization |
+| Content Manager + State Simulator panels | **2d** §16c | Next Phase 2 chunk after commit |
+| Canvas drag/resize/snap/keyboard | **2d** | Interaction layer |
+| Schema-driven editable property forms | **2d** | Replaces read-only `PropertyPanel` |
+| Add Element grid + Load Example dropdown | **2d** | Sidebar parity |
+| Playwright e2e smoke | **4** (or late 2d) | ADR-008 allows after core wiring |
+| Rich spec fixtures (plot legends, icon_sequence, …) | **3** | Needed for fidelity tests, not commit gate |
+| `parse_colors` renderer pipeline | **3/4** | ADR-004 post-processing |
+| Replace stub snapshots with PNG/geometry tests | **3** | When stubs become real renderers |
+
+### Phase 2c — UI shell commit (§11c)
+
+After 2a passes: commit layout, canvas, YamlEditor, tests. See §11c.
+
+### Phase 2d — Remaining Phase 2 parity
+
+- ⬜ Content Manager + State Simulator panels (§16c)
+- ⬜ Wire `evaluateTemplate` + mock map to preview (depends on State Simulator)
+- ⬜ Canvas interaction (drag, resize, snap, keyboard)
+- ⬜ Schema-driven property forms (replace read-only panel)
+- ⬜ Sidebar: Add Element grid (16 types), Load Example dropdown
+- ⬜ Dark mode polish (theme toggle exists)
 
 ### Phase 3 — Fidelity (upgrade stubs → real preview)
 
-- IndexedDB persistence for content map
+- IndexedDB persistence for content map (`src/storage/` — Dexie per ADR-003)
 - opentype.js fonts; dlimg from local map (`dlimg-stub` → real image)
 - Full MDI via `@mdi/js` (`icon-stub` → paths); real QR (`qrcode` package)
 - Plot sample data + curves (`plot-stub` → mock history)
-- Template evaluation wired to live canvas preview
+- Rich golden fixtures from `docs/spec/supported_types.md` (plot nested objects, icon_sequence, …)
+- Renderer fidelity tests (geometry checksums or PNG hashes — replace stub snapshot lock-in)
 - `public/fonts/` for ppb.ttf / rbm.ttf
 
 ### Phase 4 — Differentiators + polish
@@ -649,7 +724,7 @@ flowchart LR
 - Template strings preserved verbatim in YAML (HA-clean export — no designer fields)
 - Local content map resolves fonts/images by exact YAML path (no YAML embedding)
 - HA state simulator evaluates templates for preview
-- **YAML editor:** syntax highlighting (YAML + embedded Jinja), schema-driven autocomplete, inline validation diagnostics
+- **YAML editor:** syntax highlighting (YAML + embedded Jinja), schema-driven autocomplete, Jinja delimiter scaffolding (`{{ }}` / `{% %}`), inline validation diagnostics
 - Share link restores name + canvas + elements (not assets or mocks)
 - 20-project history with searchable names
 - Core test suite passes in CI; ADRs document major decisions
@@ -826,23 +901,84 @@ Each PR ≤ ~500 lines of meaningful diff → easier for you to spot-check in Gi
 
 ---
 
-## 11b. Commit Phase 1b–1d prompt
+## 11b. Commit Phase 1b–1d prompt — ✅ done (`a56eee6`)
 
-**Use now** — work is done but uncommitted.
+<!-- prompt archived — phase complete -->
+
+---
+
+## 11d. Phase 2a — Stabilization prompt (run before §11c commit)
+
+**Prerequisite for commit.** Resolves quality review findings; no new Phase 2 features.
 
 ```
-Read docs/PLAN.md progress tracker §7.
+Read docs/PLAN.md §7 Phase 2a, docs/adr/ADR-001, ADR-008, ADR-009.
+Workspace: oepl-designer/ repo root. Follow .cursor/rules/.
 
-Commit all Phase 1b, 1c, 1d work on main:
-- src/core/templates/, tests/core/templates/
-- src/core/assets/, tests/core/assets/
-- src/core/renderer/, tests/core/renderer/
-- package.json (nunjucks), src/core/index.ts exports
+Goal: stabilize uncommitted Phase 2 work so I can commit a clean baseline.
+Do NOT start Content Manager, State Simulator, canvas drag/resize, or template preview wiring.
 
-Run npm test && npm run lint first.
-Message: "Phase 1 complete: templates, asset map, renderer stubs (16 types)"
+## Must pass before finishing
+npm run lint && npm test && npm run build
 
-Update README status to "Phase 1 core complete — ready for Phase 2 UI".
+## Tasks (in order)
+
+1. **Lint + CI (ADR-008)**
+   - Fix all ESLint errors (YamlEditor.tsx react-hooks/refs — refs updated during render).
+   - Add `npm run lint` to `.github/workflows/deploy.yml` after `npm ci`, before `npm test`.
+
+2. **Dead code removal**
+   - Delete `src/core/elements/text.ts`, `src/ui/components/TextPropertyForm.tsx`, and `tests/core/text-element.test.ts`.
+   - Remove their exports from `src/core/index.ts`. Grep for remaining imports.
+
+3. **Dependency cleanup**
+   - Remove unused `@uiw/react-codemirror` from package.json (ADR-009: direct EditorView mount).
+   - Run npm install; verify build still clean.
+
+4. **Test consolidation (keep coverage, drop vanity)**
+   - Merge trivial selection/helper tests into one file (e.g. tests/ui/editor/yaml-selection-helpers.test.ts):
+     shouldShowActiveLineHighlight, shouldReportYamlCursorPosition, shouldMoveCursorOnLinkedScroll, shouldApplyExternalYamlSync.
+   - Renderer tests: keep render-element.test.ts exhaustiveness sweep, colors.test.ts, line percentage-coords test, visibility behavior.
+     Remove or merge per-type stub snapshot tests that only assert hard-coded stub coordinates (plot, qrcode, icon, dlimg, etc.) — the sweep already guards "renders without error".
+   - Do NOT delete: yaml-roundtrip, templates/evaluate, templates/scan, assets/*, elementTemplates, yaml editor jinja/lint/sync tests.
+
+5. **Docs**
+   - Update README.md status: Phase 2a done, property panel is read-only (schema-driven editing in Phase 2d).
+   - Update docs/PLAN.md §7 progress tracker test count after consolidation.
+
+## Out of scope (defer per §7 Phase 2a table)
+- Template evaluation wired to canvas preview
+- Content Manager / State Simulator UI
+- Playwright e2e
+- Rich spec fixtures beyond existing 16 minimal YAMLs
+- parse_colors renderer
+- Zustand migration (useState is fine for now)
+
+Run full gate. Summarize: lint/test/build counts, files deleted, tests removed/merged.
+Do not commit unless I ask.
+```
+
+---
+
+## 11c. Commit Phase 2 (partial) prompt
+
+**Use only after §11d stabilization passes.**
+
+```
+Read docs/PLAN.md §7 progress tracker and §2 Jinja scaffolding notes.
+
+Pre-flight (all must pass):
+  npm run lint && npm test && npm run build
+
+Commit Phase 2 partial work:
+- src/ui/ (layout, canvas, properties, YamlPanel, editor/)
+- tests/ui/
+- .github/workflows/deploy.yml (lint step)
+- package.json deps (@codemirror/*, etc.)
+- docs/PLAN.md, README.md (stabilization updates)
+
+Suggested message: "Phase 2 partial: designer shell and YamlEditor with Jinja scaffolding"
+
 Do not push unless I ask.
 ```
 
@@ -923,9 +1059,11 @@ Shared: `colors.ts`, `coordinates.ts`, `bounds.ts`, `text-metrics.ts`, `visibili
 
 ---
 
-## 16. Phase 2 — starter prompts ⬜ next after §11b commit
+## 16. Phase 2 — starter prompts ⬜ after §11c commit
 
-Phase 2 is large — use **one Agent chat per panel** (see §9 PR sequence). Suggested order:
+Phase 2 is large — use **one Agent chat per panel** (see §9 PR sequence). **Complete §11d stabilization and §11c commit first.**
+
+Suggested order:
 
 ### §16a — App layout + canvas shell
 
@@ -944,33 +1082,38 @@ React in src/ui/ only. npm test && npm run lint. Do not commit unless I ask.
 Next: docs/PLAN.md §16b.
 ```
 
-### §16b — YamlEditor (CodeMirror)
+### §16b — YamlEditor (CodeMirror) ✅ delivered (uncommitted)
+
+Delivered — see §2 *Jinja delimiter scaffolding* for behavior contract validated in testing.
 
 ```
-Execute Phase 2b — YamlEditor per docs/PLAN.md §16 (formerly §16 YamlEditor block).
+# Archived prompt — phase complete. Regression tests: tests/ui/editor/
 
-Implement src/ui/editor/YamlEditor.tsx with CodeMirror 6, lang-yaml, lang-jinja,
-schema completions, Jinja completions from scanPayloadForTemplates, lint via validatePayload.
-Replace placeholder YAML textarea.
+Key files: src/ui/editor/YamlEditor.tsx, jinjaCompletions.ts, jinjaBracketHandling.ts
+Do not re-enable default {/} closeBrackets without updating Jinja scaffolding tests.
 ```
 
-### §16c — Content Manager + State Simulator panels
+### §16c — Content Manager + State Simulator panels (Phase 2d)
+
+**After §11c commit.** Do not start before stabilization commit.
 
 ```
-Execute Phase 2c — Content Manager and State Simulator UI.
+Execute Phase 2d — Content Manager and State Simulator UI.
 
-Read docs/PLAN.md §2 (local content map + HA state simulator).
+Read docs/PLAN.md §2 (local content map + HA state simulator), §7 Phase 2d.
 
 Content Manager: scanPayloadForAssets, upload to setAsset(), show resolved/missing/bundled.
 State Simulator: scanPayloadForTemplates entity IDs, editable mock map, wire evaluateTemplate to preview.
 Persist mocks per project in memory for now (IndexedDB Phase 3).
 ```
 
-### §16 — YamlEditor prompt (detail)
+### §16 — YamlEditor prompt (detail) ✅
 
-- Read docs/PLAN.md §2 (YAML+Jinja editor), §7 Phase 2
-- `src/ui/editor/YamlEditor.tsx`: CodeMirror 6, lang-yaml, lang-jinja
-- Autocomplete from `src/core/schema/completions.ts`; Jinja from template scanner entity IDs
-- Inline lint via `validatePayload`; dark theme; thin UI (no business logic in component)
-- ui-wirer patterns; `npm test && npm run lint`
+- ✅ `src/ui/editor/YamlEditor.tsx`: CodeMirror 6, lang-yaml, lang-jinja mixed parser
+- ✅ Autocomplete from `src/core/schema/completions.ts`; Jinja HA helpers + `{%` statement tags
+- ✅ Inline lint via `validatePayload`; slate theme; tooltips on `document.body`
+- ✅ `tests/ui/editor/` — completions, lint ranges, delimiter scaffolding, integration
+- **Regression guardrails from user testing:** delimiter auto-close; no stray `}` from closeBrackets; spaces inside `{{ }}` and `{% %}` after autocomplete; first-list-item tooltips (no scrollMargins)
+
+<!-- prompt archived — phase complete -->
 

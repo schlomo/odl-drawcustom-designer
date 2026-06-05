@@ -19,7 +19,8 @@ YAML copied for Home Assistant must contain **only** valid drawcustom fields:
 - No designer metadata fields
 - No `preview_data_url` or similar preview hacks
 - No YAML comments added by the designer for asset substitution
-- Template strings preserved verbatim (`{{ ... }}`)
+- Template strings preserved verbatim (`{{ ... }}`, `{% ... %}`)
+- YamlEditor autocomplete must scaffold `{{ }}` / `{% %}` closers; inner completions must not add closing delimiters (ADR-009, `docs/PLAN.md` §2)
 
 ## Service options (top-level, not per-element)
 
