@@ -4,24 +4,33 @@ overview: Build a new open-source OpenEPaperLink drawcustom YAML designer (`oepl
 todos:
   - id: scaffold
     content: "Create oepl-designer repo: Vite+React 19+TS, Tailwind, ESLint core/ui boundary, GH Actions Pages deploy"
-    status: pending
+    status: completed
   - id: cursor-setup
     content: Create .cursor/rules/, .cursor/agents/ (core-implementer, ui-wirer, spec-reviewer), copy plan essentials to docs/
-    status: pending
+    status: completed
   - id: adrs-tdd
     content: Add docs/adr/ for architecture decisions; Vitest TDD workflow; CI fails on test regression
-    status: pending
+    status: completed
   - id: schema-yaml
     content: Define Zod schemas + yaml parse/serialize/validate for all 16 draw types and service options from supported_types.md (TDD with golden fixtures)
-    status: pending
+    status: completed
+  - id: templates-core
+    content: "Phase 1b: template scan + Nunjucks evaluate (ADR-004)"
+    status: completed
+  - id: assets-core
+    content: "Phase 1c: asset scanner + in-memory content map resolver"
+    status: completed
+  - id: renderer-skeleton
+    content: "Phase 1d: renderer stubs for all 16 types + render-element fixture sweep"
+    status: completed
   - id: ha-simulator
-    content: "HA state simulator: scan templates, let user set entity→value map, evaluate for preview; persist in IndexedDB per project"
+    content: "HA state simulator UI: entity→value map, wired to preview; persist in IndexedDB per project"
     status: pending
   - id: canvas-core
     content: "Build canvas interaction layer: selection, drag, resize, snap, keyboard shortcuts, layer ordering"
     status: pending
   - id: renderer
-    content: Implement hybrid SVG+Canvas renderer for all element types with color/accent mapping
+    content: "Phase 3: upgrade renderer stubs to full fidelity (opentype, MDI, QR, plot, dlimg)"
     status: pending
   - id: content-manager
     content: IndexedDB (Dexie) asset store + scanner + Content Manager UI keyed by exact YAML paths
@@ -569,21 +578,41 @@ flowchart LR
 
 ## 7. Implementation phases
 
-### Phase 0 — Bootstrap + ADRs
+### Progress tracker (updated 2026-06-05)
+
+| Phase | Status | Commit | Tests | Notes |
+|-------|--------|--------|-------|-------|
+| **0** Bootstrap | ✅ Done | `133e960` | — | ADRs, rules, agents, spec vendored |
+| **1a** YAML + schema | ✅ Done | `8f6cc3d` | 33 | 16 Zod types, fixtures, completions, HA-clean export |
+| **1b** Templates | ✅ Done | *uncommitted* | +24 | Nunjucks + `states`/`is_state`; ADR-004 |
+| **1c** Assets | ✅ Done | *uncommitted* | +10 | Scanner + in-memory map |
+| **1d** Renderer | ✅ Done | *uncommitted* | +29 | **16/16** stubs; `render-element.test.ts` sweeps all fixtures |
+| **2** UI shell | ⬜ Next | — | — | Canvas, YamlEditor, Content Manager, State Simulator |
+| **3** Fidelity | ⬜ | — | — | IndexedDB, opentype, real icons/QR/plot/dlimg (replace stubs) |
+| **4** Polish | ⬜ | — | — | Share hash, history, dither, layers |
+
+**Current repo health:** `npm test` → **108 passed** (25 files) · `npm run lint` → clean · **uncommitted** Phase 1b–1d on `main`
+
+**Before Phase 2:** commit Phase 1 complete (see §11b).
+
+### Phase 0 — Bootstrap + ADRs ✅
 
 - ADR-001 through ADR-008 drafted (ADR-006 locks React)
-- `**docs/spec/supported_types.md` vendored from upstream GitHub** (agents must not search workspace for it)
+- **`docs/spec/supported_types.md` vendored from upstream GitHub**
 - Vitest harness + one golden YAML round-trip test
 - Vite + React scaffold with ESLint rule: `src/core/` must not import React
-- Half-day sanity check: canvas select + one property form wired to core
+- Half-day sanity check: canvas placeholder + one property form wired to core
 
-### Phase 1 — Core (TDD)
+### Phase 1 — Core (TDD) ✅ complete (uncommitted)
 
-- Schema + YAML parse/serialize/validate (all 16 types) — tests from spec fixtures
-- `**src/core/schema/completions.ts`** — completion metadata export (element types, per-type properties, enums) for editor; no CodeMirror imports
-- Template scanner + evaluator (Nunjucks + HA mock context; see ADR-004)
-- Content map resolver (key → blob)
-- Renderer skeleton with tests per element type
+- ✅ Schema + YAML parse/serialize/validate (all 16 types) — tests from spec fixtures
+- ✅ **`src/core/schema/completions.ts`** — completion metadata for editor
+- ✅ Template scanner + evaluator (`src/core/templates/` — Nunjucks + HA mock context; ADR-004)
+- ✅ Content map resolver (`src/core/assets/` — in-memory; IndexedDB UI Phase 3)
+- ✅ Renderer stubs — **all 16 types** in `src/core/renderer/`; exhaustive `switch` in `renderElement`
+- ✅ `tests/core/renderer/render-element.test.ts` — every spec fixture renders without error
+
+**Stub vs fidelity (Phase 3 upgrades):** line/rectangle/circle are real SVG; text/multiline/dlimg/qrcode/plot/icon* are `-stub` primitives with bounds/placeholders only.
 
 ### Phase 2 — UI shell + MVP parity
 
@@ -593,12 +622,14 @@ flowchart LR
 - Content Manager + State Simulator panels
 - Display presets, dark mode
 
-### Phase 3 — Assets & fidelity
+### Phase 3 — Fidelity (upgrade stubs → real preview)
 
 - IndexedDB persistence for content map
-- opentype.js fonts; dlimg from local map
-- Full MDI via `@mdi/js`; real QR codes
-- Template evaluation wired to live preview
+- opentype.js fonts; dlimg from local map (`dlimg-stub` → real image)
+- Full MDI via `@mdi/js` (`icon-stub` → paths); real QR (`qrcode` package)
+- Plot sample data + curves (`plot-stub` → mock history)
+- Template evaluation wired to live canvas preview
+- `public/fonts/` for ppb.ttf / rbm.ttf
 
 ### Phase 4 — Differentiators + polish
 
@@ -787,130 +818,159 @@ Each PR ≤ ~500 lines of meaningful diff → easier for you to spot-check in Gi
 
 ---
 
-## 10. Phase 0 — ✅ complete
-
-Phase 0 scaffold exists. If not committed yet, use §11.
+## 10. Phase 0 — ✅ complete (committed `133e960`)
 
 ---
 
-## 11. Phase 0 commit prompt
-
-**Workspace:** `oepl-designer/` · **Agent mode**
-
-```
-Read docs/PLAN.md §7 Phase 0.
-
-Create initial git commit for Phase 0 scaffold (all tracked files except node_modules).
-Message: "Phase 0: scaffold, ADRs, spec, golden YAML test, React shell"
-
-Run npm test before committing. Do not push unless I ask.
-```
+## 11. Phase 0 commit prompt — ✅ done (`133e960` + plan vendor `833d1f8`)
 
 ---
 
-## 12. Phase 1a — YAML schema + engine
+## 11b. Commit Phase 1b–1d prompt
 
-**Workspace:** `oepl-designer/` · **Agent mode** · **Next step after Phase 0 commit**
+**Use now** — work is done but uncommitted.
 
 ```
-Execute Phase 1a — YAML schema and engine.
+Read docs/PLAN.md progress tracker §7.
 
-Read:
-- docs/PLAN.md §2, §5, §7 Phase 1
-- docs/spec/supported_types.md
-- docs/adr/ADR-001, ADR-008
-- .cursor/rules/core-boundary.mdc, yaml-spec.mdc, tdd-required.mdc
+Commit all Phase 1b, 1c, 1d work on main:
+- src/core/templates/, tests/core/templates/
+- src/core/assets/, tests/core/assets/
+- src/core/renderer/, tests/core/renderer/
+- package.json (nunjucks), src/core/index.ts exports
 
-Replace src/core/yaml/stub.ts with real implementation:
+Run npm test && npm run lint first.
+Message: "Phase 1 complete: templates, asset map, renderer stubs (16 types)"
 
-1. Add zod + npm dependency; schemas for all 16 draw types + service options in src/core/schema/
-2. src/core/schema/completions.ts — completion metadata (types, properties, enums); no CodeMirror imports
-3. parseYamlPayload / serializeYamlPayload / validatePayload in src/core/yaml/
-4. HA-clean export: serialize never emits designer-only fields
-5. TDD first: tests/fixtures/spec/ — one minimal fixture per element type from supported_types.md
-6. tests/core/validate.test.ts + update yaml-roundtrip.test.ts
-7. src/core/ must not import React; export from src/core/index.ts
-
-Do NOT start templates/, assets/, renderer/, or UI editor yet.
-
-Run npm test && npm run lint. Do not commit unless I ask.
-When done: summarize + point me to docs/PLAN.md §13 for Phase 1b.
+Update README status to "Phase 1 core complete — ready for Phase 2 UI".
+Do not push unless I ask.
 ```
 
 ---
 
-## 13. Phase 1b — Template scanner + evaluator
+## 12. Phase 1a — YAML schema + engine ✅ (committed `8f6cc3d`)
 
-**After Phase 1a is committed.**
+**Workspace:** `oepl-designer/` · **Done** — see §7 progress tracker
 
-```
-Execute Phase 1b — template scanner and evaluator.
-
-Read docs/PLAN.md §2 (HA State Simulator), §5, docs/adr/ADR-004.
-
-Implement in src/core/templates/:
-- scanPayloadForTemplates() — find {{ ... }} and entity IDs (states, is_state, etc.)
-- evaluateTemplate() — restricted HA subset (not full Jinja); use test mock context
-- TDD: tests/core/templates/*.test.ts with fixture matrix from plan §2 priority patterns
-
-Wire exports from src/core/index.ts. No React. npm test && npm run lint.
-Do not commit unless I ask. Next: docs/PLAN.md §14.
-```
+<!-- prompt archived — phase complete -->
 
 ---
 
-## 14. Phase 1c — Asset scanner + content map resolver
+## 13. Phase 1b — Template scanner + evaluator ✅
 
-**After Phase 1a is committed.** Can run parallel with §13 if separate worktrees.
+**After Phase 1a.** ✅ Delivered (uncommitted):
 
-```
-Execute Phase 1c — asset reference scanner and content map resolver.
+- `src/core/templates/` — `scanPayloadForTemplates`, `evaluateTemplate` (Nunjucks + Jinja compat)
+- `states`, `is_state`, `|float`, conditionals — all plan §2 priority patterns tested
+- Nested plot field scanning; entity ID deduplication
+- ADR-004 updated to document Nunjucks choice vs custom parser
 
-Read docs/PLAN.md §2 (Local content map), docs/adr/ADR-002, ADR-003.
-
-Implement in src/core/assets/:
-- scanPayloadForAssets() — font fields + dlimg.url; exact string keys
-- resolveAsset(key) — lookup from in-memory map (IndexedDB UI comes Phase 3)
-- TDD: tests/core/assets/*.test.ts
-
-No React. No UI. npm test. Next: docs/PLAN.md §15.
-```
+<!-- prompt archived — phase complete -->
 
 ---
 
-## 15. Phase 1d — Renderer skeleton
+## 14. Phase 1c — Asset scanner + content map resolver ✅
 
-**After Phase 1a is committed.**
+**After Phase 1a.** ✅ Delivered (uncommitted):
 
-```
-Execute Phase 1d — renderer skeleton (shapes first).
+- `src/core/assets/scanner.ts` — fonts on text/multiline/plot/progress_bar/debug_grid + dlimg URLs
+- `src/core/assets/resolver.ts` — in-memory map; `bundled` status for ppb.ttf/rbm.ttf
+- Skips template strings in font/url fields
+- **Gap:** `public/fonts/` not yet populated (Phase 3); bundled = logical fallback only
 
-Read docs/PLAN.md §5–6, docs/adr/ADR-007.
-
-Implement src/core/renderer/ — pure TS, no React:
-- Color mapping (accent, halftone shortcuts, hex)
-- One render function + Vitest test per element type; start with line, rectangle, circle, text stub
-- Use fixtures from tests/fixtures/spec/
-
-npm test. Do not commit unless I ask. Next: Phase 2 per docs/PLAN.md §7.
-```
+<!-- prompt archived — phase complete -->
 
 ---
 
-## 16. Phase 2 — YamlEditor prompt
+## 15. Phase 1d — Renderer skeleton ✅
+
+**Delivered (uncommitted, §15b completed):**
+
+| Type | Layer | Renderer | Quality |
+|------|-------|----------|---------|
+| `debug_grid` | svg | `debug-grid-stub` | Grid placeholder |
+| `text` | canvas | `text-stub` | Estimated bounds |
+| `multiline` | canvas | `multiline-stub` | Line stack bounds |
+| `line` | svg | `line` | Full geometry |
+| `rectangle` | svg | `rect` | Fill, outline, radius |
+| `rectangle_pattern` | svg | `rectangle-pattern-stub` | Repeat grid |
+| `polygon` | svg | `polygon` | Points path |
+| `circle` | svg | `circle` | Full geometry |
+| `ellipse` | svg | `ellipse` | Full geometry |
+| `arc` | svg | `arc` | Arc path |
+| `icon` | svg | `icon-stub` | Box + MDI name |
+| `icon_sequence` | svg | `icon-sequence-stub` | Sequence layout |
+| `dlimg` | canvas | `dlimg-stub` | Box + url metadata |
+| `qrcode` | canvas | `qrcode-stub` | Module grid placeholder |
+| `plot` | canvas | `plot-stub` | Chart area + series count |
+| `progress_bar` | svg | `progress-bar-stub` | Bar + fill ratio |
+
+Shared: `colors.ts`, `coordinates.ts`, `bounds.ts`, `text-metrics.ts`, `visibility.ts`
+
+- `renderElement` — exhaustive switch over all 16 types (TypeScript `never` exhaustiveness)
+- `renderPayload` — renders all elements (no skip list)
+- **18 renderer test files** (16 per-type + `colors` + `render-element.test.ts` fixture sweep)
+
+<!-- prompt archived — phase complete -->
+
+---
+
+## 15b. Phase 1d completion ✅
+
+§15b prompt executed — all 12 remaining types added with per-type tests.
+
+<!-- prompt archived — phase complete -->
+
+---
+
+## 16. Phase 2 — starter prompts ⬜ next after §11b commit
+
+Phase 2 is large — use **one Agent chat per panel** (see §9 PR sequence). Suggested order:
+
+### §16a — App layout + canvas shell
 
 ```
-Execute Phase 2 YamlEditor panel.
+Execute Phase 2a — app layout and canvas shell.
 
-Read docs/PLAN.md §2 (YAML+Jinja editor), §7 Phase 2, CodeMirror architecture diagram.
+Read docs/PLAN.md §7 Phase 2, docs/adr/ADR-006, ADR-007.
 
-Implement src/ui/editor/YamlEditor.tsx:
-- CodeMirror 6 + @codemirror/lang-yaml + @codemirror/lang-jinja
-- Autocomplete from src/core/schema/completions.ts
-- Jinja completions from template scanner entity IDs
-- Inline lint via validatePayload
-- Dark theme; thin UI — no business logic in component
+Wire src/ui/ to src/core/:
+- 3-column layout (sidebar | canvas | properties) + YAML panel bottom
+- Canvas displays renderPayload() output (SVG + canvas stub layers)
+- Display size presets from plan (tag sizes list)
+- Select element from list / canvas click (no drag yet)
 
-Use ui-wirer patterns. npm test && npm run lint.
+React in src/ui/ only. npm test && npm run lint. Do not commit unless I ask.
+Next: docs/PLAN.md §16b.
 ```
+
+### §16b — YamlEditor (CodeMirror)
+
+```
+Execute Phase 2b — YamlEditor per docs/PLAN.md §16 (formerly §16 YamlEditor block).
+
+Implement src/ui/editor/YamlEditor.tsx with CodeMirror 6, lang-yaml, lang-jinja,
+schema completions, Jinja completions from scanPayloadForTemplates, lint via validatePayload.
+Replace placeholder YAML textarea.
+```
+
+### §16c — Content Manager + State Simulator panels
+
+```
+Execute Phase 2c — Content Manager and State Simulator UI.
+
+Read docs/PLAN.md §2 (local content map + HA state simulator).
+
+Content Manager: scanPayloadForAssets, upload to setAsset(), show resolved/missing/bundled.
+State Simulator: scanPayloadForTemplates entity IDs, editable mock map, wire evaluateTemplate to preview.
+Persist mocks per project in memory for now (IndexedDB Phase 3).
+```
+
+### §16 — YamlEditor prompt (detail)
+
+- Read docs/PLAN.md §2 (YAML+Jinja editor), §7 Phase 2
+- `src/ui/editor/YamlEditor.tsx`: CodeMirror 6, lang-yaml, lang-jinja
+- Autocomplete from `src/core/schema/completions.ts`; Jinja from template scanner entity IDs
+- Inline lint via `validatePayload`; dark theme; thin UI (no business logic in component)
+- ui-wirer patterns; `npm test && npm run lint`
 
