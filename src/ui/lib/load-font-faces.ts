@@ -38,7 +38,7 @@ export async function loadFontFamilyMap(keys: readonly string[]): Promise<Map<st
 
     try {
       if (resolution.status === 'resolved' && resolution.blob) {
-        const face = new FontFace(family, resolution.blob)
+        const face = new FontFace(family, await resolution.blob.arrayBuffer())
         await face.load()
         document.fonts.add(face)
         families.set(key, family)

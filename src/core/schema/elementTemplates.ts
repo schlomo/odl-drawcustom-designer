@@ -1,40 +1,25 @@
 import { DRAW_ELEMENT_TYPES, type DrawElement } from './elements'
 
 /** Body inserted after `type: ` — type name plus required property lines. */
+/** Required fields only — see docs/spec/supported_types.md and tests/fixtures/spec/*-minimal.yaml */
 export const ELEMENT_TYPE_INSERTIONS: Record<DrawElement['type'], string> = {
-  debug_grid: `debug_grid
-  spacing: 20
-  line_color: black`,
+  debug_grid: 'debug_grid',
   text: `text
   value: Hello World!
-  font: ppb.ttf
-  x: 0
-  y: 0
-  size: 40
-  color: red`,
+  x: 0`,
   multiline: `multiline
   value: Line 1|Line 2|Line 3
   delimiter: "|"
-  font: ppb.ttf
   x: 0
-  offset_y: 50
-  size: 40
-  color: black`,
+  offset_y: 50`,
   line: `line
   x_start: 20
-  x_end: 380
-  y_start: 15
-  y_end: 15
-  width: 1
-  fill: red`,
+  x_end: 380`,
   rectangle: `rectangle
   x_start: 20
   x_end: 80
   y_start: 15
-  y_end: 30
-  width: 2
-  fill: red
-  outline: black`,
+  y_end: 30`,
   rectangle_pattern: `rectangle_pattern
   x_start: 5
   x_size: 35
@@ -42,15 +27,10 @@ export const ELEMENT_TYPE_INSERTIONS: Record<DrawElement['type'], string> = {
   y_start: 28
   y_size: 18
   y_offset: 2
-  fill: white
-  outline: red
-  width: 1
   x_repeat: 1
   y_repeat: 4`,
   polygon: `polygon
-  points: [[10, 10], [50, 10], [50, 50], [10, 50]]
-  fill: red
-  outline: black`,
+  points: [[10, 10], [50, 10], [50, 50], [10, 50]]`,
   circle: `circle
   x: 50
   y: 50
@@ -65,14 +45,12 @@ export const ELEMENT_TYPE_INSERTIONS: Record<DrawElement['type'], string> = {
   y: 75
   radius: 50
   start_angle: 0
-  end_angle: 90
-  fill: red`,
+  end_angle: 90`,
   icon: `icon
   value: account-cowboy-hat
   x: 60
   y: 120
-  size: 120
-  color: red`,
+  size: 120`,
   icon_sequence: `icon_sequence
   x: 10
   y: 10
@@ -80,49 +58,26 @@ export const ELEMENT_TYPE_INSERTIONS: Record<DrawElement['type'], string> = {
     - mdi:home
     - mdi:arrow-right
     - mdi:office-building
-  size: 24
-  direction: right`,
+  size: 24`,
   dlimg: `dlimg
   url: https://example.com/logo.png
   x: 10
   y: 10
   xsize: 120
-  ysize: 120
-  rotate: 0`,
+  ysize: 120`,
   qrcode: `qrcode
   data: https://www.example.com
   x: 140
-  y: 50
-  boxsize: 2
-  border: 2
-  color: black
-  bgcolor: white`,
+  y: 50`,
   plot: `plot
-  x_start: 10
-  y_start: 20
-  x_end: 199
-  y_end: 119
-  duration: 36000
-  low: 10
-  high: 20
-  font: ppb.ttf
   data:
-    - entity: sensor.temperature
-      width: 3
-    - entity: sensor.humidity
-      color: red`,
+    - entity: sensor.temperature`,
   progress_bar: `progress_bar
   x_start: 10
   y_start: 10
   x_end: 280
   y_end: 30
-  fill: red
-  outline: black
-  width: 1
-  progress: 42
-  direction: right
-  show_percentage: true
-  font: ppb.ttf`,
+  progress: 42`,
 }
 
 const TOP_LEVEL_PROPERTY = /^ {2}([a-z_][a-z0-9_]*):/

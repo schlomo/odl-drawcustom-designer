@@ -1,6 +1,8 @@
 /** Mock Home Assistant entity state map for template preview. */
 export interface HaMockContext {
   states: Record<string, string | number | boolean>
+  /** Fixed clock for deterministic template preview (defaults to current local time). */
+  now?: Date
 }
 
 export interface TemplateReference {

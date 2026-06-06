@@ -29,8 +29,18 @@ export {
   getElementTypeInsertionForBlock,
   parseListItemPropertyKeys,
   isDrawElementType,
+  getPropertyDefault,
+  getPropertyDescription,
+  getPropertyEffectiveValue,
+  getPropertySpec,
+  getVisibleProperties,
+  hasPropertyDefault,
+  isRequiredProperty,
+  normalizePropertyValueForStorage,
+  REQUIRED_PROPERTIES_BY_TYPE,
   type CompletionEntry,
   type CompletionKind,
+  type PropertySpecMeta,
 } from './schema'
 export {
   scanPayloadForAssets,

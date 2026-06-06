@@ -12,7 +12,8 @@ const FIXTURES_DIR = join(process.cwd(), 'tests/fixtures/spec')
 
 function listItemYamlFromInsertion(insertion: string): string {
   const [typeLine, ...rest] = insertion.split('\n')
-  return `- type: ${typeLine}\n${rest.join('\n')}`
+  const body = rest.join('\n')
+  return body.length > 0 ? `- type: ${typeLine}\n${body}` : `- type: ${typeLine}`
 }
 
 function readMinimalFixture(type: (typeof DRAW_ELEMENT_TYPES)[number]): string {
@@ -46,8 +47,7 @@ describe('getElementTypeInsertion', () => {
   width: 2
   fill: black`
 
-    expect(getElementTypeInsertionForBlock('rectangle', lineBlock)).toBe(`rectangle
-  outline: black`)
+    expect(getElementTypeInsertionForBlock('rectangle', lineBlock)).toBe('rectangle')
   })
 
   it('keeps the full template for a new list item', () => {

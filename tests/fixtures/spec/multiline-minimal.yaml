@@ -1,8 +1,5 @@
 - type: multiline
   value: Line 1|Line 2|Line 3
   delimiter: "|"
-  font: ppb.ttf
   x: 0
   offset_y: 50
-  size: 40
-  color: black

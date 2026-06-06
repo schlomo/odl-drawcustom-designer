@@ -28,6 +28,7 @@ describe('yaml tooltip clipping', () => {
     container = document.body.appendChild(document.createElement('div'))
     const pointerActiveRef = { current: false }
     const onCursorPositionChangeRef = { current: undefined }
+    const suppressCursorReportRef = { current: false }
     view = new EditorView({
       state: createYamlEditorState(
         doc,
@@ -38,6 +39,7 @@ describe('yaml tooltip clipping', () => {
         pointerActiveRef,
         onCursorPositionChangeRef,
         () => true,
+        suppressCursorReportRef,
       ),
       parent: container,
     })

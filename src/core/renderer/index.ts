@@ -65,6 +65,12 @@ export function renderPayload(elements: DrawElement[], ctx: RenderContext): Rend
   })
 }
 
+export {
+  ICON_DEFAULT_ANCHOR,
+  TEXT_DEFAULT_ANCHOR,
+  iconSequenceBoxSize,
+  resolveAnchoredBox,
+} from './anchors'
 export { mapColor } from './colors'
 export { resolveBounds } from './bounds'
 export { resolveCoordinate, resolveX, resolveY } from './coordinates'

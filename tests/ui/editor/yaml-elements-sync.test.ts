@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { serializeYamlPayload, type DrawElement } from '../../../src/core'
 import {
   elementsSequenceEqual,
+  getYamlElementsParseIssues,
   remapSelectedIndex,
+  summarizeYamlElementsParseIssues,
   tryParseYamlElements,
 } from '../../../src/ui/editor/yamlElementsSync'
 
@@ -11,6 +13,31 @@ const elements: DrawElement[] = [
   { type: 'text', value: 'B', x: 1, y: 1 },
   { type: 'text', value: 'C', x: 2, y: 2 },
 ]
+
+describe('getYamlElementsParseIssues', () => {
+  it('summarizes schema validation failures', () => {
+    const source = `- type: icon
+  value: mdi:home
+  x: 0
+  y: 0
+  size: "{{ states('sensor.size') }}"
+`
+    expect(getYamlElementsParseIssues(source)).toEqual([])
+    expect(summarizeYamlElementsParseIssues(getYamlElementsParseIssues(source))).toBeNull()
+  })
+
+  it('reports invalid fields for the status banner', () => {
+    const source = `- type: icon
+  value: mdi:home
+  x: 0
+  y: 0
+  size: not-a-number
+`
+    const issues = getYamlElementsParseIssues(source)
+    expect(issues.length).toBeGreaterThan(0)
+    expect(summarizeYamlElementsParseIssues(issues)).toContain('0.size')
+  })
+})
 
 describe('tryParseYamlElements', () => {
   it('returns validated elements for valid yaml', () => {
@@ -46,6 +73,21 @@ describe('remapSelectedIndex', () => {
   it('follows the same element after a reorder', () => {
     const reordered = [elements[2]!, elements[0]!, elements[1]!]
     expect(remapSelectedIndex(elements, reordered, 2)).toBe(0)
+  })
+
+  it('keeps index after a property edit at the same position', () => {
+    const edited = [...elements]
+    edited[1] = { ...edited[1]!, value: 'B updated' }
+    expect(remapSelectedIndex(elements, edited, 1)).toBe(1)
+  })
+
+  it('keeps index when only the selected element color changes', () => {
+    const edited = [...elements]
+    edited[0] = {
+      ...edited[0]!,
+      color: 'r',
+    }
+    expect(remapSelectedIndex(elements, edited, 0)).toBe(0)
   })
 
   it('returns null when the selected element was removed', () => {

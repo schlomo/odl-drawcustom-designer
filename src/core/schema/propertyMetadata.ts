@@ -1,0 +1,237 @@
+import type { DrawElement } from './elements'
+import { PROPERTIES_BY_TYPE } from './completions'
+
+export interface PropertySpecMeta {
+  description: string
+  default?: string | number | boolean
+}
+
+/** Required property keys per element type (from docs/spec/supported_types.md). */
+export const REQUIRED_PROPERTIES_BY_TYPE: Record<DrawElement['type'], readonly string[]> = {
+  debug_grid: [],
+  text: ['value', 'x'],
+  multiline: ['value', 'delimiter', 'x', 'offset_y'],
+  line: ['x_start', 'x_end'],
+  rectangle: ['x_start', 'x_end', 'y_start', 'y_end'],
+  rectangle_pattern: [
+    'x_start',
+    'x_size',
+    'x_offset',
+    'y_start',
+    'y_size',
+    'y_offset',
+    'x_repeat',
+    'y_repeat',
+  ],
+  polygon: ['points'],
+  circle: ['x', 'y', 'radius'],
+  ellipse: ['x_start', 'x_end', 'y_start', 'y_end'],
+  arc: ['x', 'y', 'radius', 'start_angle', 'end_angle'],
+  icon: ['value', 'x', 'y', 'size'],
+  icon_sequence: ['x', 'y', 'icons', 'size'],
+  dlimg: ['url', 'x', 'y', 'xsize', 'ysize'],
+  qrcode: ['data', 'x', 'y'],
+  plot: ['data'],
+  progress_bar: ['x_start', 'y_start', 'x_end', 'y_end', 'progress'],
+}
+
+const SHARED_PROPERTY_SPECS: Record<string, PropertySpecMeta> = {
+  spacing: { description: 'Line spacing for wrapped text', default: 5 },
+  line_color: { description: 'Color of the grid lines', default: 'black' },
+  dashed: { description: 'Use dashed lines', default: false },
+  dash_length: { description: 'Length of dash segments', default: 2 },
+  space_length: { description: 'Space between dashes', default: 4 },
+  show_labels: { description: 'Label coordinates at grid lines', default: true },
+  label_step: { description: 'Label every Nth grid line', default: 40 },
+  label_color: { description: 'Color of coordinate labels', default: 'black' },
+  label_font_size: { description: 'Font size for coordinate labels', default: 12 },
+  font: { description: 'Font file name', default: 'ppb.ttf' },
+  x: { description: 'X position' },
+  y: { description: 'Y position' },
+  size: { description: 'Font or icon size', default: 20 },
+  color: { description: 'Text or icon color', default: 'black' },
+  anchor: { description: 'Anchor point', default: 'lt' },
+  max_width: { description: 'Maximum text width before wrapping' },
+  stroke_width: { description: 'Outline width', default: 0 },
+  stroke_fill: { description: 'Outline color', default: 'white' },
+  y_padding: { description: 'Vertical offset when y is omitted', default: 10 },
+  visible: { description: 'Show or hide this element', default: true },
+  parse_colors: { description: 'Enable [color]markup[/color] in text', default: false },
+  truncate: { description: 'Truncate with ellipsis when text exceeds max_width', default: false },
+  delimiter: { description: 'Character that splits text into lines' },
+  offset_y: { description: 'Vertical spacing between lines' },
+  x_start: { description: 'Left or start X position' },
+  x_end: { description: 'Right or end X position' },
+  y_start: { description: 'Top or start Y position' },
+  y_end: { description: 'Bottom or end Y position' },
+  fill: { description: 'Fill color', default: 'black' },
+  width: { description: 'Line or border thickness', default: 1 },
+  outline: { description: 'Border color', default: 'black' },
+  radius: { description: 'Corner or circle radius', default: 0 },
+  corners: { description: 'Which corners to round', default: 'all' },
+  x_size: { description: 'Width of each rectangle' },
+  x_offset: { description: 'Horizontal spacing between rectangles' },
+  y_size: { description: 'Height of each rectangle' },
+  y_offset: { description: 'Vertical spacing between rectangles' },
+  x_repeat: { description: 'Number of horizontal repeats' },
+  y_repeat: { description: 'Number of vertical repeats' },
+  points: { description: 'Polygon coordinate pairs' },
+  start_angle: { description: 'Starting angle (0° = right)' },
+  end_angle: { description: 'Ending angle (clockwise)' },
+  icons: { description: 'List of Material Design icon names' },
+  direction: { description: 'Fill or sequence direction', default: 'right' },
+  url: { description: 'Image URL or local path' },
+  xsize: { description: 'Target image width' },
+  ysize: { description: 'Target image height' },
+  resize_method: { description: 'How the image is scaled', default: 'stretch' },
+  rotate: { description: 'Rotation angle in degrees', default: 0 },
+  data: { description: 'Content to encode or entities to plot' },
+  boxsize: { description: 'Size of each QR module', default: 2 },
+  border: { description: 'QR code border width', default: 1 },
+  bgcolor: { description: 'Background color', default: 'white' },
+  ylegend: { description: 'Y-axis legend options' },
+  yaxis: { description: 'Y-axis options' },
+  xlegend: { description: 'X-axis legend options' },
+  xaxis: { description: 'X-axis options' },
+  duration: { description: 'Time range to plot', default: 86400 },
+  low: { description: 'Minimum Y value' },
+  high: { description: 'Maximum Y value' },
+  round_values: { description: 'Round axis min/max to integers', default: false },
+  debug: { description: 'Show debug borders', default: false },
+  progress: { description: 'Progress value (0–100)' },
+  background: { description: 'Background color', default: 'white' },
+  show_percentage: { description: 'Show percentage text on the bar', default: false },
+}
+
+const TYPE_PROPERTY_SPECS: Partial<
+  Record<DrawElement['type'], Partial<Record<string, PropertySpecMeta>>>
+> = {
+  debug_grid: {
+    spacing: { description: 'Distance between grid lines', default: 20 },
+    font: { description: 'Font for coordinate labels', default: 'ppb.ttf' },
+  },
+  text: {
+    value: { description: 'Text to display' },
+    size: { description: 'Font size', default: 20 },
+    font: { description: 'Font file name', default: 'ppb.ttf' },
+    anchor: { description: 'Text anchor point', default: 'lt' },
+    spacing: { description: 'Line spacing for wrapped text', default: 5 },
+  },
+  multiline: {
+    value: { description: 'Text with delimiter-separated lines' },
+    size: { description: 'Font size', default: 20 },
+    spacing: { description: 'Additional line spacing', default: 0 },
+  },
+  line: {
+    fill: { description: 'Line color', default: 'black' },
+    y_padding: { description: 'Vertical offset when y is auto-positioned', default: 0 },
+    dashed: { description: 'Enable dashed line', default: false },
+    dash_length: { description: 'Length of dashes', default: 5 },
+    space_length: { description: 'Space between dashes', default: 3 },
+  },
+  rectangle: {
+    fill: { description: 'Fill color' },
+  },
+  icon: {
+    value: { description: 'Material Design icon name' },
+    size: { description: 'Icon size in pixels' },
+    fill: { description: 'Icon color', default: 'black' },
+    anchor: { description: 'Icon anchor point', default: 'la' },
+  },
+  icon_sequence: {
+    fill: { description: 'Icon color', default: 'black' },
+    spacing: { description: 'Space between icons' },
+    anchor: { description: 'Icon anchor point', default: 'la' },
+    size: { description: 'Size of each icon in pixels' },
+  },
+  qrcode: {
+    data: { description: 'Content to encode in the QR code' },
+    color: { description: 'QR module color', default: 'black' },
+  },
+  plot: {
+    data: { description: 'Entities and series to plot' },
+    size: { description: 'Legend font size', default: 10 },
+    font: { description: 'Font for legend text', default: 'ppb.ttf' },
+  },
+}
+
+export function isRequiredProperty(
+  elementType: DrawElement['type'],
+  property: string,
+): boolean {
+  return REQUIRED_PROPERTIES_BY_TYPE[elementType].includes(property)
+}
+
+export function getPropertySpec(
+  elementType: DrawElement['type'],
+  property: string,
+): PropertySpecMeta {
+  const typeSpec = TYPE_PROPERTY_SPECS[elementType]?.[property]
+  const shared = SHARED_PROPERTY_SPECS[property]
+  return {
+    description: typeSpec?.description ?? shared?.description ?? property,
+    default: typeSpec?.default ?? shared?.default,
+  }
+}
+
+export function getPropertyDescription(
+  elementType: DrawElement['type'],
+  property: string,
+): string {
+  return getPropertySpec(elementType, property).description
+}
+
+export function getPropertyDefault(
+  elementType: DrawElement['type'],
+  property: string,
+): string | number | boolean | undefined {
+  return getPropertySpec(elementType, property).default
+}
+
+export function hasPropertyDefault(
+  elementType: DrawElement['type'],
+  property: string,
+): boolean {
+  return getPropertyDefault(elementType, property) !== undefined
+}
+
+/** Value for the inspector: stored YAML value, else spec default when defined. */
+export function getPropertyEffectiveValue(element: DrawElement, property: string): unknown {
+  const record = element as Record<string, unknown>
+  const stored = record[property]
+  if (stored !== undefined) {
+    return stored
+  }
+  return getPropertyDefault(element.type, property)
+}
+
+/** Omit YAML keys that match the spec default. */
+export function normalizePropertyValueForStorage(
+  element: DrawElement,
+  property: string,
+  value: unknown,
+): unknown {
+  if (value === undefined || value === null) {
+    return undefined
+  }
+  const defaultValue = getPropertyDefault(element.type, property)
+  if (defaultValue === undefined) {
+    return value
+  }
+  return value === defaultValue ? undefined : value
+}
+
+/** Required keys, keys present in YAML, and optional keys with a documented default. */
+export function getVisibleProperties(element: DrawElement): string[] {
+  const elementType = element.type
+  const keys = PROPERTIES_BY_TYPE[elementType]
+  const required = new Set(REQUIRED_PROPERTIES_BY_TYPE[elementType])
+  const record = element as Record<string, unknown>
+
+  return keys.filter(
+    (key) =>
+      required.has(key) ||
+      record[key] !== undefined ||
+      hasPropertyDefault(elementType, key),
+  )
+}

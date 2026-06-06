@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { CompletionContext } from '@codemirror/autocomplete'
 import { forceLinting } from '@codemirror/lint'
-import { EditorState } from '@codemirror/state'
+import { EditorState, Transaction } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { describe, expect, it, afterEach, vi } from 'vitest'
 import {
@@ -34,19 +34,21 @@ describe('yaml editor first-block integration', () => {
     container = null
   })
 
-  function mountEditor(doc: string) {
+  function mountEditor(doc: string, onChange: (value: string) => void = () => {}) {
     container = document.body.appendChild(document.createElement('div'))
     const pointerActiveRef = { current: false }
     const onCursorPositionChangeRef = { current: undefined }
+    const suppressCursorReportRef = { current: false }
     const state = createYamlEditorState(
       doc,
       'dark',
       13,
       [],
-      () => {},
+      onChange,
       pointerActiveRef,
       onCursorPositionChangeRef,
       () => true,
+      suppressCursorReportRef,
     )
     view = new EditorView({ state, parent: container })
     return view
@@ -93,6 +95,41 @@ describe('yaml editor first-block integration', () => {
     expect(result).not.toBeNull()
     expect(result!.options.some((option) => option.label === 'x_start')).toBe(true)
     expect(result!.from).toBeGreaterThan(0)
+  })
+
+  it('does not report programmatic document replacements', () => {
+    const doc = `- type: text
+  value: Hi
+  color: '{{ states("sensor") }}'
+`
+    const onChange = vi.fn()
+    mountEditor(doc, onChange)
+    const replacement = `- type: text
+  value: Hi
+  color: r
+`
+    onChange.mockClear()
+    view!.dispatch({
+      changes: { from: 0, to: view!.state.doc.length, insert: replacement },
+    })
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('reports user-initiated document edits', () => {
+    const doc = `- type: text
+  value: Hi
+`
+    const onChange = vi.fn()
+    mountEditor(doc, onChange)
+    const colorPos = doc.indexOf('value: Hi') + 'value: Hi'.length
+    onChange.mockClear()
+    view!.dispatch({
+      changes: { from: colorPos, insert: '!' },
+      userEvent: 'input.type',
+      annotations: Transaction.userEvent.of('input.type'),
+    })
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange.mock.calls[0]![0]).toContain('Hi!')
   })
 })
 

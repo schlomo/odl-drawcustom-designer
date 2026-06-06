@@ -141,11 +141,21 @@ describe('loadAssetImageMap', () => {
 })
 
 describe('drawCanvasStub dlimg preview', () => {
-  it('draws a resolved asset image instead of the placeholder', () => {
+  it('draws a resolved asset image with resize_method', () => {
     const drawImage = vi.fn()
+    const save = vi.fn()
+    const restore = vi.fn()
+    const beginPath = vi.fn()
+    const rect = vi.fn()
+    const clip = vi.fn()
     const fillRect = vi.fn()
     const ctx = {
       drawImage,
+      save,
+      restore,
+      beginPath,
+      rect,
+      clip,
       fillRect,
       strokeRect: vi.fn(),
       fillText: vi.fn(),
@@ -153,6 +163,8 @@ describe('drawCanvasStub dlimg preview', () => {
     } as unknown as CanvasRenderingContext2D
 
     const image = new Image()
+    Object.defineProperty(image, 'naturalWidth', { value: 200 })
+    Object.defineProperty(image, 'naturalHeight', { value: 100 })
     const assetImages = new Map([['/local/logo.png', image]])
 
     drawCanvasStub(
@@ -162,13 +174,14 @@ describe('drawCanvasStub dlimg preview', () => {
         x: 10,
         y: 20,
         width: 64,
-        height: 32,
+        height: 48,
         url: '/local/logo.png',
+        resizeMethod: 'contain',
       },
       assetImages,
     )
 
-    expect(drawImage).toHaveBeenCalledWith(image, 10, 20, 64, 32)
+    expect(drawImage).toHaveBeenCalledWith(image, 0, 0, 200, 100, 10, 28, 64, 32)
     expect(fillRect).not.toHaveBeenCalled()
   })
 

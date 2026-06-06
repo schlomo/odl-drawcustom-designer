@@ -1,4 +1,11 @@
 import type { DrawElement } from '../schema/elements'
+import {
+  ICON_DEFAULT_ANCHOR,
+  iconSequenceBoxSize,
+  resolveAnchoredBox,
+  resolveDirection,
+  resolveNumericSize,
+} from './anchors'
 import { mapColor } from './colors'
 import { resolveX, resolveY } from './coordinates'
 import type { RenderContext, RenderResult } from './types'
@@ -15,17 +22,29 @@ export function renderIconSequence(
   }
 
   const colorOptions = { accentMode: ctx.accentMode }
+  const direction = resolveDirection(element.direction)
+  const size = resolveNumericSize(element.size)
+  const spacing = element.spacing ?? size
+  const { width, height } = iconSequenceBoxSize(size, element.icons.length, spacing, direction)
+  const anchored = resolveAnchoredBox(
+    element.anchor,
+    resolveX(element.x, ctx),
+    resolveY(element.y, ctx),
+    width,
+    height,
+    ICON_DEFAULT_ANCHOR,
+  )
 
   return {
     layer: 'svg',
     primitive: {
       kind: 'icon-sequence-stub',
-      x: resolveX(element.x, ctx),
-      y: resolveY(element.y, ctx),
-      size: element.size,
+      x: anchored.x,
+      y: anchored.y,
+      size,
       icons: element.icons,
-      direction: element.direction ?? 'right',
-      spacing: element.spacing ?? element.size,
+      direction,
+      spacing,
       fill: mapColor(element.fill ?? 'black', colorOptions) ?? '#000000',
     },
   }

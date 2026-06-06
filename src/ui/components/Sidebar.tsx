@@ -1,10 +1,15 @@
+import { useState } from 'react'
 import type { AssetKind, AssetUploadResult, DrawElement } from '../../core'
 import type { HaMockContext } from '../../core'
-import { ContentManager } from './ContentManager'
-import { StateSimulator } from './StateSimulator'
-import { DISPLAY_PRESETS, findPresetByDimensions } from '../data/display-presets'
+import { EXAMPLE_DESIGNS } from '../data/example-designs'
 import type { CanvasConfig, CanvasRotation } from '../hooks/useProjectState'
 import { shell } from '../styles/shell'
+import { ContentManager } from './ContentManager'
+import { ElementList } from './ElementList'
+import { StateSimulator } from './StateSimulator'
+import { DISPLAY_PRESETS, findPresetForCanvas } from '../data/display-presets'
+
+type SidebarTab = 'elements' | 'simulator' | 'content'
 
 interface SidebarProps {
   elements: DrawElement[]
@@ -21,13 +26,16 @@ interface SidebarProps {
   onRemoveMockEntity: (entityId: string) => void
   onUploadAsset: (key: string, kind: AssetKind, file: File) => Promise<AssetUploadResult>
   onClearAsset: (key: string) => void
+  onLoadExample: (exampleId: string) => void
+  onReorderElement: (fromIndex: number, toIndex: number) => void
 }
 
 const ROTATION_OPTIONS: CanvasRotation[] = [0, 90, 180, 270]
 
-function elementLabel(element: DrawElement, index: number): string {
-  const typeLabel = element.type.replace(/_/g, ' ')
-  return `${index + 1}. ${typeLabel}`
+const TAB_LABEL: Record<SidebarTab, string> = {
+  elements: 'Elements',
+  simulator: 'Simulator',
+  content: 'Content',
 }
 
 export function Sidebar({
@@ -45,15 +53,44 @@ export function Sidebar({
   onRemoveMockEntity,
   onUploadAsset,
   onClearAsset,
+  onLoadExample,
+  onReorderElement,
 }: SidebarProps) {
-  const matchingPreset = findPresetByDimensions(canvas.width, canvas.height)
-  const presetValue = matchingPreset?.id ?? 'custom'
+  const [tab, setTab] = useState<SidebarTab>('elements')
+  const matchingPreset = findPresetForCanvas(canvas.width, canvas.height, canvas.accentMode)
+  const presetValue = matchingPreset.id
 
   return (
-    <aside className={`flex w-72 shrink-0 flex-col border-r ${shell.panelBorder} ${shell.panel}`}>
-      <section className={`border-b ${shell.panelBorder} p-4`}>
+    <aside
+      className={`flex w-64 shrink-0 flex-col overflow-hidden border-r ${shell.panelBorder} ${shell.panel}`}
+    >
+      <section className={`shrink-0 border-b ${shell.panelBorder} p-3`}>
+        <h2 className={shell.heading}>Load example</h2>
+        <select
+          className={`mt-2 w-full ${shell.input}`}
+          defaultValue=""
+          onChange={(event) => {
+            const value = event.target.value
+            if (value) {
+              onLoadExample(value)
+              event.target.value = ''
+            }
+          }}
+        >
+          <option value="" disabled>
+            Choose a design…
+          </option>
+          {EXAMPLE_DESIGNS.map((example) => (
+            <option key={example.id} value={example.id}>
+              {example.label}
+            </option>
+          ))}
+        </select>
+      </section>
+
+      <section className={`shrink-0 border-b ${shell.panelBorder} p-3`}>
         <h2 className={shell.heading}>Display config</h2>
-        <label className={`mt-3 block text-xs ${shell.muted}`}>
+        <label className={`mt-2 block text-xs ${shell.muted}`}>
           Tag preset
           <select
             className={`mt-1 w-full ${shell.input}`}
@@ -67,9 +104,9 @@ export function Sidebar({
             ))}
           </select>
         </label>
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="mt-2 grid grid-cols-2 gap-2">
           <label className={`text-xs ${shell.muted}`}>
-            Width
+            W
             <input
               type="number"
               min={1}
@@ -81,7 +118,7 @@ export function Sidebar({
             />
           </label>
           <label className={`text-xs ${shell.muted}`}>
-            Height
+            H
             <input
               type="number"
               min={1}
@@ -93,66 +130,81 @@ export function Sidebar({
             />
           </label>
         </div>
-        <fieldset className="mt-3">
-          <legend className={`text-xs ${shell.muted}`}>Visual rotation</legend>
-          <div className="mt-1 flex gap-1">
-            {ROTATION_OPTIONS.map((value) => (
-              <button
-                key={value}
-                type="button"
-                className={`flex-1 rounded-md border px-2 py-1 text-xs ${
-                  canvas.rotation === value
-                    ? 'border-[var(--shell-accent)] bg-[var(--shell-accent)] text-white'
-                    : `${shell.button} hover:bg-[var(--shell-hover)]`
-                }`}
-                onClick={() => onRotationChange(value)}
-              >
-                {value}°
-              </button>
-            ))}
+        <div className="mt-2 flex gap-1">
+          {ROTATION_OPTIONS.map((value) => (
+            <button
+              key={value}
+              type="button"
+              className={`flex-1 rounded-md border px-1 py-1 text-[10px] ${
+                canvas.rotation === value
+                  ? 'border-[var(--shell-accent)] bg-[var(--shell-accent)] text-white'
+                  : `${shell.button} hover:bg-[var(--shell-hover)]`
+              }`}
+              onClick={() => onRotationChange(value)}
+            >
+              {value}°
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className={`flex shrink-0 border-b ${shell.panelBorder}`}>
+        {(['elements', 'simulator', 'content'] as const).map((id) => (
+          <button
+            key={id}
+            type="button"
+            className={`flex-1 border-b-2 px-2 py-2 text-[11px] font-medium ${
+              tab === id
+                ? 'border-[var(--shell-accent)] text-[var(--shell-accent)]'
+                : 'border-transparent text-[var(--shell-muted)] hover:text-[var(--shell-text)]'
+            }`}
+            onClick={() => setTab(id)}
+          >
+            {TAB_LABEL[id]}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3">
+        {tab === 'elements' ? (
+          <>
+            <p className={`mb-2 text-[10px] ${shell.muted}`}>
+              Top = front (drawn last in YAML)
+            </p>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <ElementList
+                elements={elements}
+                selectedIndex={selectedIndex}
+                onSelectElement={onSelectElement}
+                onReorderElement={onReorderElement}
+              />
+            </div>
+          </>
+        ) : null}
+        {tab === 'simulator' ? (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <StateSimulator
+              elements={elements}
+              mockContext={mockContext}
+              onSetMockState={onSetMockState}
+              onAddEntity={onAddMockEntity}
+              onRemoveEntity={onRemoveMockEntity}
+              embedded
+            />
           </div>
-        </fieldset>
-      </section>
-
-      <StateSimulator
-        elements={elements}
-        mockContext={mockContext}
-        onSetMockState={onSetMockState}
-        onAddEntity={onAddMockEntity}
-        onRemoveEntity={onRemoveMockEntity}
-      />
-
-      <ContentManager
-        elements={elements}
-        assetRevision={assetRevision}
-        onUpload={onUploadAsset}
-        onClear={onClearAsset}
-      />
-
-      <section className="flex min-h-0 flex-1 flex-col p-4">
-        <h2 className={shell.heading}>Elements</h2>
-        <ul className="mt-3 flex-1 space-y-1 overflow-y-auto">
-          {elements.length === 0 ? (
-            <li className={`text-xs ${shell.muted}`}>No elements yet</li>
-          ) : (
-            elements.map((element, index) => (
-              <li key={index}>
-                <button
-                  type="button"
-                  className={`w-full rounded-md px-3 py-2 text-left text-sm ${
-                    selectedIndex === index
-                      ? 'bg-[var(--shell-accent)] text-white'
-                      : 'bg-[var(--shell-surface-2)] text-[var(--shell-text)] hover:bg-[var(--shell-hover)]'
-                  }`}
-                  onClick={() => onSelectElement(index)}
-                >
-                  {elementLabel(element, index)}
-                </button>
-              </li>
-            ))
-          )}
-        </ul>
-      </section>
+        ) : null}
+        {tab === 'content' ? (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <ContentManager
+              elements={elements}
+              assetRevision={assetRevision}
+              onUpload={onUploadAsset}
+              onClear={onClearAsset}
+              embedded
+            />
+          </div>
+        ) : null}
+      </div>
     </aside>
   )
 }

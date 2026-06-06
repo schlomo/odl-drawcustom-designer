@@ -126,6 +126,9 @@ export interface CanvasTextStubPrimitive {
   y: number
   width: number
   height: number
+  anchorX: number
+  anchorY: number
+  anchor?: string
   value: string
   color: string
   fontSize: number

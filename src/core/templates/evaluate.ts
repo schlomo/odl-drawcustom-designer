@@ -1,4 +1,6 @@
 import nunjucks from 'nunjucks'
+import { createHaDateTime } from './ha-datetime'
+import { haFloat, haIif } from './ha-globals'
 import type { HaMockContext } from './types'
 
 let jinjaCompatInstalled = false
@@ -35,6 +37,9 @@ function createEnvironment(context: HaMockContext): nunjucks.Environment {
   env.addGlobal('is_state', (entityId: string, state: string) =>
     isEntityState(context, entityId, state),
   )
+  env.addGlobal('now', () => createHaDateTime(context.now ?? new Date()))
+  env.addGlobal('float', haFloat)
+  env.addGlobal('iif', haIif)
 
   return env
 }

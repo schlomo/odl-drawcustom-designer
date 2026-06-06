@@ -71,6 +71,18 @@ export const HA_EXPRESSION_COMPLETIONS: Completion[] = [
     detail: "state_attr('entity_id', 'attribute')",
     apply: applyExpression("state_attr('', '')"),
   },
+  {
+    label: 'float',
+    type: 'function',
+    detail: "float(states('entity_id'), default)",
+    apply: applyExpression("float(states(''), 0)"),
+  },
+  {
+    label: 'iif',
+    type: 'function',
+    detail: "iif(condition, if_true, if_false)",
+    apply: applyExpression("iif(is_state('', 'on'), '', '')"),
+  },
 ]
 
 export const HA_FILTER_COMPLETIONS: Completion[] = [

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { iconSequenceBoxSize } from '../../core/renderer/anchors'
 import type { SvgPrimitive as SvgPrimitiveType } from '../../core/renderer/types'
 
 interface SvgPrimitiveProps {
@@ -129,22 +130,28 @@ export function SvgPrimitive({ primitive }: SvgPrimitiveProps) {
           </text>
         </g>
       )
-    case 'icon-sequence-stub':
+    case 'icon-sequence-stub': {
+      const sequenceBounds = iconSequenceBoxSize(
+        primitive.size,
+        primitive.icons.length,
+        primitive.spacing,
+        primitive.direction,
+      )
       return (
         <g>
           <rect
             x={primitive.x}
             y={primitive.y}
-            width={primitive.size}
-            height={primitive.size}
+            width={sequenceBounds.width}
+            height={sequenceBounds.height}
             fill="none"
             stroke={primitive.fill}
             strokeWidth={1}
             strokeDasharray="4 2"
           />
           <text
-            x={primitive.x + primitive.size / 2}
-            y={primitive.y + primitive.size / 2}
+            x={primitive.x + sequenceBounds.width / 2}
+            y={primitive.y + sequenceBounds.height / 2}
             textAnchor="middle"
             dominantBaseline="middle"
             fontSize={9}
@@ -154,6 +161,7 @@ export function SvgPrimitive({ primitive }: SvgPrimitiveProps) {
           </text>
         </g>
       )
+    }
     case 'rectangle-pattern-stub':
       return (
         <g>

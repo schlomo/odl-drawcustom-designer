@@ -1,7 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { renderElement, type DrawElement, type RenderContext } from '../../core'
 import type { RenderResult } from '../../core/renderer/types'
-import { drawCanvasStub } from '../lib/draw-canvas-stubs'
+import { CanvasElementLayer } from './CanvasElementLayer'
+import {
+  applyBoundsResize,
+  applyLineEndpoint,
+  applyRadiusResize,
+  isElementDraggable,
+  resizeBoundsWithHandle,
+  supportsBoxResize,
+  supportsLineEndpointResize,
+  supportsRadiusResize,
+  translateElement,
+  type ResizeHandle,
+} from '../lib/element-geometry'
 import {
   areAssetImageMapsEqual,
   collectDlimgAssetKeysFromElements,
@@ -13,18 +25,28 @@ import {
   collectFontKeysFromElements,
   loadFontFamilyMap,
 } from '../lib/load-font-faces'
-import { getPrimitiveBounds, pointInBounds } from '../lib/primitive-bounds'
+import { findTopmostElementHit } from '../lib/canvas-hit-test'
+import { getPrimitiveBounds, type ElementBounds } from '../lib/primitive-bounds'
+import { snapMoveDelta, snapToGrid } from '../lib/snap-to-grid'
+import type { SnapGridPrefs } from '../preferences/snapGrid'
 import type { CanvasRotation } from '../hooks/useProjectState'
 import { shell } from '../styles/shell'
 import { SvgPrimitive } from './SvgPrimitive'
 
 interface DesignerCanvasProps {
   elements: DrawElement[]
+  editElements: DrawElement[]
   renderContext: RenderContext
   rotation: CanvasRotation
   selectedIndex: number | null
   assetRevision: number
+  snapGrid: SnapGridPrefs
   onSelectElement: (index: number | null) => void
+  onUpdateElement: (index: number, element: DrawElement) => void
+  onDeleteSelected: () => void
+  onNudgeSelected: (dx: number, dy: number) => void
+  onClearAll: () => void
+  onToggleSnap: () => void
 }
 
 interface RenderedElement {
@@ -32,25 +54,136 @@ interface RenderedElement {
   result: RenderResult
 }
 
+interface DragSession {
+  kind: 'move' | 'resize'
+  index: number
+  pointerId: number
+  startCanvas: { x: number; y: number }
+  startElement: DrawElement
+  startBounds: ElementBounds
+  handle?: ResizeHandle
+}
+
+const HANDLE_SIZE = 8
+const BOX_HANDLES: ResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
+
 function paperTransform(rotation: CanvasRotation, scale: number): string {
-  // Use rotate(0deg) — not `none` — so scale() can be combined (none invalidates the whole transform).
   return `rotate(${rotation}deg) scale(${scale})`
+}
+
+function handlePosition(
+  bounds: ElementBounds,
+  handle: ResizeHandle,
+  lineCoords?: { x1: number; y1: number; x2: number; y2: number },
+): { x: number; y: number } {
+  if (lineCoords) {
+    if (handle === 'line-start') {
+      return { x: lineCoords.x1, y: lineCoords.y1 }
+    }
+    if (handle === 'line-end') {
+      return { x: lineCoords.x2, y: lineCoords.y2 }
+    }
+  }
+
+  const cx = bounds.x + bounds.width / 2
+  const cy = bounds.y + bounds.height / 2
+  const right = bounds.x + bounds.width
+  const bottom = bounds.y + bounds.height
+
+  switch (handle) {
+    case 'nw':
+      return { x: bounds.x, y: bounds.y }
+    case 'n':
+      return { x: cx, y: bounds.y }
+    case 'ne':
+      return { x: right, y: bounds.y }
+    case 'e':
+      return { x: right, y: cy }
+    case 'se':
+      return { x: right, y: bottom }
+    case 's':
+      return { x: cx, y: bottom }
+    case 'sw':
+      return { x: bounds.x, y: bottom }
+    case 'w':
+      return { x: bounds.x, y: cy }
+    case 'line-start':
+      return { x: bounds.x, y: bounds.y }
+    case 'line-end':
+      return { x: right, y: bottom }
+    default:
+      return { x: cx, y: cy }
+  }
+}
+
+function hitHandle(
+  point: { x: number; y: number },
+  bounds: ElementBounds,
+  handles: ResizeHandle[],
+  lineCoords?: { x1: number; y1: number; x2: number; y2: number },
+): ResizeHandle | null {
+  for (const handle of handles) {
+    const pos = handlePosition(bounds, handle, lineCoords)
+    const half = HANDLE_SIZE
+    if (
+      point.x >= pos.x - half &&
+      point.x <= pos.x + half &&
+      point.y >= pos.y - half &&
+      point.y <= pos.y + half
+    ) {
+      return handle
+    }
+  }
+  return null
+}
+
+function getResizeHandles(element: DrawElement): ResizeHandle[] {
+  if (supportsLineEndpointResize(element)) {
+    return ['line-start', 'line-end']
+  }
+  if (supportsRadiusResize(element)) {
+    return ['e']
+  }
+  if (supportsBoxResize(element)) {
+    return BOX_HANDLES
+  }
+  return []
+}
+
+function applySnap(point: { x: number; y: number }, snapGrid: SnapGridPrefs): { x: number; y: number } {
+  return {
+    x: snapToGrid(point.x, snapGrid.size, snapGrid.enabled),
+    y: snapToGrid(point.y, snapGrid.size, snapGrid.enabled),
+  }
 }
 
 export function DesignerCanvas({
   elements,
+  editElements,
   renderContext,
   rotation,
   selectedIndex,
   assetRevision,
+  snapGrid,
   onSelectElement,
+  onUpdateElement,
+  onDeleteSelected,
+  onNudgeSelected,
+  onClearAll,
+  onToggleSnap,
 }: DesignerCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const dragSessionRef = useRef<DragSession | null>(null)
+  const didDragRef = useRef(false)
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null)
   const [fitScale, setFitScale] = useState(1)
   const [assetImages, setAssetImages] = useState<Map<string, HTMLImageElement>>(() => new Map())
   const [fontFamilies, setFontFamilies] = useState<Map<string, string>>(() => new Map())
+  const [dragSession, setDragSession] = useState<DragSession | null>(null)
+
+  useEffect(() => {
+    dragSessionRef.current = dragSession
+  }, [dragSession])
 
   useEffect(() => {
     const container = containerRef.current
@@ -75,8 +208,14 @@ export function DesignerCanvas({
     })
   }, [elements, renderContext])
 
-  const svgPrimitives = renderedElements.filter((entry) => entry.result.layer === 'svg')
-  const canvasPrimitives = renderedElements.filter((entry) => entry.result.layer === 'canvas')
+  const hitTargets = useMemo(
+    () =>
+      renderedElements.map((entry) => ({
+        index: entry.index,
+        bounds: getPrimitiveBounds(entry.result.primitive),
+      })),
+    [renderedElements],
+  )
 
   const dlimgAssetKeys = useMemo(
     () => collectDlimgAssetKeysFromElements(elements),
@@ -131,25 +270,28 @@ export function DesignerCanvas({
     return getPrimitiveBounds(entry.result.primitive)
   }, [renderedElements, selectedIndex])
 
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) {
-      return
+  const selectedRendered =
+    selectedIndex != null
+      ? renderedElements.find((item) => item.index === selectedIndex)?.result
+      : null
+
+  const lineCoords = useMemo(() => {
+    if (selectedRendered?.layer !== 'svg' || selectedRendered.primitive.kind !== 'line') {
+      return undefined
     }
-    const ctx = canvas.getContext('2d')
-    if (!ctx) {
-      return
+    return {
+      x1: selectedRendered.primitive.x1,
+      y1: selectedRendered.primitive.y1,
+      x2: selectedRendered.primitive.x2,
+      y2: selectedRendered.primitive.y2,
     }
-    ctx.clearRect(0, 0, renderContext.width, renderContext.height)
-    for (const entry of canvasPrimitives) {
-      if (entry.result.layer === 'canvas') {
-        drawCanvasStub(ctx, entry.result.primitive, displayAssetImages, fontFamilies)
-      }
-    }
-  }, [canvasPrimitives, displayAssetImages, fontFamilies, renderContext.height, renderContext.width])
+  }, [selectedRendered])
+
+  const selectedEditElement =
+    selectedIndex != null ? (editElements[selectedIndex] ?? null) : null
 
   const mapClientToCanvas = useCallback(
-    (clientX: number, clientY: number): { x: number; y: number } | null => {
+    (clientX: number, clientY: number, allowOutside = false): { x: number; y: number } | null => {
       const paper = containerRef.current?.querySelector<HTMLElement>('[data-canvas-paper]')
       if (!paper) {
         return null
@@ -159,7 +301,10 @@ export function DesignerCanvas({
       const scaleY = rect.height / renderContext.height
       const localX = (clientX - rect.left) / scaleX
       const localY = (clientY - rect.top) / scaleY
-      if (localX < 0 || localY < 0 || localX > renderContext.width || localY > renderContext.height) {
+      if (
+        !allowOutside &&
+        (localX < 0 || localY < 0 || localX > renderContext.width || localY > renderContext.height)
+      ) {
         return null
       }
       return { x: localX, y: localY }
@@ -167,37 +312,262 @@ export function DesignerCanvas({
     [renderContext.height, renderContext.width],
   )
 
-  const handlePointerMove = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      const point = mapClientToCanvas(event.clientX, event.clientY)
-      setPointer(point)
-    },
-    [mapClientToCanvas],
-  )
-
-  const handlePointerLeave = useCallback(() => {
-    setPointer(null)
+  const finishDrag = useCallback(() => {
+    dragSessionRef.current = null
+    setDragSession(null)
   }, [])
 
-  const handleClick = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      const point = mapClientToCanvas(event.clientX, event.clientY)
-      if (!point) {
-        onSelectElement(null)
+  const handlePointerMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const dragging = dragSessionRef.current != null
+      const point = mapClientToCanvas(event.clientX, event.clientY, dragging)
+      setPointer(
+        dragging || point == null
+          ? point
+          : point.x >= 0 &&
+              point.y >= 0 &&
+              point.x <= renderContext.width &&
+              point.y <= renderContext.height
+            ? point
+            : null,
+      )
+
+      const session = dragSessionRef.current
+      if (!session || event.pointerId !== session.pointerId || !point) {
         return
       }
-      for (let i = renderedElements.length - 1; i >= 0; i--) {
-        const entry = renderedElements[i]
-        const bounds = getPrimitiveBounds(entry.result.primitive)
-        if (pointInBounds(point.x, point.y, bounds)) {
-          onSelectElement(entry.index)
+
+      didDragRef.current = true
+      event.preventDefault()
+
+      const snapped = applySnap(point, snapGrid)
+
+      if (session.kind === 'move') {
+        const rawDx = point.x - session.startCanvas.x
+        const rawDy = point.y - session.startCanvas.y
+        const { dx, dy } = snapMoveDelta(
+          session.startBounds,
+          rawDx,
+          rawDy,
+          snapGrid.size,
+          snapGrid.enabled,
+        )
+        if (dx !== 0 || dy !== 0) {
+          onUpdateElement(session.index, translateElement(session.startElement, dx, dy))
+        }
+        return
+      }
+
+      const element = session.startElement
+      const handle = session.handle
+      if (!handle) {
+        return
+      }
+
+      if (supportsLineEndpointResize(element) && (handle === 'line-start' || handle === 'line-end')) {
+        const endpoint = handle === 'line-start' ? 'start' : 'end'
+        onUpdateElement(
+          session.index,
+          applyLineEndpoint(element, endpoint, snapped.x, snapped.y),
+        )
+        return
+      }
+
+      if (supportsRadiusResize(element) && handle === 'e') {
+        const cx = element.x as number
+        const cy = element.y as number
+        const radius = Math.hypot(snapped.x - cx, snapped.y - cy)
+        onUpdateElement(session.index, applyRadiusResize(element, radius))
+        return
+      }
+
+      if (supportsBoxResize(element)) {
+        const nextBounds = resizeBoundsWithHandle(session.startBounds, handle, snapped.x, snapped.y)
+        onUpdateElement(session.index, applyBoundsResize(element, nextBounds))
+      }
+    },
+    [mapClientToCanvas, onUpdateElement, renderContext.height, renderContext.width, snapGrid],
+  )
+
+  const handlePointerUp = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const session = dragSessionRef.current
+      if (session && event.pointerId === session.pointerId) {
+        finishDrag()
+      }
+    },
+    [finishDrag],
+  )
+
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const point = mapClientToCanvas(event.clientX, event.clientY)
+      if (!point) {
+        return
+      }
+
+      didDragRef.current = false
+
+      const topHit = findTopmostElementHit(hitTargets, point)
+
+      if (
+        selectedIndex != null &&
+        selectionBounds &&
+        selectedEditElement &&
+        topHit?.index === selectedIndex
+      ) {
+        const handles = getResizeHandles(selectedEditElement)
+        const handle = hitHandle(point, selectionBounds, handles, lineCoords)
+        if (handle && isElementDraggable(selectedEditElement)) {
+          event.preventDefault()
+          event.currentTarget.setPointerCapture(event.pointerId)
+          const session: DragSession = {
+            kind: 'resize',
+            index: selectedIndex,
+            pointerId: event.pointerId,
+            startCanvas: point,
+            startElement: selectedEditElement,
+            startBounds: selectionBounds,
+            handle,
+          }
+          dragSessionRef.current = session
+          setDragSession(session)
+          return
+        }
+
+        if (isElementDraggable(selectedEditElement)) {
+          event.preventDefault()
+          event.currentTarget.setPointerCapture(event.pointerId)
+          const session: DragSession = {
+            kind: 'move',
+            index: selectedIndex,
+            pointerId: event.pointerId,
+            startCanvas: point,
+            startElement: selectedEditElement,
+            startBounds: selectionBounds,
+          }
+          dragSessionRef.current = session
+          setDragSession(session)
           return
         }
       }
+
+      if (topHit) {
+        onSelectElement(topHit.index)
+        const editElement = editElements[topHit.index]
+        if (editElement && isElementDraggable(editElement)) {
+          event.preventDefault()
+          event.currentTarget.setPointerCapture(event.pointerId)
+          const session: DragSession = {
+            kind: 'move',
+            index: topHit.index,
+            pointerId: event.pointerId,
+            startCanvas: point,
+            startElement: editElement,
+            startBounds: topHit.bounds,
+          }
+          dragSessionRef.current = session
+          setDragSession(session)
+        }
+        return
+      }
+
       onSelectElement(null)
     },
-    [mapClientToCanvas, onSelectElement, renderedElements],
+    [
+      editElements,
+      hitTargets,
+      mapClientToCanvas,
+      onSelectElement,
+      selectedEditElement,
+      selectedIndex,
+      selectionBounds,
+      lineCoords,
+    ],
   )
+
+  const handleClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (didDragRef.current) {
+        didDragRef.current = false
+        event.preventDefault()
+        event.stopPropagation()
+      }
+    },
+    [],
+  )
+
+  const handlePointerLeave = useCallback(() => {
+    if (!dragSessionRef.current) {
+      setPointer(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (selectedIndex == null) {
+        return
+      }
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return
+      }
+
+      const step = event.shiftKey ? 10 : snapGrid.enabled ? snapGrid.size : 1
+
+      switch (event.key) {
+        case 'Delete':
+        case 'Backspace':
+          event.preventDefault()
+          onDeleteSelected()
+          break
+        case 'ArrowLeft':
+          event.preventDefault()
+          onNudgeSelected(-step, 0)
+          break
+        case 'ArrowRight':
+          event.preventDefault()
+          onNudgeSelected(step, 0)
+          break
+        case 'ArrowUp':
+          event.preventDefault()
+          onNudgeSelected(0, -step)
+          break
+        case 'ArrowDown':
+          event.preventDefault()
+          onNudgeSelected(0, step)
+          break
+        default:
+          break
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onDeleteSelected, onNudgeSelected, selectedIndex, snapGrid.enabled, snapGrid.size])
+
+  const resizeHandles =
+    selectedEditElement && selectionBounds ? getResizeHandles(selectedEditElement) : []
+
+  const gridLines = useMemo(() => {
+    if (!snapGrid.enabled) {
+      return null
+    }
+    const lines: { x1: number; y1: number; x2: number; y2: number; key: string }[] = []
+    for (let x = 0; x <= renderContext.width; x += snapGrid.size) {
+      lines.push({ x1: x, y1: 0, x2: x, y2: renderContext.height, key: `v-${x}` })
+    }
+    for (let y = 0; y <= renderContext.height; y += snapGrid.size) {
+      lines.push({ x1: 0, y1: y, x2: renderContext.width, y2: y, key: `h-${y}` })
+    }
+    return lines
+  }, [renderContext.height, renderContext.width, snapGrid.enabled, snapGrid.size])
 
   return (
     <section
@@ -206,18 +576,32 @@ export function DesignerCanvas({
     >
       <div className={`flex items-center justify-between border-b ${shell.panelBorder} px-4 py-2`}>
         <h2 className={shell.heading}>Canvas</h2>
-        <span className={`font-mono text-xs ${shell.muted}`}>
-          {pointer
-            ? `${Math.round(pointer.x)}, ${Math.round(pointer.y)}`
-            : `${renderContext.width}×${renderContext.height}`}
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className={`${shell.button} ${snapGrid.enabled ? 'border-[var(--shell-accent)] text-[var(--shell-accent)]' : ''}`}
+            onClick={onToggleSnap}
+          >
+            Snap {snapGrid.enabled ? 'On' : 'Off'}
+          </button>
+          <button type="button" className={shell.button} onClick={onClearAll}>
+            Clear all
+          </button>
+          <span className={`font-mono text-xs ${shell.muted}`}>
+            {pointer
+              ? `${Math.round(pointer.x)}, ${Math.round(pointer.y)}`
+              : `${renderContext.width}×${renderContext.height}`}
+          </span>
+        </div>
       </div>
       <div
         ref={containerRef}
         className="relative flex flex-1 items-center justify-center overflow-hidden bg-[var(--shell-hover)] p-6"
-        onClick={handleClick}
+        onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerLeave}
+        onClick={handleClick}
       >
         <div
           data-canvas-paper
@@ -231,40 +615,86 @@ export function DesignerCanvas({
             } satisfies CSSProperties
           }
         >
+          {gridLines ? (
+            <svg
+              viewBox={`0 0 ${renderContext.width} ${renderContext.height}`}
+              className="pointer-events-none absolute inset-0 z-0 h-full w-full"
+              aria-hidden
+            >
+              {gridLines.map((line) => (
+                <line
+                  key={line.key}
+                  x1={line.x1}
+                  y1={line.y1}
+                  x2={line.x2}
+                  y2={line.y2}
+                  stroke="#e2e8f0"
+                  strokeWidth={0.5}
+                />
+              ))}
+            </svg>
+          ) : null}
+          {renderedElements.map((entry) => (
+            <div
+              key={entry.index}
+              className="pointer-events-none absolute inset-0"
+              style={{ zIndex: entry.index + 1 }}
+            >
+              {entry.result.layer === 'svg' ? (
+                <svg
+                  viewBox={`0 0 ${renderContext.width} ${renderContext.height}`}
+                  className="h-full w-full"
+                  aria-hidden
+                >
+                  <SvgPrimitive primitive={entry.result.primitive} />
+                </svg>
+              ) : (
+                <CanvasElementLayer
+                  primitive={entry.result.primitive}
+                  width={renderContext.width}
+                  height={renderContext.height}
+                  assetImages={displayAssetImages}
+                  fontFamilies={fontFamilies}
+                />
+              )}
+            </div>
+          ))}
           <svg
             viewBox={`0 0 ${renderContext.width} ${renderContext.height}`}
-            className="absolute inset-0 h-full w-full"
-            role="img"
-            aria-label="SVG render layer"
+            className="pointer-events-none absolute inset-0 h-full w-full"
+            style={{ zIndex: renderedElements.length + 1 }}
+            aria-hidden
           >
-            {svgPrimitives.map((entry) =>
-              entry.result.layer === 'svg' ? (
-                <g key={entry.index}>
-                  <SvgPrimitive primitive={entry.result.primitive} />
-                </g>
-              ) : null,
-            )}
             {selectionBounds ? (
-              <rect
-                x={selectionBounds.x - 2}
-                y={selectionBounds.y - 2}
-                width={selectionBounds.width + 4}
-                height={selectionBounds.height + 4}
-                fill="none"
-                stroke="#3b82f6"
-                strokeWidth={2}
-                strokeDasharray="6 3"
-                pointerEvents="none"
-              />
+              <>
+                <rect
+                  x={selectionBounds.x - 2}
+                  y={selectionBounds.y - 2}
+                  width={selectionBounds.width + 4}
+                  height={selectionBounds.height + 4}
+                  fill="none"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  strokeDasharray="6 3"
+                />
+                {resizeHandles.map((handle) => {
+                  const pos = handlePosition(selectionBounds, handle, lineCoords)
+                  return (
+                    <rect
+                      key={handle}
+                      x={pos.x - HANDLE_SIZE / 2}
+                      y={pos.y - HANDLE_SIZE / 2}
+                      width={HANDLE_SIZE}
+                      height={HANDLE_SIZE}
+                      fill="#3b82f6"
+                      stroke="#ffffff"
+                      strokeWidth={1}
+                    />
+                  )
+                })}
+              </>
             ) : null}
           </svg>
-          <canvas
-            ref={canvasRef}
-            width={renderContext.width}
-            height={renderContext.height}
-            className="absolute inset-0 h-full w-full"
-            aria-label="Canvas stub layer"
-          />
         </div>
       </div>
     </section>

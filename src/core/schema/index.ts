@@ -4,6 +4,7 @@ export {
   boolSchema,
   colorSchema,
   coordinateSchema,
+  numericTemplateSchema,
   directionSchema,
   fontSchema,
   gridStyleSchema,
@@ -34,6 +35,18 @@ export {
   type CompletionEntry,
   type CompletionKind,
 } from './completions'
+export {
+  getPropertyDefault,
+  getPropertyDescription,
+  getPropertyEffectiveValue,
+  getPropertySpec,
+  getVisibleProperties,
+  hasPropertyDefault,
+  isRequiredProperty,
+  normalizePropertyValueForStorage,
+  REQUIRED_PROPERTIES_BY_TYPE,
+  type PropertySpecMeta,
+} from './propertyMetadata'
 export {
   ELEMENT_TYPE_INSERTIONS,
   getElementTypeInsertion,

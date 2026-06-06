@@ -27,8 +27,8 @@ todos:
     content: "State Simulator UI + template preview wiring (localStorage mocks; IndexedDB per-project in Phase 3)"
     status: completed
   - id: canvas-core
-    content: "Build canvas interaction layer: selection, drag, resize, snap, keyboard shortcuts, layer ordering"
-    status: pending
+    content: "Phase 2e: canvas interaction — selection, drag, resize, snap, keyboard, layer ordering"
+    status: completed
   - id: renderer
     content: "Phase 3: upgrade renderer stubs to full fidelity (opentype, MDI, QR, plot, dlimg)"
     status: pending
@@ -61,6 +61,27 @@ todos:
     status: completed
   - id: phase2d-commit
     content: "Commit Phase 2d after verification (§11e)"
+    status: completed
+  - id: phase2e-canvas-forms
+    content: "Phase 2e: canvas interaction, property forms, Add Element, examples (§16d)"
+    status: completed
+  - id: phase2e-commit
+    content: "Commit Phase 2e after lint fix + review (§11f)"
+    status: completed
+  - id: phase3f-canvas-followups
+    content: "§19/3f: canvas drag perf, pointer capture, interaction tests, coord edge cases"
+    status: pending
+  - id: phase3d-plot-property-forms
+    content: "§19/3d: plot nested sub-object property fields (beyond JSON blobs)"
+    status: pending
+  - id: phase4-property-form-ux
+    content: "§19/4: JSON field blur UX, property form tests, useProjectState refactor"
+    status: pending
+  - id: phase4-canvas-clipboard
+    content: "§19/4: element copy/paste (Ctrl+C/V) + canvas pan/zoom"
+    status: pending
+  - id: post-v1-canvas-handles
+    content: "§19 post-v1: arc angle handles, polygon point editing on canvas"
     status: pending
 isProject: false
 ---
@@ -363,7 +384,8 @@ Prioritized for a “really nice” designer:
 16. Import/export **asset bundle** (zip of substitutions + manifest) — separate from share link; for moving between your machines.
 17. PWA + offline shell (design without network after first load).
 
-**Lower priority / later**
+**Lower priority / later** — tracked in §7.1 post-v1 list; do not block v1.
+
 18. Multi-select and group move.
 19. HA automation snippet generator wrapping payload in `open_epaper_link.drawcustom` service call.
 20. Side-by-side diff of YAML versions from history.
@@ -624,24 +646,22 @@ flowchart LR
 
 ## 7. Implementation phases
 
-### Progress tracker (updated 2026-06-05)
+### Progress tracker (updated 2026-06-06)
 
 | Phase | Status | Commit | Tests | Notes |
 |-------|--------|--------|-------|-------|
 | **0** Bootstrap | ✅ Done | `133e960` | — | ADRs, rules, agents, spec vendored |
 | **1a** YAML + schema | ✅ Done | `8f6cc3d` | 33 | 16 Zod types, fixtures, completions, HA-clean export |
 | **1b–1d** Core | ✅ Done | `a56eee6` | 108 | Templates, assets, renderer stubs (16/16) |
-| **2a** Stabilize | ✅ Done | `84d2164` | 220 (27 files) | Lint CI, dead code removed, renderer tests slimmed |
-| **2b** YamlEditor | ✅ Done | `84d2164` | 13 editor test files | ADR-009; Jinja scaffolding; user-tested |
-| **2c** UI shell | ✅ Done | `84d2164` | — | Layout, canvas, read-only properties, YAML↔canvas coupling |
-| **2d** Content + templates | ✅ Done | *uncommitted* | 247 (32 files) | Content Manager, State Simulator, template preview, asset upload validation |
-| **2e** Canvas + forms | ⬜ **Next** | — | — | Drag/resize/snap, property forms, Add Element (§16d) |
-| **3** Fidelity | ⬜ | — | — | IndexedDB, opentype metrics, real icons/QR/plot renderer stubs |
-| **4** Polish | ⬜ | — | — | Share hash, history, dither, parse_colors renderer, Playwright e2e |
+| **2a–2c** Shell + YamlEditor | ✅ Done | `84d2164` | 220 (27 files) | Stabilize, editor, layout |
+| **2d** Content + templates | ✅ Done | `95ebf75` | +39 | Content Manager, State Simulator, template preview |
+| **2e** Canvas + forms | ✅ Done | `b559f08` | 325 (45 files) | §19 review done; Phase **2 complete** |
+| **3** Fidelity | ⬜ **Next** | — | — | opentype, MDI, QR, plot, parse_colors, dither, IndexedDB (§17) |
+| **4** Polish | ⬜ After 3 | — | — | Share, history, service options, undo/layers, PNG, e2e, deploy (§18) |
 
-**Current repo health:** `npm run lint` → clean · `npm test` → **247 passed** (32 files) · `npm run build` → clean · Phase 2d **uncommitted** on `main` (last commit `84d2164`)
+**Current repo health:** `npm test` → **325 passed** (45 files) · `npm run lint` → **clean** · `npm run build` → **pass** · Phase **2 complete** on `main`
 
-**Next:** commit Phase 2d (§11e) → Phase **2e** (§16d).
+**Next:** Phase **3** fidelity (§17).
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -692,7 +712,7 @@ Quality gate — no new features. All items delivered and committed.
 
 Committed: layout, canvas, YamlEditor, stabilization fixes, ADR-009, `elementTemplates.ts`, bundled fonts in `public/fonts/`.
 
-### Phase 2d — Content Manager + State Simulator (§16c) ✅ (uncommitted)
+### Phase 2d — Content Manager + State Simulator (§16c) ✅ (`95ebf75`)
 
 - ✅ `ContentManager.tsx` — `scanPayloadForAssets`, upload/clear, resolved / bundled / missing badges
 - ✅ `StateSimulator.tsx` — scanned entity IDs, editable mock values, manual add/remove
@@ -702,46 +722,160 @@ Committed: layout, canvas, YamlEditor, stabilization fixes, ADR-009, `elementTem
 - ✅ Asset upload validation (`validateAssetUpload.ts`) — reject font/image mismatches
 - ✅ Canvas draws uploaded dlimg + loaded font faces (`load-asset-images.ts`, `load-font-faces.ts`); sample payload includes template text + dlimg
 
-### Phase 2e — Canvas interaction + property forms (§16d) ⬜ next
+### Phase 2e — Canvas interaction + property forms (§16d) ✅
 
-- ⬜ Canvas: drag, resize, snap, keyboard nudge/delete, layer reorder
-- ⬜ Schema-driven property forms (replace read-only panel)
-- ⬜ Sidebar: Add Element grid (16 types), Load Example dropdown
-- ⬜ Dark mode polish (theme toggle exists)
+**Reference editing baseline complete.** Phase 2 (UI parity for designing) is **complete**.
 
-### Phase 3 — Fidelity (upgrade stubs → real preview)
+- ✅ `DesignerCanvas.tsx` — drag, 8-handle resize, line endpoints, circle radius; snap toggle + grid overlay (`snapGrid.ts` → `localStorage`)
+- ✅ Keyboard: Delete/Backspace, arrow nudge (Shift = 10px); snap-aware step
+- ✅ `ElementPropertyForm.tsx` + `property-field-meta.ts` + `propertyMetadata.ts` — schema-driven forms (enum/boolean/json/template/font/image fields)
+- ✅ `ElementToolbar.tsx` — Add Element for all 16 types via `createElementFromTemplate`
+- ✅ `example-designs.ts` — Load Example: sample dashboard + 16 minimal one-type designs
+- ✅ `ElementList.tsx` — drag-reorder layers; PropertyPanel: bring to front, send to back, move up/down
+- ✅ Canvas chrome: Clear all, mouse coordinates overlay
+- ✅ `element-geometry.ts`, `canvas-hit-test.ts`, `draw-order.ts`, `selection-remap.ts` — pure UI libs with tests
+- ✅ Resizable property panel width (`useResizablePanelWidth`)
+- ⬜ Deferred: Ctrl+C/V copy/paste elements; pan/zoom viewBox
 
-- IndexedDB persistence for content map + per-project mocks (`src/storage/` — Dexie per ADR-003)
-- opentype.js font metrics (uploaded/bundled fonts load for canvas text today; metrics/layout still stub)
-- Full MDI via `@mdi/js` (`icon-stub` → paths); real QR (`qrcode` package)
-- Plot sample data + curves (`plot-stub` → mock history)
-- Rich golden fixtures from `docs/spec/supported_types.md` (plot nested objects, icon_sequence, …)
-- Renderer fidelity tests (geometry checksums or PNG hashes — replace stub snapshot lock-in)
-- `public/fonts/` — ppb.ttf, rbm.ttf bundled (ShlomosemiStam.ttf also present); opentype wiring still Phase 3
+**Committed:** §19 review complete (2026-06-07). Fixes: lint (`ha-datetime.ts`, `DesignerCanvas.tsx` deps), keyboard nudge guard + safe `translateElement`, `resolveDirection` for templated direction fields.
 
-### Phase 4 — Differentiators + polish
+### §19 follow-up — deferred 2e review tasks
 
-- Project name + 20-item history
-- Hash share (`#d=...`) excluding assets and mocks
-- Accent/dither preview, service options, parse_colors
-- Plot sample data, layer panel, undo/redo, PNG export
+From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases **3f**, **4**, or post-v1.
+
+| ID | Task | Phase | Key files |
+|----|------|-------|-----------|
+| **19-1** | Canvas drag performance — avoid full re-render on every `pointermove`; drag overlay or memoized per-index layers | **3f** | `DesignerCanvas.tsx`, `CanvasElementLayer.tsx` |
+| **19-2** | Explicit `releasePointerCapture` on drag end / `lostpointercapture` | **3f** | `DesignerCanvas.tsx` |
+| **19-3** | Numeric string coords (`"50"`) — align `isInteractiveCoordinate` with core `resolveX`/`resolveY` | **3b** | `element-geometry.ts`, `src/core/renderer/coordinates.ts` |
+| **19-4** | Percentage coord drag (`"50%"`) when position is not templated | **3b** | `element-geometry.ts`, `DesignerCanvas.tsx` |
+| **19-5** | Plot nested sub-object property fields (e.g. `yaxis.smooth`) beyond top-level JSON blobs | **3d** | `ElementPropertyForm.tsx`, `propertyMetadata.ts` |
+| **19-6** | Canvas interaction unit tests — line endpoints, circle radius, bounds resize, nudge guard | **3f** | `tests/ui/lib/canvas-interaction.test.ts` |
+| **19-7** | Property form tests — JSON blur/revert, enum↔template toggle, font/image upload paths | **4** | `ElementPropertyForm.tsx`, Testing Library |
+| **19-8** | JSON property field invalid-on-blur UX (inline error or revert to last valid) | **4** | `ElementPropertyForm.tsx` |
+| **19-9** | Refactor `useProjectState` — batch selection remap with element mutations (`useReducer` or paired updates) | **4** | `useProjectState.ts` — pair with undo/redo |
+| **19-10** | Element copy/paste (Ctrl+C/V, +10px offset) | **4** | `DesignerCanvas.tsx`, `useProjectState.ts` |
+| **19-11** | Canvas pan/zoom (SVG viewBox) | **4** | `DesignerCanvas.tsx` |
+| **19-12** | Arc angle handles; polygon vertex handles on canvas | **post-v1** | `DesignerCanvas.tsx`, `element-geometry.ts` |
+| **19-13** | `moveElementInArray` guard when `toIndex >= length` | **3f** | `element-geometry.ts` |
+
+### Phase 3 — Fidelity (upgrade stubs → real tag preview)
+
+**Biggest user-visible gap after 2e.** Core renderer stubs become honest e-paper preview.
+
+| Area | Current (post-2d) | Phase 3 target |
+|------|-------------------|----------------|
+| Text | Canvas stub + `@font-face` load | opentype.js metrics: wrap, truncate, multiline `\n`, anchors |
+| Icons | Box + MDI name | Full paths via `@mdi/js` |
+| QR | Decorative grid | Scannable via `qrcode` package |
+| Plot | Placeholder area | Axes, legends, sample/synthetic data, `span_gaps`, `smooth`, line styles; **19-5** nested plot property fields |
+| `parse_colors` | Not rendered | Parse `[red]…[/red]` markup in preview (ADR-004) |
+| Dither / accent | Flat RGB | Ordered dither (d=2), optional Floyd-Steinberg; red vs yellow accent toggle |
+| dlimg | Uploaded images draw; no resize_method | Full resize/rotate preview per spec |
+| Assets / mocks | In-memory map + global `localStorage` mocks | IndexedDB (Dexie): blobs, per-project mocks, history snapshots (ADR-003) |
+| Canvas interaction | Full re-render on drag | **19-1** drag overlay / memo; **19-2** pointer capture; **19-6** interaction tests |
+| Coordinates | Numeric only draggable | **19-3** numeric strings; **19-4** percentage drag |
+| Tests | 16 minimal fixtures + exhaustiveness sweep | Rich fixtures from spec; geometry/PNG hash tests |
+
+**Suggested Phase 3 chunks (one agent session each):**
+
+- **3a** — IndexedDB (`src/storage/`) + migrate Content Manager + mock states per project
+- **3b** — opentype text + multiline fidelity; **19-3**, **19-4** coordinate drag edge cases
+- **3c** — MDI icons + icon_sequence
+- **3d** — QR + plot preview; **19-5** plot nested property fields
+- **3e** — parse_colors + dither pipeline (Best-of-N candidate)
+- **3f** — Canvas interaction follow-ups (§19): **19-1** drag perf, **19-2** pointer capture, **19-6** interaction tests, **19-13** array bounds guard
+
+### Phase 4 — Product polish + v1 ship criteria
+
+**Closes the product loop** — share, history, service options, export. Required for §8 v1.
+
+| Feature | Notes |
+|---------|--------|
+| **Share link** | Header Share button; `#d=pako…` restores name + canvas + elements; excludes assets/mocks (ADR-005) |
+| **20-project history** | Named projects, LRU eviction, searchable; index in `localStorage`, snapshots in IndexedDB |
+| **Project name** | Editable field in header |
+| **Service options panel** | `background`, `rotate`, `dither`, `ttl`, `dry-run` — schema exists; needs UI + YAML block |
+| **Undo/redo** | Element + property changes (zustand temporal or custom stack); **19-9** refactor `useProjectState` selection batching |
+| **Layer panel** | Reorder, hide (`visible`), lock, duplicate — beyond 2e bring-to-front |
+| **PNG export** | Dithered preview matching tag output |
+| **Header chrome** | Copy YAML button; missing-assets banner after share import |
+| **Element copy/paste** | **19-10** Ctrl/Cmd+C/V with +10px offset |
+| **Canvas pan/zoom** | **19-11** viewBox pan/zoom on canvas chrome |
+| **Property form UX** | **19-7** form tests; **19-8** JSON invalid-on-blur feedback |
+| **Playwright e2e** | Smoke: load app, add element, drag, edit property, edit YAML (**19-6**, **19-7**) |
+| **GH Pages** | Push to remote; workflow already runs lint/test/build |
+
+**Reference UI gaps (optional in 4):** clipboard paste in Content Manager, asset bundle zip import/export (§3 #16).
+
+### 7.1 After Phase 2e — remaining feature map
+
+Once **2e** is committed, **Phase 2 is complete**. **v1** still requires Phases **3 + 4** plus deploy.
+
+```mermaid
+flowchart LR
+  Done["Phases 0–2 ✅"]
+  P3["Phase 3 fidelity"]
+  P4["Phase 4 product"]
+  V1["v1 ship"]
+  Done --> P3 --> P4 --> V1
+```
+
+**Phase 2 complete:**
+
+- Visual editing: add, move, resize, snap, layer reorder, schema property forms
+- YamlEditor + YAML↔canvas coupling
+- Content Manager + State Simulator + template preview
+- Display presets, rotation, theme
+
+**Already done (no further work for v1 unless noted):**
+
+- 16 draw types in schema + YAML engine + renderer stubs
+- YamlEditor (highlight, autocomplete, Jinja scaffolding, lint)
+- Content Manager + State Simulator + live template preview on canvas
+- Display presets (~30 tag sizes), rotation, dark/light theme
+- HA-clean YAML export; bundled fonts in `public/fonts/`
+
+**Post-v1 / nice-to-have (§3 — defer until after v1):**
+
+- **19-12** Arc angle handles; polygon vertex editing on canvas
+- Alignment tools (center, distribute, match size)
+- Snap to canvas center/edges and other elements
+- Validation summary panel (beyond inline lint)
+- PWA / offline shell
+- Multi-select + group move
+- HA automation snippet generator (`open_epaper_link.drawcustom` wrapper)
+- Side-by-side YAML diff from history
+
+**Recommended order:** Phase 3 (§17, include **3f** §19 follow-ups) → Phase 4 (§18, **19-7**–**19-11**) → push for GH Pages.
 
 ---
 
 ## 8. Parity checklist (must pass before calling v1 complete)
 
-- All 16 draw types add/edit/render/export per spec
-- Percentage coordinates + anchors (Pillow set)
-- All color aliases including hex, halftone shortcuts, accent
-- Plot nested objects (data, ylegend, yaxis, xlegend, xaxis) round-trip
-- Template strings preserved verbatim in YAML (HA-clean export — no designer fields)
-- Local content map resolves fonts/images by exact YAML path (no YAML embedding)
-- HA state simulator evaluates templates for preview
-- **YAML editor:** syntax highlighting (YAML + embedded Jinja), schema-driven autocomplete, Jinja delimiter scaffolding (`{{ }}` / `{% %}`), inline validation diagnostics
-- Share link restores name + canvas + elements (not assets or mocks)
-- 20-project history with searchable names
-- Core test suite passes in CI; ADRs document major decisions
-- GH Pages deploy from clean source repo
+Track status against §7.1. **Phase 2e** covers several editing items; **Phases 3–4** cover the rest.
+
+| Requirement | Status | Phase |
+|-------------|--------|-------|
+| All 16 draw types add/edit/render/export per spec | 🟡 Stubs render; full fidelity Phase 3 | 2e forms + 3 |
+| Percentage coordinates + anchors (Pillow set) | 🟡 Parsed; drag for `"N%"` → **19-4** Phase 3b | 2e + 3b |
+| All color aliases including hex, halftone shortcuts, accent | 🟡 Flat preview; dither Phase 3/4 | 3–4 |
+| Plot nested objects round-trip | ✅ YAML engine | — |
+| Template strings preserved verbatim in HA export | ✅ | — |
+| Local content map by exact YAML path (no embedding) | ✅ In-memory; IndexedDB Phase 3 | 2d / 3a |
+| HA state simulator evaluates templates for preview | ✅ | 2d |
+| YAML editor: highlight, autocomplete, Jinja scaffolding, lint | ✅ | 2b |
+| Schema-driven property forms (all types) | ✅ | 2e |
+| Canvas drag/resize/snap/keyboard | ✅ | 2e |
+| Add Element + Load Example | ✅ | 2e |
+| Element copy/paste (Ctrl+C/V) | ⬜ **19-10** | 4 |
+| Share link restores name + canvas + elements (not assets/mocks) | ⬜ | 4 |
+| 20-project history with searchable names | ⬜ | 4 |
+| Service options UI (`background`, `rotate`, `dither`, …) | ⬜ Schema only | 4 |
+| Real QR, plot, icons, parse_colors in preview | ⬜ | 3 |
+| Core test suite passes in CI | ✅ lint + test in workflow | — |
+| ADRs document major decisions | ✅ ADR-001–009 | — |
+| GH Pages deploy from clean source repo | ⬜ No remote yet | 4 |
 
 ---
 
@@ -899,8 +1033,10 @@ Use the **automate** skill when ready to configure these.
 7. Renderer (icons, dlimg, qrcode, plot)
 8. React shell + canvas
 9. **YamlEditor** — CodeMirror highlighting, YAML + Jinja autocomplete, lint
-10. Content Manager + State Simulator
-11. Share/history/polish
+10. Content Manager + State Simulator ✅
+11. Canvas interaction + property forms (2e)
+12. Renderer fidelity (Phase 3 — split PRs per §7 3a–3e)
+13. Share/history/service options/export (Phase 4)
 
 Each PR ≤ ~500 lines of meaningful diff → easier for you to spot-check in GitHub UI even without coding.
 
@@ -928,25 +1064,34 @@ Each PR ≤ ~500 lines of meaningful diff → easier for you to spot-check in Gi
 
 ---
 
-## 11e. Commit Phase 2d prompt
+## 11e. Commit Phase 2d prompt ✅ (`95ebf75`)
 
-**Use now** — Phase 2d verified; work is uncommitted.
+<!-- prompt archived — phase complete -->
+
+---
+
+## 11f. Commit Phase 2e prompt ✅
+
+**Delivered.** Pre-flight passed 2026-06-07 (`npm run lint && npm test && npm run build`).
 
 ```
-Read docs/PLAN.md §7 progress tracker.
+Read docs/PLAN.md §7 Phase 2e and §7.1.
 
-Pre-flight: npm run lint && npm test && npm run build
+Pre-flight (all must pass):
+  npm run lint && npm test && npm run build
 
-Commit Phase 2d work:
-- src/ui/components/ContentManager.tsx, StateSimulator.tsx
-- src/core/templates/preview.ts, src/core/assets/validateUpload.ts, mime.ts
-- src/ui/hooks/useProjectState.ts, lib/load-asset-images.ts, load-font-faces.ts, verify-asset-upload.ts
-- src/ui/preferences/mockStates.ts, Sidebar/App/DesignerCanvas wiring
-- tests/core/templates/preview.test.ts, tests/core/assets/validate-upload.test.ts
-- tests/ui/preferences/mock-states.test.ts, tests/ui/lib/*
+Fix any BLOCKER/SHOULD FIX findings from §19 before committing.
+
+Commit Phase 2e work:
+- src/ui/components/DesignerCanvas.tsx, ElementPropertyForm.tsx, ElementToolbar.tsx, ElementList.tsx
+- src/ui/lib/element-geometry.ts, canvas-hit-test.ts, snap-to-grid.ts, property-field-meta.ts, draw-order.ts, dlimg-resize.ts
+- src/core/schema/propertyMetadata.ts
+- tests/ui/lib/canvas-interaction.test.ts and related UI tests
 - docs/PLAN.md, README.md
 
-Message: "Phase 2d: content manager, state simulator, template preview"
+Message: "Phase 2e: canvas interaction and schema-driven property forms"
+
+Update README — Phase 2 complete; next Phase 3 per §7.1.
 
 Do not push unless I ask.
 ```
@@ -1052,7 +1197,7 @@ Key files: `src/ui/editor/YamlEditor.tsx`, `jinjaCompletions.ts`, `jinjaBracketH
 
 <!-- prompt archived — phase complete -->
 
-### §16c — Content Manager + State Simulator (Phase 2d) ✅ (uncommitted)
+### §16c — Content Manager + State Simulator (Phase 2d) ✅ (`95ebf75`)
 
 Delivered — see §7 Phase 2d checklist.
 
@@ -1060,19 +1205,13 @@ Key files: `ContentManager.tsx`, `StateSimulator.tsx`, `src/core/templates/previ
 
 <!-- prompt archived — phase complete -->
 
-### §16d — Canvas interaction + property forms (Phase 2e) ⬜ next
+### §16d — Canvas interaction + property forms (Phase 2e) ✅
 
-```
-Execute Phase 2e — canvas interaction and schema-driven property forms.
+Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `ElementPropertyForm.tsx`, `element-geometry.ts`, `property-field-meta.ts`.
 
-Read docs/PLAN.md §7 Phase 2e, docs/adr/ADR-006.
+§19 critical review complete (2026-06-07) — see §19 summary.
 
-Canvas: drag to move, resize handles, snap grid, keyboard nudge/delete, layer reorder.
-Properties: replace read-only PropertyPanel with schema-driven forms per element type.
-Sidebar: Add Element grid (16 types via elementTemplates.ts), Load Example dropdown.
-
-React in src/ui/ only. npm test && npm run lint. Do not commit unless I ask.
-```
+<!-- prompt archived — phase complete -->
 
 ### §16 — YamlEditor prompt (detail) ✅
 
@@ -1083,4 +1222,151 @@ React in src/ui/ only. npm test && npm run lint. Do not commit unless I ask.
 - **Regression guardrails from user testing:** delimiter auto-close; no stray `}` from closeBrackets; spaces inside `{{ }}` and `{% %}` after autocomplete; first-list-item tooltips (no scrollMargins)
 
 <!-- prompt archived — phase complete -->
+
+---
+
+## 17. Phase 3 — fidelity prompts ⬜ after §11f
+
+Use **one agent session per chunk** (§7 Phase 3a–3e). Read `docs/adr/ADR-003`, `ADR-004`.
+
+### §17a — IndexedDB storage
+
+```
+Execute Phase 3a — IndexedDB via Dexie in src/storage/.
+
+Migrate Content Manager blobs and mock states from in-memory/localStorage to per-project IndexedDB.
+Keep HA-clean YAML export unchanged. TDD storage adapters. npm test && npm run lint.
+Next: §17b.
+```
+
+### §17b — opentype text fidelity
+
+```
+Execute Phase 3b — opentype.js text/multiline renderer.
+
+Replace text-stub bounds with real metrics: wrap, truncate, anchors, multiline delimiter.
+Use bundled ppb.ttf/rbm.ttf + uploaded fonts from content map. Vitest + fixture PNG or geometry checks.
+Include §19-3 (numeric string coords in isInteractiveCoordinate) and §19-4 (percentage coord drag) if not already done.
+Next: §17c.
+```
+
+### §17c — MDI icons
+
+```
+Execute Phase 3c — icon and icon_sequence via @mdi/js.
+
+Replace icon-stub with SVG paths; icon picker in property forms. npm test.
+Next: §17d.
+```
+
+### §17d — QR + plot preview
+
+```
+Execute Phase 3d — real QR (qrcode package) and plot preview with sample data editor.
+
+Replace qrcode-stub and plot-stub. Rich fixtures for plot nested objects. npm test.
+Include §19-5: structured plot sub-object fields in ElementPropertyForm (beyond JSON blobs).
+Next: §17e.
+```
+
+### §17e — parse_colors + dither
+
+```
+Execute Phase 3e — parse_colors renderer and ordered dither preview (d=2).
+
+Best-of-N if needed for dither pipeline. Accent red/yellow toggle. Vitest pixel tests.
+Next: §17f.
+```
+
+### §17f — Canvas interaction follow-ups (§19)
+
+```
+Execute Phase 3f — deferred §19 canvas tasks.
+
+Implement:
+- 19-1: drag overlay or per-element memo so pointermove does not re-render entire canvas
+- 19-2: explicit releasePointerCapture on drag end / lostpointercapture
+- 19-6: unit tests for line endpoints, circle radius, bounds resize, nudge guard
+- 19-13: moveElementInArray toIndex bounds guard
+
+Coordinate edge cases (19-3, 19-4) belong in §17b if not done there.
+
+npm test && npm run lint && npm run build.
+```
+
+---
+
+## 18. Phase 4 — product polish prompts ⬜ after Phase 3
+
+### §18 — Share, history, service options, export
+
+```
+Execute Phase 4 — product polish per docs/PLAN.md §7 Phase 4 and §8 parity checklist.
+
+Implement:
+- Hash share #d=pako (ADR-005): Share button, restore name/canvas/elements, missing-asset banner
+- 20-project LRU history + project name field
+- Service options panel (schema already exists)
+- Undo/redo, layer panel (hide/lock/duplicate), PNG export
+- Copy YAML header button
+- §19 follow-ups: 19-7 property form tests, 19-8 JSON blur UX, 19-9 useProjectState refactor (pair with undo/redo), 19-10 Ctrl+C/V copy/paste, 19-11 canvas pan/zoom
+- Playwright e2e smoke test in CI (drag, property edit, YAML round-trip)
+
+npm test && npm run lint && npm run build. Do not push unless I ask.
+```
+
+---
+
+## 19. Phase 2e — critical code review prompt
+
+**Run before §11f commit.** ✅ Completed 2026-06-07. Blockers fixed; lint/test/build green.
+
+### Review summary (2026-06-07)
+
+| Severity | Count | Fixed |
+|----------|-------|-------|
+| BLOCKER | 4 | 4 |
+| SHOULD FIX | 6 | 0 (deferred) |
+| NIT | 5 | — |
+
+**Blockers fixed:** `ha-datetime.ts` control-regex lint; `DesignerCanvas.tsx` spurious hook dep; keyboard nudge corrupting templated coords (`nudgeElement` + `translateElement` guards); `resolveDirection` build break for templated `direction` on icon_sequence/progress_bar.
+
+**Deferred (non-blocking for §11f):** scheduled as **§19 follow-up** tasks in Phases 3f, 4, and post-v1 (see table above §7 Phase 3).
+
+<!-- Original review prompt archived below -->
+
+```
+Critical code review — Phase 2e (canvas interaction + property forms).
+
+Workspace: oepl-designer/ repo root.
+Read docs/PLAN.md §7 Phase 2e, §8 parity checklist, docs/adr/ADR-001 (core boundary), ADR-006, ADR-009.
+
+Scope (prioritize bugs and regressions over style):
+- src/ui/components/DesignerCanvas.tsx — pointer capture, drag/resize, snap, keyboard, selection sync
+- src/ui/lib/element-geometry.ts, canvas-hit-test.ts, snap-to-grid.ts, selection-remap.ts, draw-order.ts
+- src/ui/components/ElementPropertyForm.tsx, property-field-meta.ts
+- src/core/schema/propertyMetadata.ts — form fields match Zod schema / supported_types.md
+- src/ui/hooks/useProjectState.ts — element mutations, YAML round-trip, selection remap after reorder/delete
+- src/ui/editor/yamlElementsSync.ts — visual edits vs YAML coupling still correct
+- Template-templated coordinates: isElementDraggable rules vs user expectations
+
+Review checklist:
+1. **Correctness** — drag/resize math for all 16 types; line endpoints; circle radius; dlimg bounds; layer order matches render order
+2. **YAML sync** — property edits and canvas moves update elements; coupled YAML panel stays consistent; HA-clean export unchanged
+3. **Edge cases** — empty payload, delete selected, reorder while selected, snap off/on, rotation, percentage coords, template strings in position fields
+4. **Core boundary** — no business logic leaked into components that belongs in src/core/
+5. **Security** — font/image upload paths in property form; no XSS via template preview text on canvas
+6. **Performance** — DesignerCanvas re-renders, asset/font reload on drag
+7. **Tests** — gaps in canvas-interaction.test.ts; missing coverage for resize handles or property form
+8. **Lint/CI** — npm run lint must pass (known: ha-datetime.ts no-control-regex, DesignerCanvas hook deps)
+9. **Spec drift** — compare propertyMetadata visible fields vs docs/spec/supported_types.md per type
+
+Deliverable:
+- Severity-ranked findings: BLOCKER / SHOULD FIX / NIT
+- For each BLOCKER/SHOULD FIX: file path, issue, suggested fix
+- Confirm npm test && npm run lint && npm run build after fixes
+- Do NOT commit unless I ask. After clean review: docs/PLAN.md §11f
+```
+
+Use **Ask mode** or a dedicated review Agent chat. For spec coverage, invoke `.cursor/agents/spec-reviewer.md`.
 

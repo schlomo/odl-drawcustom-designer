@@ -8,6 +8,7 @@ interface ContentManagerProps {
   assetRevision: number
   onUpload: (key: string, kind: AssetKind, file: File) => Promise<AssetUploadResult>
   onClear: (key: string) => void
+  embedded?: boolean
 }
 
 const STATUS_LABEL: Record<AssetResolutionStatus, string> = {
@@ -63,6 +64,7 @@ export function ContentManager({
   assetRevision,
   onUpload,
   onClear,
+  embedded = false,
 }: ContentManagerProps) {
   void assetRevision
 
@@ -90,10 +92,13 @@ export function ContentManager({
     })
   }
 
+  const Wrapper = embedded ? 'div' : 'section'
+  const wrapperClass = embedded ? '' : `border-b ${shell.panelBorder} p-4`
+
   return (
-    <section className={`border-b ${shell.panelBorder} p-4`}>
-      <h2 className={shell.heading}>Content manager</h2>
-      <p className={`mt-1 text-xs ${shell.muted}`}>
+    <Wrapper className={wrapperClass}>
+      {!embedded ? <h2 className={shell.heading}>Content manager</h2> : null}
+      <p className={`${embedded ? '' : 'mt-1'} text-xs ${shell.muted}`}>
         Upload files for YAML asset paths. Keys match the exact path in YAML.
       </p>
 
@@ -174,6 +179,6 @@ export function ContentManager({
           ))}
         </ul>
       )}
-    </section>
+    </Wrapper>
   )
 }

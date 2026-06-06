@@ -6,11 +6,9 @@ Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcus
 
 **Phase 1** — core complete (YAML engine, templates, assets, renderer stubs for all 16 types).
 
-**Phase 2a–2c** — UI shell + YamlEditor (**committed** `84d2164`).
+**Phase 2** — complete (YamlEditor, Content Manager, State Simulator, canvas interaction, schema-driven property forms).
 
-**Phase 2d** — Content Manager, State Simulator, live template preview on canvas (**uncommitted**): upload fonts/images by YAML path, mock HA entity states (persisted in `localStorage`), evaluated templates render on canvas while YAML stays verbatim.
-
-**Next:** Phase **2e** — canvas drag/resize and schema-driven property forms. See [`docs/PLAN.md`](docs/PLAN.md) §7 and §16d.
+**Next:** Phase 3 fidelity (opentype text, MDI icons, QR, plot, parse_colors, dither, IndexedDB) → Phase 4 product polish (share, history, service options, export). Map: [`docs/PLAN.md`](docs/PLAN.md) §7.1 and §8.
 
 ## Spec
 

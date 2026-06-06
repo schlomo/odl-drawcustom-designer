@@ -1,4 +1,2 @@
 - type: polygon
   points: [[10, 10], [50, 10], [50, 50], [10, 50]]
-  fill: red
-  outline: black

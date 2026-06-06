@@ -3,7 +3,9 @@ import { serializeYamlPayload, type DrawElement } from '../../core'
 import { locateElementIndexAtPosition } from '../editor/locateElementInYaml'
 import {
   elementsSequenceEqual,
+  getYamlElementsParseIssues,
   shouldApplyExternalYamlSync,
+  summarizeYamlElementsParseIssues,
   tryParseYamlElements,
 } from '../editor/yamlElementsSync'
 import { YamlEditor } from '../editor/YamlEditor'
@@ -74,6 +76,12 @@ export function YamlPanel({
     elementsRef.current = elements
   }, [elements])
 
+  const yamlParseIssueSummary = useMemo(() => {
+    return summarizeYamlElementsParseIssues(getYamlElementsParseIssues(yamlText))
+  }, [yamlText])
+
+  const yamlBlocksCanvasSync = yamlParseIssueSummary != null
+
   const handleYamlChange = useCallback(
     (text: string) => {
       setYamlText(text)
@@ -128,6 +136,19 @@ export function YamlPanel({
           <YamlFontSizeControls fontSize={fontSize} onDecrease={decrease} onIncrease={increase} />
         </div>
       </div>
+      {yamlBlocksCanvasSync ? (
+        <div
+          className="shrink-0 border-b border-red-500/30 bg-red-500/10 px-4 py-2 text-xs text-red-200"
+          role="status"
+        >
+          <p className="font-medium">YAML not applied to canvas</p>
+          <p className="mt-1 text-red-100/90">{yamlParseIssueSummary}</p>
+          <p className={`mt-1 ${shell.muted}`}>
+            Fix the highlighted issue in the editor below (red underline). The canvas keeps the last
+            valid design until validation passes.
+          </p>
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1">
         <YamlEditor
           className="h-full min-h-0 [&_.cm-editor]:h-full [&_.cm-scroller]:min-h-0"
@@ -136,6 +157,7 @@ export function YamlPanel({
           fontSizePx={fontSize}
           height="100%"
           scrollCommand={scrollCommand}
+          preserveLinkedElementIndex={couplingEnabled ? selectedIndex : null}
           onCursorPositionChange={handleCursorPosition}
           value={yamlText}
           onChange={handleYamlChange}

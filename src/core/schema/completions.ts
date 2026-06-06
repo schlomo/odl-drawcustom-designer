@@ -1,5 +1,12 @@
-import { COLOR_ALIASES, directionSchema, gridStyleSchema, lineStyleSchema, resizeMethodSchema } from './common'
+import {
+  COLOR_ALIASES,
+  DIRECTION_OPTIONS,
+  GRID_STYLE_OPTIONS,
+  LINE_STYLE_OPTIONS,
+  RESIZE_METHOD_OPTIONS,
+} from './common'
 import { DRAW_ELEMENT_TYPES } from './elements'
+import { getPropertyDescription, isRequiredProperty } from './propertyMetadata'
 import { SERVICE_OPTION_KEYS } from './service'
 
 export type CompletionKind = 'type' | 'property' | 'enum' | 'service'
@@ -138,12 +145,32 @@ export const PROPERTIES_BY_TYPE: Record<(typeof DRAW_ELEMENT_TYPES)[number], rea
   ],
 }
 
+/** Pillow text/icon anchors (horizontal: l/m/r × vertical: t/a/m/b/d). */
+export const ANCHOR_VALUES = [
+  'lt',
+  'la',
+  'lm',
+  'lb',
+  'ld',
+  'mt',
+  'ma',
+  'mm',
+  'mb',
+  'md',
+  'rt',
+  'ra',
+  'rm',
+  'rb',
+  'rd',
+] as const
+
 export const ENUMS = {
   color: COLOR_ALIASES,
-  direction: directionSchema.options,
-  resize_method: resizeMethodSchema.options,
-  line_style: lineStyleSchema.options,
-  grid_style: gridStyleSchema.options,
+  anchor: ANCHOR_VALUES,
+  direction: DIRECTION_OPTIONS,
+  resize_method: RESIZE_METHOD_OPTIONS,
+  line_style: LINE_STYLE_OPTIONS,
+  grid_style: GRID_STYLE_OPTIONS,
   dither: ['0', '1', '2'] as const,
   dry_run: ['true', 'false', 'True', 'False'] as const,
 } as const
@@ -160,6 +187,9 @@ export function getPropertyCompletions(elementType: (typeof DRAW_ELEMENT_TYPES)[
   return PROPERTIES_BY_TYPE[elementType].map((property) => ({
     label: property,
     kind: 'property' as const,
+    detail: isRequiredProperty(elementType, property)
+      ? 'required'
+      : getPropertyDescription(elementType, property),
   }))
 }
 

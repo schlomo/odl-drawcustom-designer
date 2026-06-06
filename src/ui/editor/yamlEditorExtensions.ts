@@ -15,6 +15,7 @@ import { yamlEntityIdsCompartment, yamlEntityIdsFacet } from './yamlEntityIds'
 import { yamlWithJinja } from './yamlLanguage'
 import { yamlPayloadLinter } from './yamlLint'
 import { createYamlEditorTheme } from './yamlTheme'
+import { shouldSyncYamlCursorToCanvas, shouldReportYamlDocChange } from './yamlEditorSelection'
 
 export const yamlThemeCompartment = new Compartment()
 
@@ -48,6 +49,7 @@ export function createYamlEditorState(
     current: ((position: number) => void) | undefined
   },
   shouldReportCursor: (selection: { empty: boolean }) => boolean,
+  suppressCursorReportRef: { current: boolean },
 ): EditorState {
   return EditorState.create({
     doc,
@@ -73,20 +75,29 @@ export function createYamlEditorState(
       }),
       highlightActiveLineWhenCollapsed(),
       EditorView.updateListener.of((update) => {
-        if (update.docChanged) {
+        if (
+          shouldReportYamlDocChange(update.docChanged, update.transactions)
+        ) {
           onDocChange(update.state.doc.toString(), update)
         }
 
         const onCursorPositionChange = onCursorPositionChangeRef.current
-        if (!onCursorPositionChange) {
+        if (!onCursorPositionChange || suppressCursorReportRef.current) {
           return
         }
         if (!update.selectionSet && !update.docChanged) {
           return
         }
+        // Linked YAML selection follows explicit cursor moves, not programmatic doc sync.
+        if (update.docChanged && !update.selectionSet) {
+          return
+        }
 
         const { main } = update.state.selection
         if (!shouldReportCursor(main)) {
+          return
+        }
+        if (!shouldSyncYamlCursorToCanvas(update.view.hasFocus)) {
           return
         }
 

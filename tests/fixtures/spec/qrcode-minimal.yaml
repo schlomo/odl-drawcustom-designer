@@ -2,7 +2,3 @@
   data: https://www.example.com
   x: 140
   y: 50
-  boxsize: 2
-  border: 2
-  color: black
-  bgcolor: white

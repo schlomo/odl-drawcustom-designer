@@ -7,12 +7,22 @@ import {
   scanPayloadForTemplates,
   setAsset,
 } from '../../core'
-import { DEFAULT_PRESET_ID, DISPLAY_PRESETS } from '../data/display-presets'
+import { EXAMPLE_DESIGNS } from '../data/example-designs'
+import { DISPLAY_PRESETS, isCustomDisplayPreset } from '../data/display-presets'
 import { SAMPLE_ELEMENTS } from '../data/sample-elements'
+import { createElementFromTemplate } from '../lib/create-element-from-template'
+import { isElementDraggable, moveElementInArray, translateElement } from '../lib/element-geometry'
+import { remapIndexAfterMove } from '../lib/selection-remap'
 import { verifyAndValidateAssetUpload } from '../lib/verify-asset-upload'
+import {
+  readDisplayConfig,
+  writeDisplayConfig,
+  type CanvasRotation,
+} from '../preferences/displayConfig'
 import { readMockStates, writeMockStates } from '../preferences/mockStates'
+import { readSnapGridPrefs, writeSnapGridPrefs, type SnapGridPrefs } from '../preferences/snapGrid'
 
-export type CanvasRotation = 0 | 90 | 180 | 270
+export type { CanvasRotation } from '../preferences/displayConfig'
 export type SelectionSource = 'ui' | 'yaml'
 
 export interface CanvasConfig {
@@ -29,17 +39,10 @@ export interface ProjectState {
   mockContext: HaMockContext
 }
 
-const defaultPreset = DISPLAY_PRESETS.find((preset) => preset.id === DEFAULT_PRESET_ID)!
-
 const initialState: ProjectState = {
   elements: SAMPLE_ELEMENTS,
   selectedIndex: null,
-  canvas: {
-    width: defaultPreset.width,
-    height: defaultPreset.height,
-    rotation: 0,
-    accentMode: 'red',
-  },
+  canvas: readDisplayConfig(),
   mockContext: { states: readMockStates() },
 }
 
@@ -62,13 +65,22 @@ export function useProjectState() {
   const [elements, setElements] = useState<DrawElement[]>(initialState.elements)
   const [selectedIndex, setSelectedIndex] = useState<number | null>(initialState.selectedIndex)
   const [selectionSource, setSelectionSource] = useState<SelectionSource>('ui')
-  const [canvas, setCanvas] = useState<CanvasConfig>(initialState.canvas)
+  const [canvas, setCanvas] = useState<CanvasConfig>(() => readDisplayConfig())
   const [mockStates, setMockStates] = useState<HaMockContext['states']>(() => readMockStates())
   const [assetRevision, setAssetRevision] = useState(0)
+  const [snapGrid, setSnapGrid] = useState<SnapGridPrefs>(() => readSnapGridPrefs())
 
   useEffect(() => {
     writeMockStates(mockStates)
   }, [mockStates])
+
+  useEffect(() => {
+    writeSnapGridPrefs(snapGrid)
+  }, [snapGrid])
+
+  useEffect(() => {
+    writeDisplayConfig(canvas)
+  }, [canvas])
 
   const mockContext = useMemo(
     () => buildEffectiveMockContext(elements, mockStates),
@@ -103,8 +115,10 @@ export function useProjectState() {
     }
     setCanvas((current) => ({
       ...current,
-      width: preset.width,
-      height: preset.height,
+      ...(isCustomDisplayPreset(preset) || preset.width == null || preset.height == null
+        ? {}
+        : { width: preset.width, height: preset.height }),
+      ...(preset.accentMode != null ? { accentMode: preset.accentMode } : {}),
     }))
   }, [])
 
@@ -163,6 +177,167 @@ export function useProjectState() {
     setAssetRevision((revision) => revision + 1)
   }, [])
 
+  const updateElement = useCallback((index: number, nextElement: DrawElement) => {
+    setElements((current) => {
+      if (index < 0 || index >= current.length) {
+        return current
+      }
+      const next = [...current]
+      next[index] = nextElement
+      return next
+    })
+  }, [])
+
+  const updateElementProperty = useCallback(
+    (index: number, key: string, value: unknown) => {
+      setElements((current) => {
+        if (index < 0 || index >= current.length) {
+          return current
+        }
+        const element = current[index]
+        const next = [...current]
+        if (value === undefined) {
+          const nextElement = { ...element } as Record<string, unknown>
+          delete nextElement[key]
+          next[index] = nextElement as DrawElement
+        } else {
+          next[index] = { ...element, [key]: value } as DrawElement
+        }
+        return next
+      })
+    },
+    [],
+  )
+
+  const deleteElement = useCallback((index: number) => {
+    setElements((current) => {
+      if (index < 0 || index >= current.length) {
+        return current
+      }
+      return current.filter((_, i) => i !== index)
+    })
+    setSelectedIndex((current) => {
+      if (current == null) {
+        return null
+      }
+      if (current === index) {
+        return null
+      }
+      if (current > index) {
+        return current - 1
+      }
+      return current
+    })
+  }, [])
+
+  const addElement = useCallback((type: DrawElement['type']) => {
+    const element = createElementFromTemplate(type)
+    setElements((current) => {
+      const next = [...current, element]
+      setSelectedIndex(next.length - 1)
+      setSelectionSource('ui')
+      return next
+    })
+  }, [])
+
+  const clearElements = useCallback(() => {
+    setElements([])
+    setSelectedIndex(null)
+  }, [])
+
+  const loadExample = useCallback((exampleId: string) => {
+    const example = EXAMPLE_DESIGNS.find((entry) => entry.id === exampleId)
+    if (!example) {
+      return
+    }
+    setElements(example.elements.map((element) => ({ ...element })))
+    setSelectedIndex(null)
+  }, [])
+
+  const nudgeElement = useCallback((index: number, dx: number, dy: number) => {
+    setElements((current) => {
+      if (index < 0 || index >= current.length) {
+        return current
+      }
+      const element = current[index]
+      if (!isElementDraggable(element)) {
+        return current
+      }
+      const next = [...current]
+      next[index] = translateElement(element, dx, dy)
+      return next
+    })
+  }, [])
+
+  const moveElementLayer = useCallback((fromIndex: number, toIndex: number) => {
+    setElements((current) => {
+      if (fromIndex === toIndex || fromIndex < 0 || fromIndex >= current.length) {
+        return current
+      }
+      setSelectedIndex((selected) => remapIndexAfterMove(selected, fromIndex, toIndex))
+      return moveElementInArray(current, fromIndex, toIndex)
+    })
+  }, [])
+
+  const bringToFront = useCallback((index: number) => {
+    setElements((current) => {
+      if (index < 0 || index >= current.length - 1) {
+        return current
+      }
+      const toIndex = current.length - 1
+      setSelectedIndex((selected) => remapIndexAfterMove(selected, index, toIndex))
+      return moveElementInArray(current, index, toIndex)
+    })
+  }, [])
+
+  const sendToBack = useCallback((index: number) => {
+    setElements((current) => {
+      if (index <= 0 || index >= current.length) {
+        return current
+      }
+      setSelectedIndex((selected) => remapIndexAfterMove(selected, index, 0))
+      return moveElementInArray(current, index, 0)
+    })
+  }, [])
+
+  const moveLayerUp = useCallback(
+    (index: number) => {
+      setElements((current) => {
+        if (index >= current.length - 1) {
+          return current
+        }
+        const toIndex = index + 1
+        setSelectedIndex((selected) => remapIndexAfterMove(selected, index, toIndex))
+        return moveElementInArray(current, index, toIndex)
+      })
+    },
+    [],
+  )
+
+  const moveLayerDown = useCallback(
+    (index: number) => {
+      setElements((current) => {
+        if (index <= 0) {
+          return current
+        }
+        const toIndex = index - 1
+        setSelectedIndex((selected) => remapIndexAfterMove(selected, index, toIndex))
+        return moveElementInArray(current, index, toIndex)
+      })
+    },
+    [],
+  )
+
+  const reorderElement = moveElementLayer
+
+  const toggleSnapGrid = useCallback(() => {
+    setSnapGrid((current) => ({ ...current, enabled: !current.enabled }))
+  }, [])
+
+  const setSnapGridSize = useCallback((size: number) => {
+    setSnapGrid((current) => ({ ...current, size: Math.max(1, size) }))
+  }, [])
+
   const selectedElement = selectedIndex != null ? (elements[selectedIndex] ?? null) : null
 
   return {
@@ -186,5 +361,20 @@ export function useProjectState() {
     assetRevision,
     uploadAsset,
     clearAsset,
+    updateElement,
+    updateElementProperty,
+    deleteElement,
+    addElement,
+    clearElements,
+    loadExample,
+    nudgeElement,
+    bringToFront,
+    sendToBack,
+    moveLayerUp,
+    moveLayerDown,
+    reorderElement,
+    snapGrid,
+    toggleSnapGrid,
+    setSnapGridSize,
   }
 }

@@ -18,7 +18,7 @@ function loadImageBlob(blob: Blob): Promise<void> {
 }
 
 async function loadFontBlob(blob: Blob): Promise<void> {
-  const face = new FontFace('oepl-upload-verify', blob)
+  const face = new FontFace('oepl-upload-verify', await blob.arrayBuffer())
   await face.load()
 }
 

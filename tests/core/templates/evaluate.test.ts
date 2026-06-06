@@ -119,4 +119,43 @@ describe('evaluateTemplate', () => {
       expect(evaluateTemplate('50%', temperatureContext)).toBe('50%')
     })
   })
+
+  describe('HA globals used in drawcustom icon templates', () => {
+    it('evaluates float() with a default for entity state', () => {
+      expect(
+        evaluateTemplate(
+          "{{ (float(states('sensor.uv_index'), 0) * 7 + 24) | round(0) }}",
+          { states: { 'sensor.uv_index': '3' } },
+        ),
+      ).toBe('45')
+    })
+
+    it('evaluates iif() for conditional fill colors', () => {
+      expect(
+        evaluateTemplate(
+          "{{ iif(is_state('binary_sensor.example_window', 'on'), 'black', 'none') }}",
+          { states: { 'binary_sensor.example_window': 'off' } },
+        ),
+      ).toBe('none')
+      expect(
+        evaluateTemplate(
+          "{{ iif(is_state('binary_sensor.example_window', 'on'), 'black', 'none') }}",
+          { states: { 'binary_sensor.example_window': 'on' } },
+        ),
+      ).toBe('black')
+    })
+  })
+
+  describe('datetime helpers', () => {
+    const clockContext: HaMockContext = {
+      states: {},
+      now: new Date(2026, 5, 6, 23, 44, 0),
+    }
+
+    it('evaluates now().strftime for clock labels', () => {
+      expect(
+        evaluateTemplate("{{ now().strftime('%d.%m.%Y %H:%M') }}", clockContext),
+      ).toBe('06.06.2026 23:44')
+    })
+  })
 })

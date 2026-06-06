@@ -1,4 +1,6 @@
+import { getCanvasTextDrawStyle } from '../../core/renderer/text-anchor-draw'
 import type { CanvasPrimitive } from '../../core/renderer/types'
+import { drawDlimgToCanvas } from './dlimg-resize'
 import { resolveCanvasFontFamily } from './load-font-faces'
 
 export function drawCanvasStub(
@@ -16,7 +18,12 @@ export function drawCanvasStub(
       ctx.strokeRect(primitive.x, primitive.y, primitive.width, primitive.height)
       ctx.setLineDash([])
       ctx.font = `${primitive.fontSize}px ${resolveCanvasFontFamily(primitive.font, fontFamilies)}, sans-serif`
-      ctx.fillText(primitive.value, primitive.x + 2, primitive.y + primitive.fontSize)
+      const { textAlign, textBaseline } = getCanvasTextDrawStyle(primitive.anchor)
+      ctx.textAlign = textAlign
+      ctx.textBaseline = textBaseline
+      ctx.fillText(primitive.value, primitive.anchorX, primitive.anchorY)
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'alphabetic'
       break
     }
     case 'multiline-stub': {
@@ -36,7 +43,17 @@ export function drawCanvasStub(
     case 'dlimg-stub': {
       const image = assetImages.get(primitive.url)
       if (image) {
-        ctx.drawImage(image, primitive.x, primitive.y, primitive.width, primitive.height)
+        drawDlimgToCanvas(
+          ctx,
+          image,
+          {
+            x: primitive.x,
+            y: primitive.y,
+            width: primitive.width,
+            height: primitive.height,
+          },
+          primitive.resizeMethod as 'stretch' | 'crop' | 'cover' | 'contain' | undefined,
+        )
         break
       }
 

@@ -82,4 +82,49 @@ describe('applyTemplateContextToPayload', () => {
 
     expect((preview[0] as Extract<DrawElement, { type: 'plot' }>).ylegend?.text).toBe('21.5')
   })
+
+  it('evaluates templated icon size and fill for preview', () => {
+    const payload: DrawElement[] = [
+      {
+        type: 'icon',
+        value: 'mdi:sunglasses',
+        x: 150,
+        y: 280,
+        size: "{{ (float(states('sensor.uv_index'), 0) * 7 + 24) | round(0) }}",
+        fill: "{{ iif(is_state('binary_sensor.example_window', 'on'), 'black', 'none') }}",
+        anchor: 'lm',
+      },
+    ]
+
+    const preview = applyTemplateContextToPayload(payload, {
+      states: {
+        'sensor.uv_index': '3',
+        'binary_sensor.example_window': 'off',
+      },
+    })
+
+    expect(preview[0]).toMatchObject({
+      type: 'icon',
+      size: '45',
+      fill: 'none',
+    })
+  })
+
+  it('evaluates now().strftime in text values', () => {
+    const payload: DrawElement[] = [
+      {
+        type: 'text',
+        value: "{{ now().strftime('%d.%m.%Y %H:%M') }}",
+        x: 0,
+        y: 0,
+      },
+    ]
+
+    const preview = applyTemplateContextToPayload(payload, {
+      states: {},
+      now: new Date(2026, 5, 6, 23, 44, 0),
+    })
+
+    expect((preview[0] as Extract<DrawElement, { type: 'text' }>).value).toBe('06.06.2026 23:44')
+  })
 })

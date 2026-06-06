@@ -27,6 +27,8 @@ export interface YamlEditorProps {
   colorScheme: ResolvedTheme
   fontSizePx: number
   scrollCommand?: YamlScrollCommand | null
+  /** When set, external doc sync restores the cursor to this element (property/canvas edits). */
+  preserveLinkedElementIndex?: number | null
   onCursorPositionChange?: (position: number) => void
   className?: string
   extraEntityIds?: readonly string[]
@@ -56,6 +58,7 @@ export function YamlEditor({
   colorScheme,
   fontSizePx,
   scrollCommand = null,
+  preserveLinkedElementIndex = null,
   onCursorPositionChange,
   className,
   extraEntityIds = [],
@@ -67,6 +70,7 @@ export function YamlEditor({
   const onChangeRef = useRef(onChange)
   const onCursorPositionChangeRef = useRef(onCursorPositionChange)
   const lastEmittedValueRef = useRef(value)
+  const suppressCursorReportRef = useRef(false)
   const scannedEntityIds = useMemo(() => resolveEntityIds(value), [value])
   const entityIds = useMemo(
     () => mergeEntityIds(scannedEntityIds, extraEntityIds),
@@ -97,6 +101,7 @@ export function YamlEditor({
         pointerActiveRef,
         onCursorPositionChangeRef,
         shouldReportYamlCursorPosition,
+        suppressCursorReportRef,
       ),
       parent: container,
     })
@@ -151,11 +156,23 @@ export function YamlEditor({
       return
     }
 
+    suppressCursorReportRef.current = true
     view.dispatch({
       changes: { from: 0, to: current.length, insert: value },
+      ...(preserveLinkedElementIndex != null
+        ? (() => {
+            const position = locateElementFocusInYaml(value, preserveLinkedElementIndex)
+            return position != null
+              ? { selection: { anchor: position, head: position } }
+              : {}
+          })()
+        : {}),
     })
     lastEmittedValueRef.current = value
-  }, [value])
+    queueMicrotask(() => {
+      suppressCursorReportRef.current = false
+    })
+  }, [preserveLinkedElementIndex, value])
 
   useEffect(() => {
     if (!scrollCommand) {

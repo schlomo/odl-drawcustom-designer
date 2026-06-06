@@ -162,8 +162,7 @@ describe('element type completion apply', () => {
   width: 2
   fill: black`
     const text = formatElementTypeApplyText('rectangle', ' ', lineBlock)
-    expect(text).toBe(`rectangle
-  outline: black`)
+    expect(text).toBe('rectangle')
     expect(text).not.toContain('x_start:')
   })
 

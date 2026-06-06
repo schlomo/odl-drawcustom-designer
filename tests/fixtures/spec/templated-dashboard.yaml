@@ -1,0 +1,93 @@
+- type: dlimg
+  url: /local/background.png
+  x: 0
+  "y": 0
+  xsize: 565
+  ysize: 480
+  resize_method: contain
+  rotate: 0
+- type: text
+  value: "{{ states('sensor.outdoor_temperature') | float(99) | round(0) }} °C"
+  x: 119
+  "y": 9
+  size: 40
+- type: text
+  value: >-
+    {{ states('sensor.apparent_temperature') | float(99) | round(0) }} °C
+  x: 30
+  "y": 240
+  size: 40
+  anchor: lm
+- type: text
+  value: "{{ now().strftime('%d.%m.%Y %H:%M') }}"
+  x: 800
+  "y": 480
+  size: 20
+  font: ppb.ttf
+  anchor: rb
+- type: rectangle
+  x_start: 480
+  y_start: 83
+  x_end: 546
+  y_end: 110
+  fill: half_accent
+  outline: none
+  width: 1
+- type: text
+  value: "{{ states('sensor.room_temperature') | float(99) | round(0) }} °C"
+  x: 513
+  "y": 97
+  size: 20
+  font: ppb.ttf
+  anchor: mm
+- type: rectangle
+  x_start: 222
+  y_start: 339
+  x_end: 284
+  y_end: 366
+  fill: half_accent
+  outline: none
+  width: 1
+- type: text
+  value: "{{ states('sensor.secondary_temperature') | float(99) | round(0) }} °C"
+  x: 253
+  "y": 353
+  size: 20
+  font: ppb.ttf
+  anchor: mm
+- type: icon
+  value: mdi:thermometer
+  x: 30
+  "y": 240
+  size: 30
+  fill: black
+  anchor: rm
+- type: icon
+  value: mdi:weather-sunny
+  x: 27
+  "y": 280
+  size: 24
+  fill: black
+  anchor: rm
+- type: text
+  value: "{{ states('sensor.uv_index') | float(0) | round(1) }} UV"
+  x: 30
+  "y": 280
+  size: 24
+  anchor: lm
+- type: icon
+  value: mdi:sunglasses
+  x: 150
+  "y": 280
+  size: "{{ (float(states('sensor.uv_index'), 0) * 7 + 24) | round(0) }}"
+  fill: >-
+    {{ iif(is_state('binary_sensor.example_window', 'on'), 'black', 'none') }}
+  anchor: lm
+- type: text
+  value: >-
+    Current UV: {{ states('sensor.uv_current') | float(0) | round(1) }}
+  x: 3
+  "y": 304
+  size: 14
+  font: ppb.ttf
+  anchor: lm

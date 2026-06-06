@@ -31,6 +31,10 @@ export const COLOR_ALIASES = [
 /** Jinja template strings used for dynamic color (and similar) fields in HA YAML. */
 export const jinjaTemplateStringSchema = z.string().refine((value) => hasTemplateSyntax(value))
 
+function enumOrJinjaTemplateSchema<const T extends readonly [string, ...string[]]>(values: T) {
+  return z.union([z.enum(values), jinjaTemplateStringSchema])
+}
+
 export const colorSchema = z.union([
   z.enum(COLOR_ALIASES),
   z.string().regex(/^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/),
@@ -43,6 +47,9 @@ export const coordinateSchema = z.union([
   z.string().regex(/^\d+(\.\d+)?%$/),
 ])
 
+/** Numeric fields that accept HA Jinja templates (e.g. dynamic icon size). */
+export const numericTemplateSchema = z.union([z.number(), jinjaTemplateStringSchema])
+
 export const boolSchema = z.union([
   z.boolean(),
   z.enum(['true', 'false', 'True', 'False']),
@@ -54,13 +61,18 @@ export const fontSchema = z.string().optional()
 
 export const anchorSchema = z.string().optional()
 
-export const directionSchema = z.enum(['right', 'left', 'up', 'down'])
+export const DIRECTION_OPTIONS = ['right', 'left', 'up', 'down'] as const
+export const RESIZE_METHOD_OPTIONS = ['stretch', 'crop', 'cover', 'contain'] as const
+export const LINE_STYLE_OPTIONS = ['linear', 'step'] as const
+export const GRID_STYLE_OPTIONS = ['dotted', 'dashed', 'lines'] as const
 
-export const resizeMethodSchema = z.enum(['stretch', 'crop', 'cover', 'contain'])
+export const directionSchema = enumOrJinjaTemplateSchema(DIRECTION_OPTIONS)
 
-export const lineStyleSchema = z.enum(['linear', 'step'])
+export const resizeMethodSchema = enumOrJinjaTemplateSchema(RESIZE_METHOD_OPTIONS)
 
-export const gridStyleSchema = z.enum(['dotted', 'dashed', 'lines'])
+export const lineStyleSchema = enumOrJinjaTemplateSchema(LINE_STYLE_OPTIONS)
+
+export const gridStyleSchema = enumOrJinjaTemplateSchema(GRID_STYLE_OPTIONS)
 
 export const cornersSchema = z.union([
   z.literal('all'),

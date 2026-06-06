@@ -22,10 +22,10 @@ describe('renderLine', () => {
       primitive: {
         kind: 'line',
         x1: 20,
-        y1: 15,
+        y1: 0,
         x2: 380,
-        y2: 15,
-        stroke: '#FF0000',
+        y2: 0,
+        stroke: '#000000',
         strokeWidth: 1,
       },
     })

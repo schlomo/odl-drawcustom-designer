@@ -18,7 +18,7 @@ export async function loadAssetImageMap(keys: readonly string[]): Promise<Map<st
 
   for (const key of uniqueKeys) {
     const resolution = resolveAsset(key)
-    if (!resolution.blob || !isImageMime(resolution.mime)) {
+    if (!resolution.blob || !resolution.mime || !isImageMime(resolution.mime)) {
       continue
     }
 

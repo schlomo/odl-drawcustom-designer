@@ -105,6 +105,43 @@ describe('validatePayload', () => {
     ])
     expect(result.success).toBe(true)
   })
+
+  it('accepts Jinja template strings in icon size', () => {
+    const result = validatePayload([
+      {
+        type: 'icon',
+        value: 'mdi:sunglasses',
+        x: 0,
+        y: 0,
+        size: "{{ (float(states('sensor.example_metric'), 0) * 7 + 24) | round(0) }}",
+        fill: 'black',
+      },
+    ])
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts Jinja template strings in enum option fields', () => {
+    const result = validatePayload([
+      {
+        type: 'dlimg',
+        url: '/local/bg.png',
+        x: 0,
+        y: 0,
+        xsize: 565,
+        ysize: 480,
+        resize_method: '{{ r }}',
+      },
+      {
+        type: 'icon_sequence',
+        x: 0,
+        y: 0,
+        icons: ['mdi:home'],
+        size: 24,
+        direction: "{{ 'right' if is_state('binary_sensor.door', 'on') else 'left' }}",
+      },
+    ])
+    expect(result.success).toBe(true)
+  })
 })
 
 describe('validateServiceOptions', () => {

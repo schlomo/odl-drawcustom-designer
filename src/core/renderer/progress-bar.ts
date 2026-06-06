@@ -1,4 +1,5 @@
 import type { DrawElement } from '../schema/elements'
+import { resolveDirection } from './anchors'
 import { mapColor } from './colors'
 import { resolveBounds } from './bounds'
 import type { RenderContext, RenderResult, SvgRectPrimitive } from './types'
@@ -69,7 +70,7 @@ export function renderProgressBar(
 
   const colorOptions = { accentMode: ctx.accentMode }
   const bounds = resolveBounds(element.x_start, element.x_end, element.y_start, element.y_end, ctx)
-  const direction = element.direction ?? 'right'
+  const direction = resolveDirection(element.direction)
   const backgroundFill = mapColor(element.background ?? 'white', colorOptions)
   const progressFill = mapColor(element.fill ?? 'black', colorOptions)
   const stroke = mapColor(element.outline ?? 'black', colorOptions) ?? undefined
