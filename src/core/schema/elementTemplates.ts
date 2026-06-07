@@ -6,7 +6,8 @@ export const ELEMENT_TYPE_INSERTIONS: Record<DrawElement['type'], string> = {
   debug_grid: 'debug_grid',
   text: `text
   value: Hello World!
-  x: 0`,
+  x: 0
+  y: 0`,
   multiline: `multiline
   value: Line 1|Line 2|Line 3
   delimiter: "|"
@@ -14,7 +15,9 @@ export const ELEMENT_TYPE_INSERTIONS: Record<DrawElement['type'], string> = {
   offset_y: 50`,
   line: `line
   x_start: 20
-  x_end: 380`,
+  x_end: 380
+  y_start: 0
+  y_end: 0`,
   rectangle: `rectangle
   x_start: 20
   x_end: 80

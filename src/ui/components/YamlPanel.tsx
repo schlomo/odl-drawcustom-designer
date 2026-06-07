@@ -65,16 +65,16 @@ export function YamlPanel({
     skipExternalSyncRef.current = false
   }, [serialized])
 
-  const scrollCommand = useMemo(
-    () => createYamlScrollCommand(couplingEnabled, selectedIndex, selectionSource),
-    [couplingEnabled, selectedIndex, selectionSource],
-  )
-
   const elementsRef = useRef(elements)
 
   useEffect(() => {
     elementsRef.current = elements
   }, [elements])
+
+  const scrollCommand = useMemo(
+    () => createYamlScrollCommand(couplingEnabled, selectedIndex, selectionSource),
+    [couplingEnabled, selectedIndex, selectionSource],
+  )
 
   const yamlParseIssueSummary = useMemo(() => {
     return summarizeYamlElementsParseIssues(getYamlElementsParseIssues(yamlText))

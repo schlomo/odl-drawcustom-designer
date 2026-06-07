@@ -65,16 +65,16 @@ export function App() {
       const previous = elementsRef.current
       const nextIndex = remapSelectedIndex(previous, next, selectedIndex)
       setElements(next)
-      if (nextIndex === selectedIndex) {
-        return
-      }
       if (nextIndex != null) {
-        selectElement(nextIndex, 'yaml')
+        if (nextIndex !== selectedIndex) {
+          selectElement(nextIndex, 'yaml')
+        }
         return
       }
-      // Keep selection when yaml round-trip normalization could not remap exactly.
+      // Property-only edit at the same index (yaml round-trip normalization).
       if (
         selectedIndex != null &&
+        next.length === previous.length &&
         selectedIndex < next.length &&
         next[selectedIndex]?.type === previous[selectedIndex]?.type
       ) {

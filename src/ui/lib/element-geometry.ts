@@ -15,6 +15,39 @@ export type ResizeHandle =
 
 const PERCENT_COORD = /^\d+(\.\d+)?%$/
 
+export interface TranslateCanvasDefaults {
+  width: number
+  height: number
+}
+
+/** Apply drag/nudge delta; materialize omitted numeric coords from `missingDefault` when delta ≠ 0. */
+export function applyAxisDelta(
+  value: number | string | undefined,
+  delta: number,
+  missingDefault?: number,
+): number | string | undefined {
+  if (isNumericCoordinate(value)) {
+    return value + delta
+  }
+  if (value !== undefined) {
+    return value
+  }
+  if (delta === 0 || missingDefault === undefined) {
+    return undefined
+  }
+  return missingDefault + delta
+}
+
+function spreadAxisDelta(
+  key: string,
+  value: number | string | undefined,
+  delta: number,
+  missingDefault?: number,
+): Record<string, number | string> {
+  const next = applyAxisDelta(value, delta, missingDefault)
+  return next !== undefined ? { [key]: next } : {}
+}
+
 export function isNumericCoordinate(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
@@ -105,7 +138,12 @@ export function supportsRadiusResize(element: DrawElement): element is DrawEleme
   return (element.type === 'circle' || element.type === 'arc') && isElementDraggable(element)
 }
 
-export function translateElement(element: DrawElement, dx: number, dy: number): DrawElement {
+export function translateElement(
+  element: DrawElement,
+  dx: number,
+  dy: number,
+  canvas?: TranslateCanvasDefaults,
+): DrawElement {
   if (dx === 0 && dy === 0) {
     return element
   }
@@ -116,23 +154,23 @@ export function translateElement(element: DrawElement, dx: number, dy: number): 
     case 'text':
       return {
         ...element,
-        ...(isNumericCoordinate(element.x) ? { x: element.x + dx } : {}),
-        ...(isNumericCoordinate(element.y) ? { y: element.y + dy } : {}),
+        ...spreadAxisDelta('x', element.x, dx),
+        ...spreadAxisDelta('y', element.y, dy, 0),
       }
     case 'multiline':
       return {
         ...element,
-        ...(isNumericCoordinate(element.x) ? { x: element.x + dx } : {}),
-        ...(isNumericCoordinate(element.y) ? { y: element.y + dy } : {}),
+        ...spreadAxisDelta('x', element.x, dx),
+        ...spreadAxisDelta('y', element.y, dy, 0),
         offset_y: element.offset_y + dy,
       }
     case 'line':
       return {
         ...element,
-        ...(isNumericCoordinate(element.x_start) ? { x_start: element.x_start + dx } : {}),
-        ...(isNumericCoordinate(element.x_end) ? { x_end: element.x_end + dx } : {}),
-        ...(isNumericCoordinate(element.y_start) ? { y_start: element.y_start + dy } : {}),
-        ...(isNumericCoordinate(element.y_end) ? { y_end: element.y_end + dy } : {}),
+        ...spreadAxisDelta('x_start', element.x_start, dx),
+        ...spreadAxisDelta('x_end', element.x_end, dx),
+        ...spreadAxisDelta('y_start', element.y_start, dy, 0),
+        ...spreadAxisDelta('y_end', element.y_end, dy, 0),
       }
     case 'rectangle':
     case 'ellipse':
@@ -159,31 +197,35 @@ export function translateElement(element: DrawElement, dx: number, dy: number): 
     case 'arc':
       return {
         ...element,
-        ...(isNumericCoordinate(element.x) ? { x: element.x + dx } : {}),
-        ...(isNumericCoordinate(element.y) ? { y: element.y + dy } : {}),
+        ...spreadAxisDelta('x', element.x, dx),
+        ...spreadAxisDelta('y', element.y, dy, 0),
       }
     case 'icon':
     case 'icon_sequence':
       return {
         ...element,
-        ...(isNumericCoordinate(element.x) ? { x: element.x + dx } : {}),
-        ...(isNumericCoordinate(element.y) ? { y: element.y + dy } : {}),
+        ...spreadAxisDelta('x', element.x, dx),
+        ...spreadAxisDelta('y', element.y, dy, 0),
       }
     case 'dlimg':
-      return { ...element, x: element.x + dx, y: element.y + dy }
+      return {
+        ...element,
+        x: element.x + dx,
+        y: element.y + dy,
+      }
     case 'qrcode':
       return {
         ...element,
-        ...(isNumericCoordinate(element.x) ? { x: element.x + dx } : {}),
-        ...(isNumericCoordinate(element.y) ? { y: element.y + dy } : {}),
+        ...spreadAxisDelta('x', element.x, dx),
+        ...spreadAxisDelta('y', element.y, dy, 0),
       }
     case 'plot':
       return {
         ...element,
-        ...(isNumericCoordinate(element.x_start) ? { x_start: element.x_start + dx } : {}),
-        ...(isNumericCoordinate(element.y_start) ? { y_start: element.y_start + dy } : {}),
-        ...(isNumericCoordinate(element.x_end) ? { x_end: element.x_end + dx } : {}),
-        ...(isNumericCoordinate(element.y_end) ? { y_end: element.y_end + dy } : {}),
+        ...spreadAxisDelta('x_start', element.x_start, dx, 0),
+        ...spreadAxisDelta('y_start', element.y_start, dy, 0),
+        ...spreadAxisDelta('x_end', element.x_end, dx, canvas?.width),
+        ...spreadAxisDelta('y_end', element.y_end, dy, canvas?.height),
       }
     default: {
       const _exhaustive: never = element

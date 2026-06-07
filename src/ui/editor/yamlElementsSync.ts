@@ -1,4 +1,6 @@
 import { parseYamlPayload, serializeYamlPayload, validatePayload, type DrawElement } from '../../core'
+import { moveElementInArray } from '../lib/element-geometry'
+import { remapIndexAfterMove } from '../lib/selection-remap'
 
 /** Normalize key order / quoting via yaml round-trip so comparisons are stable. */
 function canonicalPayloadYaml(elements: DrawElement[]): string {
@@ -83,6 +85,44 @@ export function elementsSequenceEqual(left: DrawElement[], right: DrawElement[])
   return canonicalPayloadYaml(left) === canonicalPayloadYaml(right)
 }
 
+function findSingleLayerMove(
+  previousElements: DrawElement[],
+  nextElements: DrawElement[],
+): { fromIndex: number; toIndex: number } | null {
+  if (previousElements.length !== nextElements.length || previousElements.length === 0) {
+    return null
+  }
+
+  for (let fromIndex = 0; fromIndex < previousElements.length; fromIndex += 1) {
+    for (let toIndex = 0; toIndex < nextElements.length; toIndex += 1) {
+      if (fromIndex === toIndex) {
+        continue
+      }
+      const candidate = moveElementInArray(previousElements, fromIndex, toIndex)
+      if (elementsSequenceEqual(candidate, nextElements)) {
+        return { fromIndex, toIndex }
+      }
+    }
+  }
+
+  return null
+}
+
+/**
+ * Element index to focus in YAML after `elements` changes but `selectedIndex` may still be stale
+ * (e.g. layer reorder committed before selection state updates).
+ */
+export function resolveLinkedElementIndex(
+  previousElements: DrawElement[],
+  nextElements: DrawElement[],
+  selectedIndex: number | null,
+): number | null {
+  if (selectedIndex == null) {
+    return null
+  }
+  return remapSelectedIndex(previousElements, nextElements, selectedIndex) ?? selectedIndex
+}
+
 export function remapSelectedIndex(
   previousElements: DrawElement[],
   nextElements: DrawElement[],
@@ -95,14 +135,6 @@ export function remapSelectedIndex(
   const selected = previousElements[selectedIndex]
   if (!selected) {
     return null
-  }
-
-  const selectedYaml = canonicalElementYaml(selected)
-  const exactMatch = nextElements.findIndex(
-    (element) => canonicalElementYaml(element) === selectedYaml,
-  )
-  if (exactMatch >= 0) {
-    return exactMatch
   }
 
   // Single property edit at the selected index (canvas / property panel / YAML).
@@ -118,13 +150,17 @@ export function remapSelectedIndex(
     }
   }
 
-  // Same slot and type after a yaml round-trip that only touched the selected element.
-  if (
-    nextElements.length === previousElements.length &&
-    selectedIndex < nextElements.length &&
-    nextElements[selectedIndex]?.type === selected.type
-  ) {
-    return selectedIndex
+  const layerMove = findSingleLayerMove(previousElements, nextElements)
+  if (layerMove) {
+    return remapIndexAfterMove(selectedIndex, layerMove.fromIndex, layerMove.toIndex)
+  }
+
+  const selectedYaml = canonicalElementYaml(selected)
+  const exactMatch = nextElements.findIndex(
+    (element) => canonicalElementYaml(element) === selectedYaml,
+  )
+  if (exactMatch >= 0) {
+    return exactMatch
   }
 
   return null

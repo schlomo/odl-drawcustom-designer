@@ -4,6 +4,7 @@ import {
   elementsSequenceEqual,
   getYamlElementsParseIssues,
   remapSelectedIndex,
+  resolveLinkedElementIndex,
   summarizeYamlElementsParseIssues,
   tryParseYamlElements,
 } from '../../../src/ui/editor/yamlElementsSync'
@@ -75,6 +76,20 @@ describe('remapSelectedIndex', () => {
     expect(remapSelectedIndex(elements, reordered, 2)).toBe(0)
   })
 
+  it('follows layer down (one step toward back) while selection index is stale', () => {
+    const movedDown = [elements[0]!, elements[2]!, elements[1]!]
+    expect(remapSelectedIndex(elements, movedDown, 2)).toBe(1)
+  })
+
+  it('remaps selection for duplicate elements after a single layer move', () => {
+    const twins: DrawElement[] = [
+      { type: 'text', value: 'Same', x: 0, y: 0 },
+      { type: 'text', value: 'Same', x: 10, y: 10 },
+    ]
+    const moved = [twins[1]!, twins[0]!]
+    expect(remapSelectedIndex(twins, moved, 1)).toBe(0)
+  })
+
   it('keeps index after a property edit at the same position', () => {
     const edited = [...elements]
     edited[1] = { ...edited[1]!, value: 'B updated' }
@@ -93,5 +108,12 @@ describe('remapSelectedIndex', () => {
   it('returns null when the selected element was removed', () => {
     const removed = [elements[0]!, elements[1]!]
     expect(remapSelectedIndex(elements, removed, 2)).toBeNull()
+  })
+})
+
+describe('resolveLinkedElementIndex', () => {
+  it('keeps focus on the moved element when selectedIndex lags by one render', () => {
+    const movedDown = [elements[0]!, elements[2]!, elements[1]!]
+    expect(resolveLinkedElementIndex(elements, movedDown, 2)).toBe(1)
   })
 })

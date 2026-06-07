@@ -1,6 +1,6 @@
 ---
 description: OpenEPaperLink drawcustom YAML spec reference and export rules
-globs: src/core/**,tests/**,docs/spec/**
+globs: src/core/**,tests/**,docs/spec/**,src/ui/lib/element-geometry.ts,src/ui/hooks/useProjectState.ts
 alwaysApply: false
 ---
 
@@ -25,6 +25,22 @@ YAML copied for Home Assistant must contain **only** valid drawcustom fields:
 ## Service options (top-level, not per-element)
 
 `background`, `rotate`, `dither`, `ttl`, `dry-run` — modeled separately from element payload.
+
+## Designer templates vs minimal HA YAML
+
+HA allows **optional** position fields (e.g. `text.y` defaults to auto-placement per `supported_types.md`). **Minimal** golden fixtures in `tests/fixtures/spec/*-minimal.yaml` must stay valid for the schema and stay in sync with `src/core/schema/elementTemplates.ts` (see `tests/core/schema/elementTemplates.test.ts`).
+
+**Add Element** templates are **not** minimal exports — they must include designer-friendly defaults so new elements are immediately editable on canvas:
+
+- Include explicit coordinates where drag/nudge depends on them (`text`: `x` + `y`; `line`: `y_start` / `y_end`; etc.).
+- When extending a type, update **both** `ELEMENT_TYPE_INSERTIONS` and the matching `*-minimal.yaml` fixture if the minimal contract changes.
+
+**Imported or hand-edited YAML** may still omit optional coords. Canvas interaction must not silently ignore vertical moves:
+
+- `translateElement` in `src/ui/lib/element-geometry.ts` uses `applyAxisDelta` to **materialize** omitted numeric coordinates on drag/nudge using the same defaults as the renderer (e.g. missing `text.y` → `0` before applying `dy`).
+- Pass canvas `{ width, height }` into `translateElement` for `plot` bounds whose omitted `x_end` / `y_end` default to canvas size.
+
+Do not strip optional fields from HA export solely to add designer defaults — export remains HA-clean per rules above.
 
 ## Fixtures
 

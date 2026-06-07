@@ -6,6 +6,10 @@ describe('remapIndexAfterMove', () => {
     expect(remapIndexAfterMove(1, 1, 3)).toBe(3)
   })
 
+  it('follows layer down on the selected element', () => {
+    expect(remapIndexAfterMove(2, 2, 1)).toBe(1)
+  })
+
   it('shifts selection when another element moves past it', () => {
     expect(remapIndexAfterMove(2, 0, 3)).toBe(1)
     expect(remapIndexAfterMove(1, 3, 0)).toBe(2)

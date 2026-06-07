@@ -23,6 +23,15 @@ describe('createElementFromTemplate', () => {
     expect(element.type).toBe('rectangle')
     expect(element.x_start).toBe(20)
   })
+
+  it('creates text with x and y so vertical drag works immediately', () => {
+    const element = createElementFromTemplate('text')
+    expect(element.type).toBe('text')
+    if (element.type === 'text') {
+      expect(element.x).toBe(0)
+      expect(element.y).toBe(0)
+    }
+  })
 })
 
 describe('element geometry', () => {
@@ -60,6 +69,51 @@ describe('element geometry', () => {
       x_start: "{{ 10 }}",
     }
     expect(isElementDraggable(element)).toBe(false)
+  })
+
+  it('materializes omitted text y on vertical translate (spec default 0)', () => {
+    const element = { type: 'text' as const, value: 'Hi', x: 10 }
+    const moved = translateElement(element, 0, 12)
+    expect(moved.type).toBe('text')
+    if (moved.type === 'text') {
+      expect(moved.x).toBe(10)
+      expect(moved.y).toBe(12)
+    }
+  })
+
+  it('leaves omitted text y unset when only moving horizontally', () => {
+    const element = { type: 'text' as const, value: 'Hi', x: 10 }
+    const moved = translateElement(element, 5, 0)
+    expect(moved.type).toBe('text')
+    if (moved.type === 'text') {
+      expect(moved.x).toBe(15)
+      expect(moved.y).toBeUndefined()
+    }
+  })
+
+  it('materializes omitted line y coords on vertical translate', () => {
+    const element = { type: 'line' as const, x_start: 0, x_end: 100 }
+    const moved = translateElement(element, 0, 20)
+    expect(moved.type).toBe('line')
+    if (moved.type === 'line') {
+      expect(moved.y_start).toBe(20)
+      expect(moved.y_end).toBe(20)
+    }
+  })
+
+  it('materializes plot bounds using canvas defaults when omitted', () => {
+    const element = {
+      type: 'plot' as const,
+      data: [{ entity: 'sensor.temperature' }],
+    }
+    const moved = translateElement(element, 10, 5, { width: 296, height: 128 })
+    expect(moved.type).toBe('plot')
+    if (moved.type === 'plot') {
+      expect(moved.x_start).toBe(10)
+      expect(moved.y_start).toBe(5)
+      expect(moved.x_end).toBe(306)
+      expect(moved.y_end).toBe(133)
+    }
   })
 
   it('does not corrupt templated coordinates when translate is skipped', () => {

@@ -230,15 +230,16 @@ export function useProjectState() {
     })
   }, [])
 
-  const addElement = useCallback((type: DrawElement['type']) => {
-    const element = createElementFromTemplate(type)
-    setElements((current) => {
-      const next = [...current, element]
-      setSelectedIndex(next.length - 1)
+  const addElement = useCallback(
+    (type: DrawElement['type']) => {
+      const element = createElementFromTemplate(type)
+      const nextIndex = elements.length
+      setSelectedIndex(nextIndex)
       setSelectionSource('ui')
-      return next
-    })
-  }, [])
+      setElements([...elements, element])
+    },
+    [elements],
+  )
 
   const clearElements = useCallback(() => {
     setElements([])
@@ -254,78 +255,87 @@ export function useProjectState() {
     setSelectedIndex(null)
   }, [])
 
-  const nudgeElement = useCallback((index: number, dx: number, dy: number) => {
-    setElements((current) => {
-      if (index < 0 || index >= current.length) {
-        return current
-      }
-      const element = current[index]
-      if (!isElementDraggable(element)) {
-        return current
-      }
-      const next = [...current]
-      next[index] = translateElement(element, dx, dy)
-      return next
-    })
-  }, [])
+  const nudgeElement = useCallback(
+    (index: number, dx: number, dy: number) => {
+      setElements((current) => {
+        if (index < 0 || index >= current.length) {
+          return current
+        }
+        const element = current[index]
+        if (!isElementDraggable(element)) {
+          return current
+        }
+        const next = [...current]
+        next[index] = translateElement(element, dx, dy, {
+          width: canvas.width,
+          height: canvas.height,
+        })
+        return next
+      })
+    },
+    [canvas.height, canvas.width],
+  )
 
-  const moveElementLayer = useCallback((fromIndex: number, toIndex: number) => {
-    setElements((current) => {
-      if (fromIndex === toIndex || fromIndex < 0 || fromIndex >= current.length) {
-        return current
+  const applyLayerMove = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      if (fromIndex === toIndex || fromIndex < 0 || fromIndex >= elements.length) {
+        return
+      }
+      if (toIndex < 0 || toIndex >= elements.length) {
+        return
       }
       setSelectedIndex((selected) => remapIndexAfterMove(selected, fromIndex, toIndex))
-      return moveElementInArray(current, fromIndex, toIndex)
-    })
-  }, [])
+      setSelectionSource('ui')
+      setElements((current) => moveElementInArray(current, fromIndex, toIndex))
+    },
+    [elements.length],
+  )
 
-  const bringToFront = useCallback((index: number) => {
-    setElements((current) => {
-      if (index < 0 || index >= current.length - 1) {
-        return current
-      }
-      const toIndex = current.length - 1
-      setSelectedIndex((selected) => remapIndexAfterMove(selected, index, toIndex))
-      return moveElementInArray(current, index, toIndex)
-    })
-  }, [])
+  const moveElementLayer = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      applyLayerMove(fromIndex, toIndex)
+    },
+    [applyLayerMove],
+  )
 
-  const sendToBack = useCallback((index: number) => {
-    setElements((current) => {
-      if (index <= 0 || index >= current.length) {
-        return current
+  const bringToFront = useCallback(
+    (index: number) => {
+      if (index < 0 || index >= elements.length - 1) {
+        return
       }
-      setSelectedIndex((selected) => remapIndexAfterMove(selected, index, 0))
-      return moveElementInArray(current, index, 0)
-    })
-  }, [])
+      applyLayerMove(index, elements.length - 1)
+    },
+    [applyLayerMove, elements.length],
+  )
+
+  const sendToBack = useCallback(
+    (index: number) => {
+      if (index <= 0 || index >= elements.length) {
+        return
+      }
+      applyLayerMove(index, 0)
+    },
+    [applyLayerMove, elements.length],
+  )
 
   const moveLayerUp = useCallback(
     (index: number) => {
-      setElements((current) => {
-        if (index >= current.length - 1) {
-          return current
-        }
-        const toIndex = index + 1
-        setSelectedIndex((selected) => remapIndexAfterMove(selected, index, toIndex))
-        return moveElementInArray(current, index, toIndex)
-      })
+      if (index >= elements.length - 1) {
+        return
+      }
+      applyLayerMove(index, index + 1)
     },
-    [],
+    [applyLayerMove, elements.length],
   )
 
   const moveLayerDown = useCallback(
     (index: number) => {
-      setElements((current) => {
-        if (index <= 0) {
-          return current
-        }
-        const toIndex = index - 1
-        setSelectedIndex((selected) => remapIndexAfterMove(selected, index, toIndex))
-        return moveElementInArray(current, index, toIndex)
-      })
+      if (index <= 0) {
+        return
+      }
+      applyLayerMove(index, index - 1)
     },
-    [],
+    [applyLayerMove],
   )
 
   const reorderElement = moveElementLayer

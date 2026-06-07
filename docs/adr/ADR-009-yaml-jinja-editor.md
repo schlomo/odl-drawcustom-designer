@@ -80,12 +80,32 @@ Autocomplete and lint tooltips disappeared on the **first YAML list item** while
 - Optional linked mode syncs element list and scroll/highlight between canvas selection and YAML (`yamlElementsSync.ts`, `locateElementInYaml.ts`).
 - Independent of CodeMirror tooltip positioning.
 
+### Selection stability when the element list changes (layer reorder)
+
+Layer buttons (Front / Back / ↑ / ↓), drag-reorder in the layer list, and YAML block moves all change **array index** without changing element identity. Linked mode must keep the **same element** selected for the property panel, canvas handles, and YAML cursor.
+
+**Failure mode (fixed 2026-06-07):** calling `setSelectedIndex` inside a `setElements` updater schedules selection **after** the elements commit. React can render one frame with **reordered `elements` + stale `selectedIndex`**. In linked mode, `YamlEditor` then runs external doc sync with `preserveLinkedElementIndex` pointing at the **old** index — which now refers to a **different** element (often the front item in the layer list). YAML cursor coupling can permanently steal focus from the element the user was editing.
+
+**Required pattern for UI mutations that reorder or replace the payload array:**
+
+1. Compute the next selection with `remapIndexAfterMove(selected, fromIndex, toIndex)` (or equivalent) **before or alongside** the array update — never nested only inside the `setElements` updater.
+2. Apply `setSelectedIndex` / `setSelectionSource('ui')`, then `setElements` in the **same event handler** so both commit in one batch (`applyLayerMove` in `useProjectState.ts`).
+3. When YAML drives the change, use `remapSelectedIndex` in `yamlElementsSync.ts`:
+   - Prefer **single-slot property edits** (one changed index at the selected row).
+   - Detect a **single layer move** via `findSingleLayerMove` + `remapIndexAfterMove` (handles adjacent swaps and duplicate elements where YAML identity match is ambiguous).
+   - Do **not** keep selection at the same numeric index merely because `type` matches at that slot after a reorder.
+
+**Tests:** `tests/ui/lib/selection-remap.test.ts`, `tests/ui/editor/yaml-elements-sync.test.ts` (layer-down and duplicate-element cases).
+
+**Deferred:** full `useProjectState` batching via `useReducer` for undo/redo (PLAN §19-9) — selection+elements pairing above is the minimum contract until then.
+
 ## Consequences
 
 - Regression tests live in `tests/ui/editor/` (14 files), including `jinja-bracket-handling.test.ts`, `jinja-completions.test.ts`, `yaml-tooltip-visibility.test.ts`, `yaml-issue-ranges.test.ts`.
 - Re-enabling default `{`/`}` `closeBrackets` or putting closing delimiters in inner snippet `apply` strings will break user-tested flows — update tests first.
 - HA-clean export rules unchanged (ADR-002): autocomplete must not corrupt template strings in serialized YAML.
 - Future editor work (entity ID completions from State Simulator, service-option keys) should extend existing providers, not replace the scaffolding model.
+- Any new code path that mutates element order or length must update selection with the remap helpers above; regressions show up as property-panel focus jumping to the wrong element, especially in linked YAML mode.
 
 ## Alternatives considered
 

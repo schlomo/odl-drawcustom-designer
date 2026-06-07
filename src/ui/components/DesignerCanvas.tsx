@@ -353,7 +353,13 @@ export function DesignerCanvas({
           snapGrid.enabled,
         )
         if (dx !== 0 || dy !== 0) {
-          onUpdateElement(session.index, translateElement(session.startElement, dx, dy))
+          onUpdateElement(
+            session.index,
+            translateElement(session.startElement, dx, dy, {
+              width: renderContext.width,
+              height: renderContext.height,
+            }),
+          )
         }
         return
       }

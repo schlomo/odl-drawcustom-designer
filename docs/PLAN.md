@@ -68,20 +68,32 @@ todos:
   - id: phase2e-commit
     content: "Commit Phase 2e after lint fix + review (§11f)"
     status: completed
-  - id: phase3f-canvas-followups
-    content: "§19/3f: canvas drag perf, pointer capture, interaction tests, coord edge cases"
+  - id: phase3-indexeddb
+    content: "Phase 3a: IndexedDB assets + per-project mocks (§17a)"
     status: pending
-  - id: phase3d-plot-property-forms
-    content: "§19/3d: plot nested sub-object property fields (beyond JSON blobs)"
+  - id: phase3-text
+    content: "Phase 3b: opentype text/multiline + coord drag 19-3/19-4 (§17b)"
+    status: pending
+  - id: phase3-icons
+    content: "Phase 3c: MDI icons + icon_sequence (§17c)"
+    status: pending
+  - id: phase3-qr-plot
+    content: "Phase 3d: QR + plot preview + plot property fields 19-5 (§17d)"
+    status: pending
+  - id: phase3-dither
+    content: "Phase 3e: parse_colors + dither pipeline (§17e)"
+    status: pending
+  - id: phase3-canvas-perf
+    content: "Phase 3f: canvas drag perf + interaction tests 19-1/19-2/19-6/19-13 (§17f)"
     status: pending
   - id: phase4-property-form-ux
-    content: "§19/4: JSON field blur UX, property form tests, useProjectState refactor"
+    content: "Phase 4: JSON field blur UX, property form tests, useProjectState refactor (§18, 19-7–19-9)"
     status: pending
   - id: phase4-canvas-clipboard
-    content: "§19/4: element copy/paste (Ctrl+C/V) + canvas pan/zoom"
+    content: "Phase 4: element copy/paste + canvas pan/zoom (§18, 19-10–19-11)"
     status: pending
   - id: post-v1-canvas-handles
-    content: "§19 post-v1: arc angle handles, polygon point editing on canvas"
+    content: "Post-v1: arc angle handles, polygon point editing (19-12)"
     status: pending
 isProject: false
 ---
@@ -753,7 +765,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **19-6** | Canvas interaction unit tests — line endpoints, circle radius, bounds resize, nudge guard | **3f** | `tests/ui/lib/canvas-interaction.test.ts` |
 | **19-7** | Property form tests — JSON blur/revert, enum↔template toggle, font/image upload paths | **4** | `ElementPropertyForm.tsx`, Testing Library |
 | **19-8** | JSON property field invalid-on-blur UX (inline error or revert to last valid) | **4** | `ElementPropertyForm.tsx` |
-| **19-9** | Refactor `useProjectState` — batch selection remap with element mutations (`useReducer` or paired updates) | **4** | `useProjectState.ts` — pair with undo/redo |
+| **19-9** | Refactor `useProjectState` — batch selection remap with element mutations (`useReducer` or paired updates); **partial:** `applyLayerMove` + ADR-009 selection-stability rules | **4** | `useProjectState.ts` — pair with undo/redo |
 | **19-10** | Element copy/paste (Ctrl+C/V, +10px offset) | **4** | `DesignerCanvas.tsx`, `useProjectState.ts` |
 | **19-11** | Canvas pan/zoom (SVG viewBox) | **4** | `DesignerCanvas.tsx` |
 | **19-12** | Arc angle handles; polygon vertex handles on canvas | **post-v1** | `DesignerCanvas.tsx`, `element-geometry.ts` |
@@ -893,7 +905,7 @@ You won't code yourself — Cursor is the team. This section maps plan phases to
 | `.cursor/agents/core-implementer.md` | Subagent: writes pure TS + Vitest only                           |
 | `.cursor/agents/ui-wirer.md`         | Subagent: React shell, calls core APIs                           |
 | `.cursor/agents/spec-reviewer.md`    | Subagent: diff vs supported_types.md                             |
-| `docs/PLAN.md`                       | **Canonical plan in repo** — all agent prompts reference this (§2, §5–12) |
+| `docs/PLAN.md`                       | **Canonical plan in repo** — agent prompts: §11 (commits), §16 (Phase 2), §17 (Phase 3), §18 (Phase 4), §19 (review) |
 | `docs/spec/supported_types.md`       | Vendored drawcustom spec — element types and fields                       |
 | `docs/adr/`                          | Architecture decisions the agent must read before big changes             |
 | `tests/fixtures/`                    | Golden YAML from spec — agent's source of truth                           |
@@ -958,10 +970,10 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Single agent per panel (YamlEditor, Content Manager, State Simulator, Canvas) to avoid context bloat.
-- **YamlEditor session prompt:** see §16 in `docs/PLAN.md`
-- After each panel: invoke **spec-reviewer** subagent: *"Review against `docs/PLAN.md` §2 and `docs/spec/supported_types.md`"*
-- Use **split-to-prs** skill when one session grows too large — e.g. core PR #1, UI shell PR #2.
+- Phase 2 prompts archived in **§16** ✅. **Current work:** **§17** (Phase 3 fidelity, chunks §17a–§17f) → **§18** (Phase 4 polish).
+- One agent session per §17 subsection to avoid context bloat.
+- After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
+- Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
 
 ### Quality gates (non-negotiable)
 
@@ -1019,7 +1031,7 @@ Use the **automate** skill when ready to configure these.
 1. **One phase or module per chat** — long chats degrade quality
 2. **Workspace:** repo root `oepl-designer/`; **plan:** always `docs/PLAN.md`
 3. **Start each chat with**: "Read `docs/PLAN.md` §X and ADR-00Y. Current phase: …"
-4. **End each chat with**: "Run tests, summarize what's done, copy next prompt from `docs/PLAN.md` §12–§16"
+4. **End each chat with**: "Run tests, summarize what's done, copy next prompt from `docs/PLAN.md` §17–§18 (or §11 for commits)"
 5. **Don't merge without green CI** — use babysit skill on the PR
 
 ### Suggested PR sequence (split-to-prs)
@@ -1035,7 +1047,7 @@ Use the **automate** skill when ready to configure these.
 9. **YamlEditor** — CodeMirror highlighting, YAML + Jinja autocomplete, lint
 10. Content Manager + State Simulator ✅
 11. Canvas interaction + property forms (2e)
-12. Renderer fidelity (Phase 3 — split PRs per §7 3a–3e)
+12. Renderer fidelity (Phase 3 — split PRs per §7 **3a–3f**, prompts in §17)
 13. Share/history/service options/export (Phase 4)
 
 Each PR ≤ ~500 lines of meaningful diff → easier for you to spot-check in GitHub UI even without coding.
@@ -1181,9 +1193,9 @@ Shared: `colors.ts`, `coordinates.ts`, `bounds.ts`, `text-metrics.ts`, `visibili
 
 ---
 
-## 16. Phase 2 — starter prompts
+## 16. Phase 2 — starter prompts ✅ complete
 
-§16a and §16b delivered in `84d2164`. §16c (Phase 2d) delivered uncommitted. **Next: §11e commit, then §16d (Phase 2e).**
+Phases 2a–2e delivered and committed. Phase 2 prompts archived below. **Next chapter:** §17 (Phase 3 fidelity).
 
 ### §16a — App layout + canvas shell ✅ (`84d2164`)
 
@@ -1225,73 +1237,265 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ---
 
-## 17. Phase 3 — fidelity prompts ⬜ after §11f
+## 17. Phase 3 — fidelity prompts ⬜ next
 
-Use **one agent session per chunk** (§7 Phase 3a–3e). Read `docs/adr/ADR-003`, `ADR-004`.
+**When to use:** Phase 2 is complete (§7 progress tracker). Run **one Agent chat per subsection** (§17a → §17f). Order matters for dependencies.
 
-### §17a — IndexedDB storage
+**Plan cross-reference map:**
 
-```
-Execute Phase 3a — IndexedDB via Dexie in src/storage/.
+| Section | Contents |
+|---------|----------|
+| **§2** | Local content map, HA simulator, YamlEditor — requirements Phase 3 must preserve |
+| **§7** | Phase 3a–3f chunk list, fidelity table, §19 follow-up task IDs |
+| **§7.1** | Post–Phase 2 roadmap; v1 still needs §17 + §18 |
+| **§8** | Parity checklist — preview fidelity rows completed in this chapter |
+| **§11f** | Phase 2e commit ✅ — prerequisite done |
+| **§19** | Phase 2e review; task IDs **19-1** … **19-13** referenced in §17b/§17d/§17f |
 
-Migrate Content Manager blobs and mock states from in-memory/localStorage to per-project IndexedDB.
-Keep HA-clean YAML export unchanged. TDD storage adapters. npm test && npm run lint.
-Next: §17b.
-```
+**Every session — standard opener:**
 
-### §17b — opentype text fidelity
+> Workspace: `oepl-designer/` repo root. Read the subsection prompt below plus `docs/PLAN.md` §7 Phase 3. Follow `.cursor/rules/` (core in `src/core/` — no React). Spec: `docs/spec/supported_types.md`. ADRs listed per prompt.
 
-```
-Execute Phase 3b — opentype.js text/multiline renderer.
+**Gate before finishing any §17 chunk:**
 
-Replace text-stub bounds with real metrics: wrap, truncate, anchors, multiline delimiter.
-Use bundled ppb.ttf/rbm.ttf + uploaded fonts from content map. Vitest + fixture PNG or geometry checks.
-Include §19-3 (numeric string coords in isInteractiveCoordinate) and §19-4 (percentage coord drag) if not already done.
-Next: §17c.
-```
-
-### §17c — MDI icons
-
-```
-Execute Phase 3c — icon and icon_sequence via @mdi/js.
-
-Replace icon-stub with SVG paths; icon picker in property forms. npm test.
-Next: §17d.
+```bash
+npm run lint && npm test && npm run build
 ```
 
-### §17d — QR + plot preview
+Do not commit unless I ask. End with: "Next prompt: docs/PLAN.md §17b" (or the next letter in sequence).
+
+---
+
+### §17a — IndexedDB storage (Phase 3a)
 
 ```
-Execute Phase 3d — real QR (qrcode package) and plot preview with sample data editor.
+Execute Phase 3a — IndexedDB persistence for assets and per-project mocks.
 
-Replace qrcode-stub and plot-stub. Rich fixtures for plot nested objects. npm test.
-Include §19-5: structured plot sub-object fields in ElementPropertyForm (beyond JSON blobs).
-Next: §17e.
+Read:
+- docs/PLAN.md §2 (local content map), §7 Phase 3a, §7.1
+- docs/adr/ADR-002-local-content-map.md, ADR-003-indexeddb-schema.md
+- src/core/assets/resolver.ts (current in-memory API — keep this interface stable for core)
+
+Goal:
+Replace in-memory-only asset blobs and global localStorage mock states with Dexie (IndexedDB) per ADR-003, without breaking HA-clean YAML export.
+
+Implement src/storage/ (Dexie):
+- assets store: key (exact YAML path) → { blob, mime, updatedAt }
+- mocks store: per active projectId → entity_id → mock value
+- projects store: stub or minimal snapshot shape for Phase 4 history (schema only OK if unused)
+
+Wire UI:
+- src/core/assets/resolver.ts — delegate to storage adapter (core stays sync where possible; async load in UI layer)
+- ContentManager.tsx — upload/clear persists to IndexedDB
+- mockStates.ts — read/write per project; migrate from global localStorage on first load
+- useProjectState.ts — projectId (generate UUID for now); reload assets/mocks on project switch
+
+Rules:
+- YAML exported for HA: unchanged — no designer metadata, no blob embedding
+- Content map keys: exact strings from YAML (ADR-002)
+- TDD: tests/storage/ or tests/core/assets/ for adapter round-trip
+
+Out of scope (later):
+- 20-project LRU UI (§18)
+- Share hash (§18)
+- opentype / renderer changes
+
+Acceptance:
+- Upload font/image → survives page reload
+- Mock states survive reload per project
+- npm run lint && npm test && npm run build
+
+Next: docs/PLAN.md §17b
 ```
 
-### §17e — parse_colors + dither
+---
+
+### §17b — opentype text fidelity (Phase 3b)
 
 ```
-Execute Phase 3e — parse_colors renderer and ordered dither preview (d=2).
+Execute Phase 3b — real text and multiline rendering with opentype.js.
 
-Best-of-N if needed for dither pipeline. Accent red/yellow toggle. Vitest pixel tests.
-Next: §17f.
+Read:
+- docs/PLAN.md §7 Phase 3b, §8 (percentage coords, anchors)
+- docs/adr/ADR-007-hybrid-rendering.md
+- docs/spec/supported_types.md — text, multiline fields (anchor, max_width, truncate, parse_colors flag)
+- src/core/renderer/text.ts, multiline.ts, text-metrics.ts
+- src/ui/lib/load-font-faces.ts, draw-canvas-stubs.ts
+
+Goal:
+Replace text-stub / multiline-stub canvas placeholders with measured glyphs from opentype.js. Fonts from bundled public/fonts/ (ppb.ttf, rbm.ttf) and IndexedDB content map (§17a).
+
+Core (TDD first):
+- Add opentype.js dependency
+- src/core/renderer/text.ts — layout: size, anchor (use anchors.ts), max_width wrap, truncate
+- src/core/renderer/multiline.ts — delimiter, offset_y, spacing, line stack
+- Keep renderResult as canvas primitives OR documented geometry for UI draw path
+- Vitest: fixture YAML → expected width/height or line count (golden metrics, not necessarily PNG yet)
+
+UI:
+- draw-canvas-stubs.ts — use real metrics/path or delegate to core layout output
+- DesignerCanvas — font load cache; do not reload all fonts every pointermove
+
+§19 follow-ups (include in this session if not already fixed):
+- 19-3: isInteractiveCoordinate / isElementDraggable — treat numeric strings ("50") like numbers (align with src/core/renderer/coordinates.ts)
+- 19-4: allow drag for percentage coords ("50%") when value is not a template
+
+Out of scope:
+- parse_colors rendering (§17e)
+- dither (§17e)
+
+Acceptance:
+- Sample dashboard text uses real font metrics; wrap/truncate visible in preview
+- Bundled + uploaded fonts resolve
+- npm run lint && npm test && npm run build
+
+Next: docs/PLAN.md §17c
 ```
 
-### §17f — Canvas interaction follow-ups (§19)
+---
+
+### §17c — MDI icons (Phase 3c)
 
 ```
-Execute Phase 3f — deferred §19 canvas tasks.
+Execute Phase 3c — icon and icon_sequence with @mdi/js SVG paths.
 
-Implement:
-- 19-1: drag overlay or per-element memo so pointermove does not re-render entire canvas
-- 19-2: explicit releasePointerCapture on drag end / lostpointercapture
-- 19-6: unit tests for line endpoints, circle radius, bounds resize, nudge guard
-- 19-13: moveElementInArray toIndex bounds guard
+Read:
+- docs/PLAN.md §7 Phase 3c
+- docs/adr/ADR-007-hybrid-rendering.md
+- docs/spec/supported_types.md — icon, icon_sequence
+- src/core/renderer/icon.ts, icon-sequence.ts
+- src/ui/components/ElementPropertyForm.tsx (icon value field)
 
-Coordinate edge cases (19-3, 19-4) belong in §17b if not done there.
+Goal:
+Replace icon-stub and icon-sequence-stub with real MDI path data. Icons render on SVG layer per ADR-007.
 
-npm test && npm run lint && npm run build.
+Core:
+- Add @mdi/js (tree-shake per icon or lazy metadata map)
+- src/core/renderer/icon.ts — resolve icon name → path(s), anchor, fill color
+- src/core/renderer/icon-sequence.ts — direction, spacing, icons list layout
+- Vitest: known icon name → non-empty path; sequence count matches icons array
+
+UI:
+- ElementPropertyForm — icon name autocomplete/search (can reuse @mdi/js metadata or subset list)
+- SvgPrimitive.tsx — render icon paths if not already
+
+Out of scope:
+- Full 7000-icon browser (search-as-you-type on value field is enough)
+- Template-colored icons beyond existing evaluateTemplate preview path
+
+Acceptance:
+- icon + icon_sequence spec fixtures render recognizable shapes (not bounding boxes)
+- npm run lint && npm test && npm run build
+
+Next: docs/PLAN.md §17d
+```
+
+---
+
+### §17d — QR + plot preview (Phase 3d)
+
+```
+Execute Phase 3d — scannable QR codes and plot preview with sample data.
+
+Read:
+- docs/PLAN.md §7 Phase 3d, §19 task 19-5
+- docs/adr/ADR-007-hybrid-rendering.md
+- docs/spec/supported_types.md — qrcode, plot (nested ylegend, yaxis, xlegend, xaxis, data)
+- src/core/renderer/qrcode.ts, plot.ts
+- src/core/schema/propertyMetadata.ts, src/ui/components/ElementPropertyForm.tsx
+
+Goal:
+Replace qrcode-stub and plot-stub with real preview. Add rich golden fixtures for plot nested objects.
+
+Core:
+- Add qrcode package — generate module grid from data string; honor boxsize, border, colors
+- src/core/renderer/plot.ts — axes, legends, series lines; mock/sample data when data array present
+- tests/fixtures/spec/ — add plot-qrcode-rich.yaml (or split files) from supported_types examples
+- Vitest: QR produces stable module count; plot renders series count > 0
+
+UI / properties (19-5):
+- ElementPropertyForm — structured fields for plot sub-objects (e.g. yaxis.smooth, ylegend.text) where propertyMetadata defines them; reduce raw JSON blobs for common fields
+- Optional: minimal sample data editor (CSV paste or synthetic sine) in property panel
+
+Out of scope:
+- Live HA history fetch
+- parse_colors in plot labels (§17e)
+
+Acceptance:
+- QR renders scannable pattern (visual sanity; optional decode test)
+- Plot example from spec fixture shows axes + at least one series
+- npm run lint && npm test && npm run build
+
+Next: docs/PLAN.md §17e
+```
+
+---
+
+### §17e — parse_colors + dither (Phase 3e)
+
+```
+Execute Phase 3e — parse_colors markup and e-paper dither preview.
+
+Read:
+- docs/PLAN.md §7 Phase 3e, §3 (#2 accent toggle, #3 dither modes)
+- docs/adr/ADR-004-template-evaluator-scope.md, ADR-007-hybrid-rendering.md
+- docs/spec/supported_types.md — parse_colors, color aliases, halftone, accent
+- src/core/renderer/colors.ts, text.ts, draw-canvas-stubs.ts
+
+Goal:
+When parse_colors: true, render [red]text[/red] inline color segments in preview. Add ordered dither (d=2) for 4-color palette preview; accent red vs yellow toggle maps accent/half_accent correctly.
+
+Core (consider /best-of-n for dither if first approach fails):
+- src/core/renderer/parse-colors.ts — parse markup segments (TDD with fixtures)
+- Integrate into text/multiline canvas draw path
+- src/core/renderer/dither.ts — ordered dither for preview/export pipeline
+- Vitest: pixel samples or checksums for known 4-color inputs (ADR-008)
+
+UI:
+- Canvas/service preview toggle for accent mode (red/yellow) if not already wired to renderContext.accentMode
+- Optional: dither preview toggle (flat vs d=2)
+
+Out of scope:
+- Floyd-Steinberg (d=1) unless trivial after ordered dither
+- PNG export button (§18 — but pipeline should be reusable)
+
+Acceptance:
+- parse_colors fixture renders multi-color text
+- Halftone/accent colors distinguishable under dither toggle
+- npm run lint && npm test && npm run build
+
+Next: docs/PLAN.md §17f
+```
+
+---
+
+### §17f — Canvas interaction follow-ups (Phase 3f)
+
+```
+Execute Phase 3f — deferred §19 canvas performance and test gaps.
+
+Read:
+- docs/PLAN.md §7 Phase 3f, §19 follow-up table (tasks 19-1, 19-2, 19-6, 19-13)
+- src/ui/components/DesignerCanvas.tsx, CanvasElementLayer.tsx
+- src/ui/lib/element-geometry.ts, tests/ui/lib/canvas-interaction.test.ts
+
+Goal:
+Address non-blocking Phase 2e review items without new product features.
+
+Tasks:
+- 19-1: Drag performance — drag overlay or per-index memoization so pointermove does not re-render entire canvas + reload assets/fonts
+- 19-2: Explicit releasePointerCapture on drag end; handle lostpointercapture
+- 19-6: Unit tests — line endpoint drag, circle radius drag, bounds resize, keyboard nudge guard (no-op when nothing selected)
+- 19-13: moveElementInArray — guard when toIndex >= length
+
+Note: 19-3 and 19-4 belong in §17b; do not duplicate unless still open.
+
+Acceptance:
+- Manual smoke: drag feels smooth on 10+ element payload
+- New/extended tests in canvas-interaction.test.ts
+- npm run lint && npm test && npm run build
+
+Next: docs/PLAN.md §18 (Phase 4 product polish)
 ```
 
 ---
