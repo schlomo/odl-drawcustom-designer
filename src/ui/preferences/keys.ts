@@ -4,4 +4,5 @@ export const YAML_SELECTION_COUPLING_STORAGE_KEY = 'oepl-yaml-selection-coupling
 export const MOCK_STATES_STORAGE_KEY = 'oepl-mock-states'
 export const SNAP_GRID_STORAGE_KEY = 'oepl-snap-grid'
 export const PROPERTY_PANEL_WIDTH_STORAGE_KEY = 'oepl-property-panel-width'
+export const SIDEBAR_WIDTH_STORAGE_KEY = 'oepl-sidebar-width'
 export const DISPLAY_CONFIG_STORAGE_KEY = 'oepl-display-config'

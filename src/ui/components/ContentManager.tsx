@@ -1,27 +1,30 @@
-import { useState } from 'react'
-import type { AssetKind, AssetResolutionStatus, AssetUploadResult, DrawElement } from '../../core'
-import { resolveAsset, scanPayloadForAssets } from '../../core'
+import { useMemo, useState } from 'react'
+import type { AssetKind, AssetUploadResult, DrawElement } from '../../core'
+import { buildContentAssetRows } from '../lib/content-asset-rows'
 import { shell } from '../styles/shell'
+import { PanelScopeToggle, type PanelListScope } from './PanelScopeToggle'
 
 interface ContentManagerProps {
   elements: DrawElement[]
   assetRevision: number
+  scope: PanelListScope
+  onScopeChange: (scope: PanelListScope) => void
   onUpload: (key: string, kind: AssetKind, file: File) => Promise<AssetUploadResult>
   onClear: (key: string) => void
   embedded?: boolean
 }
 
-const STATUS_LABEL: Record<AssetResolutionStatus, string> = {
+const STATUS_LABEL = {
   resolved: 'Resolved',
   bundled: 'Bundled',
   missing: 'Missing',
-}
+} as const
 
-const STATUS_CLASS: Record<AssetResolutionStatus, string> = {
+const STATUS_CLASS = {
   resolved: 'bg-emerald-600/15 text-emerald-700 dark:text-emerald-400',
   bundled: 'bg-sky-600/15 text-sky-700 dark:text-sky-400',
   missing: 'bg-amber-600/15 text-amber-800 dark:text-amber-400',
-}
+} as const
 
 function kindLabel(kind: AssetKind): string {
   return kind === 'font' ? 'Font' : 'Image'
@@ -31,48 +34,27 @@ function acceptForKind(kind: AssetKind): string {
   return kind === 'font' ? '.ttf,.otf,.woff,.woff2' : 'image/*'
 }
 
-interface AssetRow {
-  key: string
-  kind: AssetKind
-  paths: string[]
-  status: AssetResolutionStatus
-}
-
-function buildAssetRows(elements: DrawElement[]): AssetRow[] {
-  const scan = scanPayloadForAssets(elements)
-  const byKey = new Map<string, AssetRow>()
-
-  for (const ref of scan.references) {
-    const existing = byKey.get(ref.key)
-    if (existing) {
-      existing.paths.push(ref.path)
-      continue
-    }
-    byKey.set(ref.key, {
-      key: ref.key,
-      kind: ref.kind,
-      paths: [ref.path],
-      status: resolveAsset(ref.key).status,
-    })
-  }
-
-  return [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key))
+function uploadInputId(key: string): string {
+  return `content-upload-${encodeURIComponent(key)}`
 }
 
 export function ContentManager({
   elements,
   assetRevision,
+  scope,
+  onScopeChange,
   onUpload,
   onClear,
   embedded = false,
 }: ContentManagerProps) {
-  void assetRevision
-
-  const rows = buildAssetRows(elements)
+  const rows = useMemo(() => {
+    void assetRevision
+    return buildContentAssetRows(elements, scope)
+  }, [elements, scope, assetRevision])
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({})
   const [uploadingKey, setUploadingKey] = useState<string | null>(null)
 
-  const handleUpload = async (row: AssetRow, file: File) => {
+  const handleUpload = async (row: (typeof rows)[number], file: File) => {
     setUploadingKey(row.key)
     const result = await onUpload(row.key, row.kind, file)
     setUploadingKey(null)
@@ -93,19 +75,34 @@ export function ContentManager({
   }
 
   const Wrapper = embedded ? 'div' : 'section'
-  const wrapperClass = embedded ? '' : `border-b ${shell.panelBorder} p-4`
+  const wrapperClass = embedded
+    ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
+    : `border-b ${shell.panelBorder} p-4`
+  const listClassName = embedded
+    ? 'mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto'
+    : 'mt-3 max-h-48 space-y-2 overflow-y-auto'
+
+  const emptyMessage =
+    scope === 'current'
+      ? 'No custom font or image references in the payload.'
+      : 'No uploaded assets stored locally.'
 
   return (
     <Wrapper className={wrapperClass}>
-      {!embedded ? <h2 className={shell.heading}>Content manager</h2> : null}
-      <p className={`${embedded ? '' : 'mt-1'} text-xs ${shell.muted}`}>
-        Upload files for YAML asset paths. Keys match the exact path in YAML.
-      </p>
+      <div className={embedded ? 'shrink-0' : undefined}>
+        {!embedded ? <h2 className={shell.heading}>Content manager</h2> : null}
+        <div className={`flex items-start justify-between gap-2 ${embedded ? '' : 'mt-1'}`}>
+          <p className={`min-w-0 flex-1 text-xs ${shell.muted}`}>
+            Upload files for YAML asset paths. Keys match the exact path in YAML.
+          </p>
+          <PanelScopeToggle scope={scope} onScopeChange={onScopeChange} />
+        </div>
+      </div>
 
       {rows.length === 0 ? (
-        <p className={`mt-3 text-xs ${shell.muted}`}>No font or image references in the payload.</p>
+        <p className={`${embedded ? 'mt-2' : 'mt-3'} text-xs ${shell.muted}`}>{emptyMessage}</p>
       ) : (
-        <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto">
+        <ul className={listClassName}>
           {rows.map((row) => (
             <li
               key={row.key}
@@ -117,8 +114,12 @@ export function ContentManager({
                     {row.key}
                   </p>
                   <p className={`mt-0.5 text-[10px] ${shell.muted}`}>
-                    {kindLabel(row.kind)} · {row.paths.length} ref
-                    {row.paths.length === 1 ? '' : 's'}
+                    {kindLabel(row.kind)}
+                    {scope === 'current'
+                      ? ` · ${row.paths.length} ref${row.paths.length === 1 ? '' : 's'}`
+                      : row.paths.length > 0
+                        ? ` · ${row.paths.length} ref${row.paths.length === 1 ? '' : 's'}`
+                        : ' · stored'}
                   </p>
                 </div>
                 <span
@@ -133,28 +134,36 @@ export function ContentManager({
                 </p>
               ) : null}
               <div className="mt-2 flex gap-1">
-                <label
-                  className={`flex-1 ${uploadingKey === row.key ? 'opacity-60' : 'cursor-pointer'} ${shell.button} text-center`}
+                <button
+                  type="button"
+                  className={`flex-1 ${uploadingKey === row.key ? 'opacity-60' : ''} ${shell.button} text-center`}
+                  disabled={uploadingKey === row.key}
+                  onClick={() => {
+                    document.getElementById(uploadInputId(row.key))?.click()
+                  }}
                 >
                   {uploadingKey === row.key
                     ? 'Checking…'
                     : row.status === 'resolved'
                       ? 'Replace'
                       : 'Upload'}
-                  <input
-                    type="file"
-                    accept={acceptForKind(row.kind)}
-                    className="sr-only"
-                    disabled={uploadingKey === row.key}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0]
-                      if (file) {
-                        void handleUpload(row, file)
-                      }
-                      event.target.value = ''
-                    }}
-                  />
-                </label>
+                </button>
+                <input
+                  id={uploadInputId(row.key)}
+                  type="file"
+                  accept={acceptForKind(row.kind)}
+                  className="sr-only"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  disabled={uploadingKey === row.key}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0]
+                    if (file) {
+                      void handleUpload(row, file)
+                    }
+                    event.target.value = ''
+                  }}
+                />
                 {row.status === 'resolved' ? (
                   <button
                     type="button"

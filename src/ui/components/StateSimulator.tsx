@@ -2,13 +2,17 @@ import { useMemo, useState } from 'react'
 import type { DrawElement, HaMockContext } from '../../core'
 import { scanPayloadForTemplates } from '../../core'
 import { shell } from '../styles/shell'
+import { PanelScopeToggle, type PanelListScope } from './PanelScopeToggle'
 
 interface StateSimulatorProps {
   elements: DrawElement[]
   mockContext: HaMockContext
+  scope: PanelListScope
+  onScopeChange: (scope: PanelListScope) => void
   onSetMockState: (entityId: string, value: string) => void
   onAddEntity: (entityId: string, value: string) => void
   onRemoveEntity: (entityId: string) => void
+  onFocusEntity?: (entityId: string) => void
   embedded?: boolean
 }
 
@@ -19,9 +23,12 @@ function formatMockValue(value: string | number | boolean): string {
 export function StateSimulator({
   elements,
   mockContext,
+  scope,
+  onScopeChange,
   onSetMockState,
   onAddEntity,
   onRemoveEntity,
+  onFocusEntity,
   embedded = false,
 }: StateSimulatorProps) {
   const [draftEntityId, setDraftEntityId] = useState('')
@@ -40,7 +47,8 @@ export function StateSimulator({
         value: mockContext.states[entityId],
         referenced: scannedIds.has(entityId),
       }))
-  }, [mockContext.states, scannedIds])
+      .filter((row) => scope === 'all' || row.referenced)
+  }, [mockContext.states, scannedIds, scope])
 
   const commitDraftEntity = () => {
     const trimmedId = draftEntityId.trim()
@@ -63,64 +71,76 @@ export function StateSimulator({
     : `mt-3 max-h-40 overflow-y-auto ${entityGridClassName}`
   const listScrollClassName = embedded ? 'mt-2 min-h-0 flex-1 overflow-y-auto' : undefined
 
+  const emptyMessage =
+    scope === 'current'
+      ? 'No template entities in the payload.'
+      : 'No mock entity states stored for this project.'
+
   const entityList = (
     <ul className={listClassName}>
-      {entityRows.map((row) => (
-        <li key={row.entityId} className="contents">
-          <span
-            className={`truncate font-mono text-[11px] ${row.referenced ? 'text-[var(--shell-text)]' : shell.muted}`}
-            title={row.entityId}
-          >
-            {row.entityId}
-            {!row.referenced ? ' · manual' : ''}
-          </span>
+      {entityRows.length === 0 ? (
+        <li className="col-span-full list-none">
+          <p className={`text-xs ${shell.muted}`}>{emptyMessage}</p>
+        </li>
+      ) : (
+        entityRows.map((row) => (
+          <li key={row.entityId} className="contents">
+            <span
+              className={`truncate font-mono text-[11px] ${row.referenced ? 'text-[var(--shell-text)]' : shell.muted}`}
+              title={row.entityId}
+            >
+              {row.entityId}
+              {!row.referenced ? ' · manual' : ''}
+            </span>
+            <input
+              type="text"
+              className={`${shell.input} w-full px-1.5 py-1 text-[11px]`}
+              value={formatMockValue(row.value)}
+              onChange={(event) => onSetMockState(row.entityId, event.target.value)}
+              onFocus={() => onFocusEntity?.(row.entityId)}
+              aria-label={`Mock state for ${row.entityId}`}
+            />
+            {!row.referenced ? (
+              <button
+                type="button"
+                className={`${shell.button} w-full px-0`}
+                aria-label={`Remove ${row.entityId}`}
+                onClick={() => onRemoveEntity(row.entityId)}
+              >
+                ×
+              </button>
+            ) : (
+              <span aria-hidden="true" />
+            )}
+          </li>
+        ))
+      )}
+      <li className="contents">
+        <input
+            type="text"
+            className={`${shell.input} w-full px-1.5 py-1 font-mono text-[11px]`}
+            placeholder="sensor.example"
+            value={draftEntityId}
+            onChange={(event) => setDraftEntityId(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                commitDraftEntity()
+              }
+            }}
+            aria-label="New entity id"
+          />
           <input
             type="text"
             className={`${shell.input} w-full px-1.5 py-1 text-[11px]`}
-            value={formatMockValue(row.value)}
-            onChange={(event) => onSetMockState(row.entityId, event.target.value)}
-            aria-label={`Mock state for ${row.entityId}`}
-          />
-          {!row.referenced ? (
-            <button
-              type="button"
-              className={`${shell.button} w-full px-0`}
-              aria-label={`Remove ${row.entityId}`}
-              onClick={() => onRemoveEntity(row.entityId)}
-            >
-              ×
-            </button>
-          ) : (
-            <span aria-hidden="true" />
-          )}
-        </li>
-      ))}
-      <li className="contents">
-        <input
-          type="text"
-          className={`${shell.input} w-full px-1.5 py-1 font-mono text-[11px]`}
-          placeholder="sensor.example"
-          value={draftEntityId}
-          onChange={(event) => setDraftEntityId(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              commitDraftEntity()
-            }
-          }}
-          aria-label="New entity id"
-        />
-        <input
-          type="text"
-          className={`${shell.input} w-full px-1.5 py-1 text-[11px]`}
-          placeholder="value"
-          value={draftEntityValue}
-          onChange={(event) => setDraftEntityValue(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              commitDraftEntity()
-            }
-          }}
-          aria-label="New entity value"
+            placeholder="value"
+            value={draftEntityValue}
+            onChange={(event) => setDraftEntityValue(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                commitDraftEntity()
+              }
+            }}
+            aria-label="New entity value"
         />
         <span aria-hidden="true" />
       </li>
@@ -131,9 +151,12 @@ export function StateSimulator({
     <Wrapper className={wrapperClass}>
       <div className={embedded ? 'shrink-0' : undefined}>
         {!embedded ? <h2 className={shell.heading}>State simulator</h2> : null}
-        <p className={`${embedded ? '' : 'mt-1'} text-xs ${shell.muted}`}>
-          Mock Home Assistant entity states for template preview.
-        </p>
+        <div className={`flex items-start justify-between gap-2 ${embedded ? '' : 'mt-1'}`}>
+          <p className={`min-w-0 flex-1 text-xs ${shell.muted}`}>
+            Mock Home Assistant entity states for template preview.
+          </p>
+          <PanelScopeToggle scope={scope} onScopeChange={onScopeChange} />
+        </div>
       </div>
 
       {embedded ? <div className={listScrollClassName}>{entityList}</div> : entityList}

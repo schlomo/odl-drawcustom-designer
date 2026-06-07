@@ -806,6 +806,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 |---------|--------|
 | **Share link** | Header Share button; `#d=pako…` restores name + canvas + elements; excludes assets/mocks (ADR-005) |
 | **20-project history** | Named projects, LRU eviction, searchable; index in `localStorage`, snapshots in IndexedDB |
+| **Global mock store** | Simplify mocks like assets: one HA instance → one shared mock map in IndexedDB (not per `projectId`); migrate existing rows; optional per-project overrides only if scenario testing needs them (see §18 note) |
 | **Project name** | Editable field in header |
 | **Service options panel** | `background`, `rotate`, `dither`, `ttl`, `dry-run` — schema exists; needs UI + YAML block |
 | **Undo/redo** | Element + property changes (zustand temporal or custom stack); **19-9** refactor `useProjectState` selection batching |
@@ -819,6 +820,8 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **GH Pages** | Push to remote; workflow already runs lint/test/build |
 
 **Reference UI gaps (optional in 4):** clipboard paste in Content Manager, asset bundle zip import/export (§3 #16).
+
+**Storage simplification (Phase 4, with history):** Phase 3a stores mocks per `projectId` (ADR-003). Typical use is one HA instance and many tag layouts — same entity states everywhere, like asset paths. Phase 4 should migrate to a **global mock store** (one map keyed by `entity_id`) and treat per-project mock snapshots as optional overrides only when restoring history or testing divergent scenarios.
 
 ### 7.1 After Phase 2e — remaining feature map
 
@@ -1510,6 +1513,7 @@ Execute Phase 4 — product polish per docs/PLAN.md §7 Phase 4 and §8 parity c
 Implement:
 - Hash share #d=pako (ADR-005): Share button, restore name/canvas/elements, missing-asset banner
 - 20-project LRU history + project name field
+- Global mock store: single shared HA mock map in IndexedDB (align with global assets); migrate Phase 3a per-project rows; defer per-project overrides unless needed
 - Service options panel (schema already exists)
 - Undo/redo, layer panel (hide/lock/duplicate), PNG export
 - Copy YAML header button

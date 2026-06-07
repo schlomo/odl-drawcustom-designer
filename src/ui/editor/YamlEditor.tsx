@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { parseYamlPayload, scanPayloadForTemplates, validatePayload } from '../../core'
 import type { ResolvedTheme } from '../preferences/theme'
 import { locateElementFocusInYaml } from './locateElementInYaml'
+import { locateFirstEntityOccurrenceInYaml } from './locateEntityInYaml'
 import {
   createYamlEditorState,
   yamlThemeCompartment,
@@ -195,10 +196,11 @@ export function YamlEditor({
       return
     }
 
-    const position = locateElementFocusInYaml(
-      view.state.doc.toString(),
-      scrollCommand.elementIndex,
-    )
+    const doc = view.state.doc.toString()
+    const position =
+      scrollCommand.kind === 'element'
+        ? locateElementFocusInYaml(doc, scrollCommand.elementIndex)
+        : locateFirstEntityOccurrenceInYaml(doc, scrollCommand.entityId)
     if (position == null) {
       return
     }

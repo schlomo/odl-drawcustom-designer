@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   BUNDLED_FONT_KEYS,
   deleteAsset,
+  loadAssetsIntoContentMap,
+  listContentMapKeys,
   resolveAsset,
   resetContentMap,
   setAsset,
@@ -55,5 +57,22 @@ describe('resolveAsset', () => {
     deleteAsset('rbm.ttf')
 
     expect(resolveAsset('rbm.ttf')).toEqual({ key: 'rbm.ttf', status: 'bundled' })
+  })
+
+  it('loadAssetsIntoContentMap replaces the in-memory map', () => {
+    setAsset('old.ttf', { blob: new Blob(['old']), mime: 'font/ttf' })
+    const blob = new Blob(['new'], { type: 'font/ttf' })
+
+    loadAssetsIntoContentMap([{ key: 'new.ttf', entry: { blob, mime: 'font/ttf' } }])
+
+    expect(resolveAsset('old.ttf').status).toBe('missing')
+    expect(resolveAsset('new.ttf').status).toBe('resolved')
+  })
+
+  it('listContentMapKeys returns sorted uploaded keys', () => {
+    setAsset('b.png', { blob: new Blob(['b']), mime: 'image/png' })
+    setAsset('a.ttf', { blob: new Blob(['a']), mime: 'font/ttf' })
+
+    expect(listContentMapKeys()).toEqual(['a.ttf', 'b.png'])
   })
 })

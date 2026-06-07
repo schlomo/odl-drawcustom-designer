@@ -2,6 +2,8 @@ export { scanPayloadForAssets } from './scanner'
 export {
   BUNDLED_FONT_KEYS,
   deleteAsset,
+  loadAssetsIntoContentMap,
+  listContentMapKeys,
   resetContentMap,
   resolveAsset,
   setAsset,

@@ -1,5 +1,7 @@
 import '@testing-library/jest-dom/vitest'
+import 'fake-indexeddb/auto'
 import { beforeEach } from 'vitest'
+import { clearAllStores } from '../../src/storage'
 
 function createLocalStorage(): Storage {
   const storage = new Map<string, string>()
@@ -33,6 +35,7 @@ Object.defineProperty(globalThis, 'localStorage', {
   configurable: true,
 })
 
-beforeEach(() => {
+beforeEach(async () => {
   localStorageMock.clear()
+  await clearAllStores()
 })

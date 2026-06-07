@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DesignerCanvas } from './components/DesignerCanvas'
 import { ElementToolbar } from './components/ElementToolbar'
 import { PropertyPanel } from './components/PropertyPanel'
@@ -10,11 +10,17 @@ import { collectKnownFontKeys } from './lib/known-font-keys'
 import { MIN_CANVAS_PREVIEW_HEIGHT } from './hooks/useResizablePanelHeight'
 import { useProjectState } from './hooks/useProjectState'
 import { useThemePreference } from './hooks/useThemePreference'
+import { useYamlSelectionCoupling } from './hooks/useYamlSelectionCoupling'
 import { shell } from './styles/shell'
 
 export function App() {
   const columnRef = useRef<HTMLDivElement>(null)
   const { mode, resolvedTheme, cycleMode } = useThemePreference()
+  const { couplingEnabled } = useYamlSelectionCoupling()
+  const [entityScrollRequest, setEntityScrollRequest] = useState<{
+    entityId: string
+    token: string
+  } | null>(null)
   const {
     elements,
     previewElements,
@@ -119,6 +125,16 @@ export function App() {
     [uploadAsset],
   )
 
+  const handleSimulatorEntityFocus = useCallback(
+    (entityId: string) => {
+      if (!couplingEnabled) {
+        return
+      }
+      setEntityScrollRequest({ entityId, token: `sim:${entityId}:${Date.now()}` })
+    },
+    [couplingEnabled],
+  )
+
   return (
     <div className={shell.app}>
       <header className={`${shell.header} flex items-center justify-between gap-4`}>
@@ -147,6 +163,7 @@ export function App() {
           onClearAsset={clearAsset}
           onLoadExample={loadExample}
           onReorderElement={reorderElement}
+          onFocusSimulatorEntity={handleSimulatorEntityFocus}
         />
 
         <div ref={columnRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -180,6 +197,7 @@ export function App() {
             onSelectElement={selectElement}
             selectedIndex={selectedIndex}
             selectionSource={selectionSource}
+            entityScrollRequest={entityScrollRequest}
           />
         </div>
 

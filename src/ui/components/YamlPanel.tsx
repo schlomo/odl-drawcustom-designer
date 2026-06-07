@@ -9,7 +9,7 @@ import {
   tryParseYamlElements,
 } from '../editor/yamlElementsSync'
 import { YamlEditor } from '../editor/YamlEditor'
-import { createYamlScrollCommand } from '../editor/yamlScrollCommand'
+import { createYamlScrollCommand, createEntityScrollCommand, mergeYamlScrollCommands } from '../editor/yamlScrollCommand'
 import {
   MIN_CANVAS_PREVIEW_HEIGHT,
   useResizablePanelHeight,
@@ -33,6 +33,7 @@ interface YamlPanelProps {
   colorScheme: ResolvedTheme
   containerRef: RefObject<HTMLDivElement | null>
   extraEntityIds?: readonly string[]
+  entityScrollRequest?: { entityId: string; token: string } | null
 }
 
 export function YamlPanel({
@@ -44,6 +45,7 @@ export function YamlPanel({
   colorScheme,
   containerRef,
   extraEntityIds = [],
+  entityScrollRequest = null,
 }: YamlPanelProps) {
   const serialized = useMemo(() => serializeYamlPayload(elements), [elements])
   const [yamlText, setYamlText] = useState(serialized)
@@ -72,8 +74,12 @@ export function YamlPanel({
   }, [elements])
 
   const scrollCommand = useMemo(
-    () => createYamlScrollCommand(couplingEnabled, selectedIndex, selectionSource),
-    [couplingEnabled, selectedIndex, selectionSource],
+    () =>
+      mergeYamlScrollCommands(
+        createYamlScrollCommand(couplingEnabled, selectedIndex, selectionSource),
+        createEntityScrollCommand(couplingEnabled, entityScrollRequest),
+      ),
+    [couplingEnabled, entityScrollRequest, selectedIndex, selectionSource],
   )
 
   const yamlParseIssueSummary = useMemo(() => {
@@ -138,11 +144,11 @@ export function YamlPanel({
       </div>
       {yamlBlocksCanvasSync ? (
         <div
-          className="shrink-0 border-b border-red-500/30 bg-red-500/10 px-4 py-2 text-xs text-red-200"
+          className="shrink-0 border-b border-red-300 bg-red-50 px-4 py-2 text-xs dark:border-red-500/30 dark:bg-red-950/40"
           role="status"
         >
-          <p className="font-medium">YAML not applied to canvas</p>
-          <p className="mt-1 text-red-100/90">{yamlParseIssueSummary}</p>
+          <p className="font-medium text-red-900 dark:text-red-200">YAML not applied to canvas</p>
+          <p className="mt-1 text-red-800 dark:text-red-100">{yamlParseIssueSummary}</p>
           <p className={`mt-1 ${shell.muted}`}>
             Fix the highlighted issue in the editor below (red underline). The canvas keeps the last
             valid design until validation passes.

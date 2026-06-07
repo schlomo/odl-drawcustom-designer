@@ -1,5 +1,13 @@
 import type { HaMockContext } from '../../core'
-import { MOCK_STATES_STORAGE_KEY } from './keys'
+import {
+  LEGACY_MOCK_STATES_STORAGE_KEY,
+  MOCK_STATES_MIGRATED_KEY,
+  readMocksFromDb,
+  writeMocksToDb,
+} from '../../storage'
+
+/** @deprecated Use LEGACY_MOCK_STATES_STORAGE_KEY from storage — kept for existing tests. */
+export { LEGACY_MOCK_STATES_STORAGE_KEY as MOCK_STATES_STORAGE_KEY } from '../../storage/keys'
 
 export const DEFAULT_MOCK_STATES: HaMockContext['states'] = {
   'sensor.temperature': '21.5',
@@ -31,23 +39,43 @@ export function parseMockStates(raw: unknown): HaMockContext['states'] | null {
   return Object.keys(states).length > 0 ? states : null
 }
 
-export function readMockStates(): HaMockContext['states'] {
+async function migrateLegacyMockStates(projectId: string): Promise<void> {
   try {
-    const stored = localStorage.getItem(MOCK_STATES_STORAGE_KEY)
-    if (!stored) {
-      return { ...DEFAULT_MOCK_STATES }
+    if (localStorage.getItem(MOCK_STATES_MIGRATED_KEY)) {
+      return
     }
-    const parsed = parseMockStates(JSON.parse(stored))
-    return parsed ?? { ...DEFAULT_MOCK_STATES }
+
+    const legacyRaw = localStorage.getItem(LEGACY_MOCK_STATES_STORAGE_KEY)
+    if (legacyRaw) {
+      try {
+        const parsed = parseMockStates(JSON.parse(legacyRaw))
+        if (parsed) {
+          const existing = await readMocksFromDb(projectId)
+          if (!existing) {
+            await writeMocksToDb(projectId, parsed)
+          }
+        }
+      } catch {
+        // ignore corrupt legacy payload
+      }
+      localStorage.removeItem(LEGACY_MOCK_STATES_STORAGE_KEY)
+    }
+
+    localStorage.setItem(MOCK_STATES_MIGRATED_KEY, '1')
   } catch {
-    return { ...DEFAULT_MOCK_STATES }
+    // ignore private mode / quota
   }
 }
 
-export function writeMockStates(states: HaMockContext['states']): void {
-  try {
-    localStorage.setItem(MOCK_STATES_STORAGE_KEY, JSON.stringify(states))
-  } catch {
-    // ignore quota / private mode
-  }
+export async function readMockStates(projectId: string): Promise<HaMockContext['states']> {
+  await migrateLegacyMockStates(projectId)
+  const stored = await readMocksFromDb(projectId)
+  return stored ?? { ...DEFAULT_MOCK_STATES }
+}
+
+export async function writeMockStates(
+  projectId: string,
+  states: HaMockContext['states'],
+): Promise<void> {
+  await writeMocksToDb(projectId, states)
 }

@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DrawElement, HaMockContext } from '../../core'
 import type { AccentMode, AssetKind, AssetUploadResult, RenderContext } from '../../core'
+import { applyTemplateContextToPayload, scanPayloadForTemplates } from '../../core'
 import {
-  applyTemplateContextToPayload,
-  deleteAsset,
-  scanPayloadForTemplates,
-  setAsset,
-} from '../../core'
+  getOrCreateActiveProjectId,
+  hydrateContentMapFromStorage,
+  persistAsset,
+  removePersistedAsset,
+  setActiveProjectId,
+} from '../../storage'
 import { EXAMPLE_DESIGNS } from '../data/example-designs'
 import { DISPLAY_PRESETS, isCustomDisplayPreset } from '../data/display-presets'
 import { SAMPLE_ELEMENTS } from '../data/sample-elements'
@@ -19,7 +21,11 @@ import {
   writeDisplayConfig,
   type CanvasRotation,
 } from '../preferences/displayConfig'
-import { readMockStates, writeMockStates } from '../preferences/mockStates'
+import {
+  DEFAULT_MOCK_STATES,
+  readMockStates,
+  writeMockStates,
+} from '../preferences/mockStates'
 import { readSnapGridPrefs, writeSnapGridPrefs, type SnapGridPrefs } from '../preferences/snapGrid'
 
 export type { CanvasRotation } from '../preferences/displayConfig'
@@ -43,7 +49,7 @@ const initialState: ProjectState = {
   elements: SAMPLE_ELEMENTS,
   selectedIndex: null,
   canvas: readDisplayConfig(),
-  mockContext: { states: readMockStates() },
+  mockContext: { states: { ...DEFAULT_MOCK_STATES } },
 }
 
 function buildEffectiveMockContext(
@@ -62,17 +68,58 @@ function buildEffectiveMockContext(
 }
 
 export function useProjectState() {
+  const [projectId, setProjectId] = useState(() => getOrCreateActiveProjectId())
   const [elements, setElements] = useState<DrawElement[]>(initialState.elements)
   const [selectedIndex, setSelectedIndex] = useState<number | null>(initialState.selectedIndex)
   const [selectionSource, setSelectionSource] = useState<SelectionSource>('ui')
   const [canvas, setCanvas] = useState<CanvasConfig>(() => readDisplayConfig())
-  const [mockStates, setMockStates] = useState<HaMockContext['states']>(() => readMockStates())
+  const [mockStates, setMockStates] = useState<HaMockContext['states']>(() => ({
+    ...DEFAULT_MOCK_STATES,
+  }))
   const [assetRevision, setAssetRevision] = useState(0)
   const [snapGrid, setSnapGrid] = useState<SnapGridPrefs>(() => readSnapGridPrefs())
+  const [storageHydrated, setStorageHydrated] = useState(false)
+  const mockStatesRef = useRef(mockStates)
 
   useEffect(() => {
-    writeMockStates(mockStates)
+    mockStatesRef.current = mockStates
   }, [mockStates])
+
+  const hydrateProjectStorage = useCallback(async (activeProjectId: string) => {
+    await hydrateContentMapFromStorage()
+    const mocks = await readMockStates(activeProjectId)
+    setMockStates(mocks)
+    setAssetRevision((revision) => revision + 1)
+    setStorageHydrated(true)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      setStorageHydrated(false)
+      await hydrateProjectStorage(projectId)
+      if (cancelled) {
+        return
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [hydrateProjectStorage, projectId])
+
+  useEffect(() => {
+    if (!storageHydrated) {
+      return
+    }
+    const timer = window.setTimeout(() => {
+      void writeMockStates(projectId, mockStates)
+    }, 250)
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [mockStates, projectId, storageHydrated])
 
   useEffect(() => {
     writeSnapGridPrefs(snapGrid)
@@ -81,6 +128,22 @@ export function useProjectState() {
   useEffect(() => {
     writeDisplayConfig(canvas)
   }, [canvas])
+
+  const switchProject = useCallback(
+    async (nextProjectId: string) => {
+      if (nextProjectId === projectId) {
+        return
+      }
+
+      if (storageHydrated) {
+        await writeMockStates(projectId, mockStatesRef.current)
+      }
+
+      setActiveProjectId(nextProjectId)
+      setProjectId(nextProjectId)
+    },
+    [projectId, storageHydrated],
+  )
 
   const mockContext = useMemo(
     () => buildEffectiveMockContext(elements, mockStates),
@@ -162,7 +225,7 @@ export function useProjectState() {
         return result
       }
 
-      setAsset(key, {
+      await persistAsset(key, {
         blob: file,
         mime: result.mime,
       })
@@ -172,8 +235,8 @@ export function useProjectState() {
     [],
   )
 
-  const clearAsset = useCallback((key: string) => {
-    deleteAsset(key)
+  const clearAsset = useCallback(async (key: string) => {
+    await removePersistedAsset(key)
     setAssetRevision((revision) => revision + 1)
   }, [])
 
@@ -351,6 +414,9 @@ export function useProjectState() {
   const selectedElement = selectedIndex != null ? (elements[selectedIndex] ?? null) : null
 
   return {
+    projectId,
+    switchProject,
+    storageHydrated,
     elements,
     setElements,
     previewElements,

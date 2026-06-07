@@ -5,6 +5,8 @@ interface ResizablePanelWidthOptions {
   defaultWidth: number
   minWidth: number
   maxWidth: number
+  /** Panel anchor: `left` = sidebar (handle on right edge); `right` = properties (handle on left). */
+  edge?: 'left' | 'right'
 }
 
 export function useResizablePanelWidth({
@@ -12,6 +14,7 @@ export function useResizablePanelWidth({
   defaultWidth,
   minWidth,
   maxWidth,
+  edge = 'right',
 }: ResizablePanelWidthOptions) {
   const [width, setWidth] = useState(() =>
     readStoredWidth(storageKey, defaultWidth, minWidth, maxWidth),
@@ -25,7 +28,8 @@ export function useResizablePanelWidth({
       let latestWidth = startWidth
 
       const onMove = (moveEvent: MouseEvent) => {
-        const delta = startX - moveEvent.clientX
+        const rawDelta = moveEvent.clientX - startX
+        const delta = edge === 'left' ? rawDelta : -rawDelta
         const next = Math.min(maxWidth, Math.max(minWidth, startWidth + delta))
         latestWidth = next
         setWidth(next)
@@ -44,7 +48,7 @@ export function useResizablePanelWidth({
       document.addEventListener('mousemove', onMove)
       document.addEventListener('mouseup', onUp)
     },
-    [maxWidth, minWidth, storageKey, width],
+    [edge, maxWidth, minWidth, storageKey, width],
   )
 
   return { width, startResize }

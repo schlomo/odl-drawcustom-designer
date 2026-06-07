@@ -91,13 +91,15 @@ function FontPropertyField({
   }
 
   return (
-    <label className={`block text-xs ${shell.muted}`}>
+    <div className={`block text-xs ${shell.muted}`}>
       <PropertyLabel element={element} property="font" />
       <input
         ref={fontInputRef}
         type="file"
         accept=".ttf,.otf,.woff,.woff2"
         className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
         onChange={(event) => {
           const file = event.target.files?.[0]
           if (file) {
@@ -134,7 +136,7 @@ function FontPropertyField({
         <option value={FONT_UPLOAD_OPTION}>Upload font…</option>
         <option value={TEMPLATE_EDITOR_OPTION}>Template…</option>
       </select>
-    </label>
+    </div>
   )
 }
 
@@ -318,26 +320,35 @@ function PropertyField({
             placeholder="/local/logo.png"
             onChange={(event) => onChange(event.target.value)}
           />
-          <label className={`shrink-0 self-start ${shell.button} cursor-pointer px-2 py-1`}>
+          <button
+            type="button"
+            className={`shrink-0 self-start ${shell.button} px-2 py-1`}
+            onClick={() => {
+              document.getElementById(`image-upload-${property}`)?.click()
+            }}
+          >
             Upload
-            <input
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              onChange={(event) => {
-                const file = event.target.files?.[0]
-                if (!file) {
-                  return
-                }
-                const key = urlKey.trim() || `/local/${file.name}`
-                if (!urlKey.trim()) {
-                  onChange(key)
-                }
-                void onUploadImageForUrl(key, file)
-                event.target.value = ''
-              }}
-            />
-          </label>
+          </button>
+          <input
+            id={`image-upload-${property}`}
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (!file) {
+                return
+              }
+              const key = urlKey.trim() || `/local/${file.name}`
+              if (!urlKey.trim()) {
+                onChange(key)
+              }
+              void onUploadImageForUrl(key, file)
+              event.target.value = ''
+            }}
+          />
         </div>
       </div>
     )
