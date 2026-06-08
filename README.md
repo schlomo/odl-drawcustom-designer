@@ -24,7 +24,9 @@ Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcus
 
 **Phase 4a** — global storage + session restore (**committed** `5ad7e6f`).
 
-**Next:** Phase **4b** — canvas/YAML export bars, zoom, hash share (§18b). Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §18.
+**Phase 4b** — export bars, zoom, hash share (**committed** `0bac3b6`).
+
+**Next:** Phase **4c** — multi-select + alignment (§18c). Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §18.
 
 ## Spec
 

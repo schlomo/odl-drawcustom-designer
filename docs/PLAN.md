@@ -52,7 +52,10 @@ todos:
     status: completed
   - id: phase4b-export-share
     content: "§18b: canvas/YAML export bars, zoom 50/100/200/fit, hash share (#d=pako)"
-    status: pending
+    status: completed
+  - id: phase4b-commit
+    content: "Commit Phase 4b after verification (§11o)"
+    status: completed
   - id: phase4-multiselect
     content: "§18c: marquee select, bulk move/layer, align H/V"
     status: pending
@@ -61,6 +64,18 @@ todos:
     status: pending
   - id: phase4-display-zoom
     content: "§18i: resolution + color mode dropdowns; canvas zoom 50/100/200/fit (§18b)"
+    status: pending
+  - id: phase4-odl-alignment
+    content: "§18j: OpenDisplay Language alignment, cross-cutting fields (visible on all types), ADR-012"
+    status: pending
+  - id: phase4-load-demo
+    content: "§18k: remove sidebar Load Example; single Load Demo in header"
+    status: pending
+  - id: phase4-rebrand
+    content: "§7.5: product/repo rebrand decision (odl-designer vs drawcustom-designer) — pending"
+    status: pending
+  - id: phase4-demo-visible
+    content: "§18m: refactor showcase demo — debug_grid visible:false; stop fill:none invisibility hack"
     status: pending
   - id: yaml-jinja-editor
     content: "CodeMirror 6 YAML panel: syntax highlighting (YAML + embedded Jinja), schema-driven autocomplete, lint diagnostics"
@@ -132,7 +147,10 @@ todos:
     content: "Deferred post-v1: element Ctrl+C/V (19-10), free pan + continuous zoom (19-11)"
     status: cancelled
   - id: post-v1-canvas-handles
-    content: "Post-v1: arc angle handles, polygon point editing (19-12)"
+    content: "Post-v1: arc angle handles (19-12b)"
+    status: pending
+  - id: post-v1-polygon-vertices
+    content: "Post-v1 §19-12a: polygon vertex editor on canvas — drag/add/remove points"
     status: pending
 isProject: false
 ---
@@ -169,8 +187,8 @@ flowchart LR
 
 | Zone              | Contents                                                                                                                                         |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Header**        | App title, Share button (copies URL), dark/light mode                                                                                            |
-| **Left sidebar**  | Load Example dropdown, Add Element grid (16 types), **resolution** + **color mode** dropdowns (not inch-based tag presets), rotation 0/90/180/270 |
+| **Header**        | App title, **Load Demo**, Share (copies URL), dark/light mode                                                                                    |
+| **Left sidebar**  | Add Element grid (16 types), **resolution** + **color mode** dropdowns (not inch-based tag presets), rotation 0/90/180/270 — **no Load Example block** |
 | **Center canvas** | E-paper preview; **top bar**: zoom 200/100/Fit/50, PNG copy/download, Clear All, Snap On/Off, coords overlay                                   |
 | **Right panel**   | Context form for selected element; Delete + Bring to Front                                                                                       |
 | **Bottom panel**  | Live YAML editor, Copy YAML, Parse YAML and load to canvas                                                                                       |
@@ -580,6 +598,7 @@ Maintain `docs/adr/` in repo (for future-you and contributors):
 | ADR-011 | Behavior-test policy — core spec outcomes, UI user-visible wiring (§17g ✅) |
 | ADR-004 | Template evaluator scope (subset of Jinja, not full engine)                       |
 | ADR-005 | Share hash format and excluded data                                               |
+| ADR-012 | OpenDisplay Language alignment + cross-cutting element fields (§18j)              |
 | ADR-006 | UI framework: **React** for shell (AI-maintainability); core stays framework-free |
 | ADR-007 | Hybrid SVG + Canvas rendering                                                     |
 | ADR-008 | TDD policy and CI gates                                                           |
@@ -720,12 +739,15 @@ flowchart LR
 | **3f** Canvas polish | ✅ Done | `1b629ff` | 557 (85 files) | Drag overlay, pointer capture, interaction tests, sidebar previews |
 | **3g** Arch + quality | ✅ Done | `e8ff378` | — | ADR-011, `docs/testing.md`, audit report, core barrel ESLint |
 | **4a** Storage reshape | ✅ Done | `5ad7e6f` | 593 (91 files) | Dexie v3, global mocks, `session` row, `appBootstrap`, auto-save |
-| **4b** Export + share | ⬜ **Next** | — | — | Canvas/YAML bars, zoom, `#d=pako` (§18b) |
-| **4c–4i** Polish | ⬜ Pending | — | — | Multi-select, undo, edge snap, HA embed, deploy (§18c–h, §18i) |
+| **4b** Export + share | ✅ Done | `0bac3b6` | 636 (97 files) | Zoom, PNG/YAML export, `#d=pako` share, missing-asset banner |
+| **4c** Multi-select | ⬜ **Next** | — | — | Marquee, bulk move, align (§18c) |
+| **4d–4i** Polish | ⬜ Pending | — | — | Undo, edge snap, HA embed, deploy (§18d–h, §18i) |
+| **4j** ODL alignment | ⬜ Pending | — | — | Cross-cutting schema/renderer parity with OpenDisplay Language (§18j) |
+| **4k–4r** UX + brand | ⬜ Pending | — | — | Load Demo header button (§18k); demo visible refactor (**§18m**); rebrand (§7.5 / §18r) |
 
-**Current repo health:** `npm test` → **593 passed** (91 files) · `npm run lint` → **clean** · last commit `5ad7e6f`
+**Current repo health:** `npm test` → **636 passed** (97 files) · `npm run lint` → **clean** · last commit `0bac3b6`
 
-**Next:** Phase **4b** — canvas + YAML bars + hash share (§18b).
+**Next:** Phase **4c** — multi-select + alignment (§18c).
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -820,7 +842,8 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **19-9** | Refactor `useProjectState` — batch selection remap with element mutations (`useReducer` or paired updates); **partial:** `applyLayerMove` + ADR-009 selection-stability rules | **4d** ✅ target | `useProjectState.ts` — pair with undo/redo |
 | **19-10** | Element copy/paste (Ctrl+C/V, +10px offset) | **post-v1** | `DesignerCanvas.tsx`, `useProjectState.ts` |
 | **19-11** | Free pan + continuous zoom (SVG viewBox) — fixed 50/100/200/Fit is **4b**, not this | **post-v1** | `DesignerCanvas.tsx` |
-| **19-12** | Arc angle handles; polygon vertex handles on canvas | **post-v1** | `DesignerCanvas.tsx`, `element-geometry.ts` |
+| **19-12a** | **Polygon vertex editor** — canvas handles per point, add/remove vertices; today `points` is JSON textarea only | **post-v1** | `DesignerCanvas.tsx`, `element-geometry.ts`, `ElementPropertyForm.tsx` |
+| **19-12b** | Arc angle handles on canvas | **post-v1** | `DesignerCanvas.tsx`, `element-geometry.ts` |
 | **19-13** | `moveElementInArray` guard when `toIndex >= length` | **3f** ✅ | `element-geometry.ts` |
 
 ### Phase 3a — IndexedDB storage (§17a) ✅ (`9d58839`)
@@ -948,7 +971,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | Chunk | Feature | Notes |
 |-------|---------|--------|
 | **4a** | **Storage reshape** | ✅ Dexie **v3**: global `assets`, global `mocks`, single `session` row. Dropped `projects` + per-`projectId` mocks. `ensureDbReady` wipe-on-upgrade. |
-| **4b** | **Canvas + YAML bars** | Canvas bar: zoom **200 / 100 / Fit / 50**, **PNG copy** + **download**. YAML bar: **copy** + **download**. Header: hash **Share** `#d=pako…`; missing-asset banner. |
+| **4b** | **Canvas + YAML bars** | ✅ Zoom **200/100/Fit/50**, PNG copy/download, YAML copy/download, header **Share** `#d=pako`, hash bootstrap, missing-asset banner (`0bac3b6`). |
 | **4i** | **Display config** | Drop inch-based tag presets. **Resolution** dropdown (common WxH quick-picks + Custom → W/H inputs). **Color mode** dropdown (BW, BWR, BWY; scaffold **6-color** palette in types/renderer). |
 | **4c** | **Multi-select** | Marquee/drag-select enclosed elements; bulk move; raise/lower selection; align left/center/right + top/middle/bottom. |
 | **4d** | **Undo/redo** | **50 steps**; batch mutations for multi-select; **19-9** `useProjectState` refactor paired with history stack. |
@@ -956,6 +979,10 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **4f** | **HA embed prep** | Dual runtime: standalone vs HA panel. Load/save `drawcustom` payload from automation editor (if feasible). Live HA states for preview when embedded; standalone keeps State Simulator + global mocks. ADR-010 candidate. |
 | **4g** | **Service options** | `background`, `rotate`, `dither`, `ttl`, `dry-run` UI — schema exists. |
 | **4h** | **Ship** | GH Pages deploy; optional single Playwright smoke (load + add element). |
+| **4j** | **ODL alignment** | OpenDisplay Language + Basic Standard future-proofing: cross-cutting element fields (`visible` on all types), spec audit table, ADR-012, color-scheme enum maps to §18i. |
+| **4k** | **Load Demo UX** | Remove sidebar Load Example dropdown + `example-designs.ts` catalog; one **Load Demo** button in header loads curated showcase dashboard (confirm/replace if session dirty). **Prerequisite:** **4m** demo YAML fixed. |
+| **4m** | **Demo visible refactor** | Showcase: `debug_grid` → `visible: false` (designer overlay); arc keeps legitimate `fill: none` + outline — not an invisibility stand-in. Fix `fill_none` hint false positives if needed. |
+| **4r** | **Rebrand** | Product + repo naming per §7.5 (decision pending — lean **odl-designer**). UI title, README, GH Pages path optional. |
 
 **Explicitly cut from v1** (see §7.2): 20-project library, inch-based tag preset list, asset bundle zip, PWA, validation summary panel, history diff, element copy/paste, free pan/continuous zoom, layer hide/lock/duplicate panel, Floyd-Steinberg dither, property-form test suite (19-7/19-8).
 
@@ -983,6 +1010,8 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | Multi-select + alignment | **Promote to v1** | Was post-v1; now **4c** |
 | Canvas edge snap | **Promote to v1** | Was post-v1; now **4e** |
 | PNG + YAML toolbar export | **Promote to v1** | **4b** |
+| Load Example dropdown (17 designs) | **Cut** | One **Load Demo** in header (**4k**); per-type samples were dev fixtures, not a product feature |
+| Product rebrand (`oepl-designer` → …) | **Decide in 4r** | See §7.5 — lean **odl-designer** |
 
 **Runtime modes (4f):**
 
@@ -1035,6 +1064,77 @@ flowchart TB
 - CSS/transform scale of preview viewport; **Fit** scales to available panel width/height
 - No scrollable pan canvas in v1 — large resolutions (800×480) need zoom-out to edit comfortably
 
+### 7.4 OpenDisplay protocol alignment (2026-06)
+
+[OpenDisplay Language (ODL)](https://opendisplay.org/protocol/open-display-language.html) is the canonical future name/format for what Home Assistant and OEPL today call **`drawcustom`** payload YAML. The [OpenDisplay Basic Standard](https://opendisplay.org/protocol/basic-standard.html) defines the **wire protocol** (BLE/Wi‑Fi packets, display announcement, image encoding) — complementary to ODL, not a replacement for the YAML editor model.
+
+**Editor strategy:** Treat ODL as the **forward-looking spec**; keep HA-clean YAML export compatible with today's `drawcustom` service while aligning schema, renderer, and property forms with ODL so the same payloads work when integrations rename or dual-publish.
+
+| Layer | ODL / drawcustom (YAML) | Basic Standard (binary) | Our editor today |
+|-------|-------------------------|-------------------------|------------------|
+| **Payload** | Ordered list of 16 draw types | Raw encoded pixels in packet 0x82 | ✅ Same 16 types in Zod + renderer |
+| **Service options** | `background`, `rotate`, `dither`, `ttl`, `dry-run` | N/A (server poll interval, refresh type) | Schema ✅; UI **4g** |
+| **Colors in YAML** | Named + halftone + accent + hex | `colour_scheme` enum 0x00–0x04 on announcement | Preview accent + d=2 ✅; mode dropdown **4i** |
+| **Templates** | Jinja when used with HA | N/A | ✅ Nunjucks preview (ADR-004) |
+| **Share / session** | N/A | N/A | Hash + session **4b** / **4a** ✅ |
+
+**ODL draw types:** All 16 names match our vendored [`docs/spec/supported_types.md`](docs/spec/supported_types.md) (debug_grid through progress_bar). Service option and dither tables match.
+
+**Basic Standard → display config (§18i):** Map announcement `colour_scheme` to editor color mode:
+
+| `colour_scheme` | Basic Standard | Editor `TagColorMode` (4i) |
+|-----------------|----------------|------------------------------|
+| `0x00` | Monochrome B/W | `bw` |
+| `0x01` | B/W + Red | `bwr` |
+| `0x02` | B/W + Yellow | `bwy` |
+| `0x03` | B/W + Red + Yellow | 4-color (extend palette) |
+| `0x04` | 6-color | `six` (scaffold) |
+
+Rotation in announcement (0/90/180/270) aligns with existing canvas rotation control.
+
+**Cross-cutting element fields — known gaps (fix in §18j):**
+
+ODL documents `visible` on most types; neither ODL nor our upstream spec table lists it for **`debug_grid`**, **`polygon`**, or **`arc`**, but other types treat it as a universal optional field. Our implementation is **inconsistent**:
+
+| Type | ODL `visible` doc | Our Zod schema | Renderer `isVisible` | Property form / completions |
+|------|-------------------|----------------|----------------------|----------------------------|
+| debug_grid | ❌ not listed | ❌ | ❌ | ❌ |
+| polygon | ❌ not listed | ❌ | ❌ | ❌ |
+| arc | ❌ not listed | ❌ | ❌ | ❌ |
+| other 13 types | ✅ | ✅ | ✅ | ✅ |
+
+**§18j decision:** Add `visible` (template-capable, same as other types) to **all 16** draw types — schema, renderer, hit-test/hidden hints, property panel, and completions — so designer behavior matches user expectation and ODL can adopt the field without a breaking editor change. Track upstream ODL WIP for when official docs add it to polygon/arc/debug_grid.
+
+**Showcase demo bug (fix in §18m, soon after §18j):** `sample-elements.ts` uses `fill: none` on the **arc** (outline-only pie slice — correct on-tag geometry). Our `hidden-on-tag` / hint layer treats **any** `fill: none` as “invisible on tag,” which is wrong when **outline/stroke still renders**. The demo should not rely on that hack: assign the **designer-only overlay** role to **`debug_grid` with `visible: false`** once schema supports it. The arc stays a normal visible outline arc.
+
+**Other ODL notes (no v1 blockers):**
+
+- `multiline.parse_colors` — supported in our schema; not yet in ODL tables — keep (OEPL parity).
+- `icon.color` vs `fill` — we accept both in schema; ODL documents `fill` — export HA-clean with canonical key.
+- Wire-format image export (encode to Basic Standard bitplanes) — **post-v1**; §18j only documents the mapping hook in ADR-012.
+
+**Spec maintenance:** Continue vendoring `supported_types.md` from OEPL upstream; add periodic diff against [ODL spec URL](https://opendisplay.org/protocol/open-display-language.html) (WIP — expect churn). **ADR-012** (draft in §18j) records dual-spec strategy and extension rules.
+
+### 7.5 Product naming (rebrand — decision pending)
+
+**Context:** Repo and UI still say `oepl-designer` / "OpenEPaperLink HA YAML Designer". OpenDisplay Language is the canonical forward name for the YAML payload (§7.4). Users today discover the tool via HA **`drawcustom`** service docs.
+
+**Candidates:**
+
+| Slug / repo | Pros | Cons |
+|-------------|------|------|
+| **`odl-designer`** | Matches OpenDisplay / ODL direction; not tied to one integration; pairs with §7.4 and §18j | Less obvious to HA users searching "drawcustom"; ODL spec still WIP |
+| **`drawcustom-designer`** | Immediate HA discoverability; matches current service name in automations | Feels legacy when ODL rename lands; narrow if tool serves non-HA OpenDisplay senders |
+
+**Recommendation (lean): `odl-designer`**
+
+- **Product title:** "ODL Designer" (or "OpenDisplay Language Designer" in formal docs).
+- **Tagline (keep drawcustom discoverability):** e.g. *Visual editor for OpenDisplay Language YAML — Home Assistant `drawcustom` compatible.*
+- **Repo rename:** Optional for v1 — can rebrand UI/README first; migrate GitHub repo + `VITE_BASE_PATH` / Pages URL when ready (**4r**). Avoid maintaining two public names long term.
+- **Do not** use `oepl-designer` in user-facing copy after rebrand (keep only in git history / redirects).
+
+**Decision needed from you before 4r:** confirm slug, whether to rename GitHub repo, and whether GH Pages moves from `/oepl-designer/` to `/odl-designer/`.
+
 ### 7.1 After Phase 2e — remaining feature map
 
 Once **2e** is committed, **Phase 2 is complete**. **v1** still requires Phases **3 + 4** plus deploy.
@@ -1065,7 +1165,8 @@ flowchart LR
 
 **Post-v1 / nice-to-have:**
 
-- **19-12** Arc angle handles; polygon vertex editing on canvas
+- **19-12a** Polygon vertex editing on canvas (post-v1 — JSON `points` textarea today)
+- **19-12b** Arc angle handles on canvas
 - **19-10** Element copy/paste; **19-11** free pan + continuous zoom (fixed 50/100/200/Fit is v1 **4b**)
 - Snap to other elements' edges (beyond canvas bounds)
 - Distribute / match-size alignment; layer hide/lock/duplicate panel
@@ -1073,9 +1174,11 @@ flowchart LR
 - **19-7/19-8** property form tests + JSON blur UX
 - Floyd-Steinberg dither; dlimg full resize/rotate preview
 
-**Recommended order:** **3g** (arch/quality gate) → **§18a–i** → GH Pages.
+**Recommended order:** **3g** (arch/quality gate) → **§18a–i** → **§18j** → **§18m** (demo YAML) → **§18h** (ship).
 
 **Rationale for 3g before 4:** Phase 4 is the largest state-management churn since 2e. Undo, session persistence, and global mocks need trustworthy behavior tests and up-to-date ADRs — not more implementation-detail coverage.
+
+**Rationale for 4j before 4h:** Ship gate (§8) should include ODL-ready cross-cutting fields and a documented spec alignment strategy — avoids v1 payloads that silently ignore `visible` on polygon/arc/debug_grid.
 
 ---
 
@@ -1095,19 +1198,24 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 | YAML editor: highlight, autocomplete, Jinja scaffolding, lint | ✅ | 2b |
 | Schema-driven property forms (all types) | ✅ | 2e |
 | Canvas drag/resize/snap/keyboard | ✅ perf overlay **3f** | 2e–3f |
-| Add Element + Load Example | ✅ | 2e |
+| Add Element + Load Example | ✅ sidebar dropdown today → **cut in 4k** | 2e / **4k** |
+| Load Demo (single header button) | ⬜ **4k** | 4 |
+| Product rebrand (odl-designer) | ⬜ decision **§7.5** / **4r** | 4 |
 | Multi-select, bulk move, align H/V | ⬜ **4c** | 4 |
-| Canvas zoom 200/100/Fit/50 | ⬜ **4b** | 4 |
-| Canvas PNG copy + download | ⬜ **4b** | 4 |
+| Canvas zoom 200/100/Fit/50 | ✅ (**4b**) | 4 |
+| Canvas PNG copy + download | ✅ (**4b**) | 4 |
 | Resolution + color mode (not inch presets) | ⬜ **4i** | 4 |
-| YAML copy + download (toolbar) | ⬜ **4b** | 4 |
+| YAML copy + download (toolbar) | ✅ (**4b**) | 4 |
 | Undo/redo (50 steps) | ⬜ **4d** | 4 |
 | Last-session restore on load | ✅ (**4a**) | 4a |
 | Global assets + mocks (not per project) | ✅ (**4a**) | 4a |
 | Canvas edge snap (bottom/right priority) | ⬜ **4e** | 4 |
-| Share link restores name + canvas + elements (not assets/mocks) | ⬜ **4b** | 4 |
+| Share link restores name + canvas + elements (not assets/mocks) | ✅ (**4b**) | 4 |
 | HA embed: load/save drawcustom + live states | ⬜ **4f** (prep) | 4 |
 | Service options UI (`background`, `rotate`, `dither`, …) | ⬜ Schema only | 4g |
+| Cross-cutting ODL fields (`visible` on all 16 types) | ⬜ **4j** | 4 |
+| Showcase demo uses `visible: false` for overlay (not `fill: none` hack) | ⬜ **4m** | 4 |
+| OpenDisplay Language schema parity audit | ⬜ **4j** | 4 |
 | Real QR, plot, icons, parse_colors in preview | ✅ (**3c**–**3e**) | 3 |
 | Core test suite passes in CI | ✅ lint + test in workflow | — |
 | Tests assert behavior not implementation (ADR-011) | ✅ (**3g**) | 3g |
@@ -1133,6 +1241,7 @@ You won't code yourself — Cursor is the team. This section maps plan phases to
 | `.cursor/agents/spec-reviewer.md`    | Subagent: diff vs supported_types.md                             |
 | `docs/PLAN.md`                       | **Canonical plan in repo** — agent prompts: §11 (commits), §16 (Phase 2), §17 (Phase 3), §18 (Phase 4), §19 (review) |
 | `docs/spec/supported_types.md`       | Vendored drawcustom spec — element types and fields                       |
+| OpenDisplay Language (external)      | Canonical future spec — [opendisplay.org/protocol/open-display-language.html](https://opendisplay.org/protocol/open-display-language.html); diff in **§18j** |
 | `docs/adr/`                          | Architecture decisions the agent must read before big changes             |
 | `tests/fixtures/`                    | Golden YAML from spec — agent's source of truth                           |
 
@@ -1196,7 +1305,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **3a–3g** ✅ through `e8ff378`. Phase **4a** ✅ (`5ad7e6f`). **Current work:** **§18b** (export bars + hash share) → **§18c–i**.
+- Phase **3a–3g** ✅ through `e8ff378`. Phase **4a** ✅ (`5ad7e6f`). Phase **4b** ✅ (`0bac3b6`). **Current work:** **§18c** (multi-select) → **§18d–i**.
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1382,6 +1491,14 @@ Delivered 2026-06-08. Dexie v3, global mocks, session restore, app bootstrap, sh
 
 ---
 
+## 11o. Commit Phase 4b prompt ✅ (`0bac3b6`)
+
+Delivered 2026-06-08. Share hash, export bars, canvas zoom, missing-asset banner.
+
+<!-- prompt archived — phase complete -->
+
+---
+
 ## 11c. Commit Phase 2 (partial) prompt ✅ (`84d2164`)
 
 Commit message used: `Phase 2a complete (YAML Editor)` — includes stabilization + UI shell + YamlEditor.
@@ -1511,7 +1628,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **Next: §18b** (canvas + YAML bars + hash share).
+**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **Next: §18c** (multi-select + alignment).
 
 **Plan cross-reference map:**
 
@@ -1608,7 +1725,7 @@ Key files: `docs/testing.md`, `docs/adr/ADR-011-behavior-test-policy.md`, `docs/
 
 **Revised 2026-06.** One agent session per subsection. Read §7.2 simplifications first — do not implement cut features. **Prerequisite:** §17g ✅; **§18a** ✅ (`5ad7e6f`).
 
-**Order:** §18a → §18b → §18c → §18d → §18e → §18f → §18g → §18h (§18i can run parallel with §18b after §18a)
+**Order:** §18a → §18b → §18c → §18d → §18e → §18f → §18g → §18i → **§18j** → **§18m** → **§18k** → **§18r** → §18h (§18i ∥ §18b after §18a; **§18m immediately after §18j**; §18k after §18m)
 
 ### §18a — Storage reshape (Phase 4a) ✅ (`5ad7e6f`)
 
@@ -1618,67 +1735,36 @@ Key files: `src/storage/db.ts`, `session.ts`, `mocks.ts`, `appBootstrap.ts`, `us
 
 <!-- prompt archived — phase complete -->
 
-### §18b — Canvas + YAML bars + hash share ⬜ **Next**
+### §18b — Canvas + YAML bars + hash share ✅ (`0bac3b6`)
 
-Read **ADR-005** (`docs/adr/ADR-005-share-hash-format.md`), **§7.3** (zoom), and `docs/testing.md` (ADR-011).
+Delivered — see §7 Phase 4b. Key files: `src/share/`, `canvas-png-export.ts`, `canvas-zoom.ts`, `ExportActionButton.tsx`, `shareHashNavigation.ts`, `missing-asset-messages.ts`.
 
-```
-Execute Phase 4b — canvas toolbar, YAML toolbar, hash share.
+<!-- prompt archived — phase complete -->
 
-Dependencies:
-- npm install pako (+ @types/pako if needed)
+### §18c — Multi-select + alignment ⬜ **Next**
 
-Share hash (ADR-005):
-- src/share/ (or src/core/share/) — SharePayload v1, encodeShareHash / decodeShareHash
-  (JSON → pako deflate → base64url; fragment #d=<payload>)
-- Payload: name, canvas { width, height, rotation, accent }, service, elements
-- EXCLUDE: IndexedDB assets, mock states, edit history
-- buildShareUrl(): origin + pathname + '#d=' + encoded
-- loadAppBootstrap(): if location.hash matches #d=, decode and bootstrap from hash
-  (hash wins over session row on load); clear or replace hash after apply optional
-- App header: Share button copies URL; toast/brief confirm
-- After hash restore: scanPayloadForAssets + resolveAsset → StatusBanner for missing keys
-  (reuse content-asset-status patterns; banner lists YAML paths)
-
-Canvas top bar (DesignerCanvas.tsx — already has fitScale via ResizeObserver):
-- Zoom mode pref in localStorage: 200% | 100% | Fit | 50% (§7.3)
-- effectiveScale = fit computed scale × user factor (Fit uses panel fit only; 100% = 1× native
-  in panel up to current fit cap; 200%/50% multiply/divide)
-- Update pointer hit-test (clientToCanvas) to use effectiveScale, not fitScale alone
-- Buttons in canvas header alongside Snap / Dither / Clear all
-
-PNG export (native WxH, not CSS scale):
-- src/ui/lib/canvas-png-export.ts — rasterize data-canvas-paper at renderContext dimensions
-- Respect previewDitherMode (d=2 halftone from §3e when on; flat RGB when off)
-- Canvas bar: Copy PNG (clipboard) + Download PNG (.png filename from session name)
-
-YAML top bar (YamlPanel.tsx — serializeYamlPayload already HA-clean):
-- Copy YAML + Download .yaml (sanitize filename from session name)
-- Small download/copy helpers + tests
-
-Tests (behavior-focused, ADR-011):
-- tests/share/share-hash.test.ts — round-trip encode/decode, excluded fields, malformed hash
-- tests/ui/lib/canvas-png-export.test.ts — dimensions / dither flag wiring (mock canvas if needed)
-- tests/ui/lib/yaml-download.test.ts — filename sanitize, blob MIME
-- Extend app-bootstrap or main load test for hash-over-session precedence
-
-Do not push unless I ask. After green lint/test/build: docs/PLAN.md §11o commit prompt.
-
-Next: docs/PLAN.md §18c
-```
-
-### §18c — Multi-select + alignment
+Read `docs/testing.md` (ADR-011). Today selection is single `selectedIndex` in `useProjectState.ts`.
 
 ```
 Execute Phase 4c — marquee selection and bulk editing.
 
-- Drag-select rectangle selects all enclosed elements (additive with Shift)
-- Bulk drag move; keyboard nudge applies to selection
-- Raise/lower selection in layer stack (not full layer panel)
-- Align: left/center/right, top/middle/bottom relative to selection bounds
-- Property panel: multi-select shows shared fields or "N selected" summary
+State (useProjectState.ts):
+- selectedIndices: number[] (replace or extend selectedIndex; keep YAML coupling semantics)
+- selectElement(index, { additive?: boolean }) — Shift+click toggles/adds
+- clearSelection, selectAllInRect(bounds), selectedElements helper
 
-Tests: extend canvas-interaction.test.ts
+Canvas (DesignerCanvas.tsx):
+- Marquee drag on empty canvas/paper selects enclosed elements (hit bounds from resolveElementHitBounds)
+- Shift additive; bulk drag moves all selected; keyboard nudge via existing nudgeElement batch
+- Layer: bringToFront/sendToBack/moveLayerUp/moveLayerDown apply to selection set
+- Align toolbar or canvas bar: left/center/right, top/middle/bottom vs selection union bounds
+  (new src/ui/lib/align-elements.ts — pure geometry, Vitest first)
+
+Property panel (PropertyPanel.tsx / ElementPropertyForm.tsx):
+- 0 selected: empty state; 1: current form; 2+: shared fields only or "N selected" summary
+- Delete removes all selected
+
+Tests: extend tests/ui/lib/canvas-interaction.test.ts; align-elements.test.ts
 
 Next: docs/PLAN.md §18d
 ```
@@ -1735,13 +1821,15 @@ Execute Phase 4g — service options UI.
 - Panel or header section for background, rotate, dither, ttl, dry-run
 - Round-trip to YAML service block; schema already in core
 
-Next: docs/PLAN.md §18h
+Next: docs/PLAN.md §18i
 ```
 
 ### §18h — Deploy + smoke
 
 ```
 Execute Phase 4h — v1 ship gate.
+
+Prerequisite: §18j ODL alignment complete (§8 parity rows for cross-cutting fields).
 
 - Push remote; GH Pages workflow
 - Optional: one Playwright smoke (app loads, add rectangle)
@@ -1762,12 +1850,122 @@ Sidebar (replace Tag preset block):
 Core:
 - TagColorMode type; palette.ts with 4-color + 6-color scaffold
 - mapColor / dither respect active color mode
+- Basic Standard colour_scheme enum mapping per §7.4
 - Remove display-presets.ts inch catalog; update displayConfig persistence + session payload
 - Tests: display-config parse; color mode switches accent mapping
 
 Out of scope: exact 6-color hardware palette until spec vendored — scaffold enum + renderer hook only.
 
-Next: docs/PLAN.md §18h if not done
+Next: docs/PLAN.md §18j
+```
+
+### §18j — OpenDisplay Language alignment + cross-cutting fields
+
+Read **§7.4**, [ODL spec](https://opendisplay.org/protocol/open-display-language.html), [Basic Standard](https://opendisplay.org/protocol/basic-standard.html) (color schemes only), and `docs/spec/supported_types.md`.
+
+```
+Execute Phase 4j — future-proof language/schema parity with OpenDisplay Language.
+
+Deliverables:
+
+1. ADR-012 — ODL vs drawcustom strategy:
+   - Editor targets ODL element + service semantics; export remains HA drawcustom-compatible
+   - Basic Standard colour_scheme ↔ TagColorMode mapping (reference §7.4 table)
+   - Extension rules for new ODL fields; post-v1 wire-format export note
+
+2. Cross-cutting `visible` on ALL 16 types:
+   - Zod: add visibleSchema to debug_grid, polygon, arc in elements.ts
+   - Renderer: isVisible() guard in debug-grid.ts, polygon.ts, arc.ts
+   - completions.ts PROPERTIES_BY_TYPE: add visible to debug_grid, polygon, arc
+   - Property panel: visible toggle appears for every element type (getVisibleProperties)
+   - Canvas: hidden-element hints + hit-test skip when visible false
+   - Tests: visibility.test.ts sweep all DRAW_ELEMENT_TYPES; fixture YAML per type
+
+3. Spec audit artifact — docs/spec/odl-gap-report.md (or section in ADR-012):
+   - Table: each draw type × documented ODL fields vs our schema vs renderer vs property UI
+   - Flag intentional deltas (multiline.parse_colors, icon color alias)
+   - Note ODL WIP status; no auto-sync of supported_types.md until upstream stabilizes
+
+4. Optional small core helper:
+   - CROSS_CUTTING_ELEMENT_FIELDS = ['visible'] — single list used by schema generator
+     or propertyMetadata to prevent future drift (only if it reduces duplication cleanly)
+
+Out of scope: encode canvas to Basic Standard binary packets; ODL rebrand in UI strings only if trivial.
+
+Pre-flight: npm run lint && npm test && npm run build
+
+Next: docs/PLAN.md §18m
+```
+
+### §18m — Showcase demo: `visible: false` overlay (not `fill: none`)
+
+**Prerequisite:** §18j (`visible` on `debug_grid` at minimum).
+
+**Problem:** `src/ui/data/sample-elements.ts` showcase arc uses `fill: none` + `outline: black` as a **valid outline-only arc**. `hidden-on-tag.ts` / `hidden-element-hints.ts` treat any `fill: none` as tag-invisible, which is wrong when stroke still draws on the tag. The demo should not rely on that hack: assign the **designer-only overlay** to **`debug_grid` with `visible: false`**. The arc stays a normal visible outline arc.
+
+```
+Execute Phase 4m — refactor showcase demo invisibility model.
+
+sample-elements.ts:
+- debug_grid: add visible: false (designer overlay; ghost hint when "Invisible" toggle on)
+- arc: keep fill: none + outline — normal arc geometry, NOT invisibility
+
+hidden-on-tag / hints (minimal fix if still wrong after demo change):
+- Do NOT treat fill: none on arc/polygon/rectangle as tag-invisible when outline/stroke would still render
+- Keep fill: none → invisible semantics for icon / icon_sequence (spec: no fill on tag)
+- Keep templated fill: none after preview (existing tests)
+
+Tests:
+- sample-elements: debug_grid has visible false; arc still renders outline on canvas
+- hidden-element-hints: arc with fill none + outline does NOT get fill_none ghost reason
+- bootstrap / showcase tests updated
+
+Do before §18k Load Demo so the one demo payload is correct.
+
+Next: docs/PLAN.md §18k
+```
+
+### §18k — Load Demo (replace Load Example)
+
+```
+Execute Phase 4k — simplify onboarding to one demo.
+
+Remove:
+- Sidebar "Load example" `<select>` block (Sidebar.tsx)
+- EXAMPLE_DESIGNS catalog in example-designs.ts (17 entries: sample dashboard + 16 one-type stubs)
+- loadExample(exampleId) API — replace with loadDemo() loading one curated design
+
+Add:
+- Header bar: single "Load Demo" button (next to Share / theme)
+- Loads SAMPLE_ELEMENTS + SAMPLE_CANVAS showcase dashboard (refactored per §18m)
+- Confirm dialog if current session has unsaved-looking edits (elements.length > 0 and user changed since load)
+
+Keep:
+- Add Element grid for creating from scratch
+- Last-session restore unchanged (demo is explicit user action, not auto on every visit)
+
+Tests: header button loads demo; sidebar no longer renders example dropdown; confirm when dirty.
+
+Next: docs/PLAN.md §18r or §18h
+```
+
+### §18r — Product rebrand
+
+Read **§7.5**. Do not execute until slug confirmed with project owner.
+
+```
+Execute Phase 4r — rebrand after decision.
+
+Default assumption (if owner confirms §7.5 recommendation):
+- Product title: "ODL Designer"
+- Tagline mentions drawcustom compatibility for HA users
+- package.json name, index.html title, App.tsx header, README, PLAN frontmatter name
+- Optional: GitHub repo rename oepl-designer → odl-designer + VITE_BASE_PATH / Pages base path
+- ADR-013 or section in ADR-012: naming rationale
+
+Out of scope without explicit ask: redirect domain, npm publish, OpenDisplay org listing.
+
+Next: docs/PLAN.md §18h
 ```
 
 ---
@@ -1825,3 +2023,28 @@ Deliverable:
 
 Use **Ask mode** or a dedicated review Agent chat. For spec coverage, invoke `.cursor/agents/spec-reviewer.md`.
 
+---
+
+## 19-12. Post-v1 canvas geometry editors
+
+### §19-12a — Polygon vertex editor (tracked task)
+
+**Status:** post-v1 · **Not started**
+
+Today polygons are edited via JSON `points` textarea in `ElementPropertyForm.tsx` (`property-field-meta.ts` → `kind: json`). Canvas supports whole-shape drag only (`translateElement` in `element-geometry.ts`).
+
+```
+Execute post-v1 polygon vertex editor.
+
+Goals:
+- When a polygon is selected, show draggable handles at each vertex on the canvas overlay SVG
+- Drag handle updates that point in element.points; snap grid applies per-point when enabled
+- Double-click edge or modifier+click to insert vertex; Delete/Backspace on selected vertex removes it (min 3 points)
+- Property panel JSON textarea remains as advanced fallback
+
+Key files: DesignerCanvas.tsx, element-geometry.ts (new vertex hit-test + mutate helpers), canvas-hit-test.ts
+
+Tests: element-geometry vertex ops; canvas-interaction drag/add/remove (Vitest + pointer simulation)
+
+Out of scope: arc handles (§19-12b)
+```
