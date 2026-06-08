@@ -1312,7 +1312,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **3a–3g** ✅ through `e8ff378`. Phase **4a** ✅ (`5ad7e6f`). Phase **4b** ✅ (`0bac3b6`). **Current work:** **§18c** (multi-select) → **§18d–i**.
+- Phase **3a–3g** ✅ through `e8ff378`. Phase **4a–4c** ✅ through `adb3988`. **Current work:** **§18d** (undo/redo) → **§18e–i**.
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
