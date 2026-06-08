@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { DrawElement, HaMockContext } from '../../core'
+import { applyPlotPropertyUpdate, type DrawElement, type HaMockContext } from '../../core'
 import type { AccentMode, AssetKind, AssetUploadResult, RenderContext } from '../../core'
 import { applyTemplateContextToPayload, scanPayloadForTemplates } from '../../core'
 import {
@@ -259,6 +259,10 @@ export function useProjectState() {
         }
         const element = current[index]
         const next = [...current]
+        if (element.type === 'plot') {
+          next[index] = applyPlotPropertyUpdate(element, key, value)
+          return next
+        }
         if (value === undefined) {
           const nextElement = { ...element } as Record<string, unknown>
           delete nextElement[key]

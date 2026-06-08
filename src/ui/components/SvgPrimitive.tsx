@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { buildArcPiePath } from '../../core/renderer/arc-geometry'
 import type { SvgPrimitive as SvgPrimitiveType } from '../../core/renderer/types'
 import { clampStrokeWidth, resolveSvgFontFamily } from '../lib/svg-font-family'
 
@@ -8,25 +9,6 @@ interface SvgPrimitiveProps {
 }
 
 const MDI_VIEWBOX_SIZE = 24
-
-function arcPath(
-  cx: number,
-  cy: number,
-  r: number,
-  startAngle: number,
-  endAngle: number,
-): string {
-  const start = {
-    x: cx + r * Math.cos(startAngle),
-    y: cy + r * Math.sin(startAngle),
-  }
-  const end = {
-    x: cx + r * Math.cos(endAngle),
-    y: cy + r * Math.sin(endAngle),
-  }
-  const largeArc = endAngle - startAngle > Math.PI ? 1 : 0
-  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y} Z`
-}
 
 function mdiIconPath(
   x: number,
@@ -145,7 +127,7 @@ export function SvgPrimitive({ primitive, fontFamilies = new Map() }: SvgPrimiti
     case 'arc':
       return (
         <path
-          d={arcPath(
+          d={buildArcPiePath(
             primitive.cx,
             primitive.cy,
             primitive.r,

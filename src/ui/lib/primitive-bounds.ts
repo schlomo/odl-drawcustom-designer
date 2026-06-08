@@ -1,3 +1,4 @@
+import { arcPieSliceBounds } from '../../core/renderer/arc-geometry'
 import type { RenderPrimitive } from '../../core/renderer/types'
 import { iconSequenceBoxSize } from '../../core/renderer/anchors'
 
@@ -66,12 +67,14 @@ export function getPrimitiveBounds(primitive: RenderPrimitive): ElementBounds {
     case 'polygon':
       return fromPoints(primitive.points)
     case 'arc':
-      return {
-        x: primitive.cx - primitive.r,
-        y: primitive.cy - primitive.r,
-        width: primitive.r * 2,
-        height: primitive.r * 2,
-      }
+      return arcPieSliceBounds(
+        primitive.cx,
+        primitive.cy,
+        primitive.r,
+        primitive.startAngle,
+        primitive.endAngle,
+        primitive.strokeWidth ?? 0,
+      )
     case 'icon':
       return { x: primitive.x, y: primitive.y, width: primitive.size, height: primitive.size }
     case 'icon_sequence': {
@@ -105,8 +108,8 @@ export function getPrimitiveBounds(primitive: RenderPrimitive): ElementBounds {
     case 'text-stub':
     case 'multiline-stub':
     case 'dlimg-stub':
-    case 'qrcode-stub':
-    case 'plot-stub':
+    case 'qrcode':
+    case 'plot':
       return { x: primitive.x, y: primitive.y, width: primitive.width, height: primitive.height }
     default: {
       const _exhaustive: never = primitive

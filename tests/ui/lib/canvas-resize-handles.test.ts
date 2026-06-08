@@ -12,4 +12,5 @@ describe('hitResizeHandle', () => {
   it('misses when the pointer is far from handles', () => {
     expect(hitResizeHandle({ x: 0, y: 0 }, bounds, ['se'])).toBeNull()
   })
+
 })

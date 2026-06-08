@@ -3,7 +3,7 @@ import { DEFAULT_FONT_KEY, getFont } from '../../core/renderer/fonts'
 import { computeOpentypeGlyphPositions } from '../../core/renderer/opentype-glyphs'
 import type { TextDrawLine } from '../../core/renderer/types'
 import { getCanvasTextDrawStyle } from '../../core/renderer/text-anchor-draw'
-import type { CanvasPrimitive } from '../../core/renderer/types'
+import type { CanvasPlotPrimitive, CanvasPrimitive, PlotSeriesPrimitive } from '../../core/renderer/types'
 import { drawDlimgToCanvas } from './dlimg-resize'
 import { getCachedOpentypeFont } from './load-opentype-fonts'
 import { resolveCanvasFontFamily } from './load-font-faces'
@@ -67,6 +67,130 @@ function drawTextFallback(
   ctx.textBaseline = 'alphabetic'
 }
 
+function applyPlotLineDash(ctx: CanvasRenderingContext2D, style: string): void {
+  if (style === 'dashed') {
+    ctx.setLineDash([4, 3])
+    return
+  }
+  if (style === 'dotted') {
+    ctx.setLineDash([1, 2])
+    return
+  }
+  ctx.setLineDash([])
+}
+
+function drawPlotSeriesLine(ctx: CanvasRenderingContext2D, series: PlotSeriesPrimitive): void {
+  const { points, lineStyle, smooth } = series
+  if (points.length < 2) {
+    return
+  }
+
+  ctx.beginPath()
+  ctx.moveTo(points[0][0], points[0][1])
+
+  if (lineStyle === 'step') {
+    for (let index = 1; index < points.length; index++) {
+      const [x, y] = points[index]
+      const prevY = points[index - 1][1]
+      ctx.lineTo(x, prevY)
+      ctx.lineTo(x, y)
+    }
+  } else if (smooth) {
+    for (let index = 1; index < points.length; index++) {
+      const [x, y] = points[index]
+      const [prevX, prevY] = points[index - 1]
+      const midX = (prevX + x) / 2
+      const midY = (prevY + y) / 2
+      ctx.quadraticCurveTo(prevX, prevY, midX, midY)
+      if (index === points.length - 1) {
+        ctx.lineTo(x, y)
+      }
+    }
+  } else {
+    for (let index = 1; index < points.length; index++) {
+      ctx.lineTo(points[index][0], points[index][1])
+    }
+  }
+
+  ctx.stroke()
+}
+
+function drawPlotPrimitive(
+  ctx: CanvasRenderingContext2D,
+  primitive: CanvasPlotPrimitive,
+  fontFamilies: ReadonlyMap<string, string>,
+): void {
+  ctx.fillStyle = '#FFFFFF'
+  ctx.fillRect(primitive.x, primitive.y, primitive.width, primitive.height)
+
+  for (const line of primitive.gridLines) {
+    ctx.strokeStyle = line.color
+    ctx.lineWidth = 1
+    applyPlotLineDash(ctx, line.style)
+    ctx.beginPath()
+    ctx.moveTo(line.x1, line.y1)
+    ctx.lineTo(line.x2, line.y2)
+    ctx.stroke()
+  }
+  ctx.setLineDash([])
+
+  for (const axis of [primitive.axes.y, primitive.axes.x]) {
+    ctx.strokeStyle = axis.color
+    ctx.lineWidth = axis.lineWidth
+    ctx.beginPath()
+    ctx.moveTo(axis.x1, axis.y1)
+    ctx.lineTo(axis.x2, axis.y2)
+    ctx.stroke()
+  }
+
+  for (const tick of [...primitive.yAxisTicks, ...primitive.xAxisTicks]) {
+    ctx.strokeStyle = tick.color
+    ctx.lineWidth = tick.lineWidth
+    ctx.beginPath()
+    ctx.moveTo(tick.x1, tick.y1)
+    ctx.lineTo(tick.x2, tick.y2)
+    ctx.stroke()
+  }
+
+  const legendFontFamily = resolveCanvasFontFamily(primitive.legendFont, fontFamilies)
+  ctx.textBaseline = 'middle'
+  for (const label of primitive.yLegendLabels) {
+    ctx.fillStyle = label.color
+    ctx.textAlign = 'right'
+    ctx.font = `${label.fontSize}px ${legendFontFamily}, sans-serif`
+    ctx.fillText(label.text, label.x + 20, label.y)
+  }
+  for (const label of primitive.xLegendLabels) {
+    ctx.fillStyle = label.color
+    ctx.textAlign = 'left'
+    ctx.font = `${label.fontSize}px ${legendFontFamily}, sans-serif`
+    ctx.fillText(label.text, label.x, label.y)
+  }
+
+  for (const series of primitive.series) {
+    ctx.strokeStyle = series.color
+    ctx.lineWidth = series.lineWidth
+    drawPlotSeriesLine(ctx, series)
+
+    if (series.showPoints) {
+      ctx.fillStyle = series.pointColor
+      for (const [x, y] of series.points) {
+        ctx.beginPath()
+        ctx.arc(x, y, series.pointSize / 2, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+  }
+
+  if (primitive.debug) {
+    ctx.strokeStyle = '#FF00FF'
+    ctx.lineWidth = 1
+    ctx.setLineDash([3, 2])
+    ctx.strokeRect(primitive.chartX, primitive.chartY, primitive.chartWidth, primitive.chartHeight)
+    ctx.setLineDash([])
+  }
+}
+
 export function drawCanvasStub(
   ctx: CanvasRenderingContext2D,
   primitive: CanvasPrimitive,
@@ -128,36 +252,28 @@ export function drawCanvasStub(
       ctx.fillText(label, primitive.x + 4, primitive.y + 16)
       break
     }
-    case 'qrcode-stub': {
-      const modules = 8
-      const cellW = primitive.width / modules
-      const cellH = primitive.height / modules
+    case 'qrcode': {
+      const { boxsize, border, modules, moduleData } = primitive
+      const renderedSize = (modules + border * 2) * boxsize
       ctx.fillStyle = primitive.bgcolor
-      ctx.fillRect(primitive.x, primitive.y, primitive.width, primitive.height)
+      ctx.fillRect(primitive.x, primitive.y, renderedSize, renderedSize)
       ctx.fillStyle = primitive.color
       for (let row = 0; row < modules; row++) {
         for (let col = 0; col < modules; col++) {
-          if ((row + col) % 2 === 0) {
+          if (moduleData[row * modules + col]) {
             ctx.fillRect(
-              primitive.x + col * cellW,
-              primitive.y + row * cellH,
-              cellW,
-              cellH,
+              primitive.x + (col + border) * boxsize,
+              primitive.y + (row + border) * boxsize,
+              boxsize,
+              boxsize,
             )
           }
         }
       }
       break
     }
-    case 'plot-stub': {
-      ctx.fillStyle = '#f8fafc'
-      ctx.fillRect(primitive.x, primitive.y, primitive.width, primitive.height)
-      ctx.strokeStyle = '#64748b'
-      ctx.lineWidth = 1
-      ctx.strokeRect(primitive.x, primitive.y, primitive.width, primitive.height)
-      ctx.fillStyle = '#334155'
-      ctx.font = '12px sans-serif'
-      ctx.fillText(`plot (${primitive.seriesCount} series)`, primitive.x + 8, primitive.y + 20)
+    case 'plot': {
+      drawPlotPrimitive(ctx, primitive, fontFamilies)
       break
     }
     default: {

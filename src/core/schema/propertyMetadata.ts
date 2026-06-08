@@ -187,6 +187,125 @@ const TYPE_PROPERTY_SPECS: Partial<
   },
 }
 
+/** Structured plot sub-object fields (task 19-5) — shown instead of raw JSON blobs. */
+export const PLOT_NESTED_FIELDS: Record<string, readonly string[]> = {
+  ylegend: ['position', 'color', 'size', 'width'],
+  yaxis: ['color', 'width', 'tick_width', 'tick_every', 'grid', 'grid_color', 'grid_style'],
+  xlegend: ['format', 'interval', 'snap_to_hours', 'position', 'color', 'size', 'width'],
+  xaxis: [
+    'color',
+    'width',
+    'tick_width',
+    'tick_length',
+    'tick_every',
+    'grid',
+    'grid_color',
+    'grid_style',
+  ],
+}
+
+const PLOT_NESTED_PROPERTY_SPECS: Record<string, PropertySpecMeta> = {
+  'ylegend.position': { description: 'Y-axis legend position', default: 'left' },
+  'ylegend.color': { description: 'Y-axis legend color', default: 'black' },
+  'ylegend.size': { description: 'Y-axis legend font size', default: 10 },
+  'ylegend.width': { description: 'Y-axis legend width (-1 for auto)', default: -1 },
+  'yaxis.color': { description: 'Y-axis line color', default: 'black' },
+  'yaxis.width': { description: 'Y-axis line width', default: 1 },
+  'yaxis.tick_width': { description: 'Y-axis tick mark width', default: 2 },
+  'yaxis.tick_every': { description: 'Y-axis tick interval', default: 1.0 },
+  'yaxis.grid': { description: 'Y-axis grid divisions (0 to disable)', default: 5 },
+  'yaxis.grid_color': { description: 'Y-axis grid color', default: 'black' },
+  'yaxis.grid_style': { description: 'Y-axis grid line style', default: 'dotted' },
+  'xlegend.format': { description: 'X-axis time label format', default: '%H:%M' },
+  'xlegend.interval': { description: 'X-axis label interval in seconds', default: 3600 },
+  'xlegend.snap_to_hours': { description: 'Align X labels to whole hours', default: true },
+  'xlegend.position': { description: 'X-axis legend position', default: 'bottom' },
+  'xlegend.color': { description: 'X-axis legend color', default: 'black' },
+  'xlegend.size': { description: 'X-axis legend font size', default: 10 },
+  'xlegend.width': { description: 'X-axis legend width (-1 for auto)', default: -1 },
+  'xaxis.color': { description: 'X-axis line color', default: 'black' },
+  'xaxis.width': { description: 'X-axis line width', default: 1 },
+  'xaxis.tick_width': { description: 'X-axis tick mark width', default: 2 },
+  'xaxis.tick_length': { description: 'X-axis tick mark length', default: 4 },
+  'xaxis.tick_every': { description: 'X-axis tick interval', default: 1.0 },
+  'xaxis.grid': { description: 'X-axis grid divisions (0 to disable)', default: 5 },
+  'xaxis.grid_color': { description: 'X-axis grid color', default: 'black' },
+  'xaxis.grid_style': { description: 'X-axis grid line style', default: 'dotted' },
+}
+
+const PLOT_NESTED_PARENT_KEYS = new Set(Object.keys(PLOT_NESTED_FIELDS))
+
+/** Plot fields with spec "Auto" defaults — always show in the property panel. */
+const PLOT_INSPECTOR_ALWAYS_VISIBLE = new Set(['low', 'high'])
+
+export function isPlotNestedProperty(property: string): boolean {
+  return property.includes('.') && property in PLOT_NESTED_PROPERTY_SPECS
+}
+
+export function parsePlotNestedProperty(
+  property: string,
+): { parent: string; child: string } | null {
+  const dot = property.indexOf('.')
+  if (dot <= 0) {
+    return null
+  }
+  const parent = property.slice(0, dot)
+  const child = property.slice(dot + 1)
+  if (!PLOT_NESTED_PARENT_KEYS.has(parent)) {
+    return null
+  }
+  return { parent, child }
+}
+
+export function getPlotNestedPropertyKeys(): string[] {
+  return Object.entries(PLOT_NESTED_FIELDS).flatMap(([parent, children]) =>
+    children.map((child) => `${parent}.${child}`),
+  )
+}
+
+export function getNestedPropertyValue(element: DrawElement, property: string): unknown {
+  const parsed = parsePlotNestedProperty(property)
+  if (!parsed) {
+    return undefined
+  }
+  const parentValue = (element as Record<string, unknown>)[parsed.parent]
+  if (!parentValue || typeof parentValue !== 'object') {
+    return undefined
+  }
+  return (parentValue as Record<string, unknown>)[parsed.child]
+}
+
+export function setNestedPropertyValue(
+  element: DrawElement,
+  property: string,
+  value: unknown,
+): DrawElement {
+  const parsed = parsePlotNestedProperty(property)
+  if (!parsed) {
+    return element
+  }
+  const record = element as Record<string, unknown>
+  const currentParent = record[parsed.parent]
+  const parentObject =
+    currentParent && typeof currentParent === 'object'
+      ? { ...(currentParent as Record<string, unknown>) }
+      : {}
+
+  if (value === undefined) {
+    delete parentObject[parsed.child]
+  } else {
+    parentObject[parsed.child] = value
+  }
+
+  const next = { ...record }
+  if (Object.keys(parentObject).length === 0) {
+    delete next[parsed.parent]
+  } else {
+    next[parsed.parent] = parentObject
+  }
+  return next as DrawElement
+}
+
 export function isRequiredProperty(
   elementType: DrawElement['type'],
   property: string,
@@ -198,6 +317,10 @@ export function getPropertySpec(
   elementType: DrawElement['type'],
   property: string,
 ): PropertySpecMeta {
+  const nested = PLOT_NESTED_PROPERTY_SPECS[property]
+  if (elementType === 'plot' && nested) {
+    return nested
+  }
   const typeSpec = TYPE_PROPERTY_SPECS[elementType]?.[property]
   const shared = SHARED_PROPERTY_SPECS[property]
   const hasTypeOverride = Object.hasOwn(TYPE_PROPERTY_SPECS[elementType] ?? {}, property)
@@ -233,6 +356,14 @@ export function hasPropertyDefault(
 
 /** Value for the inspector: stored YAML value, else spec default when defined. */
 export function getPropertyEffectiveValue(element: DrawElement, property: string): unknown {
+  if (element.type === 'plot' && isPlotNestedProperty(property)) {
+    const stored = getNestedPropertyValue(element, property)
+    if (stored !== undefined) {
+      return stored
+    }
+    return getPropertyDefault(element.type, property)
+  }
+
   const record = element as Record<string, unknown>
   const stored = record[property]
   if (stored !== undefined) {
@@ -262,12 +393,50 @@ export function normalizePropertyValueForStorage(
   return value === defaultValue ? undefined : value
 }
 
+export function applyPlotPropertyUpdate(
+  element: DrawElement,
+  property: string,
+  value: unknown,
+): DrawElement {
+  if (element.type !== 'plot') {
+    return element
+  }
+  if (isPlotNestedProperty(property)) {
+    const normalized = normalizePropertyValueForStorage(element, property, value)
+    return setNestedPropertyValue(element, property, normalized)
+  }
+  const record = { ...(element as Record<string, unknown>) }
+  if (value === undefined) {
+    delete record[property]
+  } else {
+    record[property] = value
+  }
+  return record as DrawElement
+}
+
 /** Required keys, keys present in YAML, and optional keys with a documented default. */
 export function getVisibleProperties(element: DrawElement): string[] {
   const elementType = element.type
   const keys = PROPERTIES_BY_TYPE[elementType]
   const required = new Set(REQUIRED_PROPERTIES_BY_TYPE[elementType])
   const record = element as Record<string, unknown>
+
+  if (elementType === 'plot') {
+    const nestedKeys = getPlotNestedPropertyKeys()
+    const topLevel = keys.filter((key) => !PLOT_NESTED_PARENT_KEYS.has(key))
+    const visibleTopLevel = topLevel.filter(
+      (key) =>
+        required.has(key) ||
+        PLOT_INSPECTOR_ALWAYS_VISIBLE.has(key) ||
+        record[key] !== undefined ||
+        hasPropertyDefault(elementType, key),
+    )
+    const visibleNested = nestedKeys.filter((key) => {
+      const stored = getNestedPropertyValue(element, key)
+      return stored !== undefined || hasPropertyDefault(elementType, key)
+    })
+    return [...visibleTopLevel, ...visibleNested]
+  }
 
   return keys.filter(
     (key) =>

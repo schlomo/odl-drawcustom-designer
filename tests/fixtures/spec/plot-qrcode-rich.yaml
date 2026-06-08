@@ -1,0 +1,60 @@
+- type: qrcode
+  data: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+  x: 140
+  y: 50
+  boxsize: 2
+  border: 2
+  color: black
+  bgcolor: white
+- type: plot
+  x_start: 10
+  y_start: 20
+  x_end: 290
+  y_end: 120
+  duration: 86400
+  low: 10
+  high: 20
+  font: ppb.ttf
+  round_values: true
+  ylegend:
+    color: black
+    position: left
+    size: 12
+    width: -1
+  yaxis:
+    width: 1
+    color: black
+    grid: 5
+    grid_color: gray
+    grid_style: dotted
+    tick_width: 2
+    tick_every: 1.0
+  xlegend:
+    format: "%H:%M"
+    interval: 3600
+    snap_to_hours: true
+    color: black
+    position: bottom
+    size: 12
+    width: -1
+  xaxis:
+    width: 1
+    color: black
+    grid: 5
+    grid_color: gray
+    grid_style: dotted
+    tick_width: 2
+    tick_length: 4
+    tick_every: 1.0
+  data:
+    - entity: sensor.temperature
+      color: red
+      width: 2
+      smooth: true
+      show_points: true
+      point_size: 3
+      point_color: black
+      value_scale: 1.0
+    - entity: sensor.humidity
+      color: black
+      width: 1

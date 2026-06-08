@@ -30,7 +30,7 @@ todos:
     content: "Phase 2e: canvas interaction — selection, drag, resize, snap, keyboard, layer ordering"
     status: completed
   - id: renderer
-    content: "Phase 3c–3e: MDI, QR, plot, parse_colors, dither (text done in §17b)"
+    content: "Phase 3d–3e: QR, plot, parse_colors, dither (MDI done §17c)"
     status: pending
   - id: content-manager
     content: "Content Manager UI + IndexedDB asset persistence (§17a)"
@@ -79,7 +79,10 @@ todos:
     status: completed
   - id: phase3-icons
     content: "Phase 3c: MDI icons + icon_sequence (§17c)"
-    status: pending
+    status: completed
+  - id: phase3c-commit
+    content: "Commit Phase 3c after verification (§11i)"
+    status: completed
   - id: phase3-qr-plot
     content: "Phase 3d: QR + plot preview + plot property fields 19-5 (§17d)"
     status: pending
@@ -673,12 +676,13 @@ flowchart LR
 | **2e** Canvas + forms | ✅ Done | `b559f08` | 325 (45 files) | Phase **2 complete** |
 | **3a** IndexedDB | ✅ Done | `9d58839` | 357 (49 files) | Dexie assets + mocks + project stub |
 | **3b** opentype text | ✅ Done | `23d12b5` | 427 (64 files) | Layout, anchors, wrap/truncate, multiline, bidi/RTL, glyph draw |
-| **3c–3f** Fidelity | ⬜ **Next** | — | — | MDI, QR, plot, parse_colors, dither, canvas perf (§17c–§17f) |
+| **3c** MDI icons | ✅ Done | `7deb2fd` | 480 (72 files) | `@mdi/js` paths, icon autocomplete, validation, canvas UX polish |
+| **3d–3f** Fidelity | ⬜ **Next** | — | — | QR, plot, parse_colors, dither, canvas perf (§17d–§17f) |
 | **4** Polish | ⬜ After 3 | — | — | Share, history, service options, undo/layers, PNG, e2e, deploy (§18) |
 
-**Current repo health:** `npm test` → **427 passed** (64 files) · `npm run lint` → **clean** · last commit `23d12b5`
+**Current repo health:** `npm test` → **480 passed** (72 files) · `npm run lint` → **clean** · last commit `7deb2fd`
 
-**Next:** Phase **3c** — MDI icons (§17c).
+**Next:** Phase **3d** — QR + plot (§17d).
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -697,7 +701,7 @@ flowchart LR
 - ✅ Renderer stubs — **all 16 types** in `src/core/renderer/`; exhaustive `switch` in `renderElement`
 - ✅ `tests/core/renderer/render-element.test.ts` — every spec fixture renders without error
 
-**Stub vs fidelity (Phase 3 upgrades):** line/rectangle/circle are real SVG; text/multiline/dlimg/qrcode/plot/icon* are `-stub` primitives with bounds/placeholders only.
+**Stub vs fidelity (Phase 3 upgrades):** line/rectangle/circle are real SVG; text/multiline + icon/icon_sequence are real (**3b**, **3c**); dlimg/qrcode/plot remain `-stub` primitives with bounds/placeholders only.
 
 ### Phase 2a — Stabilize before commit (§11d) ✅ (`84d2164`)
 
@@ -801,6 +805,17 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 
 **Note:** Primitive kind remains `text-stub` / `multiline-stub` (carries `drawLines`); rename optional later.
 
+### Phase 3c — MDI icons (§17c) ✅ (`7deb2fd`)
+
+- ✅ `@mdi/js` + `src/core/renderer/mdi-icons.ts` — `resolveMdiPath`, `isKnownMdiIconName`
+- ✅ `icon.ts` / `icon-sequence.ts` — primitives `kind: 'icon'` / `kind: 'icon_sequence'` with real SVG paths
+- ✅ `src/core/schema/iconName.ts` — Zod validation for unknown icon names (templates exempt)
+- ✅ `SvgPrimitive.tsx` — MDI path rendering on SVG layer (ADR-007)
+- ✅ `mdi-icon-names.ts` + `IconNamePropertyField` in `ElementPropertyForm.tsx` — search-as-you-type
+- ✅ YAML icon autocomplete in `yamlCompletions.ts`
+- ✅ Tests: `mdi-icons`, `icon`, `icon-sequence`, `mdi-icon-names`
+- ✅ Bonus UX (same commit): canvas YAML error banner; polygon YAML linking (`yamlLinkedElement.ts`); property-panel color picker fixes; `icon_sequence` resize by direction (`canvas-resize-handles.ts`)
+
 ### Phase 3 — Fidelity (upgrade stubs → real tag preview)
 
 **Biggest user-visible gap after 2e.** Core renderer stubs become honest e-paper preview.
@@ -808,7 +823,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | Area | Current (post-2d) | Phase 3 target |
 |------|-------------------|----------------|
 | Text | ✅ opentype layout + glyph draw (**3b**) | parse_colors segments (§17e) |
-| Icons | Box + MDI name | Full paths via `@mdi/js` |
+| Icons | ✅ real MDI paths (**3c**) | — |
 | QR | Decorative grid | Scannable via `qrcode` package |
 | Plot | Placeholder area | Axes, legends, sample/synthetic data, `span_gaps`, `smooth`, line styles; **19-5** nested plot property fields |
 | `parse_colors` | Not rendered | Parse `[red]…[/red]` markup in preview (ADR-004) |
@@ -823,7 +838,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 
 - **3a** — IndexedDB (`src/storage/`) ✅ **`9d58839`**
 - **3b** — opentype text + multiline ✅ **`23d12b5`**
-- **3c** — MDI icons + icon_sequence
+- **3c** — MDI icons + icon_sequence ✅ **`7deb2fd`**
 - **3d** — QR + plot preview; **19-5** plot nested property fields
 - **3e** — parse_colors + dither pipeline (Best-of-N candidate)
 - **3f** — Canvas interaction follow-ups (§19): **19-1** drag perf, **19-2** pointer capture, **19-6** interaction tests, **19-13** array bounds guard
@@ -892,7 +907,7 @@ flowchart LR
 - HA automation snippet generator (`open_epaper_link.drawcustom` wrapper)
 - Side-by-side YAML diff from history
 
-**Recommended order:** **3c** (§17c) → §17d–§17f → Phase 4 (§18) → push for GH Pages.
+**Recommended order:** **3d** (§17d) → §17e–§17f → Phase 4 (§18) → push for GH Pages.
 
 ---
 
@@ -902,7 +917,7 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 
 | Requirement | Status | Phase |
 |-------------|--------|-------|
-| All 16 draw types add/edit/render/export per spec | 🟡 Text/multiline real; other stubs Phase 3c–3e | 3b–3e |
+| All 16 draw types add/edit/render/export per spec | 🟡 Text/multiline + icons real; QR/plot/parse_colors Phase 3d–3e | 3b–3e |
 | Percentage coordinates + anchors (Pillow set) | ✅ Drag + resolve + opentype anchors (**3b**) | 3b |
 | All color aliases including hex, halftone shortcuts, accent | 🟡 Flat preview; dither Phase 3/4 | 3–4 |
 | Plot nested objects round-trip | ✅ YAML engine | — |
@@ -917,7 +932,7 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 | Share link restores name + canvas + elements (not assets/mocks) | ⬜ | 4 |
 | 20-project history with searchable names | ⬜ | 4 |
 | Service options UI (`background`, `rotate`, `dither`, …) | ⬜ Schema only | 4 |
-| Real QR, plot, icons, parse_colors in preview | ⬜ | 3 |
+| Real QR, plot, icons, parse_colors in preview | 🟡 Icons ✅; QR/plot/parse_colors Phase 3d–3e | 3 |
 | Core test suite passes in CI | ✅ lint + test in workflow | — |
 | ADRs document major decisions | ✅ ADR-001–009 | — |
 | GH Pages deploy from clean source repo | ⬜ No remote yet | 4 |
@@ -1003,7 +1018,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **3a** ✅ (`9d58839`). Phase **3b** ✅ (`23d12b5`). **Current work:** **§17c–§17f** → **§18**.
+- Phase **3a** ✅ (`9d58839`). Phase **3b** ✅ (`23d12b5`). Phase **3c** ✅ (`7deb2fd`). **Current work:** **§17d–§17f** → **§18**.
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1149,6 +1164,12 @@ Do not push unless I ask.
 
 ---
 
+## 11i. Commit Phase 3c prompt ✅ (`7deb2fd`)
+
+<!-- prompt archived — phase complete -->
+
+---
+
 ## 11c. Commit Phase 2 (partial) prompt ✅ (`84d2164`)
 
 Commit message used: `Phase 2a complete (YAML Editor)` — includes stabilization + UI shell + YamlEditor.
@@ -1207,8 +1228,8 @@ Commit message used: `Phase 2a complete (YAML Editor)` — includes stabilizatio
 | `circle` | svg | `circle` | Full geometry |
 | `ellipse` | svg | `ellipse` | Full geometry |
 | `arc` | svg | `arc` | Arc path |
-| `icon` | svg | `icon-stub` | Box + MDI name |
-| `icon_sequence` | svg | `icon-sequence-stub` | Sequence layout |
+| `icon` | svg | `icon` | Real MDI path (**3c** `7deb2fd`) |
+| `icon_sequence` | svg | `icon_sequence` | Real MDI paths + layout (**3c**) |
 | `dlimg` | canvas | `dlimg-stub` | Box + url metadata |
 | `qrcode` | canvas | `qrcode-stub` | Module grid placeholder |
 | `plot` | canvas | `plot-stub` | Chart area + series count |
@@ -1278,7 +1299,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17a** ✅ (`9d58839`). **§17b** ✅ (`23d12b5`). **Next: §17c** (MDI icons). Remaining: §17d–§17f.
+**§17a** ✅ (`9d58839`). **§17b** ✅ (`23d12b5`). **§17c** ✅ (`7deb2fd`). **Next: §17d** (QR + plot). Remaining: §17e–§17f.
 
 **Plan cross-reference map:**
 
@@ -1321,41 +1342,13 @@ Key files: `text-layout.ts`, `fonts.ts`, `opentype-glyphs.ts`, `load-opentype-fo
 
 <!-- prompt archived — phase complete -->
 
-### §17c — MDI icons (Phase 3c) ⬜ next
+### §17c — MDI icons (Phase 3c) ✅ (`7deb2fd`)
 
-```
-Execute Phase 3c — icon and icon_sequence with @mdi/js SVG paths.
+Delivered — see §7 Phase 3c checklist.
 
-Read:
-- docs/PLAN.md §7 Phase 3c
-- docs/adr/ADR-007-hybrid-rendering.md
-- docs/spec/supported_types.md — icon, icon_sequence
-- src/core/renderer/icon.ts, icon-sequence.ts
-- src/ui/components/ElementPropertyForm.tsx (icon value field)
+Key files: `mdi-icons.ts`, `icon.ts`, `icon-sequence.ts`, `mdi-icon-names.ts`, `iconName.ts`, `SvgPrimitive.tsx`, `ElementPropertyForm.tsx`
 
-Goal:
-Replace icon-stub and icon-sequence-stub with real MDI path data. Icons render on SVG layer per ADR-007.
-
-Core:
-- Add @mdi/js (tree-shake per icon or lazy metadata map)
-- src/core/renderer/icon.ts — resolve icon name → path(s), anchor, fill color
-- src/core/renderer/icon-sequence.ts — direction, spacing, icons list layout
-- Vitest: known icon name → non-empty path; sequence count matches icons array
-
-UI:
-- ElementPropertyForm — icon name autocomplete/search (can reuse @mdi/js metadata or subset list)
-- SvgPrimitive.tsx — render icon paths if not already
-
-Out of scope:
-- Full 7000-icon browser (search-as-you-type on value field is enough)
-- Template-colored icons beyond existing evaluateTemplate preview path
-
-Acceptance:
-- icon + icon_sequence spec fixtures render recognizable shapes (not bounding boxes)
-- npm run lint && npm test && npm run build
-
-Next: docs/PLAN.md §17d
-```
+<!-- prompt archived — phase complete -->
 
 ---
 

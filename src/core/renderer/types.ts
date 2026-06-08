@@ -189,25 +189,94 @@ export interface CanvasDlimgStubPrimitive {
   resizeMethod?: string
 }
 
-export interface CanvasQrcodeStubPrimitive {
-  kind: 'qrcode-stub'
+export interface CanvasQrcodePrimitive {
+  kind: 'qrcode'
   x: number
   y: number
   width: number
   height: number
+  boxsize: number
+  border: number
+  modules: number
+  moduleData: boolean[]
   data: string
   color: string
   bgcolor: string
 }
 
-export interface CanvasPlotStubPrimitive {
-  kind: 'plot-stub'
+export interface PlotAxisLine {
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  color: string
+  lineWidth: number
+}
+
+export interface PlotGridLine {
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  color: string
+  style: string
+}
+
+export interface PlotAxisTick {
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  color: string
+  lineWidth: number
+}
+
+export interface PlotLegendLabel {
+  text: string
+  x: number
+  y: number
+  color: string
+  fontSize: number
+}
+
+export interface PlotSeriesPrimitive {
+  entity: string
+  color: string
+  lineWidth: number
+  points: [number, number][]
+  smooth: boolean
+  lineStyle: 'linear' | 'step'
+  showPoints: boolean
+  pointSize: number
+  pointColor: string
+}
+
+export interface CanvasPlotPrimitive {
+  kind: 'plot'
   x: number
   y: number
   width: number
   height: number
-  seriesCount: number
+  chartX: number
+  chartY: number
+  chartWidth: number
+  chartHeight: number
+  axes: { y: PlotAxisLine; x: PlotAxisLine }
+  gridLines: PlotGridLine[]
+  yAxisTicks: PlotAxisTick[]
+  xAxisTicks: PlotAxisTick[]
+  yLegendLabels: PlotLegendLabel[]
+  xLegendLabels: PlotLegendLabel[]
+  series: PlotSeriesPrimitive[]
+  legendFont: string
+  debug?: boolean
 }
+
+/** @deprecated Use CanvasQrcodePrimitive */
+export type CanvasQrcodeStubPrimitive = CanvasQrcodePrimitive
+
+/** @deprecated Use CanvasPlotPrimitive */
+export type CanvasPlotStubPrimitive = CanvasPlotPrimitive
 
 export type SvgPrimitive =
   | SvgLinePrimitive
@@ -226,8 +295,8 @@ export type CanvasPrimitive =
   | CanvasTextStubPrimitive
   | CanvasMultilineStubPrimitive
   | CanvasDlimgStubPrimitive
-  | CanvasQrcodeStubPrimitive
-  | CanvasPlotStubPrimitive
+  | CanvasQrcodePrimitive
+  | CanvasPlotPrimitive
 
 export type RenderPrimitive = SvgPrimitive | CanvasPrimitive
 

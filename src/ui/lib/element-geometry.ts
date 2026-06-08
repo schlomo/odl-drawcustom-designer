@@ -10,6 +10,7 @@ import {
   iconSequenceBoxSize,
   resolveDirection,
 } from '../../core/renderer/anchors'
+import { createQrModuleGrid } from '../../core/renderer/qr-modules'
 import type { ElementBounds } from './primitive-bounds'
 
 export type ResizeHandle =
@@ -159,16 +160,46 @@ export function supportsBoxResize(element: DrawElement): boolean {
   }
 }
 
-export function supportsIconSizeResize(element: DrawElement): boolean {
-  return (element.type === 'icon' || element.type === 'icon_sequence') && isElementDraggable(element)
+/** Single scalar size driven from the southeast handle (top-left or center anchor). */
+export const SE_SIZE_RESIZE_HANDLE = 'se' as const satisfies ResizeHandle
+
+const BOX_RESIZE_HANDLES: ResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
+
+export function supportsSeSizeResize(element: DrawElement): boolean {
+  if (!isElementDraggable(element)) {
+    return false
+  }
+  switch (element.type) {
+    case 'icon':
+    case 'icon_sequence':
+    case 'qrcode':
+    case 'circle':
+    case 'arc':
+      return true
+    default:
+      return false
+  }
+}
+
+export function seSizeResizeHandles(): ResizeHandle[] {
+  return [SE_SIZE_RESIZE_HANDLE]
 }
 
 export function supportsLineEndpointResize(element: DrawElement): element is DrawElement & { type: 'line' } {
   return element.type === 'line' && isElementDraggable(element)
 }
 
-export function supportsRadiusResize(element: DrawElement): element is DrawElement & { type: 'circle' | 'arc' } {
-  return (element.type === 'circle' || element.type === 'arc') && isElementDraggable(element)
+export function getResizeHandlesForElement(element: DrawElement): ResizeHandle[] {
+  if (supportsLineEndpointResize(element)) {
+    return ['line-start', 'line-end']
+  }
+  if (supportsSeSizeResize(element)) {
+    return seSizeResizeHandles()
+  }
+  if (supportsBoxResize(element)) {
+    return BOX_RESIZE_HANDLES
+  }
+  return []
 }
 
 export function translateElement(
@@ -276,6 +307,50 @@ function iconSequenceSizeFromBounds(
   return Math.max(1, Math.round(thickness))
 }
 
+function squareSizeFromBounds(bounds: ElementBounds): number {
+  return Math.max(1, Math.round(Math.max(bounds.width, bounds.height)))
+}
+
+function centerCoordinate(value: number | string): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  if (typeof value === 'string' && isNumericStringCoordinate(value)) {
+    return Number.parseFloat(value)
+  }
+  return 0
+}
+
+function applyCenterAnchoredSeSize(
+  element: DrawElement & { type: 'circle' | 'arc' },
+  pointerX: number,
+  pointerY: number,
+): DrawElement {
+  const cx = centerCoordinate(element.x)
+  const cy = centerCoordinate(element.y)
+  const radius = Math.max(1, Math.round(Math.min(pointerX - cx, pointerY - cy)))
+  return { ...element, radius }
+}
+
+/** Resize elements that expose one size via the southeast handle. */
+export function applySeSizeResize(
+  element: DrawElement,
+  startBounds: ElementBounds,
+  pointerX: number,
+  pointerY: number,
+): DrawElement {
+  if (element.type === 'circle' || element.type === 'arc') {
+    return applyCenterAnchoredSeSize(element, pointerX, pointerY)
+  }
+  const nextBounds = resizeBoundsWithHandle(
+    startBounds,
+    SE_SIZE_RESIZE_HANDLE,
+    pointerX,
+    pointerY,
+  )
+  return applyBoundsResize(element, nextBounds)
+}
+
 export function applyBoundsResize(element: DrawElement, bounds: ElementBounds): DrawElement {
   const x2 = bounds.x + bounds.width
   const y2 = bounds.y + bounds.height
@@ -308,7 +383,7 @@ export function applyBoundsResize(element: DrawElement, bounds: ElementBounds): 
         ysize: Math.max(1, Math.round(bounds.height)),
       }
     case 'icon': {
-      const size = Math.max(1, Math.round(Math.max(bounds.width, bounds.height)))
+      const size = squareSizeFromBounds(bounds)
       const box = { x: bounds.x, y: bounds.y, width: size, height: size }
       const anchor = anchorPointFromBox(element.anchor, box, ICON_DEFAULT_ANCHOR)
       return {
@@ -323,7 +398,7 @@ export function applyBoundsResize(element: DrawElement, bounds: ElementBounds): 
       const hasExplicitSpacing =
         typeof element.spacing === 'number' && Number.isFinite(element.spacing)
       const size = iconSequenceSizeFromBounds(bounds, direction)
-      const spacing = hasExplicitSpacing ? element.spacing : size / 4
+      const spacing = hasExplicitSpacing && element.spacing != null ? element.spacing : size / 4
       const layout = iconSequenceBoxSize(size, element.icons.length, spacing, direction)
       const box = { x: bounds.x, y: bounds.y, width: layout.width, height: layout.height }
       const anchor = anchorPointFromBox(element.anchor, box, ICON_DEFAULT_ANCHOR)
@@ -332,6 +407,22 @@ export function applyBoundsResize(element: DrawElement, bounds: ElementBounds): 
         x: roundCoordinate(anchor.x),
         y: roundCoordinate(anchor.y),
         size,
+      }
+    }
+    case 'qrcode': {
+      const { modules } = createQrModuleGrid(element.data)
+      const border =
+        typeof element.border === 'number' && Number.isFinite(element.border)
+          ? Math.max(0, element.border)
+          : 1
+      const moduleSpan = modules + border * 2
+      const pixelSize = Math.max(moduleSpan, squareSizeFromBounds(bounds))
+      const boxsize = Math.max(1, Math.round(pixelSize / moduleSpan))
+      return {
+        ...element,
+        x: roundCoordinate(bounds.x),
+        y: roundCoordinate(bounds.y),
+        boxsize,
       }
     }
     default:
@@ -349,13 +440,6 @@ export function applyLineEndpoint(
     return { ...element, x_start: roundCoordinate(x), y_start: roundCoordinate(y) }
   }
   return { ...element, x_end: roundCoordinate(x), y_end: roundCoordinate(y) }
-}
-
-export function applyRadiusResize(
-  element: DrawElement & { type: 'circle' | 'arc' },
-  radius: number,
-): DrawElement {
-  return { ...element, radius: Math.max(1, Math.round(radius)) }
 }
 
 export function resizeBoundsWithHandle(

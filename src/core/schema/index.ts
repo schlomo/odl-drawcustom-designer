@@ -36,15 +36,21 @@ export {
   type CompletionKind,
 } from './completions'
 export {
+  applyPlotPropertyUpdate,
+  getNestedPropertyValue,
+  getPlotNestedPropertyKeys,
   getPropertyDefault,
   getPropertyDescription,
   getPropertyEffectiveValue,
   getPropertySpec,
   getVisibleProperties,
   hasPropertyDefault,
+  isPlotNestedProperty,
   isRequiredProperty,
   normalizePropertyValueForStorage,
+  PLOT_NESTED_FIELDS,
   REQUIRED_PROPERTIES_BY_TYPE,
+  setNestedPropertyValue,
   type PropertySpecMeta,
 } from './propertyMetadata'
 export {

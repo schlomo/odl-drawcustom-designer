@@ -5,13 +5,13 @@ import { CanvasElementLayer } from './CanvasElementLayer'
 import {
   applyBoundsResize,
   applyLineEndpoint,
-  applyRadiusResize,
+  applySeSizeResize,
+  getResizeHandlesForElement,
   isElementDraggable,
   resizeBoundsWithHandle,
-  supportsIconSizeResize,
   supportsBoxResize,
   supportsLineEndpointResize,
-  supportsRadiusResize,
+  supportsSeSizeResize,
   translateElement,
   type ResizeHandle,
 } from '../lib/element-geometry'
@@ -80,26 +80,9 @@ interface DragSession {
 }
 
 const HANDLE_SIZE = HANDLE_VISUAL_SIZE
-const BOX_HANDLES: ResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
 
 function paperTransform(rotation: CanvasRotation, scale: number): string {
   return `rotate(${rotation}deg) scale(${scale})`
-}
-
-function getResizeHandles(element: DrawElement): ResizeHandle[] {
-  if (supportsLineEndpointResize(element)) {
-    return ['line-start', 'line-end']
-  }
-  if (supportsRadiusResize(element)) {
-    return ['e']
-  }
-  if (supportsIconSizeResize(element)) {
-    return ['se']
-  }
-  if (supportsBoxResize(element)) {
-    return BOX_HANDLES
-  }
-  return []
 }
 
 function applySnap(point: { x: number; y: number }, snapGrid: SnapGridPrefs): { x: number; y: number } {
@@ -384,15 +367,15 @@ export function DesignerCanvas({
         return
       }
 
-      if (supportsRadiusResize(element) && handle === 'e') {
-        const cx = element.x as number
-        const cy = element.y as number
-        const radius = Math.hypot(snapped.x - cx, snapped.y - cy)
-        onUpdateElement(session.index, applyRadiusResize(element, radius))
+      if (supportsSeSizeResize(element)) {
+        onUpdateElement(
+          session.index,
+          applySeSizeResize(element, session.startBounds, snapped.x, snapped.y),
+        )
         return
       }
 
-      if (supportsBoxResize(element) || supportsIconSizeResize(element)) {
+      if (supportsBoxResize(element)) {
         const nextBounds = resizeBoundsWithHandle(session.startBounds, handle, snapped.x, snapped.y)
         onUpdateElement(session.index, applyBoundsResize(element, nextBounds))
       }
@@ -425,7 +408,7 @@ export function DesignerCanvas({
         selectedEditElement &&
         isElementDraggable(selectedEditElement)
       ) {
-        const handles = getResizeHandles(selectedEditElement)
+        const handles = getResizeHandlesForElement(selectedEditElement)
         const handle = hitResizeHandle(point, selectionBounds, handles, lineCoords)
         if (handle) {
           event.preventDefault()
@@ -571,7 +554,7 @@ export function DesignerCanvas({
   }, [onDeleteSelected, onNudgeSelected, selectedIndex, snapGrid.enabled, snapGrid.size])
 
   const resizeHandles =
-    selectedEditElement && selectionBounds ? getResizeHandles(selectedEditElement) : []
+    selectedEditElement && selectionBounds ? getResizeHandlesForElement(selectedEditElement) : []
 
   const gridLines = useMemo(() => {
     if (!snapGrid.enabled) {

@@ -12,7 +12,9 @@ Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcus
 
 **Phase 3b** — opentype text/multiline (**committed** `23d12b5`).
 
-**Next:** Phase **3c** MDI icons (§17c). Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §17.
+**Phase 3c** — MDI icons + icon_sequence (**committed** `7deb2fd`).
+
+**Next:** Phase **3d** QR + plot (§17d). Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §17.
 
 ## Spec
 

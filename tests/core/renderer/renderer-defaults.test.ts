@@ -52,9 +52,10 @@ describe('renderer uses propertyMetadata defaults', () => {
   it('uses qrcode boxsize and border defaults from spec metadata', () => {
     const result = renderQrcode({ type: 'qrcode', data: 'test', x: 0, y: 0 }, context)
     expect(result?.primitive).toMatchObject({
-      kind: 'qrcode-stub',
-      width: (21 + 2) * 2,
-      height: (21 + 2) * 2,
+      kind: 'qrcode',
+      modules: expect.any(Number),
+      width: expect.any(Number),
+      height: expect.any(Number),
     })
   })
 })

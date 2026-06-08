@@ -97,7 +97,7 @@ export const NON_NEGATIVE_NUMBER_PROPERTIES = new Set([
 ])
 
 export function isNonNegativeNumberProperty(property: string): boolean {
-  return NON_NEGATIVE_NUMBER_PROPERTIES.has(property)
+  return NON_NEGATIVE_NUMBER_PROPERTIES.has(propertyLeaf(property))
 }
 
 const CLAMPED_0_100_PROPERTIES = new Set(['progress'])
@@ -140,7 +140,7 @@ export const POSITION_NUMBER_PROPERTIES = new Set([
 ])
 
 export function isPositionNumberProperty(property: string): boolean {
-  return POSITION_NUMBER_PROPERTIES.has(property)
+  return POSITION_NUMBER_PROPERTIES.has(propertyLeaf(property))
 }
 
 export function roundPositionNumber(property: string, value: number): number {
@@ -150,7 +150,7 @@ export function roundPositionNumber(property: string, value: number): number {
   return Math.round(value)
 }
 
-const JSON_PROPERTIES = new Set(['points', 'icons', 'ylegend', 'yaxis', 'xlegend', 'xaxis'])
+const JSON_PROPERTIES = new Set(['points', 'icons'])
 
 /** plot `data` is edited as JSON; multiline `value` fields are separate. */
 export const MULTILINE_STRING_PROPERTIES = new Set(['value', 'url', 'data'])
@@ -190,17 +190,33 @@ function enumNameForProperty(property: string): keyof typeof ENUMS | null {
   return null
 }
 
+function plotNestedChild(property: string): string | null {
+  const dot = property.indexOf('.')
+  return dot > 0 ? property.slice(dot + 1) : null
+}
+
+function propertyLeaf(property: string): string {
+  return plotNestedChild(property) ?? property
+}
+
 export function getPropertyFieldKind(property: string, value: unknown): PropertyFieldKind {
-  if (JSON_PROPERTIES.has(property) || (value != null && typeof value === 'object')) {
+  const leaf = propertyLeaf(property)
+  if (leaf === 'grid') {
+    return typeof value === 'boolean' ? 'boolean' : 'number'
+  }
+  if (leaf === 'format') {
+    return 'string'
+  }
+  if (JSON_PROPERTIES.has(property) || (value != null && typeof value === 'object' && !property.includes('.'))) {
     return 'json'
   }
-  if (BOOLEAN_PROPERTIES.has(property)) {
-    return 'boolean'
-  }
-  if (enumNameForProperty(property)) {
+  if (property === 'ylegend.position' || property === 'xlegend.position' || enumNameForProperty(leaf)) {
     return 'enum'
   }
-  if (NUMBER_PROPERTIES.has(property) || typeof value === 'number') {
+  if (BOOLEAN_PROPERTIES.has(leaf)) {
+    return 'boolean'
+  }
+  if (NUMBER_PROPERTIES.has(leaf) || typeof value === 'number') {
     return 'number'
   }
   if (typeof value === 'boolean') {
@@ -209,8 +225,17 @@ export function getPropertyFieldKind(property: string, value: unknown): Property
   return 'string'
 }
 
+const Y_LEGEND_POSITIONS = ['left', 'right'] as const
+const X_LEGEND_POSITIONS = ['bottom', 'top'] as const
+
 export function getPropertyEnumValues(property: string): readonly string[] | null {
-  const enumName = enumNameForProperty(property)
+  if (property === 'ylegend.position') {
+    return Y_LEGEND_POSITIONS
+  }
+  if (property === 'xlegend.position') {
+    return X_LEGEND_POSITIONS
+  }
+  const enumName = enumNameForProperty(plotNestedChild(property) ?? property)
   if (!enumName) {
     return null
   }
@@ -234,14 +259,14 @@ export function isMultilineStringProperty(property: string): boolean {
 }
 
 export function getPropertyLabel(element: DrawElement, property: string): string {
-  if (BOOLEAN_PROPERTIES.has(property)) {
+  if (BOOLEAN_PROPERTIES.has(propertyLeaf(property)) || property.includes('.')) {
     return getPropertyDescription(element.type, property)
   }
   return property
 }
 
 export function getPropertyTooltip(element: DrawElement, property: string): string | undefined {
-  if (BOOLEAN_PROPERTIES.has(property)) {
+  if (BOOLEAN_PROPERTIES.has(propertyLeaf(property))) {
     return property
   }
   return getPropertyDescription(element.type, property)

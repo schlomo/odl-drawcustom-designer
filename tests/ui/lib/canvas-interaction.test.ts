@@ -3,12 +3,14 @@ import { createElementFromTemplate } from '../../../src/ui/lib/create-element-fr
 import {
   applyAxisDelta,
   applyBoundsResize,
+  applySeSizeResize,
   isElementDraggable,
   isInteractiveCoordinate,
   moveElementInArray,
-  supportsIconSizeResize,
+  supportsSeSizeResize,
   translateElement,
 } from '../../../src/ui/lib/element-geometry'
+import { createQrModuleGrid, qrRenderedSize } from '../../../src/core/renderer/qr-modules'
 import { findTopmostElementHit } from '../../../src/ui/lib/canvas-hit-test'
 import { snapMoveDelta, snapToGrid } from '../../../src/ui/lib/snap-to-grid'
 import {
@@ -67,7 +69,7 @@ describe('element geometry', () => {
       size: 24,
       anchor: 'la',
     }
-    expect(supportsIconSizeResize(element)).toBe(true)
+    expect(supportsSeSizeResize(element)).toBe(true)
     const resized = applyBoundsResize(element, { x: 10, y: 20, width: 48, height: 48 })
     expect(resized.type).toBe('icon')
     if (resized.type === 'icon') {
@@ -87,11 +89,55 @@ describe('element geometry', () => {
       spacing: 8,
       direction: 'right' as const,
     }
-    expect(supportsIconSizeResize(element)).toBe(true)
+    expect(supportsSeSizeResize(element)).toBe(true)
     const resized = applyBoundsResize(element, { x: 0, y: 0, width: 100, height: 36 })
     expect(resized.type).toBe('icon_sequence')
     if (resized.type === 'icon_sequence') {
       expect(resized.size).toBe(36)
+    }
+  })
+
+  it('resizes qrcode boxsize from the southeast handle bounds', () => {
+    const element = {
+      type: 'qrcode' as const,
+      data: 'https://www.example.com',
+      x: 100,
+      y: 50,
+      boxsize: 2,
+      border: 1,
+    }
+    expect(supportsSeSizeResize(element)).toBe(true)
+
+    const { modules } = createQrModuleGrid(element.data)
+    const startSize = qrRenderedSize(modules, element.boxsize, element.border)
+    const startBounds = { x: 100, y: 50, width: startSize, height: startSize }
+    const resized = applySeSizeResize(element, startBounds, 100 + startSize + 23, 50 + startSize + 23)
+
+    expect(resized.type).toBe('qrcode')
+    if (resized.type === 'qrcode') {
+      expect(resized.boxsize).toBe(3)
+      expect(resized.x).toBe(100)
+      expect(resized.y).toBe(50)
+    }
+  })
+
+  it('resizes circle radius from the southeast handle while keeping center fixed', () => {
+    const element = {
+      type: 'circle' as const,
+      x: 100,
+      y: 100,
+      radius: 20,
+    }
+    expect(supportsSeSizeResize(element)).toBe(true)
+
+    const startBounds = { x: 80, y: 80, width: 40, height: 40 }
+    const resized = applySeSizeResize(element, startBounds, 140, 140)
+
+    expect(resized.type).toBe('circle')
+    if (resized.type === 'circle') {
+      expect(resized.radius).toBe(40)
+      expect(resized.x).toBe(100)
+      expect(resized.y).toBe(100)
     }
   })
 

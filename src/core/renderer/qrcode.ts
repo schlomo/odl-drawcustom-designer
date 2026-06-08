@@ -2,16 +2,11 @@ import type { DrawElement } from '../schema/elements'
 import { effectiveNumber, effectiveString } from './element-defaults'
 import { mapColor } from './colors'
 import { resolveX, resolveY } from './coordinates'
+import { createQrModuleGrid, qrRenderedSize } from './qr-modules'
 import type { RenderContext, RenderResult } from './types'
 import { isVisible } from './visibility'
 
 type QrcodeElement = Extract<DrawElement, { type: 'qrcode' }>
-
-const MODULES_PER_SIDE = 21
-
-function estimateQrcodeSize(boxsize: number, border: number): number {
-  return (MODULES_PER_SIDE + border * 2) * boxsize
-}
 
 export function renderQrcode(element: QrcodeElement, ctx: RenderContext): RenderResult | null {
   if (!isVisible(element.visible)) {
@@ -21,16 +16,21 @@ export function renderQrcode(element: QrcodeElement, ctx: RenderContext): Render
   const colorOptions = { accentMode: ctx.accentMode }
   const boxsize = effectiveNumber(element, 'boxsize', 2, 1)
   const border = effectiveNumber(element, 'border', 1, 0)
-  const size = estimateQrcodeSize(boxsize, border)
+  const { modules, moduleData } = createQrModuleGrid(element.data)
+  const size = qrRenderedSize(modules, boxsize, border)
 
   return {
     layer: 'canvas',
     primitive: {
-      kind: 'qrcode-stub',
+      kind: 'qrcode',
       x: resolveX(element.x, ctx),
       y: resolveY(element.y, ctx),
       width: size,
       height: size,
+      boxsize,
+      border,
+      modules,
+      moduleData,
       data: element.data,
       color: mapColor(effectiveString(element, 'color', 'black'), colorOptions) ?? '#000000',
       bgcolor: mapColor(effectiveString(element, 'bgcolor', 'white'), colorOptions) ?? '#FFFFFF',

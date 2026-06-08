@@ -432,8 +432,16 @@ function PropertyField({
   }
 
   if (kind === 'json') {
+    const samplePlotData =
+      element.type === 'plot' && property === 'data'
+        ? [
+            { entity: 'sensor.temperature', color: 'red', width: 2, smooth: true },
+            { entity: 'sensor.humidity', color: 'black', width: 1 },
+          ]
+        : null
+
     return (
-      <label className={`block text-xs ${shell.muted}`}>
+      <div className={`block text-xs ${shell.muted}`}>
         <PropertyLabel element={element} property={property} />
         <textarea
           className={`mt-1 w-full font-mono ${shell.input}`}
@@ -454,7 +462,16 @@ function PropertyField({
             }
           }}
         />
-      </label>
+        {samplePlotData ? (
+          <button
+            type="button"
+            className={`mt-1 ${shell.button} px-2 py-1`}
+            onClick={() => onChange(samplePlotData)}
+          >
+            Insert sample series
+          </button>
+        ) : null}
+      </div>
     )
   }
 
