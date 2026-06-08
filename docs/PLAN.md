@@ -49,6 +49,9 @@ todos:
     status: completed
   - id: phase4a-commit
     content: "Commit Phase 4a after verification (§11n)"
+    status: completed
+  - id: phase4b-export-share
+    content: "§18b: canvas/YAML export bars, zoom 50/100/200/fit, hash share (#d=pako)"
     status: pending
   - id: phase4-multiselect
     content: "§18c: marquee select, bulk move/layer, align H/V"
@@ -716,12 +719,13 @@ flowchart LR
 | **3e** parse_colors + dither | ✅ Done | `ce99de5` | 522 (80 files) | Inline color segments, ordered d=2, flat/dither canvas toggle |
 | **3f** Canvas polish | ✅ Done | `1b629ff` | 557 (85 files) | Drag overlay, pointer capture, interaction tests, sidebar previews |
 | **3g** Arch + quality | ✅ Done | `e8ff378` | — | ADR-011, `docs/testing.md`, audit report, core barrel ESLint |
-| **4a** Storage reshape | ✅ Done | *uncommitted* | 593 (91 files) | Dexie v3, global mocks, `session` row, `appBootstrap`, auto-save |
-| **4b–4i** Polish | ⬜ **Next** | — | — | Export bars, multi-select, undo, edge snap, HA embed, deploy (§18b–h) |
+| **4a** Storage reshape | ✅ Done | `5ad7e6f` | 593 (91 files) | Dexie v3, global mocks, `session` row, `appBootstrap`, auto-save |
+| **4b** Export + share | ⬜ **Next** | — | — | Canvas/YAML bars, zoom, `#d=pako` (§18b) |
+| **4c–4i** Polish | ⬜ Pending | — | — | Multi-select, undo, edge snap, HA embed, deploy (§18c–h, §18i) |
 
-**Current repo health:** `npm test` → **593 passed** (91 files) · `npm run lint` → **clean** · last commit `e8ff378` · **4a uncommitted**
+**Current repo health:** `npm test` → **593 passed** (91 files) · `npm run lint` → **clean** · last commit `5ad7e6f`
 
-**Next:** commit **4a** → Phase **4b** (canvas + YAML bars, §18b).
+**Next:** Phase **4b** — canvas + YAML bars + hash share (§18b).
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -925,7 +929,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 - ✅ Drag defers YAML panel updates; external YAML sync preserves scroll
 - ✅ Test consolidation per ADR-011 (behavior over implementation detail)
 
-### Phase 4a — Storage reshape (§18a) ✅ (*uncommitted*)
+### Phase 4a — Storage reshape (§18a) ✅ (`5ad7e6f`)
 
 - ✅ Dexie **v3** (v2 drops legacy `mocks`/`projects`; v3 adds global `mocks` + `session`)
 - ✅ `ensureDbReady()` — wipe + reopen on upgrade errors (no data migration)
@@ -935,8 +939,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 - ✅ Legacy `localStorage` mock migration → global IndexedDB
 - ✅ Tests: `session.test.ts`, `db-upgrade.test.ts`, updated `mocks.test.ts`
 - ✅ Bonus (same work): showcase bundled image, template preview toggle, hidden-element hints, richer sample dashboard
-
-**Note:** Commit pending; ADR-003 uncommitted diff aligns with v3 schema.
+- ✅ ADR-003 revised for v3 schema (committed with `5ad7e6f`)
 
 ### Phase 4 — Product polish + v1 ship criteria (revised 2026-06)
 
@@ -1193,7 +1196,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **3a–3g** ✅ through `e8ff378`. Phase **4a** ✅ (*uncommitted*). **Current work:** commit 4a → **§18b–i**.
+- Phase **3a–3g** ✅ through `e8ff378`. Phase **4a** ✅ (`5ad7e6f`). **Current work:** **§18b** (export bars + hash share) → **§18c–i**.
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1365,6 +1368,20 @@ Do not push unless I ask.
 
 ---
 
+## 11m. Commit Phase 3g prompt ✅ (`e8ff378`)
+
+<!-- prompt archived — phase complete -->
+
+---
+
+## 11n. Commit Phase 4a prompt ✅ (`5ad7e6f`)
+
+Delivered 2026-06-08. Dexie v3, global mocks, session restore, app bootstrap, showcase UX.
+
+<!-- prompt archived — phase complete -->
+
+---
+
 ## 11c. Commit Phase 2 (partial) prompt ✅ (`84d2164`)
 
 Commit message used: `Phase 2a complete (YAML Editor)` — includes stabilization + UI shell + YamlEditor.
@@ -1494,7 +1511,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (*uncommitted*). **Next: §18b** (canvas + YAML bars).
+**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **Next: §18b** (canvas + YAML bars + hash share).
 
 **Plan cross-reference map:**
 
@@ -1589,11 +1606,11 @@ Key files: `docs/testing.md`, `docs/adr/ADR-011-behavior-test-policy.md`, `docs/
 
 ## 18. Phase 4 — product polish prompts ⬜ after Phase 4a
 
-**Revised 2026-06.** One agent session per subsection. Read §7.2 simplifications first — do not implement cut features. **Prerequisite:** §17g ✅; **§18a** ✅ (commit pending).
+**Revised 2026-06.** One agent session per subsection. Read §7.2 simplifications first — do not implement cut features. **Prerequisite:** §17g ✅; **§18a** ✅ (`5ad7e6f`).
 
 **Order:** §18a → §18b → §18c → §18d → §18e → §18f → §18g → §18h (§18i can run parallel with §18b after §18a)
 
-### §18a — Storage reshape (Phase 4a) ✅ (*uncommitted*)
+### §18a — Storage reshape (Phase 4a) ✅ (`5ad7e6f`)
 
 Delivered — see §7 Phase 4a checklist.
 
@@ -1601,23 +1618,51 @@ Key files: `src/storage/db.ts`, `session.ts`, `mocks.ts`, `appBootstrap.ts`, `us
 
 <!-- prompt archived — phase complete -->
 
-### §18b — Canvas + YAML bars + hash share
+### §18b — Canvas + YAML bars + hash share ⬜ **Next**
+
+Read **ADR-005** (`docs/adr/ADR-005-share-hash-format.md`), **§7.3** (zoom), and `docs/testing.md` (ADR-011).
 
 ```
-Execute Phase 4b — canvas toolbar, YAML toolbar, share link.
+Execute Phase 4b — canvas toolbar, YAML toolbar, hash share.
 
-Canvas top bar:
-- Zoom buttons: 200%, 100%, Fit, 50% (CSS scale; Fit = fit panel — see §7.3)
-- Copy PNG to clipboard
-- Download PNG (dithered when §17e pipeline exists; flat RGB fallback OK)
+Dependencies:
+- npm install pako (+ @types/pako if needed)
 
-YAML top bar:
-- Copy YAML (HA-clean export)
-- Download .yaml file
+Share hash (ADR-005):
+- src/share/ (or src/core/share/) — SharePayload v1, encodeShareHash / decodeShareHash
+  (JSON → pako deflate → base64url; fragment #d=<payload>)
+- Payload: name, canvas { width, height, rotation, accent }, service, elements
+- EXCLUDE: IndexedDB assets, mock states, edit history
+- buildShareUrl(): origin + pathname + '#d=' + encoded
+- loadAppBootstrap(): if location.hash matches #d=, decode and bootstrap from hash
+  (hash wins over session row on load); clear or replace hash after apply optional
+- App header: Share button copies URL; toast/brief confirm
+- After hash restore: scanPayloadForAssets + resolveAsset → StatusBanner for missing keys
+  (reuse content-asset-status patterns; banner lists YAML paths)
 
-Header:
-- Share button → #d=pako URL (ADR-005); restore on load
-- Missing-asset banner after hash import
+Canvas top bar (DesignerCanvas.tsx — already has fitScale via ResizeObserver):
+- Zoom mode pref in localStorage: 200% | 100% | Fit | 50% (§7.3)
+- effectiveScale = fit computed scale × user factor (Fit uses panel fit only; 100% = 1× native
+  in panel up to current fit cap; 200%/50% multiply/divide)
+- Update pointer hit-test (clientToCanvas) to use effectiveScale, not fitScale alone
+- Buttons in canvas header alongside Snap / Dither / Clear all
+
+PNG export (native WxH, not CSS scale):
+- src/ui/lib/canvas-png-export.ts — rasterize data-canvas-paper at renderContext dimensions
+- Respect previewDitherMode (d=2 halftone from §3e when on; flat RGB when off)
+- Canvas bar: Copy PNG (clipboard) + Download PNG (.png filename from session name)
+
+YAML top bar (YamlPanel.tsx — serializeYamlPayload already HA-clean):
+- Copy YAML + Download .yaml (sanitize filename from session name)
+- Small download/copy helpers + tests
+
+Tests (behavior-focused, ADR-011):
+- tests/share/share-hash.test.ts — round-trip encode/decode, excluded fields, malformed hash
+- tests/ui/lib/canvas-png-export.test.ts — dimensions / dither flag wiring (mock canvas if needed)
+- tests/ui/lib/yaml-download.test.ts — filename sanitize, blob MIME
+- Extend app-bootstrap or main load test for hash-over-session precedence
+
+Do not push unless I ask. After green lint/test/build: docs/PLAN.md §11o commit prompt.
 
 Next: docs/PLAN.md §18c
 ```

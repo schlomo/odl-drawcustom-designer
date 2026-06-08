@@ -22,9 +22,9 @@ Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcus
 
 **Phase 3g** — architecture gate (**committed** `e8ff378`).
 
-**Phase 4a** — global storage + session restore (**uncommitted** — ready to commit).
+**Phase 4a** — global storage + session restore (**committed** `5ad7e6f`).
 
-**Next:** commit 4a → Phase **4b** export bars (§18b). Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §18.
+**Next:** Phase **4b** — canvas/YAML export bars, zoom, hash share (§18b). Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §18.
 
 ## Spec
 
@@ -46,7 +46,7 @@ Local dev serves at `/`. For subpath hosting, build with `VITE_BASE_PATH` (e.g. 
 
 - `src/core/` — pure TypeScript (no React); TDD with Vitest
 - `src/ui/` — React 19 shell
-- `src/storage/` — Dexie IndexedDB (assets, mocks, projects) — Phase 3a ✅
+- `src/storage/` — Dexie IndexedDB (assets, global mocks, session) — Phase 4a ✅
 - `docs/adr/` — architecture decision records
 
 See ADR-001 and ADR-006 for core/UI separation.
