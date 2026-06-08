@@ -1,7 +1,6 @@
 import type { DrawElement } from '../schema/elements'
 import { ICON_DEFAULT_ANCHOR, resolveAnchoredBox } from './anchors'
-import { effectiveFontSize, effectiveString } from './element-defaults'
-import { mapColor } from './colors'
+import { effectiveFontSize, effectiveString, resolveIconFillColor } from './element-defaults'
 import { resolveX, resolveY } from './coordinates'
 import { resolveMdiPath } from './mdi-icons'
 import type { RenderContext, RenderResult } from './types'
@@ -15,7 +14,6 @@ export function renderIcon(element: IconElement, ctx: RenderContext): RenderResu
   }
 
   const colorOptions = { accentMode: ctx.accentMode }
-  const fillColor = effectiveString(element, 'fill', 'black')
   const size = effectiveFontSize(element, 'size', 20)
   const anchored = resolveAnchoredBox(
     effectiveString(element, 'anchor', ICON_DEFAULT_ANCHOR),
@@ -35,7 +33,7 @@ export function renderIcon(element: IconElement, ctx: RenderContext): RenderResu
       size,
       value: element.value,
       path: resolveMdiPath(element.value),
-      fill: mapColor(fillColor, colorOptions) ?? '#000000',
+      fill: resolveIconFillColor(element, 'fill', 'black', colorOptions),
     },
   }
 }

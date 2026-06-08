@@ -6,6 +6,8 @@ export interface RenderContext {
   height: number
   accentMode: AccentMode
   ditherMode?: DitherMode
+  /** Designer canvas: show ghost overlays for elements hidden on the tag. Off for export. */
+  showHiddenHints?: boolean
 }
 
 export interface ColorOptions {

@@ -1,5 +1,7 @@
 import type { DrawElement } from '../schema/elements'
 import { getPropertyEffectiveValue } from '../schema/propertyMetadata'
+import { mapColor } from './colors'
+import type { ColorOptions } from './types'
 
 /** Spec default from propertyMetadata — matches YAML omit rules and the property panel. */
 export function effectiveProperty(element: DrawElement, property: string): unknown {
@@ -70,4 +72,19 @@ export function effectiveColorName(element: DrawElement, property: string): stri
     return null
   }
   return typeof value === 'string' ? value : null
+}
+
+/** Icon / icon_sequence fill — spec default is black; explicit `none` means no fill on the tag. */
+export function resolveIconFillColor(
+  element: DrawElement,
+  property: string,
+  defaultColor: string,
+  options: ColorOptions,
+): string {
+  const value = getPropertyEffectiveValue(element, property)
+  if (value === 'none') {
+    return 'none'
+  }
+  const name = typeof value === 'string' ? value : defaultColor
+  return mapColor(name, options) ?? '#000000'
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { serializeYamlPayload, type DrawElement } from '../../core'
+import { serializeYamlPayload, type DrawElement, type HaMockContext } from '../../core'
 import { locateElementIndexAtPosition } from '../editor/locateElementInYaml'
 import {
   elementsSequenceEqual,
@@ -16,11 +16,13 @@ import {
 import type { SelectionSource } from '../hooks/useProjectState'
 import { useYamlFontSize } from '../hooks/useYamlFontSize'
 import { useYamlSelectionCoupling } from '../hooks/useYamlSelectionCoupling'
+import { useYamlTemplatePreview } from '../hooks/useYamlTemplatePreview'
 import type { ResolvedTheme } from '../preferences/theme'
 import type { StatusMessage } from '../lib/status-messages'
 import { shell } from '../styles/shell'
 import { YamlCouplingToggle } from './YamlCouplingToggle'
 import { YamlFontSizeControls } from './YamlFontSizeControls'
+import { YamlTemplatePreviewToggle } from './YamlTemplatePreviewToggle'
 
 const MIN_YAML_PANEL_HEIGHT = 120
 
@@ -37,6 +39,7 @@ interface YamlPanelProps {
   onStatusMessagesChange?: (messages: StatusMessage[]) => void
   /** True while the canvas is in an active pointer drag (move/resize). */
   canvasDragging?: boolean
+  mockContext?: HaMockContext
 }
 
 export function YamlPanel({
@@ -51,6 +54,7 @@ export function YamlPanel({
   entityScrollRequest = null,
   onStatusMessagesChange,
   canvasDragging = false,
+  mockContext,
 }: YamlPanelProps) {
   const serialized = useMemo(() => serializeYamlPayload(elements), [elements])
   const [yamlText, setYamlText] = useState(serialized)
@@ -60,6 +64,7 @@ export function YamlPanel({
   const pendingSerializedRef = useRef<string | null>(null)
   const { fontSize, increase, decrease } = useYamlFontSize()
   const { couplingEnabled, toggleCoupling } = useYamlSelectionCoupling()
+  const { templatePreviewEnabled, toggleTemplatePreview } = useYamlTemplatePreview()
   const { height: panelHeight, startResize } = useResizablePanelHeight({
     storageKey: 'oepl-yaml-panel-height',
     defaultHeight: 220,
@@ -154,6 +159,7 @@ export function YamlPanel({
       >
         <h2 className={shell.heading}>YAML</h2>
         <div className="flex items-center gap-2">
+          <YamlTemplatePreviewToggle enabled={templatePreviewEnabled} onToggle={toggleTemplatePreview} />
           <YamlCouplingToggle enabled={couplingEnabled} onToggle={toggleCoupling} />
           <YamlFontSizeControls fontSize={fontSize} onDecrease={decrease} onIncrease={increase} />
         </div>
@@ -165,6 +171,8 @@ export function YamlPanel({
           extraEntityIds={extraEntityIds}
           fontSizePx={fontSize}
           height="100%"
+          mockContext={mockContext}
+          templatePreviewEnabled={templatePreviewEnabled}
           scrollCommand={scrollCommand}
           preserveLinkedElementIndex={couplingEnabled ? selectedIndex : null}
           scrollLinkedElementOnSync={couplingEnabled && selectionSource !== 'yaml'}

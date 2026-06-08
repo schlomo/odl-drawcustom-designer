@@ -12,45 +12,50 @@ import {
   writeMockStates,
 } from '../../src/ui/preferences/mockStates'
 
-const PROJECT_A = '11111111-1111-4111-8111-111111111111'
-const PROJECT_B = '22222222-2222-4222-8222-222222222222'
-
 describe('mock storage', () => {
-  it('round-trips mock states per project in IndexedDB', async () => {
-    await writeMocksToDb(PROJECT_A, {
+  it('round-trips mock states globally in IndexedDB', async () => {
+    await writeMocksToDb({
       'sensor.temperature': '18',
       'binary_sensor.door': 'on',
     })
-    await writeMocksToDb(PROJECT_B, {
+
+    expect(await readMocksFromDb()).toEqual({
+      'sensor.temperature': '18',
+      'binary_sensor.door': 'on',
+    })
+  })
+
+  it('replaces the full mock map on write', async () => {
+    await writeMocksToDb({
+      'sensor.temperature': '18',
+      'binary_sensor.door': 'on',
+    })
+    await writeMocksToDb({
       'sensor.level': 42,
     })
 
-    expect(await readMocksFromDb(PROJECT_A)).toEqual({
-      'sensor.temperature': '18',
-      'binary_sensor.door': 'on',
-    })
-    expect(await readMocksFromDb(PROJECT_B)).toEqual({
+    expect(await readMocksFromDb()).toEqual({
       'sensor.level': 42,
     })
   })
 
-  it('returns null when a project has no stored mocks', async () => {
-    expect(await readMocksFromDb(PROJECT_A)).toBeNull()
+  it('returns null when no mocks are stored', async () => {
+    expect(await readMocksFromDb()).toBeNull()
   })
 
   it('readMockStates returns defaults when IndexedDB is empty', async () => {
     localStorage.setItem(MOCK_STATES_MIGRATED_KEY, '1')
-    expect(await readMockStates(PROJECT_A)).toEqual(DEFAULT_MOCK_STATES)
+    expect(await readMockStates()).toEqual(DEFAULT_MOCK_STATES)
   })
 
   it('writeMockStates persists through the UI adapter', async () => {
     localStorage.setItem(MOCK_STATES_MIGRATED_KEY, '1')
-    await writeMockStates(PROJECT_A, {
+    await writeMockStates({
       'sensor.temperature': '99',
       'binary_sensor.door': false,
     })
 
-    expect(await readMockStates(PROJECT_A)).toEqual({
+    expect(await readMockStates()).toEqual({
       'sensor.temperature': '99',
       'binary_sensor.door': false,
     })
@@ -65,7 +70,7 @@ describe('mock storage', () => {
       }),
     )
 
-    expect(await readMockStates(PROJECT_A)).toEqual({
+    expect(await readMockStates()).toEqual({
       'sensor.temperature': '12',
       'binary_sensor.door': 'on',
     })
@@ -76,19 +81,22 @@ describe('mock storage', () => {
       LEGACY_MOCK_STATES_STORAGE_KEY,
       JSON.stringify({ 'sensor.other': '1' }),
     )
-    expect(await readMockStates(PROJECT_B)).toEqual(DEFAULT_MOCK_STATES)
+    expect(await readMockStates()).toEqual({
+      'sensor.temperature': '12',
+      'binary_sensor.door': 'on',
+    })
   })
 
   it('handles overlapping writes without ConstraintError', async () => {
     const { flushMockWrites } = await import('../../src/storage/mocks')
 
     await Promise.all([
-      writeMocksToDb(PROJECT_A, {
+      writeMocksToDb({
         'sensor.temperature': '1',
         'sensor.humidity': '2',
         'binary_sensor.door': 'on',
       }),
-      writeMocksToDb(PROJECT_A, {
+      writeMocksToDb({
         'sensor.temperature': '9',
         'sensor.humidity': '8',
         'binary_sensor.door': 'off',
@@ -96,7 +104,7 @@ describe('mock storage', () => {
     ])
     await flushMockWrites()
 
-    expect(await readMocksFromDb(PROJECT_A)).toEqual({
+    expect(await readMocksFromDb()).toEqual({
       'sensor.temperature': '9',
       'sensor.humidity': '8',
       'binary_sensor.door': 'off',

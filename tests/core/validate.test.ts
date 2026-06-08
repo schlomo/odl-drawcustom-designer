@@ -120,6 +120,20 @@ describe('validatePayload', () => {
     expect(result.success).toBe(true)
   })
 
+  it('accepts Jinja template strings in visible', () => {
+    const result = validatePayload([
+      {
+        type: 'icon',
+        value: 'mdi:sunglasses',
+        x: 0,
+        y: 0,
+        size: 24,
+        visible: "{{ iif(is_state('binary_sensor.openuv_protection_window', 'on'), true, false) }}",
+      },
+    ])
+    expect(result.success).toBe(true)
+  })
+
   it('accepts Jinja template strings in enum option fields', () => {
     const result = validatePayload([
       {

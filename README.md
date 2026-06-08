@@ -20,7 +20,11 @@ Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcus
 
 **Phase 3f** — canvas interaction polish (**committed** `1b629ff`).
 
-**Next:** Phase **3g** architecture gate (§17g), then Phase 4. Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §17.
+**Phase 3g** — architecture gate (**committed** `e8ff378`).
+
+**Phase 4a** — global storage + session restore (**uncommitted** — ready to commit).
+
+**Next:** commit 4a → Phase **4b** export bars (§18b). Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §18.
 
 ## Spec
 

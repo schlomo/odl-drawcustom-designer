@@ -1,4 +1,4 @@
-export { db, clearAllStores, OeplDatabase } from './db'
+export { db, clearAllStores, ensureDbReady, OeplDatabase, resetDbReadyForTests } from './db'
 export {
   deleteStoredAsset,
   getStoredAsset,
@@ -8,17 +8,16 @@ export {
   putStoredAsset,
   removePersistedAsset,
 } from './assets'
-export { readMocksFromDb, writeMocksToDb } from './mocks'
-export { getProjectSnapshot, listProjectSnapshots, upsertProjectStub } from './projects'
+export { readMocksFromDb, writeMocksToDb, flushMockWrites } from './mocks'
 export {
-  getOrCreateActiveProjectId,
-  readActiveProjectId,
-  setActiveProjectId,
-  writeActiveProjectId,
-} from './projectId'
+  parseSessionSnapshot,
+  readSessionFromDb,
+  writeSessionToDb,
+  type SessionWritePayload,
+} from './session'
 export {
-  ACTIVE_PROJECT_ID_STORAGE_KEY,
   LEGACY_MOCK_STATES_STORAGE_KEY,
   MOCK_STATES_MIGRATED_KEY,
 } from './keys'
-export type { ProjectSnapshot, StoredAsset, StoredMock } from './types'
+export type { SessionCanvas, SessionSnapshot, StoredAsset, StoredMock } from './types'
+export { SESSION_ROW_ID } from './types'

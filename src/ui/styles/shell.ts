@@ -10,5 +10,7 @@ export const shell = {
     'rounded-md border border-[var(--shell-border)] bg-[var(--shell-surface-2)] px-2 py-1.5 text-sm text-[var(--shell-text)]',
   button:
     'rounded-md border border-[var(--shell-border)] bg-[var(--shell-surface-2)] px-2 py-1 text-xs text-[var(--shell-text)] hover:bg-[var(--shell-hover)]',
+  buttonDestructive:
+    'rounded-md border border-[var(--shell-danger-border)] bg-[var(--shell-surface-2)] px-2 py-1 text-xs text-[var(--shell-danger)] transition-colors hover:bg-[var(--shell-danger-hover)]',
   buttonActive: 'bg-[var(--shell-hover)]',
 } as const

@@ -96,11 +96,7 @@ export function PropertyPanel({
           <button type="button" className={shell.button} onClick={onMoveDown} disabled={!canMoveDown}>
             ↓
           </button>
-          <button
-            type="button"
-            className="rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-400 hover:bg-red-500/10"
-            onClick={onDelete}
-          >
+          <button type="button" className={shell.buttonDestructive} onClick={onDelete}>
             Delete
           </button>
         </div>

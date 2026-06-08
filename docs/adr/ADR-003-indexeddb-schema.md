@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (target schema — Phase 4a, 2026-06). **Implementation:** Dexie v1 still uses `projects` + per-`projectId` mocks until §18a lands.
+Accepted (implemented — Phase 4a, 2026-06).
 
 ## Context
 
@@ -20,16 +20,20 @@ Use **Dexie** (IndexedDB wrapper) with these logical stores:
 
 `localStorage` holds UI prefs only (theme, snap, panel widths).
 
-**Dexie version bump:** Phase 4a introduces schema v2. **No migration** during initial development — dev/test may wipe the database.
+**Dexie version:** schema v3 (`OeplDatabase.version(3)`). Versions 2–3 drop legacy `mocks`/`projects` stores (primary-key change requires delete/recreate). **No data migration** from v1 during initial development — dev/test may wipe the database; `ensureDbReady()` deletes and reopens on `UpgradeError`.
 
-**Removed (was Phase 3a):**
+## Implementation
+
+- `src/storage/db.ts` — Dexie v2 stores: `assets`, `mocks` (`entityId` key), `session` (`id` key)
+- `src/storage/session.ts` — read/write single `current` row
+- `src/storage/mocks.ts` — global entity map (no `projectId`)
+- `src/ui/hooks/useProjectState.ts` — debounced auto-save for session + mocks; hydrate on app load
+
+**Removed (Phase 3a, superseded in 4a):**
 
 - `projects` store and 20-project LRU
 - Per-`projectId` mock compound keys
-
-## Implementation note (Phase 3, pre-4a)
-
-Current code (`src/storage/db.ts`, v1): `assets`, `mocks` compound key `[projectId+entityId]`, `projects` LRU table. UI still tracks an active project id in localStorage. Phase 4a replaces this with the table above — **no migration**, dev wipe OK.
+- `projectId.ts` and active-project id in `localStorage`
 
 ## Consequences
 

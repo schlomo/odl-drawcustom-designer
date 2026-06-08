@@ -8,6 +8,7 @@ export { listLibraryFontKeys } from './font-library'
 export { scanPayloadForAssets } from './scanner'
 export {
   BUNDLED_FONT_KEYS,
+  BUNDLED_SHOWCASE_IMAGE_KEY,
   deleteAsset,
   loadAssetsIntoContentMap,
   listContentMapKeys,

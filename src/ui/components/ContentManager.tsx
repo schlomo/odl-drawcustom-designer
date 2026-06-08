@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { FONT_UPLOAD_ACCEPT, type AssetKind, type AssetUploadResult, type DrawElement } from '../../core'
+import { BUNDLED_SHOWCASE_IMAGE_KEY, FONT_UPLOAD_ACCEPT, type AssetKind, type AssetUploadResult, type DrawElement } from '../../core'
 import { buildContentAssetRows } from '../lib/content-asset-rows'
 import { shell } from '../styles/shell'
 import { PanelScopeToggle, type PanelListScope } from './PanelScopeToggle'
@@ -56,22 +56,29 @@ export function ContentManager({
 
   const handleUpload = async (row: (typeof rows)[number], file: File) => {
     setUploadingKey(row.key)
-    const result = await onUpload(row.key, row.kind, file)
-    setUploadingKey(null)
-
-    if (!result.ok) {
-      setUploadErrors((current) => ({ ...current, [row.key]: result.message }))
-      return
-    }
-
-    setUploadErrors((current) => {
-      if (!(row.key in current)) {
-        return current
+    try {
+      const result = await onUpload(row.key, row.kind, file)
+      if (!result.ok) {
+        setUploadErrors((current) => ({ ...current, [row.key]: result.message }))
+        return
       }
-      const next = { ...current }
-      delete next[row.key]
-      return next
-    })
+
+      setUploadErrors((current) => {
+        if (!(row.key in current)) {
+          return current
+        }
+        const next = { ...current }
+        delete next[row.key]
+        return next
+      })
+    } catch {
+      setUploadErrors((current) => ({
+        ...current,
+        [row.key]: 'Could not save the file locally. Try reloading the page.',
+      }))
+    } finally {
+      setUploadingKey(null)
+    }
   }
 
   const Wrapper = embedded ? 'div' : 'section'
@@ -181,6 +188,15 @@ export function ContentManager({
                     }}
                   >
                     Clear
+                  </button>
+                ) : row.status === 'bundled' && row.key === BUNDLED_SHOWCASE_IMAGE_KEY ? (
+                  <button
+                    type="button"
+                    className={shell.button}
+                    onClick={() => onClear(row.key)}
+                    title="Hide the bundled demo image without storing a copy locally"
+                  >
+                    Hide demo
                   </button>
                 ) : null}
               </div>

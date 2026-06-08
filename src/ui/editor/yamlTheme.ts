@@ -120,6 +120,13 @@ function editorChrome(theme: ResolvedTheme, fontSizePx: number) {
         backgroundRepeat: 'repeat-x',
         backgroundPosition: 'left bottom',
       },
+      '.cm-templatePreview': {
+        color: isDark ? '#94a3b8' : '#64748b',
+        fontStyle: 'italic',
+        marginLeft: '0.2em',
+        pointerEvents: 'none',
+        userSelect: 'none',
+      },
       '.cm-tooltip': {
         zIndex: 200,
         border: `1px solid ${isDark ? '#475569' : '#cbd5e1'}`,

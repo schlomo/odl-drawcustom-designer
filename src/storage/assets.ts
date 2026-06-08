@@ -4,18 +4,21 @@ import {
   setAsset,
   type AssetEntry,
 } from '../core/assets'
-import { db } from './db'
+import { db, ensureDbReady } from './db'
 import type { StoredAsset } from './types'
 
 export async function listStoredAssets(): Promise<StoredAsset[]> {
+  await ensureDbReady()
   return db.assets.toArray()
 }
 
 export async function getStoredAsset(key: string): Promise<StoredAsset | undefined> {
+  await ensureDbReady()
   return db.assets.get(key)
 }
 
 export async function putStoredAsset(key: string, entry: AssetEntry): Promise<void> {
+  await ensureDbReady()
   const row: StoredAsset = {
     key,
     blob: entry.blob,
@@ -26,6 +29,7 @@ export async function putStoredAsset(key: string, entry: AssetEntry): Promise<vo
 }
 
 export async function deleteStoredAsset(key: string): Promise<void> {
+  await ensureDbReady()
   await db.assets.delete(key)
 }
 

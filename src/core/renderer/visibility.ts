@@ -1,4 +1,6 @@
-type VisibleInput = boolean | 'true' | 'false' | 'True' | 'False' | undefined
+import { hasTemplateSyntax } from '../templates/patterns'
+
+type VisibleInput = boolean | string | undefined
 
 export function isVisible(visible: VisibleInput): boolean {
   if (visible === undefined) {
@@ -6,6 +8,9 @@ export function isVisible(visible: VisibleInput): boolean {
   }
   if (typeof visible === 'boolean') {
     return visible
+  }
+  if (hasTemplateSyntax(visible)) {
+    return true
   }
   return visible.toLowerCase() === 'true'
 }

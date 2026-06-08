@@ -5,10 +5,10 @@ import {
   isImageMime,
   isSupportedFontKey,
   listContentMapKeys,
-  resolveAsset,
   scanPayloadForAssets,
   type AssetScanResult,
 } from '../../core'
+import { resolveContentAssetStatus } from './content-asset-status'
 
 const bundledFontKeys = new Set<string>(BUNDLED_FONT_KEYS)
 
@@ -28,7 +28,7 @@ function inferAssetKind(key: string, fromScan?: AssetKind): AssetKind {
     return 'font'
   }
 
-  const mime = resolveAsset(key).mime ?? guessMimeFromAssetKey(key)
+  const mime = guessMimeFromAssetKey(key)
   if (isImageMime(mime)) {
     return 'image'
   }
@@ -52,7 +52,7 @@ function rowsFromScan(scan: AssetScanResult): ContentAssetRow[] {
       key: ref.key,
       kind: ref.kind,
       paths: [ref.path],
-      status: resolveAsset(ref.key).status,
+      status: resolveContentAssetStatus(ref.key),
     })
   }
 
@@ -82,7 +82,7 @@ function rowsFromStored(scan: AssetScanResult): ContentAssetRow[] {
         key,
         kind: inferAssetKind(key, fromScan?.kind),
         paths: fromScan?.paths ?? [],
-        status: resolveAsset(key).status,
+        status: resolveContentAssetStatus(key),
       }
     })
     .sort((a, b) => a.key.localeCompare(b.key))

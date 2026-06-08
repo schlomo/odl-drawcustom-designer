@@ -10,6 +10,12 @@ import type { ResolvedTheme } from '../preferences/theme'
 import { jinjaBraceInputHandler, yamlCloseBrackets } from './jinjaBracketHandling'
 import { highlightActiveLineWhenCollapsed } from './yamlActiveLine'
 import { highlightLinkedElement, linkedElementIndexFacet, yamlLinkedElementCompartment } from './yamlLinkedElement'
+import {
+  templatePreviewFacet,
+  yamlTemplatePreviewCompartment,
+  showTemplatePreview,
+  type TemplatePreviewConfig,
+} from './yamlTemplatePreview'
 import { yamlEditorAutocompletion } from './yamlCompletionSource'
 import { YAML_EDITOR_BASIC_SETUP } from './yamlEditorSetup'
 import { yamlEntityIdsCompartment, yamlEntityIdsFacet } from './yamlEntityIds'
@@ -53,6 +59,7 @@ export function createYamlEditorState(
   shouldReportCursor: (selection: { empty: boolean }) => boolean,
   suppressCursorReportRef: { current: boolean },
   yamlSelectionRef?: { current: StoredEditorSelection },
+  templatePreview: TemplatePreviewConfig = { enabled: true, context: { states: {} } },
 ): EditorState {
   return EditorState.create({
     doc,
@@ -80,6 +87,10 @@ export function createYamlEditorState(
       yamlLinkedElementCompartment.of([
         linkedElementIndexFacet.of(null),
         highlightLinkedElement(),
+      ]),
+      yamlTemplatePreviewCompartment.of([
+        templatePreviewFacet.of(templatePreview),
+        showTemplatePreview(),
       ]),
       EditorView.updateListener.of((update) => {
         if (update.selectionSet && yamlSelectionRef) {

@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { defaultAppBootstrap, loadAppBootstrap } from './ui/bootstrap/appBootstrap'
 import { readThemeMode, resolveThemeMode } from './ui/preferences/theme'
 import { App } from './ui/App'
 import './index.css'
@@ -12,8 +13,19 @@ const initialResolved = resolveThemeMode(
 document.documentElement.classList.toggle('dark', initialResolved === 'dark')
 document.documentElement.dataset.theme = initialResolved
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+const root = createRoot(document.getElementById('root')!)
+
+function renderApp(bootstrap: ReturnType<typeof defaultAppBootstrap>) {
+  root.render(
+    <StrictMode>
+      <App bootstrap={bootstrap} />
+    </StrictMode>,
+  )
+}
+
+void loadAppBootstrap()
+  .then(renderApp)
+  .catch((error) => {
+    console.error('Failed to load saved session', error)
+    renderApp(defaultAppBootstrap())
+  })

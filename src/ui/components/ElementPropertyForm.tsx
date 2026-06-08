@@ -18,6 +18,7 @@ import {
   isIconNameProperty,
   isImageUrlProperty,
   isMultilineStringProperty,
+  isAllowNegativeNumberProperty,
   isNonNegativeNumberProperty,
   isClampedPercentProperty,
   isPositionNumberProperty,
@@ -476,6 +477,7 @@ function PropertyField({
   }
 
   if (kind === 'number') {
+    const allowNegative = isAllowNegativeNumberProperty(property)
     const nonNegative = isNonNegativeNumberProperty(property)
     const clampedPercent = isClampedPercentProperty(property)
     return (
@@ -485,7 +487,7 @@ function PropertyField({
           type="number"
           className={`mt-1 w-full font-mono ${shell.input}`}
           value={value == null ? '' : String(value)}
-          min={nonNegative || clampedPercent ? 0 : undefined}
+          min={allowNegative ? -1 : nonNegative || clampedPercent ? 0 : undefined}
           max={clampedPercent ? 100 : undefined}
           onChange={(event) => {
             const parsed = parsePropertyInput('number', event.target.value)

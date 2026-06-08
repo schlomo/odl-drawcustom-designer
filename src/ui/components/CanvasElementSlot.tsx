@@ -3,7 +3,9 @@ import type opentype from 'opentype.js'
 import { renderElement, type DrawElement, type RenderContext } from '../../core'
 import { collectFontKeysFromElements } from '../lib/load-font-faces'
 import { fontLayoutTokenForKeys } from '../lib/font-layout-token'
+import { resolveHiddenElementHint } from '../lib/hidden-element-hints'
 import { CanvasElementLayer } from './CanvasElementLayer'
+import { HiddenElementHintOverlay } from './HiddenElementHintOverlay'
 import { SvgPrimitive } from './SvgPrimitive'
 
 interface CanvasElementSlotProps {
@@ -36,7 +38,12 @@ export const CanvasElementSlot = memo(function CanvasElementSlot({
     return renderElement(element, renderContext)
   }, [element, renderContext, opentypeFonts])
 
-  if (!result) {
+  const hiddenHint = useMemo(
+    () => resolveHiddenElementHint(element, result, renderContext),
+    [element, result, renderContext],
+  )
+
+  if (!result && !hiddenHint) {
     return null
   }
 
@@ -45,7 +52,7 @@ export const CanvasElementSlot = memo(function CanvasElementSlot({
       className="pointer-events-none absolute inset-0"
       style={{ zIndex: layerZIndex ?? index + 1, visibility: hidden ? 'hidden' : 'visible' }}
     >
-      {result.layer === 'svg' ? (
+      {result?.layer === 'svg' ? (
         <svg
           viewBox={`0 0 ${renderContext.width} ${renderContext.height}`}
           className="h-full w-full"
@@ -53,7 +60,7 @@ export const CanvasElementSlot = memo(function CanvasElementSlot({
         >
           <SvgPrimitive primitive={result.primitive} fontFamilies={fontFamilies} />
         </svg>
-      ) : (
+      ) : result ? (
         <CanvasElementLayer
           primitive={result.primitive}
           width={renderContext.width}
@@ -64,7 +71,14 @@ export const CanvasElementSlot = memo(function CanvasElementSlot({
           fontFamilies={fontFamilies}
           opentypeFonts={opentypeFonts}
         />
-      )}
+      ) : null}
+      {hiddenHint ? (
+        <HiddenElementHintOverlay
+          hint={hiddenHint}
+          width={renderContext.width}
+          height={renderContext.height}
+        />
+      ) : null}
     </div>
   )
 })

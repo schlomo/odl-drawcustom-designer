@@ -1,6 +1,6 @@
 import { EditorView } from '@codemirror/view'
 import { useEffect, useMemo, useRef } from 'react'
-import { parseYamlPayload, scanPayloadForTemplates, validatePayload } from '../../core'
+import { parseYamlPayload, scanPayloadForTemplates, validatePayload, type HaMockContext } from '../../core'
 import type { ResolvedTheme } from '../preferences/theme'
 import { locateElementFocusInYaml } from './locateElementInYaml'
 import { locateFirstEntityOccurrenceInYaml } from './locateEntityInYaml'
@@ -9,6 +9,7 @@ import {
   yamlThemeCompartment,
 } from './yamlEditorExtensions'
 import { yamlEntityIdsCompartment, yamlEntityIdsFacet } from './yamlEntityIds'
+import { reconfigureTemplatePreview } from './yamlTemplatePreview'
 import { createYamlEditorTheme } from './yamlTheme'
 import {
   shouldMoveCursorOnLinkedScroll,
@@ -48,6 +49,8 @@ export interface YamlEditorProps {
   yamlScrollRef?: { current: number }
   className?: string
   extraEntityIds?: readonly string[]
+  mockContext?: HaMockContext
+  templatePreviewEnabled?: boolean
 }
 
 function mergeEntityIds(scanned: readonly string[], extra: readonly string[]): string[] {
@@ -81,6 +84,8 @@ export function YamlEditor({
   yamlScrollRef,
   className,
   extraEntityIds = [],
+  mockContext,
+  templatePreviewEnabled = true,
 }: YamlEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -94,6 +99,13 @@ export function YamlEditor({
   const entityIds = useMemo(
     () => mergeEntityIds(scannedEntityIds, extraEntityIds),
     [scannedEntityIds, extraEntityIds],
+  )
+  const templatePreview = useMemo(
+    () => ({
+      enabled: templatePreviewEnabled,
+      context: mockContext ?? { states: {} },
+    }),
+    [mockContext, templatePreviewEnabled],
   )
 
   useEffect(() => {
@@ -122,6 +134,7 @@ export function YamlEditor({
         shouldReportYamlCursorPosition,
         suppressCursorReportRef,
         yamlSelectionRef,
+        templatePreview,
       ),
       parent: container,
     })
@@ -162,6 +175,17 @@ export function YamlEditor({
       effects: yamlEntityIdsCompartment.reconfigure(yamlEntityIdsFacet.of(entityIds)),
     })
   }, [entityIds])
+
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) {
+      return
+    }
+
+    view.dispatch({
+      effects: reconfigureTemplatePreview(templatePreview),
+    })
+  }, [templatePreview])
 
   useEffect(() => {
     const view = viewRef.current

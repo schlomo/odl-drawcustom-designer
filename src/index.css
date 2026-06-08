@@ -10,6 +10,9 @@
   --shell-muted: #64748b;
   --shell-hover: #e2e8f0;
   --shell-accent: #2563eb;
+  --shell-danger: #b91c1c;
+  --shell-danger-border: #dc2626;
+  --shell-danger-hover: rgb(220 38 38 / 0.12);
 }
 
 .dark {
@@ -22,6 +25,9 @@
   --shell-muted: #94a3b8;
   --shell-hover: #334155;
   --shell-accent: #60a5fa;
+  --shell-danger: #fecaca;
+  --shell-danger-border: #f87171;
+  --shell-danger-hover: rgb(248 113 113 / 0.22);
 }
 
 body {

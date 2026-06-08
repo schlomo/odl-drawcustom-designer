@@ -1,5 +1,5 @@
 import type { HaMockContext } from '../core/templates/types'
-import { db } from './db'
+import { db, ensureDbReady } from './db'
 import type { StoredMock } from './types'
 
 function isMockStateValue(value: unknown): value is string | number | boolean {
@@ -9,8 +9,9 @@ function isMockStateValue(value: unknown): value is string | number | boolean {
 /** Serializes mock writes — overlapping delete+bulkAdd caused ConstraintError on bulkAdd. */
 let mockWriteChain: Promise<void> = Promise.resolve()
 
-export async function readMocksFromDb(projectId: string): Promise<HaMockContext['states'] | null> {
-  const rows = await db.mocks.where('projectId').equals(projectId).toArray()
+export async function readMocksFromDb(): Promise<HaMockContext['states'] | null> {
+  await ensureDbReady()
+  const rows = await db.mocks.toArray()
   if (rows.length === 0) {
     return null
   }
@@ -22,19 +23,17 @@ export async function readMocksFromDb(projectId: string): Promise<HaMockContext[
   return states
 }
 
-export async function writeMocksToDb(
-  projectId: string,
-  states: HaMockContext['states'],
-): Promise<void> {
+export async function writeMocksToDb(states: HaMockContext['states']): Promise<void> {
+  await ensureDbReady()
   const rows: StoredMock[] = Object.entries(states)
     .filter((entry): entry is [string, string | number | boolean] =>
       isMockStateValue(entry[1]),
     )
-    .map(([entityId, value]) => ({ projectId, entityId, value }))
+    .map(([entityId, value]) => ({ entityId, value }))
 
   mockWriteChain = mockWriteChain.then(() =>
     db.transaction('rw', db.mocks, async () => {
-      await db.mocks.where('projectId').equals(projectId).delete()
+      await db.mocks.clear()
       if (rows.length > 0) {
         await db.mocks.bulkPut(rows)
       }

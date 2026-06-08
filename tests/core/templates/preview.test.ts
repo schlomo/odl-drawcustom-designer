@@ -110,6 +110,39 @@ describe('applyTemplateContextToPayload', () => {
     })
   })
 
+  it('renders templated icon fill none on canvas preview', async () => {
+    const { renderIcon } = await import('../../../src/core/renderer/icon')
+    const payload: DrawElement[] = [
+      {
+        type: 'icon',
+        value: 'mdi:sunglasses',
+        x: 150,
+        y: 280,
+        size: "{{ (float(states('sensor.uv_index'), 0) * 7 + 24) | round(0) }}",
+        fill: "{{ iif(is_state('binary_sensor.example_window', 'on'), 'black', 'none') }}",
+        anchor: 'lm',
+      },
+    ]
+
+    const preview = applyTemplateContextToPayload(payload, {
+      states: {
+        'sensor.uv_index': '3',
+        'binary_sensor.example_window': 'off',
+      },
+    })
+
+    const rendered = renderIcon(preview[0] as Extract<DrawElement, { type: 'icon' }>, {
+      width: 800,
+      height: 480,
+      accentMode: 'yellow',
+    })
+
+    expect(rendered?.primitive).toMatchObject({
+      kind: 'icon',
+      fill: 'none',
+    })
+  })
+
   it('evaluates now().strftime in text values', () => {
     const payload: DrawElement[] = [
       {

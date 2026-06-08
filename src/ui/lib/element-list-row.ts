@@ -1,5 +1,6 @@
 import type { DrawElement } from '../../core'
 import { normalizeMdiIconName } from '../../core'
+import { isHiddenOnTag, isInvisibleElement } from './hidden-on-tag'
 
 export type ElementListThumbnail =
   | { kind: 'mdi'; name: string }
@@ -13,6 +14,10 @@ export interface ElementListRowMeta {
   /** Rendered first-line preview; truncated in the UI when space is tight. */
   detail: string | null
   thumbnail: ElementListThumbnail
+  /** `visible: false` at current preview — strikethrough in the layer list. */
+  invisible: boolean
+  /** Hidden on tag (invisible or icon fill none). */
+  hiddenOnTag: boolean
 }
 
 function typeLabelFor(element: DrawElement): string {
@@ -102,17 +107,21 @@ function fileNameFromUrl(url: string): string {
 /** Sidebar row label, detail, and thumbnail for one preview (template-evaluated) element. */
 export function elementListRowMeta(element: DrawElement): ElementListRowMeta {
   const typeLabel = typeLabelFor(element)
+  const invisible = isInvisibleElement(element)
+  const hiddenOnTag = isHiddenOnTag(element)
+
+  const rowBase = { typeLabel, invisible, hiddenOnTag }
 
   switch (element.type) {
     case 'icon':
       return {
-        typeLabel,
+        ...rowBase,
         detail: displayIconName(element.value),
         thumbnail: { kind: 'mdi', name: element.value },
       }
     case 'icon_sequence':
       return {
-        typeLabel,
+        ...rowBase,
         detail: `${element.icons.length} icons`,
         thumbnail: {
           kind: 'mdi_sequence',
@@ -122,7 +131,7 @@ export function elementListRowMeta(element: DrawElement): ElementListRowMeta {
       }
     case 'text':
       return {
-        typeLabel,
+        ...rowBase,
         detail: element.value ? firstLinePreview(element.value) : positionDetail(element),
         thumbnail: {
           kind: 'text',
@@ -131,13 +140,13 @@ export function elementListRowMeta(element: DrawElement): ElementListRowMeta {
       }
     case 'multiline':
       return {
-        typeLabel,
+        ...rowBase,
         detail: element.value ? firstLinePreview(element.value) : positionDetail(element),
         thumbnail: { kind: 'badge', label: '¶' },
       }
     case 'line':
       return {
-        typeLabel,
+        ...rowBase,
         detail: positionDetail(element),
         thumbnail: {
           kind: 'color',
@@ -149,7 +158,7 @@ export function elementListRowMeta(element: DrawElement): ElementListRowMeta {
     case 'ellipse':
     case 'progress_bar':
       return {
-        typeLabel,
+        ...rowBase,
         detail: positionDetail(element),
         thumbnail: {
           kind: 'color',
@@ -160,7 +169,7 @@ export function elementListRowMeta(element: DrawElement): ElementListRowMeta {
     case 'circle':
     case 'arc':
       return {
-        typeLabel,
+        ...rowBase,
         detail: positionDetail(element),
         thumbnail: {
           kind: 'color',
@@ -170,43 +179,43 @@ export function elementListRowMeta(element: DrawElement): ElementListRowMeta {
       }
     case 'dlimg':
       return {
-        typeLabel,
+        ...rowBase,
         detail: firstLinePreview(fileNameFromUrl(element.url)),
         thumbnail: { kind: 'badge', label: 'IMG' },
       }
     case 'qrcode':
       return {
-        typeLabel,
+        ...rowBase,
         detail: firstLinePreview(element.data),
         thumbnail: { kind: 'badge', label: 'QR' },
       }
     case 'plot':
       return {
-        typeLabel,
+        ...rowBase,
         detail: `${element.data.length} series`,
         thumbnail: { kind: 'badge', label: '📈' },
       }
     case 'polygon':
       return {
-        typeLabel,
+        ...rowBase,
         detail: `${element.points.length} points`,
         thumbnail: { kind: 'badge', label: '▱' },
       }
     case 'rectangle_pattern':
       return {
-        typeLabel,
+        ...rowBase,
         detail: positionDetail(element),
         thumbnail: { kind: 'badge', label: '▦' },
       }
     case 'debug_grid':
       return {
-        typeLabel,
+        ...rowBase,
         detail: null,
         thumbnail: { kind: 'badge', label: '#' },
       }
     default:
       return {
-        typeLabel,
+        ...rowBase,
         detail: null,
         thumbnail: { kind: 'badge', label: '?' },
       }

@@ -47,6 +47,25 @@ describe('renderIcon', () => {
     })
   })
 
+  it('honors fill none for conditional visibility', () => {
+    const result = renderIcon(
+      {
+        type: 'icon',
+        value: 'sunglasses',
+        x: 0,
+        y: 0,
+        size: 24,
+        fill: 'none',
+      },
+      context,
+    )
+
+    expect(result?.primitive).toMatchObject({
+      kind: 'icon',
+      fill: 'none',
+    })
+  })
+
   it('returns null path for unknown icons', () => {
     const result = renderIcon(
       {

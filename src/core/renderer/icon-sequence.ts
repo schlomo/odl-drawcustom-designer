@@ -6,8 +6,7 @@ import {
   resolveAnchoredBox,
   resolveDirection,
 } from './anchors'
-import { effectiveFontSize, effectiveNumber, effectiveString } from './element-defaults'
-import { mapColor } from './colors'
+import { effectiveFontSize, effectiveNumber, effectiveString, resolveIconFillColor } from './element-defaults'
 import { resolveX, resolveY } from './coordinates'
 import { resolveMdiPath } from './mdi-icons'
 import type { RenderContext, RenderResult } from './types'
@@ -54,7 +53,7 @@ export function renderIconSequence(
       size,
       direction,
       spacing,
-      fill: mapColor(effectiveString(element, 'fill', 'black'), colorOptions) ?? '#000000',
+      fill: resolveIconFillColor(element, 'fill', 'black', colorOptions),
       icons: element.icons.map((name, index) => ({
         name,
         path: resolveMdiPath(name),

@@ -1,12 +1,31 @@
-import { resolveAsset, isImageMime, type DrawElement } from '../../core'
+import { BUNDLED_SHOWCASE_IMAGE_KEY, isImageMime, resolveAsset, type DrawElement } from '../../core'
+import { shouldUseBundledShowcaseImage } from '../preferences/showcaseAsset'
+import { bundledImageUrl } from './bundled-image-url'
 
-function loadImageElement(objectUrl: string): Promise<HTMLImageElement> {
+function loadImageElement(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image()
     image.onload = () => resolve(image)
-    image.onerror = () => reject(new Error(`Failed to decode image from ${objectUrl}`))
-    image.src = objectUrl
+    image.onerror = () => reject(new Error(`Failed to decode image from ${src}`))
+    image.src = src
   })
+}
+
+async function loadBundledImage(key: string): Promise<HTMLImageElement | null> {
+  if (!shouldUseBundledShowcaseImage(key, BUNDLED_SHOWCASE_IMAGE_KEY)) {
+    return null
+  }
+
+  const url = bundledImageUrl(key)
+  if (!url) {
+    return null
+  }
+
+  try {
+    return await loadImageElement(url)
+  } catch {
+    return null
+  }
 }
 
 /** Load decoded images for content-map keys referenced by dlimg elements. */
@@ -16,18 +35,22 @@ export async function loadAssetImageMap(keys: readonly string[]): Promise<Map<st
 
   for (const key of uniqueKeys) {
     const resolution = resolveAsset(key)
-    if (!resolution.blob || !resolution.mime || !isImageMime(resolution.mime)) {
+    if (resolution.blob && resolution.mime && isImageMime(resolution.mime)) {
+      const objectUrl = URL.createObjectURL(resolution.blob)
+      try {
+        const image = await loadImageElement(objectUrl)
+        images.set(key, image)
+      } catch {
+        // Fall back to placeholder drawing for this key.
+      } finally {
+        URL.revokeObjectURL(objectUrl)
+      }
       continue
     }
 
-    const objectUrl = URL.createObjectURL(resolution.blob)
-    try {
-      const image = await loadImageElement(objectUrl)
-      images.set(key, image)
-    } catch {
-      // Fall back to placeholder drawing for this key.
-    } finally {
-      URL.revokeObjectURL(objectUrl)
+    const bundledImage = await loadBundledImage(key)
+    if (bundledImage) {
+      images.set(key, bundledImage)
     }
   }
 
@@ -72,6 +95,10 @@ export function pruneAssetImagesForKeys(
   for (const key of keys) {
     const resolution = resolveAsset(key)
     if (resolution.status === 'resolved' && current.has(key)) {
+      next.set(key, current.get(key)!)
+      continue
+    }
+    if (shouldUseBundledShowcaseImage(key, BUNDLED_SHOWCASE_IMAGE_KEY) && current.has(key)) {
       next.set(key, current.get(key)!)
     }
   }

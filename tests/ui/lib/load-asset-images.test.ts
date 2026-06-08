@@ -1,6 +1,8 @@
 /** @vitest-environment jsdom */
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { resetContentMap, setAsset } from '../../../src/core'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { BUNDLED_SHOWCASE_IMAGE_KEY, resetContentMap, setAsset } from '../../../src/core'
+import { SHOWCASE_BUNDLED_SUPPRESSED_STORAGE_KEY } from '../../../src/ui/preferences/keys'
+import { suppressShowcaseBundled } from '../../../src/ui/preferences/showcaseAsset'
 import { drawCanvasStub } from '../../../src/ui/lib/draw-canvas-stubs'
 import {
   areAssetImageMapsEqual,
@@ -114,6 +116,10 @@ describe('areAssetImageMapsEqual', () => {
 })
 
 describe('loadAssetImageMap', () => {
+  beforeEach(() => {
+    localStorage.removeItem(SHOWCASE_BUNDLED_SUPPRESSED_STORAGE_KEY)
+  })
+
   afterEach(() => {
     resetContentMap()
   })
@@ -135,6 +141,23 @@ describe('loadAssetImageMap', () => {
 
       const images = await loadAssetImageMap(['/local/missing.png', 'ppb.ttf'])
 
+      expect(images.size).toBe(0)
+    })
+  })
+
+  it('loads the bundled showcase image when not suppressed', async () => {
+    await withImmediateImageLoad(async () => {
+      const images = await loadAssetImageMap([BUNDLED_SHOWCASE_IMAGE_KEY])
+      expect(images.size).toBe(1)
+      expect(images.has(BUNDLED_SHOWCASE_IMAGE_KEY)).toBe(true)
+    })
+  })
+
+  it('skips the bundled showcase image after dismiss', async () => {
+    suppressShowcaseBundled()
+
+    await withImmediateImageLoad(async () => {
+      const images = await loadAssetImageMap([BUNDLED_SHOWCASE_IMAGE_KEY])
       expect(images.size).toBe(0)
     })
   })

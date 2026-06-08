@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { isVisible } from '../../../src/core/renderer/visibility'
 import { renderCircle } from '../../../src/core/renderer/circle'
 import { renderLine } from '../../../src/core/renderer/line'
 import { renderMultiline } from '../../../src/core/renderer/multiline'
@@ -9,6 +10,12 @@ import type { RenderContext } from '../../../src/core/renderer/types'
 const context: RenderContext = { width: 400, height: 200, accentMode: 'red' }
 
 describe('renderer visibility', () => {
+  it('treats unevaluated visible templates as visible until preview', () => {
+    expect(
+      isVisible("{{ iif(is_state('binary_sensor.door', 'on'), true, false) }}"),
+    ).toBe(true)
+  })
+
   it('returns null for line when visible is false', () => {
     expect(
       renderLine(

@@ -2,6 +2,7 @@ export {
   COLOR_ALIASES,
   anchorSchema,
   boolSchema,
+  boolTemplateSchema,
   colorSchema,
   coordinateSchema,
   numericTemplateSchema,

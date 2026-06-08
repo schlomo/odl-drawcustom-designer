@@ -55,7 +55,10 @@ export const boolSchema = z.union([
   z.enum(['true', 'false', 'True', 'False']),
 ])
 
-export const visibleSchema = boolSchema.optional()
+/** Boolean fields that accept HA Jinja templates (e.g. conditional visible). */
+export const boolTemplateSchema = z.union([boolSchema, jinjaTemplateStringSchema])
+
+export const visibleSchema = boolTemplateSchema.optional()
 
 export const fontSchema = z.string().optional()
 

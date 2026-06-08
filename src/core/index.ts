@@ -55,6 +55,7 @@ export {
   listLibraryFontKeys,
   scanFontReferences,
   BUNDLED_FONT_KEYS,
+  BUNDLED_SHOWCASE_IMAGE_KEY,
   deleteAsset,
   loadAssetsIntoContentMap,
   listContentMapKeys,
@@ -90,6 +91,9 @@ export {
   type TemplateReference,
   type TemplateScanResult,
 } from './templates'
+export {
+  isVisible,
+} from './renderer/visibility'
 export {
   mapColor,
   parseColorMarkup,

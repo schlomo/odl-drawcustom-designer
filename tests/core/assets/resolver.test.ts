@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   BUNDLED_FONT_KEYS,
+  BUNDLED_SHOWCASE_IMAGE_KEY,
   deleteAsset,
   loadAssetsIntoContentMap,
   listContentMapKeys,
@@ -18,6 +19,13 @@ describe('resolveAsset', () => {
     for (const key of BUNDLED_FONT_KEYS) {
       expect(resolveAsset(key)).toEqual({ key, status: 'bundled' })
     }
+  })
+
+  it('reports the bundled showcase image without upload', () => {
+    expect(resolveAsset(BUNDLED_SHOWCASE_IMAGE_KEY)).toEqual({
+      key: BUNDLED_SHOWCASE_IMAGE_KEY,
+      status: 'bundled',
+    })
   })
 
   it('returns resolved entries from the in-memory content map', () => {

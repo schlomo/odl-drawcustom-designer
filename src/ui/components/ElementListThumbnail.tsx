@@ -5,13 +5,33 @@ import { displayIconName } from '../lib/element-list-row'
 interface ElementListThumbnailProps {
   thumbnail: ThumbnailMeta
   selected: boolean
+  /** Hidden on tag (`visible: false` or `fill: none`). */
+  hiddenOnTag?: boolean
 }
 
 const BOX_CLASS =
-  'flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded border border-[var(--shell-border)] bg-white/90'
+  'relative flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded border border-[var(--shell-border)] bg-white/90'
 
-export function ElementListThumbnail({ thumbnail, selected }: ElementListThumbnailProps) {
+function HiddenOnTagMark() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      className="pointer-events-none absolute inset-0 h-full w-full"
+      aria-hidden
+    >
+      <line x1="3" y1="3" x2="17" y2="17" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="17" y1="3" x2="3" y2="17" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function ElementListThumbnail({
+  thumbnail,
+  selected,
+  hiddenOnTag = false,
+}: ElementListThumbnailProps) {
   const ink = selected ? 'var(--shell-accent)' : 'var(--shell-text)'
+  const mark = hiddenOnTag ? <HiddenOnTagMark /> : null
 
   switch (thumbnail.kind) {
     case 'mdi': {
@@ -27,6 +47,7 @@ export function ElementListThumbnail({ thumbnail, selected }: ElementListThumbna
               </text>
             )}
           </svg>
+          {mark}
         </span>
       )
     }
@@ -35,7 +56,11 @@ export function ElementListThumbnail({ thumbnail, selected }: ElementListThumbna
       const path = primary ? resolveMdiPath(primary) : null
       const extra = thumbnail.total > 1 ? thumbnail.total - 1 : 0
       return (
-        <span className={`${BOX_CLASS} relative`} aria-hidden title={primary ? displayIconName(primary) : 'icons'}>
+        <span
+          className={BOX_CLASS}
+          aria-hidden
+          title={primary ? displayIconName(primary) : 'icons'}
+        >
           <svg viewBox="0 0 24 24" className="h-4 w-4" role="presentation">
             {path ? (
               <path d={path} fill={ink} />
@@ -50,6 +75,7 @@ export function ElementListThumbnail({ thumbnail, selected }: ElementListThumbna
               +{extra}
             </span>
           ) : null}
+          {mark}
         </span>
       )
     }
@@ -61,6 +87,7 @@ export function ElementListThumbnail({ thumbnail, selected }: ElementListThumbna
           aria-hidden
         >
           {thumbnail.preview || 'T'}
+          {mark}
         </span>
       )
     case 'color':
@@ -75,6 +102,7 @@ export function ElementListThumbnail({ thumbnail, selected }: ElementListThumbna
               <rect x="3" y="3" width="10" height="10" rx="1" fill={thumbnail.fill} />
             )}
           </svg>
+          {mark}
         </span>
       )
     case 'badge':
@@ -85,6 +113,7 @@ export function ElementListThumbnail({ thumbnail, selected }: ElementListThumbna
           aria-hidden
         >
           {thumbnail.label}
+          {mark}
         </span>
       )
     default: {

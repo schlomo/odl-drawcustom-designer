@@ -1,33 +1,37 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { applyPlotPropertyUpdate, type DrawElement, type HaMockContext } from '../../core'
+import {
+  applyPlotPropertyUpdate,
+  BUNDLED_SHOWCASE_IMAGE_KEY,
+  resolveAsset,
+  type DrawElement,
+  type HaMockContext,
+  type ServiceOptions,
+} from '../../core'
 import type { AccentMode, AssetKind, AssetUploadResult, RenderContext } from '../../core'
 import { applyTemplateContextToPayload, scanPayloadForTemplates } from '../../core'
 import {
-  getOrCreateActiveProjectId,
-  hydrateContentMapFromStorage,
   persistAsset,
   removePersistedAsset,
-  setActiveProjectId,
+  writeSessionToDb,
 } from '../../storage'
+import type { AppBootstrap } from '../bootstrap/appBootstrap'
 import { EXAMPLE_DESIGNS } from '../data/example-designs'
 import { DISPLAY_PRESETS, isCustomDisplayPreset } from '../data/display-presets'
-import { SAMPLE_ELEMENTS } from '../data/sample-elements'
 import { createElementFromTemplate } from '../lib/create-element-from-template'
 import { isElementDraggable, moveElementInArray, translateElement } from '../lib/element-geometry'
 import { remapIndexAfterMove } from '../lib/selection-remap'
 import { verifyAndValidateAssetUpload } from '../lib/verify-asset-upload'
 import {
-  readDisplayConfig,
-  writeDisplayConfig,
   type CanvasRotation,
   type PreviewDitherMode,
 } from '../preferences/displayConfig'
-import {
-  DEFAULT_MOCK_STATES,
-  readMockStates,
-  writeMockStates,
-} from '../preferences/mockStates'
+import { writeMockStates } from '../preferences/mockStates'
+import { suppressShowcaseBundled } from '../preferences/showcaseAsset'
 import { readSnapGridPrefs, writeSnapGridPrefs, type SnapGridPrefs } from '../preferences/snapGrid'
+import {
+  readShowHiddenHintsPrefs,
+  writeShowHiddenHintsPrefs,
+} from '../preferences/hiddenHints'
 
 export type { CanvasRotation } from '../preferences/displayConfig'
 export type SelectionSource = 'ui' | 'yaml'
@@ -38,20 +42,6 @@ export interface CanvasConfig {
   rotation: CanvasRotation
   accentMode: AccentMode
   previewDitherMode: PreviewDitherMode
-}
-
-export interface ProjectState {
-  elements: DrawElement[]
-  selectedIndex: number | null
-  canvas: CanvasConfig
-  mockContext: HaMockContext
-}
-
-const initialState: ProjectState = {
-  elements: SAMPLE_ELEMENTS,
-  selectedIndex: null,
-  canvas: readDisplayConfig(),
-  mockContext: { states: { ...DEFAULT_MOCK_STATES } },
 }
 
 function buildEffectiveMockContext(
@@ -69,83 +59,53 @@ function buildEffectiveMockContext(
   return { states }
 }
 
-export function useProjectState() {
-  const [projectId, setProjectId] = useState(() => getOrCreateActiveProjectId())
-  const [elements, setElements] = useState<DrawElement[]>(initialState.elements)
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(initialState.selectedIndex)
+export function useProjectState(bootstrap: AppBootstrap) {
+  const [sessionName, setSessionName] = useState(bootstrap.sessionName)
+  const [elements, setElements] = useState<DrawElement[]>(bootstrap.elements)
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [selectionSource, setSelectionSource] = useState<SelectionSource>('ui')
-  const [canvas, setCanvas] = useState<CanvasConfig>(() => readDisplayConfig())
-  const [mockStates, setMockStates] = useState<HaMockContext['states']>(() => ({
-    ...DEFAULT_MOCK_STATES,
-  }))
+  const [canvas, setCanvas] = useState<CanvasConfig>(bootstrap.canvas)
+  const [service, setService] = useState<ServiceOptions | undefined>(bootstrap.service)
+  const [mockStates, setMockStates] = useState<HaMockContext['states']>(bootstrap.mockStates)
   const [assetRevision, setAssetRevision] = useState(0)
   const [snapGrid, setSnapGrid] = useState<SnapGridPrefs>(() => readSnapGridPrefs())
-  const [storageHydrated, setStorageHydrated] = useState(false)
+  const [showHiddenHints, setShowHiddenHints] = useState(() => readShowHiddenHintsPrefs().enabled)
   const mockStatesRef = useRef(mockStates)
 
   useEffect(() => {
     mockStatesRef.current = mockStates
   }, [mockStates])
 
-  const hydrateProjectStorage = useCallback(async (activeProjectId: string) => {
-    await hydrateContentMapFromStorage()
-    const mocks = await readMockStates(activeProjectId)
-    setMockStates(mocks)
-    setAssetRevision((revision) => revision + 1)
-    setStorageHydrated(true)
-  }, [])
-
   useEffect(() => {
-    let cancelled = false
-
-    void (async () => {
-      setStorageHydrated(false)
-      await hydrateProjectStorage(projectId)
-      if (cancelled) {
-        return
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [hydrateProjectStorage, projectId])
-
-  useEffect(() => {
-    if (!storageHydrated) {
-      return
-    }
     const timer = window.setTimeout(() => {
-      void writeMockStates(projectId, mockStates)
+      void writeMockStates(mockStates)
     }, 250)
     return () => {
       window.clearTimeout(timer)
     }
-  }, [mockStates, projectId, storageHydrated])
+  }, [mockStates])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void writeSessionToDb({
+        name: sessionName,
+        canvas,
+        service,
+        elements,
+      })
+    }, 250)
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [canvas, elements, service, sessionName])
 
   useEffect(() => {
     writeSnapGridPrefs(snapGrid)
   }, [snapGrid])
 
   useEffect(() => {
-    writeDisplayConfig(canvas)
-  }, [canvas])
-
-  const switchProject = useCallback(
-    async (nextProjectId: string) => {
-      if (nextProjectId === projectId) {
-        return
-      }
-
-      if (storageHydrated) {
-        await writeMockStates(projectId, mockStatesRef.current)
-      }
-
-      setActiveProjectId(nextProjectId)
-      setProjectId(nextProjectId)
-    },
-    [projectId, storageHydrated],
-  )
+    writeShowHiddenHintsPrefs({ enabled: showHiddenHints })
+  }, [showHiddenHints])
 
   const mockContext = useMemo(
     () => buildEffectiveMockContext(elements, mockStates),
@@ -158,8 +118,9 @@ export function useProjectState() {
       height: canvas.height,
       accentMode: canvas.accentMode,
       ditherMode: canvas.previewDitherMode,
+      showHiddenHints,
     }),
-    [canvas.width, canvas.height, canvas.accentMode, canvas.previewDitherMode],
+    [canvas.width, canvas.height, canvas.accentMode, canvas.previewDitherMode, showHiddenHints],
   )
 
   const previewElements = useMemo(
@@ -228,17 +189,33 @@ export function useProjectState() {
         return result
       }
 
-      await persistAsset(key, {
-        blob: file,
-        mime: result.mime,
-      })
-      setAssetRevision((revision) => revision + 1)
-      return result
+      try {
+        await persistAsset(key, {
+          blob: file,
+          mime: result.mime,
+        })
+        setAssetRevision((revision) => revision + 1)
+        return result
+      } catch {
+        return {
+          ok: false,
+          message: 'Could not save the file locally. Try reloading the page.',
+        }
+      }
     },
     [],
   )
 
   const clearAsset = useCallback(async (key: string) => {
+    if (key === BUNDLED_SHOWCASE_IMAGE_KEY) {
+      if (resolveAsset(key).status === 'resolved') {
+        await removePersistedAsset(key)
+      }
+      suppressShowcaseBundled()
+      setAssetRevision((revision) => revision + 1)
+      return
+    }
+
     await removePersistedAsset(key)
     setAssetRevision((revision) => revision + 1)
   }, [])
@@ -421,6 +398,10 @@ export function useProjectState() {
     setSnapGrid((current) => ({ ...current, enabled: !current.enabled }))
   }, [])
 
+  const toggleShowHiddenHints = useCallback(() => {
+    setShowHiddenHints((current) => !current)
+  }, [])
+
   const setSnapGridSize = useCallback((size: number) => {
     setSnapGrid((current) => ({ ...current, size: Math.max(1, size) }))
   }, [])
@@ -428,9 +409,10 @@ export function useProjectState() {
   const selectedElement = selectedIndex != null ? (elements[selectedIndex] ?? null) : null
 
   return {
-    projectId,
-    switchProject,
-    storageHydrated,
+    sessionName,
+    setSessionName,
+    service,
+    setService,
     elements,
     setElements,
     previewElements,
@@ -465,6 +447,8 @@ export function useProjectState() {
     reorderElement,
     snapGrid,
     toggleSnapGrid,
+    showHiddenHints,
+    toggleShowHiddenHints,
     setSnapGridSize,
     togglePreviewDither,
   }

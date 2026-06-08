@@ -85,7 +85,11 @@ export function ElementList({
               <span aria-hidden className="cursor-grab opacity-60">
                 ⠿
               </span>
-              <ElementListThumbnail thumbnail={row.thumbnail} selected={selected} />
+              <ElementListThumbnail
+                thumbnail={row.thumbnail}
+                selected={selected}
+                hiddenOnTag={row.hiddenOnTag}
+              />
               <span className="flex min-w-0 flex-1 items-center gap-1.5">
                 <span className="shrink-0 font-medium">{row.typeLabel}</span>
                 {row.detail ? (

@@ -39,7 +39,7 @@ export function parseMockStates(raw: unknown): HaMockContext['states'] | null {
   return Object.keys(states).length > 0 ? states : null
 }
 
-async function migrateLegacyMockStates(projectId: string): Promise<void> {
+async function migrateLegacyMockStates(): Promise<void> {
   try {
     if (localStorage.getItem(MOCK_STATES_MIGRATED_KEY)) {
       return
@@ -50,9 +50,9 @@ async function migrateLegacyMockStates(projectId: string): Promise<void> {
       try {
         const parsed = parseMockStates(JSON.parse(legacyRaw))
         if (parsed) {
-          const existing = await readMocksFromDb(projectId)
+          const existing = await readMocksFromDb()
           if (!existing) {
-            await writeMocksToDb(projectId, parsed)
+            await writeMocksToDb(parsed)
           }
         }
       } catch {
@@ -67,15 +67,12 @@ async function migrateLegacyMockStates(projectId: string): Promise<void> {
   }
 }
 
-export async function readMockStates(projectId: string): Promise<HaMockContext['states']> {
-  await migrateLegacyMockStates(projectId)
-  const stored = await readMocksFromDb(projectId)
+export async function readMockStates(): Promise<HaMockContext['states']> {
+  await migrateLegacyMockStates()
+  const stored = await readMocksFromDb()
   return stored ?? { ...DEFAULT_MOCK_STATES }
 }
 
-export async function writeMockStates(
-  projectId: string,
-  states: HaMockContext['states'],
-): Promise<void> {
-  await writeMocksToDb(projectId, states)
+export async function writeMockStates(states: HaMockContext['states']): Promise<void> {
+  await writeMocksToDb(states)
 }

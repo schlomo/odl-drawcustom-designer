@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { AppBootstrap } from './bootstrap/appBootstrap'
 import { DesignerCanvas } from './components/DesignerCanvas'
 import { ElementToolbar } from './components/ElementToolbar'
 import { PropertyPanel } from './components/PropertyPanel'
@@ -15,7 +16,11 @@ import { useThemePreference } from './hooks/useThemePreference'
 import { useYamlSelectionCoupling } from './hooks/useYamlSelectionCoupling'
 import { shell } from './styles/shell'
 
-export function App() {
+interface AppProps {
+  bootstrap: AppBootstrap
+}
+
+export function App({ bootstrap }: AppProps) {
   const columnRef = useRef<HTMLDivElement>(null)
   const { mode, resolvedTheme, cycleMode } = useThemePreference()
   const { couplingEnabled } = useYamlSelectionCoupling()
@@ -60,8 +65,10 @@ export function App() {
     reorderElement,
     snapGrid,
     toggleSnapGrid,
+    showHiddenHints,
+    toggleShowHiddenHints,
     togglePreviewDither,
-  } = useProjectState()
+  } = useProjectState(bootstrap)
 
   const elementsRef = useRef(elements)
 
@@ -187,6 +194,8 @@ export function App() {
               selectedIndex={selectedIndex}
               assetRevision={assetRevision}
               snapGrid={snapGrid}
+              showHiddenHints={showHiddenHints}
+              onToggleShowHiddenHints={toggleShowHiddenHints}
               extraStatusMessages={yamlStatusMessages}
               onSelectElement={selectElement}
               onUpdateElement={updateElement}
@@ -204,6 +213,7 @@ export function App() {
             containerRef={columnRef}
             elements={elements}
             extraEntityIds={extraEntityIds}
+            mockContext={mockContext}
             onElementsChange={handleYamlElementsChange}
             onSelectElement={selectElement}
             onStatusMessagesChange={setYamlStatusMessages}

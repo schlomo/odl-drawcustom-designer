@@ -96,7 +96,17 @@ export const NON_NEGATIVE_NUMBER_PROPERTIES = new Set([
   'max_width',
 ])
 
+/** Plot legend widths use -1 as an auto-width sentinel — not the generic non-negative `width` leaf. */
+const ALLOW_NEGATIVE_NUMBER_PROPERTIES = new Set(['ylegend.width', 'xlegend.width'])
+
+export function isAllowNegativeNumberProperty(property: string): boolean {
+  return ALLOW_NEGATIVE_NUMBER_PROPERTIES.has(property)
+}
+
 export function isNonNegativeNumberProperty(property: string): boolean {
+  if (isAllowNegativeNumberProperty(property)) {
+    return false
+  }
   return NON_NEGATIVE_NUMBER_PROPERTIES.has(propertyLeaf(property))
 }
 

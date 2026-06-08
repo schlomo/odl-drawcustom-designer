@@ -45,7 +45,10 @@ todos:
     content: "PNG/YAML export bars, undo/redo 50, multi-select, edge snap, HA embed prep (§18)"
     status: pending
   - id: phase4-storage
-    content: "§18a: global assets+mocks, single session blob, Dexie v2 (no migration)"
+    content: "§18a: global assets+mocks, single session blob, Dexie v3 (no migration)"
+    status: completed
+  - id: phase4a-commit
+    content: "Commit Phase 4a after verification (§11n)"
     status: pending
   - id: phase4-multiselect
     content: "§18c: marquee select, bulk move/layer, align H/V"
@@ -115,6 +118,9 @@ todos:
     status: completed
   - id: phase3g-arch-quality
     content: "Phase 3g: architecture + test quality gate before Phase 4 (§17g)"
+    status: completed
+  - id: phase3g-commit
+    content: "Commit Phase 3g after verification (§11m)"
     status: completed
   - id: phase4-property-form-ux
     content: "Deferred post-v1: JSON blur UX + property form tests (19-7/19-8); 19-9 in §18d"
@@ -709,12 +715,13 @@ flowchart LR
 | **3d** QR + plot | ✅ Done | `3b75953` | 500 (77 files) | `qrcode` package, plot axes/legends/series, **19-5** nested fields, SE resize |
 | **3e** parse_colors + dither | ✅ Done | `ce99de5` | 522 (80 files) | Inline color segments, ordered d=2, flat/dither canvas toggle |
 | **3f** Canvas polish | ✅ Done | `1b629ff` | 557 (85 files) | Drag overlay, pointer capture, interaction tests, sidebar previews |
-| **3g** Arch + quality | ✅ **Done** | ADR-011, `docs/testing.md`, audit report | — |
-| **4** Polish | ⬜ After 3g | — | — | Storage, export bars, multi-select, undo, edge snap, HA embed, deploy (§18) |
+| **3g** Arch + quality | ✅ Done | `e8ff378` | — | ADR-011, `docs/testing.md`, audit report, core barrel ESLint |
+| **4a** Storage reshape | ✅ Done | *uncommitted* | 593 (91 files) | Dexie v3, global mocks, `session` row, `appBootstrap`, auto-save |
+| **4b–4i** Polish | ⬜ **Next** | — | — | Export bars, multi-select, undo, edge snap, HA embed, deploy (§18b–h) |
 
-**Current repo health:** `npm test` → **557 passed** (85 files) · `npm run lint` → **3 warnings** (hook deps) · last commit `1b629ff`
+**Current repo health:** `npm test` → **593 passed** (91 files) · `npm run lint` → **clean** · last commit `e8ff378` · **4a uncommitted**
 
-**Next:** Phase **4a** — storage reshape (§18a). Prerequisite §17g ✅.
+**Next:** commit **4a** → Phase **4b** (canvas + YAML bars, §18b).
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -895,7 +902,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | `parse_colors` | ✅ text/multiline canvas (**3e**) | — |
 | Dither / color mode | ✅ flat vs d=2 toggle (**3e**) | Color mode dropdown + 6-color scaffold (**4i**) |
 | dlimg | Uploaded images draw; no resize_method | Full resize/rotate preview per spec |
-| Assets / mocks | ✅ IndexedDB (**3a**); reshape to global + session in **4a** | — |
+| Assets / mocks | ✅ global assets + mocks + session (**4a**) | — |
 | Canvas interaction | ✅ drag overlay + tests (**3f**) | — |
 | Coordinates | ✅ numeric strings + `"N%"` drag (**3b**) | — |
 | Tests | 16 minimal fixtures + exhaustiveness sweep | Rich fixtures from spec; geometry/PNG hash tests |
@@ -908,23 +915,28 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 - **3d** — QR + plot preview; **19-5** plot nested property fields ✅ **`3b75953`**
 - **3e** — parse_colors + dither pipeline ✅ **`ce99de5`**
 - **3f** — Canvas interaction follow-ups (§19) ✅ **`1b629ff`**
-- **3g** — Architecture + quality gate (**before Phase 4**): ADR review, adherence audit, test simplification → §17g
+- **3g** — Architecture + quality gate ✅ **`e8ff378`**
 
-### Phase 3g — Architecture + quality gate (§17g) ⬜ before Phase 4
+### Phase 3g — Architecture + quality gate (§17g) ✅ (`e8ff378`)
 
-**Why now:** Phase 4 reshapes storage (`useProjectState`, Dexie v2), adds undo/redo (50 steps), multi-select, and HA embed hooks. Cleaning architecture and tests first reduces refactor cost and prevents locking in brittle coverage.
+- ✅ ADR-001–010 audit; **ADR-011** behavior-test policy
+- ✅ `docs/testing.md` + `docs/reviews/architecture-audit-2026-06-08.md`
+- ✅ Core barrel: UI imports via `src/core/index.ts`; ESLint `no-restricted-imports`
+- ✅ Drag defers YAML panel updates; external YAML sync preserves scroll
+- ✅ Test consolidation per ADR-011 (behavior over implementation detail)
 
-| Workstream | Deliverables |
-|------------|--------------|
-| **ADR audit** | Review ADR-001–010 vs code; update stale ADRs (003 session store, 010 embed); mark superseded decisions; add ADR-011 or extend ADR-008 with **behavior-test policy** |
-| **Boundary adherence** | Verify `src/core/` has zero React imports; ESLint rule enforced; UI calls core only via public APIs; document allowed exceptions |
-| **Test inventory** | Classify ~80 test files: **behavior** (user/spec observable) vs **implementation** (internal helpers, trivial wrappers) |
-| **Test consolidation** | Merge redundant UI helper tests; drop tests that only mirror function bodies; one golden round-trip per draw type where sweep is enough |
-| **Behavior tests** | Prioritize: YAML parse → edit → serialize HA-clean; fixture render smoke; canvas geometry outcomes (position after drag), not private helpers |
-| **Anti-patterns to remove** | Testing `shouldShowX` booleans in isolation; snapshotting stub labels; asserting export names exist without behavior |
-| **Guidelines doc** | `docs/testing.md` — what to test per layer (core vs UI), fixture conventions, when to delete a test |
+### Phase 4a — Storage reshape (§18a) ✅ (*uncommitted*)
 
-**Gate:** test count may **decrease** while confidence increases; `npm test` + lint + build green; short adherence report in plan or PR summary.
+- ✅ Dexie **v3** (v2 drops legacy `mocks`/`projects`; v3 adds global `mocks` + `session`)
+- ✅ `ensureDbReady()` — wipe + reopen on upgrade errors (no data migration)
+- ✅ Global `mocks` keyed by `entityId`; removed `projectId.ts`, `projects.ts`
+- ✅ `session.ts` — single row `current`; debounced auto-save from `useProjectState`
+- ✅ `loadAppBootstrap()` — hydrate assets + session + mocks on app load
+- ✅ Legacy `localStorage` mock migration → global IndexedDB
+- ✅ Tests: `session.test.ts`, `db-upgrade.test.ts`, updated `mocks.test.ts`
+- ✅ Bonus (same work): showcase bundled image, template preview toggle, hidden-element hints, richer sample dashboard
+
+**Note:** Commit pending; ADR-003 uncommitted diff aligns with v3 schema.
 
 ### Phase 4 — Product polish + v1 ship criteria (revised 2026-06)
 
@@ -932,7 +944,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 
 | Chunk | Feature | Notes |
 |-------|---------|--------|
-| **4a** | **Storage reshape** | Dexie **v2**: global `assets`, global `mocks` (`entityId` key), single `session` row. **Drop** `projects` store and per-`projectId` mocks. Dev wipe OK — no migration. Update ADR-003. |
+| **4a** | **Storage reshape** | ✅ Dexie **v3**: global `assets`, global `mocks`, single `session` row. Dropped `projects` + per-`projectId` mocks. `ensureDbReady` wipe-on-upgrade. |
 | **4b** | **Canvas + YAML bars** | Canvas bar: zoom **200 / 100 / Fit / 50**, **PNG copy** + **download**. YAML bar: **copy** + **download**. Header: hash **Share** `#d=pako…`; missing-asset banner. |
 | **4i** | **Display config** | Drop inch-based tag presets. **Resolution** dropdown (common WxH quick-picks + Custom → W/H inputs). **Color mode** dropdown (BW, BWR, BWY; scaffold **6-color** palette in types/renderer). |
 | **4c** | **Multi-select** | Marquee/drag-select enclosed elements; bulk move; raise/lower selection; align left/center/right + top/middle/bottom. |
@@ -1087,16 +1099,16 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 | Resolution + color mode (not inch presets) | ⬜ **4i** | 4 |
 | YAML copy + download (toolbar) | ⬜ **4b** | 4 |
 | Undo/redo (50 steps) | ⬜ **4d** | 4 |
-| Last-session restore on load | ⬜ **4a** | 4 |
-| Global assets + mocks (not per project) | ⬜ **4a** | 4 |
+| Last-session restore on load | ✅ (**4a**) | 4a |
+| Global assets + mocks (not per project) | ✅ (**4a**) | 4a |
 | Canvas edge snap (bottom/right priority) | ⬜ **4e** | 4 |
 | Share link restores name + canvas + elements (not assets/mocks) | ⬜ **4b** | 4 |
 | HA embed: load/save drawcustom + live states | ⬜ **4f** (prep) | 4 |
 | Service options UI (`background`, `rotate`, `dither`, …) | ⬜ Schema only | 4g |
 | Real QR, plot, icons, parse_colors in preview | ✅ (**3c**–**3e**) | 3 |
 | Core test suite passes in CI | ✅ lint + test in workflow | — |
-| Tests assert behavior not implementation (ADR-011) | ⬜ **3g** | 3g |
-| ADRs current vs code; core/ui boundary verified | ⬜ **3g** | 3g |
+| Tests assert behavior not implementation (ADR-011) | ✅ (**3g**) | 3g |
+| ADRs current vs code; core/ui boundary verified | ✅ (**3g**) | 3g |
 | ADRs document major decisions | ✅ ADR-001–010; ADR-011 in **3g** | — |
 | GH Pages deploy from clean source repo | ⬜ No remote yet | 4 |
 
@@ -1181,7 +1193,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **3a–3f** ✅ through `1b629ff`. **Phase 3 fidelity complete.** **Current work:** **§17g** → **§18**.
+- Phase **3a–3g** ✅ through `e8ff378`. Phase **4a** ✅ (*uncommitted*). **Current work:** commit 4a → **§18b–i**.
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1482,7 +1494,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17a** ✅ (`9d58839`). **§17b** ✅ (`23d12b5`). **§17c** ✅ (`7deb2fd`). **§17d** ✅ (`3b75953`). **§17e** ✅ (`ce99de5`). **§17f** ✅ (`1b629ff`). **Next: §17g** (arch gate) → §18.
+**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (*uncommitted*). **Next: §18b** (canvas + YAML bars).
 
 **Plan cross-reference map:**
 
@@ -1565,71 +1577,29 @@ Key files: `DesignerCanvas.tsx`, `CanvasElementSlot.tsx`, `canvas-resize-handles
 
 ---
 
-### §17g — Architecture + quality gate (Phase 3g)
+### §17g — Architecture + quality gate (Phase 3g) ✅ (`e8ff378`)
 
-```
-Execute Phase 3g — architecture and test quality review BEFORE Phase 4.
+Delivered — see §7 Phase 3g checklist.
 
-Read:
-- docs/PLAN.md §7 Phase 3g
-- docs/adr/ADR-001 through ADR-010 (especially 003, 008, 010)
-- .cursor/rules/core-boundary.mdc
-- .cursor/agents/spec-reviewer.md
+Key files: `docs/testing.md`, `docs/adr/ADR-011-behavior-test-policy.md`, `docs/reviews/architecture-audit-2026-06-08.md`, `src/core/index.ts`, `eslint.config.js`
 
-Part 1 — ADR audit:
-- For each ADR: Status still accurate? Code matches decision? List drift items and update ADR text or code (prefer doc update when plan already revised, e.g. ADR-003 session store)
-- Draft ADR-011 (behavior-test policy) or extend ADR-008: core tests assert spec-visible outcomes; UI tests assert user-visible wiring
-
-Part 2 — Adherence audit:
-- grep / lint: no React in src/core/
-- UI imports core only from src/core/index.ts public surface
-- Flag business logic in components that belongs in core (list only; fix obvious violations)
-- Deliver short markdown report: docs/reviews/architecture-audit-YYYY-MM-DD.md (or section in PR)
-
-Part 3 — Test review and simplification:
-- Inventory tests/ — tag each file: KEEP (behavior), MERGE, DELETE (implementation noise)
-- Delete or merge tests that only assert helper existence, mirror one-liner implementations, or duplicate render-element sweep
-- Consolidate scattered UI editor helper tests where one integration test suffices
-- Add/strengthen behavior tests where gaps exist:
-  - Golden YAML round-trip per type (if not already covered by sweep)
-  - User-visible canvas outcomes: drag translates coords, resize changes bounds (public element-geometry API)
-  - HA-clean export excludes designer-only fields
-- Write docs/testing.md — layer rules, fixture layout, anti-patterns, when NOT to add a test
-
-Rules:
-- Test count MAY go down; coverage of behavior must not
-- No new product features in this phase
-- npm run lint && npm test && npm run build must pass
-
-Invoke spec-reviewer against docs/spec/supported_types.md after test changes.
-
-Next: docs/PLAN.md §18a (Phase 4)
-```
+<!-- prompt archived — phase complete -->
 
 ---
 
-## 18. Phase 4 — product polish prompts ⬜ after Phase 3g
+## 18. Phase 4 — product polish prompts ⬜ after Phase 4a
 
-**Revised 2026-06.** One agent session per subsection. Read §7.2 simplifications first — do not implement cut features. **Prerequisite:** §17g architecture gate complete.
+**Revised 2026-06.** One agent session per subsection. Read §7.2 simplifications first — do not implement cut features. **Prerequisite:** §17g ✅; **§18a** ✅ (commit pending).
 
 **Order:** §18a → §18b → §18c → §18d → §18e → §18f → §18g → §18h (§18i can run parallel with §18b after §18a)
 
-### §18a — Storage reshape (global assets/mocks + session)
+### §18a — Storage reshape (Phase 4a) ✅ (*uncommitted*)
 
-```
-Execute Phase 4a — Dexie v2 per docs/PLAN.md §7.2 and ADR-003 update.
+Delivered — see §7 Phase 4a checklist.
 
-- Bump OeplDatabase version; wipe old stores in dev (no migration)
-- assets: unchanged (global key → blob)
-- mocks: global entityId → value (drop projectId compound key)
-- session: single row — name, canvas, service, elements, updatedAt
-- Remove projects store, projectId.ts, per-project mock persistence
-- Auto-save session on change (debounced); hydrate on app load
-- State Simulator + Content Manager read/write global stores
+Key files: `src/storage/db.ts`, `session.ts`, `mocks.ts`, `appBootstrap.ts`, `useProjectState.ts`; removed `projectId.ts`, `projects.ts`
 
-Tests: update tests/storage/*; npm test && npm run lint && npm run build
-Next: docs/PLAN.md §18b
-```
+<!-- prompt archived — phase complete -->
 
 ### §18b — Canvas + YAML bars + hash share
 

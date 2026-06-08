@@ -50,6 +50,45 @@ describe('elementListRowMeta', () => {
     })
     expect(meta.detail).toBe('72.4 °F')
   })
+
+  it('marks invisible elements for strikethrough thumbnails', () => {
+    const meta = elementListRowMeta({
+      type: 'icon',
+      value: 'mdi:eye-off',
+      x: 0,
+      y: 0,
+      size: 24,
+      visible: false,
+    })
+    expect(meta.invisible).toBe(true)
+    expect(meta.hiddenOnTag).toBe(true)
+  })
+
+  it('marks fill-none elements as hidden on tag', () => {
+    const meta = elementListRowMeta({
+      type: 'icon',
+      value: 'mdi:sunglasses',
+      x: 0,
+      y: 0,
+      size: 24,
+      fill: 'none',
+      visible: true,
+    })
+    expect(meta.invisible).toBe(false)
+    expect(meta.hiddenOnTag).toBe(true)
+  })
+
+  it('marks fill-none rectangles as hidden on tag', () => {
+    const meta = elementListRowMeta({
+      type: 'rectangle',
+      x_start: 0,
+      x_end: 10,
+      y_start: 0,
+      y_end: 10,
+      fill: 'none',
+    })
+    expect(meta.hiddenOnTag).toBe(true)
+  })
 })
 
 describe('firstLinePreview', () => {

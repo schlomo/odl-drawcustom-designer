@@ -44,10 +44,12 @@ import {
   shouldPreferMoveOverResize,
 } from '../lib/canvas-resize-handles'
 import { shouldHandleCanvasKeyboard } from '../lib/canvas-keyboard'
-import { getPrimitiveBounds, type ElementBounds } from '../lib/primitive-bounds'
+import { type ElementBounds } from '../lib/primitive-bounds'
+import { resolveElementHitBounds } from '../lib/hidden-element-hints'
 import { snapMoveDelta, snapToGrid } from '../lib/snap-to-grid'
 import type { SnapGridPrefs } from '../preferences/snapGrid'
 import type { CanvasRotation } from '../hooks/useProjectState'
+import { FeatureToggle } from './FeatureToggle'
 import { shell } from '../styles/shell'
 
 interface DesignerCanvasProps {
@@ -58,6 +60,8 @@ interface DesignerCanvasProps {
   selectedIndex: number | null
   assetRevision: number
   snapGrid: SnapGridPrefs
+  showHiddenHints: boolean
+  onToggleShowHiddenHints: () => void
   extraStatusMessages?: readonly StatusMessage[]
   onSelectElement: (index: number | null) => void
   onUpdateElement: (index: number, element: DrawElement) => void
@@ -111,6 +115,8 @@ export function DesignerCanvas({
   selectedIndex,
   assetRevision,
   snapGrid,
+  showHiddenHints,
+  onToggleShowHiddenHints,
   extraStatusMessages = [],
   onSelectElement,
   onUpdateElement,
@@ -167,8 +173,8 @@ export function DesignerCanvas({
   const hitTargets = useMemo(() => {
     void fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts)
     return elements.flatMap((element, index) => {
-      const result = renderElement(element, renderContext)
-      return result ? [{ index, bounds: getPrimitiveBounds(result.primitive) }] : []
+      const bounds = resolveElementHitBounds(element, renderContext)
+      return bounds ? [{ index, bounds }] : []
     })
   }, [elements, fontAssetKeys, renderContext, opentypeFonts])
 
@@ -278,11 +284,12 @@ export function DesignerCanvas({
   }, [fontAssetKeys, opentypeFonts, overlayElementForSelection, renderContext])
 
   const selectionBounds = useMemo(() => {
-    if (!selectionRenderResult) {
+    if (!overlayElementForSelection) {
       return null
     }
-    return getPrimitiveBounds(selectionRenderResult.primitive)
-  }, [selectionRenderResult])
+    void fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts)
+    return resolveElementHitBounds(overlayElementForSelection, renderContext)
+  }, [fontAssetKeys, opentypeFonts, overlayElementForSelection, renderContext])
 
   const lineCoords = useMemo(() => {
     if (selectionRenderResult?.layer !== 'svg' || selectionRenderResult.primitive.kind !== 'line') {
@@ -692,15 +699,27 @@ export function DesignerCanvas({
       aria-label="E-paper canvas"
     >
       <div className={`flex items-center justify-between border-b ${shell.panelBorder} px-4 py-2`}>
-        <h2 className={shell.heading}>Canvas</h2>
+        <h2 className={`${shell.heading} flex items-baseline gap-2`}>
+          <span>Canvas</span>
+          <span className="font-mono normal-case tracking-normal text-[var(--shell-muted)]">
+            {renderContext.width}×{renderContext.height}
+          </span>
+        </h2>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className={`${shell.button} ${snapGrid.enabled ? 'border-[var(--shell-accent)] text-[var(--shell-accent)]' : ''}`}
-            onClick={onToggleSnap}
+          <FeatureToggle
+            enabled={showHiddenHints}
+            onToggle={onToggleShowHiddenHints}
+            title="Show designer overlays for elements invisible on the tag (visible: false, fill: none)"
           >
-            Snap {snapGrid.enabled ? 'On' : 'Off'}
-          </button>
+            <span>Invisible</span>
+          </FeatureToggle>
+          <FeatureToggle
+            enabled={snapGrid.enabled}
+            onToggle={onToggleSnap}
+            title="Snap moved and resized elements to the grid"
+          >
+            <span>Snap</span>
+          </FeatureToggle>
           <button
             type="button"
             className={`${shell.button} ${previewDitherMode === 2 ? 'border-[var(--shell-accent)] text-[var(--shell-accent)]' : ''}`}
@@ -708,14 +727,14 @@ export function DesignerCanvas({
           >
             Dither {previewDitherMode === 2 ? 'd=2' : 'flat'}
           </button>
-          <button type="button" className={shell.button} onClick={onClearAll}>
+          <button type="button" className={shell.buttonDestructive} onClick={onClearAll}>
             Clear all
           </button>
-          <span className={`font-mono text-xs ${shell.muted}`}>
-            {pointer
-              ? `${Math.round(pointer.x)}, ${Math.round(pointer.y)}`
-              : `${renderContext.width}×${renderContext.height}`}
-          </span>
+          {pointer ? (
+            <span className={`font-mono text-xs ${shell.muted}`}>
+              {Math.round(pointer.x)}, {Math.round(pointer.y)}
+            </span>
+          ) : null}
         </div>
       </div>
       {statusMessages.map((message, index) => (

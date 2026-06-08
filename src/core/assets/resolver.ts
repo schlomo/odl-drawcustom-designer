@@ -3,7 +3,11 @@ import type { AssetEntry, AssetResolution } from './types'
 /** Bundled fonts shipped under `public/fonts/` — resolved without upload. */
 export const BUNDLED_FONT_KEYS = ['ppb.ttf', 'rbm.ttf'] as const
 
+/** Bundled demo image for the showcase dashboard dlimg element. */
+export const BUNDLED_SHOWCASE_IMAGE_KEY = '/local/showcase.png' as const
+
 const bundledFontKeys = new Set<string>(BUNDLED_FONT_KEYS)
+const bundledImageKeys = new Set<string>([BUNDLED_SHOWCASE_IMAGE_KEY])
 
 let contentMap = new Map<string, AssetEntry>()
 
@@ -42,6 +46,10 @@ export function resolveAsset(key: string): AssetResolution {
   }
 
   if (bundledFontKeys.has(key)) {
+    return { key, status: 'bundled' }
+  }
+
+  if (bundledImageKeys.has(key)) {
     return { key, status: 'bundled' }
   }
 
