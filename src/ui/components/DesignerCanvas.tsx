@@ -44,11 +44,37 @@ import {
   shouldPreferMoveOverResize,
 } from '../lib/canvas-resize-handles'
 import { shouldHandleCanvasKeyboard } from '../lib/canvas-keyboard'
+import {
+  CANVAS_VIEWPORT_PADDING_PX,
+  clientPointToCanvasCoords,
+  computeCanvasStageSize,
+  computeCanvasViewportLayout,
+  computeEffectiveCanvasScale,
+  computeFitScale,
+  formatCanvasPointerCoords,
+  paperTransform,
+  refineCanvasPointerPoint,
+  type ViewportSize,
+} from '../lib/canvas-zoom'
+import { exportPaperDomToPngBlob } from '../lib/canvas-png-export'
+import {
+  buildPngDownloadFilename,
+  copyBlobToClipboard,
+  triggerBlobDownload,
+} from '../lib/export-download'
+import { toolbarGroup, toolbarGroups } from '../lib/export-action-feedback'
 import { type ElementBounds } from '../lib/primitive-bounds'
 import { resolveElementHitBounds } from '../lib/hidden-element-hints'
 import { snapMoveDelta, snapToGrid } from '../lib/snap-to-grid'
 import type { SnapGridPrefs } from '../preferences/snapGrid'
+import {
+  readCanvasZoomMode,
+  writeCanvasZoomMode,
+  type CanvasZoomMode,
+} from '../preferences/canvasZoom'
 import type { CanvasRotation } from '../hooks/useProjectState'
+import { useExportActionFeedback } from '../hooks/useExportActionFeedback'
+import { ExportActionButton } from './ExportActionButton'
 import { FeatureToggle } from './FeatureToggle'
 import { shell } from '../styles/shell'
 
@@ -59,6 +85,9 @@ interface DesignerCanvasProps {
   rotation: CanvasRotation
   selectedIndex: number | null
   assetRevision: number
+  sessionName: string
+  /** Client size of the slot above the YAML divider (from App allocation ref). */
+  allocationSize: { width: number; height: number }
   snapGrid: SnapGridPrefs
   showHiddenHints: boolean
   onToggleShowHiddenHints: () => void
@@ -96,16 +125,19 @@ const HANDLE_SIZE = HANDLE_VISUAL_SIZE
 const HANDLE_FILL_INTERACTIVE = '#3b82f6'
 const HANDLE_FILL_DISABLED = '#ef4444'
 
-function paperTransform(rotation: CanvasRotation, scale: number): string {
-  return `rotate(${rotation}deg) scale(${scale})`
-}
-
 function applySnap(point: { x: number; y: number }, snapGrid: SnapGridPrefs): { x: number; y: number } {
   return {
     x: snapToGrid(point.x, snapGrid.size, snapGrid.enabled),
     y: snapToGrid(point.y, snapGrid.size, snapGrid.enabled),
   }
 }
+
+const ZOOM_MODES: { mode: CanvasZoomMode; label: string }[] = [
+  { mode: '200', label: '200%' },
+  { mode: '100', label: '100%' },
+  { mode: 'fit', label: 'Fit' },
+  { mode: '50', label: '50%' },
+]
 
 export function DesignerCanvas({
   elements,
@@ -114,6 +146,8 @@ export function DesignerCanvas({
   rotation,
   selectedIndex,
   assetRevision,
+  sessionName,
+  allocationSize,
   snapGrid,
   showHiddenHints,
   onToggleShowHiddenHints,
@@ -134,7 +168,9 @@ export function DesignerCanvas({
   const didDragRef = useRef(false)
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null)
   const [hoverCursor, setHoverCursor] = useState<string>('default')
-  const [fitScale, setFitScale] = useState(1)
+  const [scrollportSize, setScrollportSize] = useState({ width: 0, height: 0 })
+  const [zoomMode, setZoomMode] = useState<CanvasZoomMode>(() => readCanvasZoomMode())
+  const { flashSuccess, flashError, getFeedback } = useExportActionFeedback()
   const [assetImages, setAssetImages] = useState<Map<string, HTMLImageElement>>(() => new Map())
   const [fontFamilies, setFontFamilies] = useState<Map<string, string>>(() => new Map())
   const [opentypeFonts, setOpentypeFonts] = useState<Map<string, import('opentype.js').Font>>(
@@ -153,20 +189,75 @@ export function DesignerCanvas({
   }, [dragSession])
 
   useEffect(() => {
-    const container = containerRef.current
-    if (!container) {
+    const scrollport = containerRef.current
+    if (!scrollport) {
       return
     }
-    const updateScale = () => {
-      const { width: cw, height: ch } = container.getBoundingClientRect()
-      const scale = Math.min(cw / renderContext.width, ch / renderContext.height, 1)
-      setFitScale(scale > 0 ? scale : 1)
+    const updateScrollport = () => {
+      const { width, height } = scrollport.getBoundingClientRect()
+      setScrollportSize({ width, height })
     }
-    updateScale()
-    const observer = new ResizeObserver(updateScale)
-    observer.observe(container)
+    updateScrollport()
+    const observer = new ResizeObserver(updateScrollport)
+    observer.observe(scrollport)
     return () => observer.disconnect()
-  }, [renderContext.height, renderContext.width])
+  }, [allocationSize.height, allocationSize.width])
+
+  const viewportSize = useMemo((): ViewportSize | null => {
+    if (scrollportSize.width <= 0 || scrollportSize.height <= 0) {
+      return null
+    }
+    return scrollportSize
+  }, [scrollportSize])
+
+  const fitScale = useMemo(() => {
+    if (!viewportSize) {
+      return 1
+    }
+    const scale = computeFitScale(
+      viewportSize.width,
+      viewportSize.height,
+      renderContext.width,
+      renderContext.height,
+      rotation,
+      CANVAS_VIEWPORT_PADDING_PX,
+    )
+    return scale > 0 ? scale : 1
+  }, [renderContext.height, renderContext.width, rotation, viewportSize])
+
+  const effectiveScale = useMemo(
+    () => computeEffectiveCanvasScale(zoomMode, fitScale),
+    [fitScale, zoomMode],
+  )
+
+  const stageSize = useMemo(
+    () =>
+      computeCanvasStageSize(
+        renderContext.width,
+        renderContext.height,
+        rotation,
+        effectiveScale,
+      ),
+    [effectiveScale, renderContext.height, renderContext.width, rotation],
+  )
+
+  const viewportLayout = useMemo(() => {
+    if (!viewportSize) {
+      return {
+        scrollContentWidth: 0,
+        scrollContentHeight: 0,
+        centerX: true,
+        centerY: true,
+        needsScrollX: false,
+        needsScrollY: false,
+      }
+    }
+    return computeCanvasViewportLayout(viewportSize, stageSize)
+  }, [stageSize, viewportSize])
+
+  useEffect(() => {
+    writeCanvasZoomMode(zoomMode)
+  }, [zoomMode])
 
   const fontAssetKeys = useMemo(() => collectFontKeysFromElements(elements), [elements])
 
@@ -312,20 +403,20 @@ export function DesignerCanvas({
       if (!paper) {
         return null
       }
-      const rect = paper.getBoundingClientRect()
-      const scaleX = rect.width / renderContext.width
-      const scaleY = rect.height / renderContext.height
-      const localX = (clientX - rect.left) / scaleX
-      const localY = (clientY - rect.top) / scaleY
-      if (
-        !allowOutside &&
-        (localX < 0 || localY < 0 || localX > renderContext.width || localY > renderContext.height)
-      ) {
-        return null
+      const raw = clientPointToCanvasCoords(
+        clientX,
+        clientY,
+        paper.getBoundingClientRect(),
+        renderContext.width,
+        renderContext.height,
+        rotation,
+      )
+      if (allowOutside) {
+        return raw
       }
-      return { x: localX, y: localY }
+      return refineCanvasPointerPoint(raw, renderContext.width, renderContext.height)
     },
-    [renderContext.height, renderContext.width],
+    [renderContext.height, renderContext.width, rotation],
   )
 
   const releaseCapturedPointer = useCallback((target: HTMLElement | null, pointerId: number) => {
@@ -369,16 +460,7 @@ export function DesignerCanvas({
     (event: React.PointerEvent<HTMLDivElement>) => {
       const dragging = dragSessionRef.current != null
       const point = mapClientToCanvas(event.clientX, event.clientY, dragging)
-      setPointer(
-        dragging || point == null
-          ? point
-          : point.x >= 0 &&
-              point.y >= 0 &&
-              point.x <= renderContext.width &&
-              point.y <= renderContext.height
-            ? point
-            : null,
-      )
+      setPointer(dragging ? point : point)
 
       if (!dragging && point) {
         let cursor = 'default'
@@ -693,9 +775,47 @@ export function DesignerCanvas({
     return lines
   }, [renderContext.height, renderContext.width, snapGrid.enabled, snapGrid.size])
 
+  const exportPreviewPng = useCallback(async () => {
+    const paper = containerRef.current?.querySelector<HTMLElement>('[data-canvas-paper]')
+    if (!paper) {
+      return null
+    }
+    return exportPaperDomToPngBlob(paper, renderContext.width, renderContext.height)
+  }, [renderContext.height, renderContext.width])
+
+  const handleCopyPng = useCallback(async () => {
+    try {
+      const blob = await exportPreviewPng()
+      if (!blob) {
+        return
+      }
+      const copied = await copyBlobToClipboard(blob)
+      if (copied) {
+        flashSuccess('copy-png')
+      } else {
+        flashError('copy-png')
+      }
+    } catch {
+      flashError('copy-png')
+    }
+  }, [exportPreviewPng, flashError, flashSuccess])
+
+  const handleDownloadPng = useCallback(async () => {
+    try {
+      const blob = await exportPreviewPng()
+      if (!blob) {
+        return
+      }
+      triggerBlobDownload(blob, buildPngDownloadFilename(sessionName))
+      flashSuccess('download-png')
+    } catch {
+      flashError('download-png')
+    }
+  }, [exportPreviewPng, flashError, flashSuccess, sessionName])
+
   return (
     <section
-      className={`flex min-h-0 flex-1 flex-col rounded-lg border ${shell.panelBorder} ${shell.panel} shadow-lg`}
+      className={`flex min-h-0 flex-1 flex-col ${shell.panel}`}
       aria-label="E-paper canvas"
     >
       <div className={`flex items-center justify-between border-b ${shell.panelBorder} px-4 py-2`}>
@@ -705,65 +825,128 @@ export function DesignerCanvas({
             {renderContext.width}×{renderContext.height}
           </span>
         </h2>
-        <div className="flex items-center gap-2">
-          <FeatureToggle
-            enabled={showHiddenHints}
-            onToggle={onToggleShowHiddenHints}
-            title="Show designer overlays for elements invisible on the tag (visible: false, fill: none)"
-          >
-            <span>Invisible</span>
-          </FeatureToggle>
-          <FeatureToggle
-            enabled={snapGrid.enabled}
-            onToggle={onToggleSnap}
-            title="Snap moved and resized elements to the grid"
-          >
-            <span>Snap</span>
-          </FeatureToggle>
-          <button
-            type="button"
-            className={`${shell.button} ${previewDitherMode === 2 ? 'border-[var(--shell-accent)] text-[var(--shell-accent)]' : ''}`}
-            onClick={onTogglePreviewDither}
-          >
-            Dither {previewDitherMode === 2 ? 'd=2' : 'flat'}
-          </button>
-          <button type="button" className={shell.buttonDestructive} onClick={onClearAll}>
-            Clear all
-          </button>
-          {pointer ? (
-            <span className={`font-mono text-xs ${shell.muted}`}>
-              {Math.round(pointer.x)}, {Math.round(pointer.y)}
-            </span>
-          ) : null}
+        <div className={toolbarGroups}>
+          <div className={toolbarGroup} role="group" aria-label="Canvas zoom">
+            {ZOOM_MODES.map(({ mode, label }) => {
+              const active = zoomMode === mode
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  className={
+                    active
+                      ? 'rounded-md border border-[var(--shell-accent)] bg-[var(--shell-accent)] px-2 py-1 text-xs text-white shadow-inner ring-1 ring-inset ring-black/15'
+                      : `${shell.button} opacity-80`
+                  }
+                  onClick={() => setZoomMode(mode)}
+                  aria-pressed={active}
+                  aria-current={active ? 'true' : undefined}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+          <div className={toolbarGroup} role="group" aria-label="Canvas export">
+            <ExportActionButton
+              actionId="copy-png"
+              feedback={getFeedback('copy-png')}
+              onClick={() => void handleCopyPng()}
+            >
+              Copy PNG
+            </ExportActionButton>
+            <ExportActionButton
+              actionId="download-png"
+              feedback={getFeedback('download-png')}
+              onClick={() => void handleDownloadPng()}
+            >
+              Download PNG
+            </ExportActionButton>
+          </div>
+          <div className={toolbarGroup} role="group" aria-label="Canvas view options">
+            <FeatureToggle
+              enabled={showHiddenHints}
+              onToggle={onToggleShowHiddenHints}
+              title="Show designer overlays for elements invisible on the tag (visible: false, fill: none)"
+            >
+              <span>Invisible</span>
+            </FeatureToggle>
+            <FeatureToggle
+              enabled={snapGrid.enabled}
+              onToggle={onToggleSnap}
+              title="Snap moved and resized elements to the grid"
+            >
+              <span>Snap</span>
+            </FeatureToggle>
+            <button
+              type="button"
+              className={`${shell.button} ${previewDitherMode === 2 ? 'border-[var(--shell-accent)] text-[var(--shell-accent)]' : ''}`}
+              onClick={onTogglePreviewDither}
+            >
+              Dither {previewDitherMode === 2 ? 'd=2' : 'flat'}
+            </button>
+          </div>
+          <div className={toolbarGroup} role="group" aria-label="Canvas actions">
+            <button type="button" className={shell.buttonDestructive} onClick={onClearAll}>
+              Clear all
+            </button>
+          </div>
         </div>
       </div>
       {statusMessages.map((message, index) => (
         <StatusBanner key={`${message.severity}-${message.title}-${index}`} message={message} />
       ))}
-      <div
-        ref={containerRef}
-        tabIndex={0}
-        className="relative flex flex-1 items-center justify-center overflow-hidden bg-[var(--shell-hover)] p-6 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--shell-accent)]"
-        style={{ cursor: dragSession ? 'grabbing' : hoverCursor }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerLeave}
-        onLostPointerCapture={handleLostPointerCapture}
-        onClick={handleClick}
-      >
+      <div className="relative min-h-0 flex-1">
+        {pointer ? (
+          <div
+            className="pointer-events-none absolute bottom-3 left-3 z-30 rounded-md bg-[var(--shell-text)]/75 px-2 py-0.5 font-mono text-xs tabular-nums text-[var(--shell-surface)] shadow-sm"
+            aria-hidden
+          >
+            {formatCanvasPointerCoords(pointer, renderContext.width, renderContext.height)}
+          </div>
+        ) : null}
         <div
-          data-canvas-paper
-          className="relative bg-white shadow-md"
-          style={
-            {
-              width: renderContext.width,
-              height: renderContext.height,
-              transform: paperTransform(rotation, fitScale),
-              transformOrigin: 'center center',
-            } satisfies CSSProperties
-          }
+          ref={containerRef}
+          tabIndex={0}
+          className="absolute inset-0 overflow-auto bg-[var(--shell-hover)] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--shell-accent)]"
+          style={{ cursor: dragSession ? 'grabbing' : hoverCursor }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerLeave}
+          onLostPointerCapture={handleLostPointerCapture}
+          onClick={handleClick}
         >
+        {viewportSize ? (
+        <div
+          className="box-border flex p-6"
+          style={{
+            width: viewportLayout.scrollContentWidth,
+            height: viewportLayout.scrollContentHeight,
+            alignItems: viewportLayout.centerY ? 'center' : 'flex-start',
+            justifyContent: viewportLayout.centerX ? 'center' : 'flex-start',
+          }}
+        >
+          <div
+            data-canvas-stage
+            className="relative shrink-0 overflow-hidden bg-white shadow-md"
+            style={{
+              width: stageSize.width,
+              height: stageSize.height,
+            }}
+          >
+            <div
+              data-canvas-paper
+              className="absolute left-0 top-0"
+              style={
+                {
+                  width: renderContext.width,
+                  height: renderContext.height,
+                  transform: paperTransform(rotation, effectiveScale),
+                  transformOrigin: 'top left',
+                } satisfies CSSProperties
+              }
+            >
           {gridLines ? (
             <svg
               viewBox={`0 0 ${renderContext.width} ${renderContext.height}`}
@@ -844,6 +1027,10 @@ export function DesignerCanvas({
               </>
             ) : null}
           </svg>
+            </div>
+          </div>
+        </div>
+        ) : null}
         </div>
       </div>
     </section>

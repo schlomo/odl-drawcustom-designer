@@ -23,11 +23,21 @@ import { shell } from '../styles/shell'
 import { YamlCouplingToggle } from './YamlCouplingToggle'
 import { YamlFontSizeControls } from './YamlFontSizeControls'
 import { YamlTemplatePreviewToggle } from './YamlTemplatePreviewToggle'
+import {
+  buildYamlDownloadFilename,
+  copyTextToClipboard,
+  createYamlDownloadBlob,
+  triggerBlobDownload,
+} from '../lib/export-download'
+import { toolbarGroup, toolbarGroups } from '../lib/export-action-feedback'
+import { useExportActionFeedback } from '../hooks/useExportActionFeedback'
+import { ExportActionButton } from './ExportActionButton'
 
 const MIN_YAML_PANEL_HEIGHT = 120
 
 interface YamlPanelProps {
   elements: DrawElement[]
+  sessionName: string
   selectedIndex: number | null
   selectionSource: SelectionSource
   onSelectElement: (index: number | null, source?: SelectionSource) => void
@@ -44,6 +54,7 @@ interface YamlPanelProps {
 
 export function YamlPanel({
   elements,
+  sessionName,
   selectedIndex,
   selectionSource,
   onSelectElement,
@@ -65,6 +76,7 @@ export function YamlPanel({
   const { fontSize, increase, decrease } = useYamlFontSize()
   const { couplingEnabled, toggleCoupling } = useYamlSelectionCoupling()
   const { templatePreviewEnabled, toggleTemplatePreview } = useYamlTemplatePreview()
+  const { flashSuccess, flashError, getFeedback } = useExportActionFeedback()
   const { height: panelHeight, startResize } = useResizablePanelHeight({
     storageKey: 'oepl-yaml-panel-height',
     defaultHeight: 220,
@@ -108,6 +120,20 @@ export function YamlPanel({
   useEffect(() => {
     onStatusMessagesChange?.(yamlStatusMessages)
   }, [onStatusMessagesChange, yamlStatusMessages])
+
+  const handleCopyYaml = useCallback(async () => {
+    const copied = await copyTextToClipboard(yamlText)
+    if (copied) {
+      flashSuccess('copy-yaml')
+    } else {
+      flashError('copy-yaml')
+    }
+  }, [flashError, flashSuccess, yamlText])
+
+  const handleDownloadYaml = useCallback(() => {
+    triggerBlobDownload(createYamlDownloadBlob(yamlText), buildYamlDownloadFilename(sessionName))
+    flashSuccess('download-yaml')
+  }, [flashSuccess, sessionName, yamlText])
 
   const handleYamlChange = useCallback(
     (text: string) => {
@@ -158,10 +184,28 @@ export function YamlPanel({
         className={`flex shrink-0 items-center justify-between gap-3 border-b ${shell.panelBorder} px-4 py-2`}
       >
         <h2 className={shell.heading}>YAML</h2>
-        <div className="flex items-center gap-2">
-          <YamlTemplatePreviewToggle enabled={templatePreviewEnabled} onToggle={toggleTemplatePreview} />
-          <YamlCouplingToggle enabled={couplingEnabled} onToggle={toggleCoupling} />
-          <YamlFontSizeControls fontSize={fontSize} onDecrease={decrease} onIncrease={increase} />
+        <div className={toolbarGroups}>
+          <div className={toolbarGroup} role="group" aria-label="YAML export">
+            <ExportActionButton
+              actionId="copy-yaml"
+              feedback={getFeedback('copy-yaml')}
+              onClick={() => void handleCopyYaml()}
+            >
+              Copy YAML
+            </ExportActionButton>
+            <ExportActionButton
+              actionId="download-yaml"
+              feedback={getFeedback('download-yaml')}
+              onClick={handleDownloadYaml}
+            >
+              Download YAML
+            </ExportActionButton>
+          </div>
+          <div className={toolbarGroup} role="group" aria-label="YAML editor options">
+            <YamlTemplatePreviewToggle enabled={templatePreviewEnabled} onToggle={toggleTemplatePreview} />
+            <YamlCouplingToggle enabled={couplingEnabled} onToggle={toggleCoupling} />
+            <YamlFontSizeControls fontSize={fontSize} onDecrease={decrease} onIncrease={increase} />
+          </div>
         </div>
       </div>
       <div className="min-h-0 flex-1">

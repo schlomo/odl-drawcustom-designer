@@ -13,6 +13,10 @@
   --shell-danger: #b91c1c;
   --shell-danger-border: #dc2626;
   --shell-danger-hover: rgb(220 38 38 / 0.12);
+  /* Solid success flash — same in light and dark (filled button, not a tint). */
+  --shell-success-bg: #16a34a;
+  --shell-success-border: #15803d;
+  --shell-success-fg: #ffffff;
 }
 
 .dark {

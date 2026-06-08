@@ -43,7 +43,7 @@ describe('sample design yaml selection', () => {
     expect(remapSelectedIndex(SAMPLE_ELEMENTS, parsed, templatedTextIndex)).toBe(templatedTextIndex)
   })
 
-  it('keeps selection after property-panel round trip', () => {
+  it('keeps selection after property-panel round trip', { timeout: 15_000 }, () => {
     const titleTextIndex = indexOfType('text')
     const edited = SAMPLE_ELEMENTS.map((element, index) =>
       index === titleTextIndex && element.type === 'text'

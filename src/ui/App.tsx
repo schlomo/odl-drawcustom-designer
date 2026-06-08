@@ -1,19 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  buildSharePayload,
+  buildShareUrl,
+  clearShareHashFromLocation,
+  encodeShareHash,
+} from '../share'
 import type { AppBootstrap } from './bootstrap/appBootstrap'
 import { DesignerCanvas } from './components/DesignerCanvas'
 import { ElementToolbar } from './components/ElementToolbar'
 import { PropertyPanel } from './components/PropertyPanel'
 import { Sidebar } from './components/Sidebar'
+import { StatusBanner } from './components/StatusBanner'
 import { ThemeToggle } from './components/ThemeToggle'
 import { YamlPanel } from './components/YamlPanel'
 import { remapSelectedIndex } from './editor/yamlElementsSync'
 import { collectKnownFontKeys } from './lib/known-font-keys'
 import { nudgeWhenSelected } from './lib/canvas-keyboard'
+import { copyTextToClipboard } from './lib/export-download'
+import { toolbarGroup, toolbarGroups } from './lib/export-action-feedback'
+import { getMissingAssetMessages } from './lib/missing-asset-messages'
 import type { StatusMessage } from './lib/status-messages'
-import { MIN_CANVAS_PREVIEW_HEIGHT } from './hooks/useResizablePanelHeight'
+import { useExportActionFeedback } from './hooks/useExportActionFeedback'
 import { useProjectState } from './hooks/useProjectState'
+import { useElementSize } from './hooks/useElementSize'
 import { useThemePreference } from './hooks/useThemePreference'
 import { useYamlSelectionCoupling } from './hooks/useYamlSelectionCoupling'
+import { ExportActionButton } from './components/ExportActionButton'
 import { shell } from './styles/shell'
 
 interface AppProps {
@@ -22,6 +34,8 @@ interface AppProps {
 
 export function App({ bootstrap }: AppProps) {
   const columnRef = useRef<HTMLDivElement>(null)
+  const canvasAllocationRef = useRef<HTMLDivElement>(null)
+  const canvasAllocationSize = useElementSize(canvasAllocationRef)
   const { mode, resolvedTheme, cycleMode } = useThemePreference()
   const { couplingEnabled } = useYamlSelectionCoupling()
   const [entityScrollRequest, setEntityScrollRequest] = useState<{
@@ -30,7 +44,10 @@ export function App({ bootstrap }: AppProps) {
   } | null>(null)
   const [yamlStatusMessages, setYamlStatusMessages] = useState<StatusMessage[]>([])
   const [canvasDragging, setCanvasDragging] = useState(false)
+  const { flashSuccess, flashError, getFeedback } = useExportActionFeedback()
   const {
+    sessionName,
+    service,
     elements,
     previewElements,
     selectedIndex,
@@ -76,10 +93,42 @@ export function App({ bootstrap }: AppProps) {
     elementsRef.current = elements
   }, [elements])
 
+  useEffect(() => {
+    if (bootstrap.importSource === 'hash') {
+      clearShareHashFromLocation()
+    }
+  }, [bootstrap.importSource])
+
   const fontKeys = useMemo(() => {
     void assetRevision
     return collectKnownFontKeys(elements)
   }, [assetRevision, elements])
+
+  const hashImportMessages = useMemo(() => {
+    if (bootstrap.importSource !== 'hash') {
+      return []
+    }
+    return getMissingAssetMessages(elements)
+  }, [bootstrap.importSource, elements])
+
+  const handleShare = useCallback(async () => {
+    const payload = buildSharePayload({
+      name: sessionName,
+      canvas,
+      service,
+      elements,
+    })
+    const url = buildShareUrl(encodeShareHash(payload), {
+      origin: window.location.origin,
+      pathname: window.location.pathname,
+    })
+    const copied = await copyTextToClipboard(url)
+    if (copied) {
+      flashSuccess('share-link')
+    } else {
+      flashError('share-link')
+    }
+  }, [canvas, elements, flashError, flashSuccess, service, sessionName])
 
   const handleYamlElementsChange = useCallback(
     (next: typeof elements) => {
@@ -153,10 +202,27 @@ export function App({ bootstrap }: AppProps) {
       <header className={`${shell.header} flex items-center justify-between gap-4`}>
         <div>
           <h1 className="text-lg font-semibold tracking-tight">OpenEPaperLink HA YAML Designer</h1>
-          <p className={`text-xs ${shell.muted}`}>Phase 2e — canvas interaction and property forms</p>
+          <p className={`text-xs ${shell.muted}`}>Phase 4b — export bars and hash share</p>
         </div>
-        <ThemeToggle mode={mode} resolvedTheme={resolvedTheme} onCycle={cycleMode} />
+        <div className={toolbarGroups}>
+          <div className={toolbarGroup} role="group" aria-label="Copy share link">
+            <ExportActionButton
+              actionId="share-link"
+              feedback={getFeedback('share-link')}
+              onClick={() => void handleShare()}
+            >
+              Copy share link
+            </ExportActionButton>
+          </div>
+          <div className={toolbarGroup} role="group" aria-label="Appearance">
+            <ThemeToggle mode={mode} resolvedTheme={resolvedTheme} onCycle={cycleMode} />
+          </div>
+        </div>
       </header>
+
+      {hashImportMessages.map((message, index) => (
+        <StatusBanner key={`hash-import-${message.title}-${index}`} message={message} />
+      ))}
 
       <div className="flex min-h-0 flex-1">
         <Sidebar
@@ -183,8 +249,9 @@ export function App({ bootstrap }: AppProps) {
         <div ref={columnRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
           <ElementToolbar onAddElement={addElement} />
           <div
-            className="min-h-0 flex-1 overflow-hidden p-2"
-            style={{ minHeight: MIN_CANVAS_PREVIEW_HEIGHT }}
+            ref={canvasAllocationRef}
+            data-canvas-allocation
+            className="flex min-h-0 min-w-0 flex-1 flex-col"
           >
             <DesignerCanvas
               elements={previewElements}
@@ -193,6 +260,8 @@ export function App({ bootstrap }: AppProps) {
               rotation={canvas.rotation}
               selectedIndex={selectedIndex}
               assetRevision={assetRevision}
+              sessionName={sessionName}
+              allocationSize={canvasAllocationSize}
               snapGrid={snapGrid}
               showHiddenHints={showHiddenHints}
               onToggleShowHiddenHints={toggleShowHiddenHints}
@@ -212,6 +281,7 @@ export function App({ bootstrap }: AppProps) {
             colorScheme={resolvedTheme}
             containerRef={columnRef}
             elements={elements}
+            sessionName={sessionName}
             extraEntityIds={extraEntityIds}
             mockContext={mockContext}
             onElementsChange={handleYamlElementsChange}
