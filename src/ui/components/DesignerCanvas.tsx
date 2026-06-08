@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { renderElement, type DrawElement, type RenderContext } from '../../core'
-import type { RenderResult } from '../../core/renderer/types'
-import { CanvasElementLayer } from './CanvasElementLayer'
+import { CanvasElementSlot } from './CanvasElementSlot'
 import {
   applyBoundsResize,
   applyLineEndpoint,
   applySeSizeResize,
-  getResizeHandlesForElement,
+  getCanvasResizeHandles,
+  getInteractiveResizeHandles,
   isElementDraggable,
   resizeBoundsWithHandle,
   supportsBoxResize,
@@ -27,6 +27,7 @@ import {
   loadFontFamilyMap,
 } from '../lib/load-font-faces'
 import { areFontLoadOutcomeMapsEqual, type FontLoadOutcome } from '../lib/font-load-outcome'
+import { fontLayoutTokenForKeys } from '../lib/font-layout-token'
 import { getFontStatusMessages } from '../lib/font-readiness'
 import { sortStatusMessages, type StatusMessage } from '../lib/status-messages'
 import {
@@ -39,13 +40,15 @@ import {
   HANDLE_VISUAL_SIZE,
   handlePosition,
   hitResizeHandle,
+  resizeHandleCursor,
+  shouldPreferMoveOverResize,
 } from '../lib/canvas-resize-handles'
+import { shouldHandleCanvasKeyboard } from '../lib/canvas-keyboard'
 import { getPrimitiveBounds, type ElementBounds } from '../lib/primitive-bounds'
 import { snapMoveDelta, snapToGrid } from '../lib/snap-to-grid'
 import type { SnapGridPrefs } from '../preferences/snapGrid'
 import type { CanvasRotation } from '../hooks/useProjectState'
 import { shell } from '../styles/shell'
-import { SvgPrimitive } from './SvgPrimitive'
 
 interface DesignerCanvasProps {
   elements: DrawElement[]
@@ -66,9 +69,9 @@ interface DesignerCanvasProps {
   onTogglePreviewDither: () => void
 }
 
-interface RenderedElement {
+interface DragOverlay {
   index: number
-  result: RenderResult
+  element: DrawElement
 }
 
 interface DragSession {
@@ -76,12 +79,17 @@ interface DragSession {
   index: number
   pointerId: number
   startCanvas: { x: number; y: number }
+  /** Raw edit payload — committed on pointer up. */
   startElement: DrawElement
+  /** Resolved preview payload — shown in the drag overlay only. */
+  startDisplayElement: DrawElement
   startBounds: ElementBounds
   handle?: ResizeHandle
 }
 
 const HANDLE_SIZE = HANDLE_VISUAL_SIZE
+const HANDLE_FILL_INTERACTIVE = '#3b82f6'
+const HANDLE_FILL_DISABLED = '#ef4444'
 
 function paperTransform(rotation: CanvasRotation, scale: number): string {
   return `rotate(${rotation}deg) scale(${scale})`
@@ -114,8 +122,10 @@ export function DesignerCanvas({
 }: DesignerCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const dragSessionRef = useRef<DragSession | null>(null)
+  const pointerCaptureTargetRef = useRef<HTMLElement | null>(null)
   const didDragRef = useRef(false)
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null)
+  const [hoverCursor, setHoverCursor] = useState<string>('default')
   const [fitScale, setFitScale] = useState(1)
   const [assetImages, setAssetImages] = useState<Map<string, HTMLImageElement>>(() => new Map())
   const [fontFamilies, setFontFamilies] = useState<Map<string, string>>(() => new Map())
@@ -126,6 +136,9 @@ export function DesignerCanvas({
     () => new Map(),
   )
   const [dragSession, setDragSession] = useState<DragSession | null>(null)
+  const [dragOverlay, setDragOverlay] = useState<DragOverlay | null>(null)
+  /** Preview stack frozen at drag start so live YAML/property updates do not re-render every layer. */
+  const [frozenElements, setFrozenElements] = useState<DrawElement[] | null>(null)
 
   useEffect(() => {
     dragSessionRef.current = dragSession
@@ -147,29 +160,26 @@ export function DesignerCanvas({
     return () => observer.disconnect()
   }, [renderContext.height, renderContext.width])
 
-  const renderedElements = useMemo<RenderedElement[]>(() => {
-    void opentypeFonts
-    return elements.flatMap((element, index) => {
-      const result = renderElement(element, renderContext)
-      return result ? [{ index, result }] : []
-    })
-  }, [elements, opentypeFonts, renderContext])
+  const fontAssetKeys = useMemo(() => collectFontKeysFromElements(elements), [elements])
+
+  const fontLayoutToken = useMemo(
+    () => fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts),
+    [fontAssetKeys, opentypeFonts],
+  )
 
   const hitTargets = useMemo(
     () =>
-      renderedElements.map((entry) => ({
-        index: entry.index,
-        bounds: getPrimitiveBounds(entry.result.primitive),
-      })),
-    [renderedElements],
+      elements.flatMap((element, index) => {
+        const result = renderElement(element, renderContext)
+        return result ? [{ index, bounds: getPrimitiveBounds(result.primitive) }] : []
+      }),
+    [elements, renderContext, fontLayoutToken],
   )
 
   const dlimgAssetKeys = useMemo(
     () => collectDlimgAssetKeysFromElements(elements),
     [elements],
   )
-
-  const fontAssetKeys = useMemo(() => collectFontKeysFromElements(elements), [elements])
 
   const fontsLoading = useMemo(() => {
     if (fontAssetKeys.length === 0) {
@@ -251,33 +261,43 @@ export function DesignerCanvas({
     return pruneAssetImagesForKeys(assetImages, dlimgAssetKeys)
   }, [assetImages, assetRevision, dlimgAssetKeys])
 
-  const selectionBounds = useMemo(() => {
+  const baseElements = frozenElements ?? elements
+
+  const overlayElementForSelection = useMemo(() => {
     if (selectedIndex == null) {
       return null
     }
-    const entry = renderedElements.find((item) => item.index === selectedIndex)
-    if (!entry) {
+    if (dragOverlay?.index === selectedIndex) {
+      return dragOverlay.element
+    }
+    return elements[selectedIndex] ?? null
+  }, [dragOverlay, elements, selectedIndex])
+
+  const selectionRenderResult = useMemo(() => {
+    if (!overlayElementForSelection) {
       return null
     }
-    return getPrimitiveBounds(entry.result.primitive)
-  }, [renderedElements, selectedIndex])
+    return renderElement(overlayElementForSelection, renderContext)
+  }, [overlayElementForSelection, renderContext, fontLayoutToken])
 
-  const selectedRendered =
-    selectedIndex != null
-      ? renderedElements.find((item) => item.index === selectedIndex)?.result
-      : null
+  const selectionBounds = useMemo(() => {
+    if (!selectionRenderResult) {
+      return null
+    }
+    return getPrimitiveBounds(selectionRenderResult.primitive)
+  }, [selectionRenderResult])
 
   const lineCoords = useMemo(() => {
-    if (selectedRendered?.layer !== 'svg' || selectedRendered.primitive.kind !== 'line') {
+    if (selectionRenderResult?.layer !== 'svg' || selectionRenderResult.primitive.kind !== 'line') {
       return undefined
     }
     return {
-      x1: selectedRendered.primitive.x1,
-      y1: selectedRendered.primitive.y1,
-      x2: selectedRendered.primitive.x2,
-      y2: selectedRendered.primitive.y2,
+      x1: selectionRenderResult.primitive.x1,
+      y1: selectionRenderResult.primitive.y1,
+      x2: selectionRenderResult.primitive.x2,
+      y2: selectionRenderResult.primitive.y2,
     }
-  }, [selectedRendered])
+  }, [selectionRenderResult])
 
   const selectedEditElement =
     selectedIndex != null ? (editElements[selectedIndex] ?? null) : null
@@ -304,10 +324,40 @@ export function DesignerCanvas({
     [renderContext.height, renderContext.width],
   )
 
+  const releaseCapturedPointer = useCallback((target: HTMLElement | null, pointerId: number) => {
+    if (target?.hasPointerCapture(pointerId)) {
+      target.releasePointerCapture(pointerId)
+    }
+  }, [])
+
   const finishDrag = useCallback(() => {
+    const session = dragSessionRef.current
+    if (session) {
+      releaseCapturedPointer(pointerCaptureTargetRef.current, session.pointerId)
+    }
+    pointerCaptureTargetRef.current = null
+    setFrozenElements(null)
     dragSessionRef.current = null
     setDragSession(null)
-  }, [])
+    setDragOverlay(null)
+  }, [releaseCapturedPointer])
+
+  const updateDragVisual = useCallback(
+    (index: number, overlayElement: DrawElement, commitElement: DrawElement) => {
+      setDragOverlay({ index, element: overlayElement })
+      onUpdateElement(index, commitElement)
+    },
+    [onUpdateElement],
+  )
+
+  const beginDragSession = useCallback(
+    (session: DragSession) => {
+      setFrozenElements(elements)
+      dragSessionRef.current = session
+      setDragSession(session)
+    },
+    [elements],
+  )
 
   const handlePointerMove = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
@@ -324,6 +374,37 @@ export function DesignerCanvas({
             : null,
       )
 
+      if (!dragging && point) {
+        let cursor = 'default'
+        if (
+          selectedIndex != null &&
+          selectionBounds &&
+          selectedEditElement &&
+          isElementDraggable(selectedEditElement)
+        ) {
+          const handles = getInteractiveResizeHandles(selectedEditElement)
+          const handle = hitResizeHandle(point, selectionBounds, handles, lineCoords)
+          if (handle && !shouldPreferMoveOverResize(point, selectionBounds, handle, lineCoords)) {
+            cursor = resizeHandleCursor(handle)
+          } else {
+            const hit = findTopmostElementHit(hitTargets, point)
+            const hitElement = hit ? editElements[hit.index] : undefined
+            if (hitElement && isElementDraggable(hitElement)) {
+              cursor = 'grab'
+            }
+          }
+        } else {
+          const hit = findTopmostElementHit(hitTargets, point)
+          const hitElement = hit ? editElements[hit.index] : undefined
+          if (hitElement && isElementDraggable(hitElement)) {
+            cursor = 'grab'
+          }
+        }
+        setHoverCursor(cursor)
+      } else if (dragging) {
+        setHoverCursor('grabbing')
+      }
+
       const session = dragSessionRef.current
       if (!session || event.pointerId !== session.pointerId || !point) {
         return
@@ -331,8 +412,6 @@ export function DesignerCanvas({
 
       didDragRef.current = true
       event.preventDefault()
-
-      const snapped = applySnap(point, snapGrid)
 
       if (session.kind === 'move') {
         const rawDx = point.x - session.startCanvas.x
@@ -345,49 +424,85 @@ export function DesignerCanvas({
           snapGrid.enabled,
         )
         if (dx !== 0 || dy !== 0) {
-          onUpdateElement(
+          const canvas = { width: renderContext.width, height: renderContext.height }
+          updateDragVisual(
             session.index,
-            translateElement(session.startElement, dx, dy, {
-              width: renderContext.width,
-              height: renderContext.height,
-            }),
+            translateElement(session.startDisplayElement, dx, dy, canvas),
+            translateElement(session.startElement, dx, dy, canvas),
           )
         }
         return
       }
 
       const element = session.startElement
+      const displayElement = session.startDisplayElement
       const handle = session.handle
       if (!handle) {
         return
       }
 
-      if (supportsLineEndpointResize(element) && (handle === 'line-start' || handle === 'line-end')) {
+      if (supportsLineEndpointResize(element, handle) && (handle === 'line-start' || handle === 'line-end')) {
         const endpoint = handle === 'line-start' ? 'start' : 'end'
-        onUpdateElement(
-          session.index,
-          applyLineEndpoint(element, endpoint, snapped.x, snapped.y),
-        )
+        const snapped = applySnap(point, snapGrid)
+        if (displayElement.type === 'line' && element.type === 'line') {
+          updateDragVisual(
+            session.index,
+            applyLineEndpoint(displayElement, endpoint, snapped.x, snapped.y),
+            applyLineEndpoint(element, endpoint, snapped.x, snapped.y),
+          )
+        }
         return
       }
 
+      // Size resizes use raw pointer coords — grid snap applies to move/nudge only, not width/height/radius.
+      const pointerX = point.x
+      const pointerY = point.y
+
       if (supportsSeSizeResize(element)) {
-        onUpdateElement(
+        updateDragVisual(
           session.index,
-          applySeSizeResize(element, session.startBounds, snapped.x, snapped.y),
+          applySeSizeResize(displayElement, session.startBounds, pointerX, pointerY, handle),
+          applySeSizeResize(element, session.startBounds, pointerX, pointerY, handle),
         )
         return
       }
 
       if (supportsBoxResize(element)) {
-        const nextBounds = resizeBoundsWithHandle(session.startBounds, handle, snapped.x, snapped.y)
-        onUpdateElement(session.index, applyBoundsResize(element, nextBounds))
+        const nextBounds = resizeBoundsWithHandle(session.startBounds, handle, pointerX, pointerY)
+        updateDragVisual(
+          session.index,
+          applyBoundsResize(displayElement, nextBounds),
+          applyBoundsResize(element, nextBounds),
+        )
       }
     },
-    [mapClientToCanvas, onUpdateElement, renderContext.height, renderContext.width, snapGrid],
+    [
+      editElements,
+      hitTargets,
+      lineCoords,
+      mapClientToCanvas,
+      renderContext.height,
+      renderContext.width,
+      selectedEditElement,
+      selectedIndex,
+      selectionBounds,
+      snapGrid,
+      updateDragVisual,
+    ],
   )
 
   const handlePointerUp = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const session = dragSessionRef.current
+      if (session && event.pointerId === session.pointerId) {
+        releaseCapturedPointer(event.currentTarget, session.pointerId)
+        finishDrag()
+      }
+    },
+    [finishDrag, releaseCapturedPointer],
+  )
+
+  const handleLostPointerCapture = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       const session = dragSessionRef.current
       if (session && event.pointerId === session.pointerId) {
@@ -404,7 +519,11 @@ export function DesignerCanvas({
         return
       }
 
+      event.currentTarget.focus({ preventScroll: true })
       didDragRef.current = false
+      setDragOverlay(null)
+
+      const topHit = findTopmostElementHit(hitTargets, point)
 
       if (
         selectedIndex != null &&
@@ -412,27 +531,28 @@ export function DesignerCanvas({
         selectedEditElement &&
         isElementDraggable(selectedEditElement)
       ) {
-        const handles = getResizeHandlesForElement(selectedEditElement)
+        const handles = getInteractiveResizeHandles(selectedEditElement)
         const handle = hitResizeHandle(point, selectionBounds, handles, lineCoords)
-        if (handle) {
+        if (
+          handle &&
+          !shouldPreferMoveOverResize(point, selectionBounds, handle, lineCoords)
+        ) {
           event.preventDefault()
           event.currentTarget.setPointerCapture(event.pointerId)
-          const session: DragSession = {
+          pointerCaptureTargetRef.current = event.currentTarget
+          beginDragSession({
             kind: 'resize',
             index: selectedIndex,
             pointerId: event.pointerId,
             startCanvas: point,
             startElement: selectedEditElement,
+            startDisplayElement: elements[selectedIndex],
             startBounds: selectionBounds,
             handle,
-          }
-          dragSessionRef.current = session
-          setDragSession(session)
+          })
           return
         }
       }
-
-      const topHit = findTopmostElementHit(hitTargets, point)
 
       if (
         selectedIndex != null &&
@@ -443,16 +563,16 @@ export function DesignerCanvas({
         if (isElementDraggable(selectedEditElement)) {
           event.preventDefault()
           event.currentTarget.setPointerCapture(event.pointerId)
-          const session: DragSession = {
+          pointerCaptureTargetRef.current = event.currentTarget
+          beginDragSession({
             kind: 'move',
             index: selectedIndex,
             pointerId: event.pointerId,
             startCanvas: point,
             startElement: selectedEditElement,
+            startDisplayElement: elements[selectedIndex],
             startBounds: selectionBounds,
-          }
-          dragSessionRef.current = session
-          setDragSession(session)
+          })
           return
         }
       }
@@ -463,16 +583,16 @@ export function DesignerCanvas({
         if (editElement && isElementDraggable(editElement)) {
           event.preventDefault()
           event.currentTarget.setPointerCapture(event.pointerId)
-          const session: DragSession = {
+          pointerCaptureTargetRef.current = event.currentTarget
+          beginDragSession({
             kind: 'move',
             index: topHit.index,
             pointerId: event.pointerId,
             startCanvas: point,
             startElement: editElement,
+            startDisplayElement: elements[topHit.index],
             startBounds: topHit.bounds,
-          }
-          dragSessionRef.current = session
-          setDragSession(session)
+          })
         }
         return
       }
@@ -480,7 +600,9 @@ export function DesignerCanvas({
       onSelectElement(null)
     },
     [
+      beginDragSession,
       editElements,
+      elements,
       hitTargets,
       mapClientToCanvas,
       onSelectElement,
@@ -505,22 +627,13 @@ export function DesignerCanvas({
   const handlePointerLeave = useCallback(() => {
     if (!dragSessionRef.current) {
       setPointer(null)
+      setHoverCursor('default')
     }
   }, [])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (selectedIndex == null) {
-        return
-      }
-      const target = event.target
-      if (
-        target instanceof HTMLElement &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
-          target.isContentEditable)
-      ) {
+      if (selectedIndex == null || !shouldHandleCanvasKeyboard(event)) {
         return
       }
 
@@ -558,7 +671,7 @@ export function DesignerCanvas({
   }, [onDeleteSelected, onNudgeSelected, selectedIndex, snapGrid.enabled, snapGrid.size])
 
   const resizeHandles =
-    selectedEditElement && selectionBounds ? getResizeHandlesForElement(selectedEditElement) : []
+    selectedEditElement && selectionBounds ? getCanvasResizeHandles(selectedEditElement) : []
 
   const gridLines = useMemo(() => {
     if (!snapGrid.enabled) {
@@ -611,11 +724,14 @@ export function DesignerCanvas({
       ))}
       <div
         ref={containerRef}
-        className="relative flex flex-1 items-center justify-center overflow-hidden bg-[var(--shell-hover)] p-6"
+        tabIndex={0}
+        className="relative flex flex-1 items-center justify-center overflow-hidden bg-[var(--shell-hover)] p-6 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--shell-accent)]"
+        style={{ cursor: dragSession ? 'grabbing' : hoverCursor }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerLeave}
+        onLostPointerCapture={handleLostPointerCapture}
         onClick={handleClick}
       >
         <div
@@ -649,38 +765,34 @@ export function DesignerCanvas({
               ))}
             </svg>
           ) : null}
-          {renderedElements.map((entry) => (
-            <div
-              key={entry.index}
-              className="pointer-events-none absolute inset-0"
-              style={{ zIndex: entry.index + 1 }}
-            >
-              {entry.result.layer === 'svg' ? (
-                <svg
-                  viewBox={`0 0 ${renderContext.width} ${renderContext.height}`}
-                  className="h-full w-full"
-                  aria-hidden
-                >
-                  <SvgPrimitive primitive={entry.result.primitive} fontFamilies={fontFamilies} />
-                </svg>
-              ) : (
-                <CanvasElementLayer
-                  primitive={entry.result.primitive}
-                  width={renderContext.width}
-                  height={renderContext.height}
-                  accentMode={renderContext.accentMode}
-                  ditherMode={renderContext.ditherMode}
-                  assetImages={displayAssetImages}
-                  fontFamilies={fontFamilies}
-                  opentypeFonts={opentypeFonts}
-                />
-              )}
-            </div>
+          {baseElements.map((element, index) => (
+            <CanvasElementSlot
+              key={index}
+              element={element}
+              index={index}
+              hidden={dragOverlay?.index === index}
+              renderContext={renderContext}
+              assetImages={displayAssetImages}
+              fontFamilies={fontFamilies}
+              opentypeFonts={opentypeFonts}
+            />
           ))}
+          {dragOverlay ? (
+            <CanvasElementSlot
+              key={`drag-overlay-${dragOverlay.index}`}
+              element={dragOverlay.element}
+              index={dragOverlay.index}
+              layerZIndex={baseElements.length + dragOverlay.index + 1}
+              renderContext={renderContext}
+              assetImages={displayAssetImages}
+              fontFamilies={fontFamilies}
+              opentypeFonts={opentypeFonts}
+            />
+          ) : null}
           <svg
             viewBox={`0 0 ${renderContext.width} ${renderContext.height}`}
             className="pointer-events-none absolute inset-0 h-full w-full"
-            style={{ zIndex: renderedElements.length + 1 }}
+            style={{ zIndex: baseElements.length + (dragOverlay ? 2 : 1) }}
             aria-hidden
           >
             {selectionBounds ? (
@@ -695,7 +807,7 @@ export function DesignerCanvas({
                   strokeWidth={2}
                   strokeDasharray="6 3"
                 />
-                {resizeHandles.map((handle) => {
+                {resizeHandles.map(({ handle, interactive }) => {
                   const pos = handlePosition(selectionBounds, handle, lineCoords)
                   return (
                     <rect
@@ -704,9 +816,10 @@ export function DesignerCanvas({
                       y={pos.y - HANDLE_SIZE / 2}
                       width={HANDLE_SIZE}
                       height={HANDLE_SIZE}
-                      fill="#3b82f6"
+                      fill={interactive ? HANDLE_FILL_INTERACTIVE : HANDLE_FILL_DISABLED}
                       stroke="#ffffff"
                       strokeWidth={1}
+                      aria-hidden={!interactive}
                     />
                   )
                 })}

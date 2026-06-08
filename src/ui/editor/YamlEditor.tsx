@@ -14,6 +14,11 @@ import {
   shouldMoveCursorOnLinkedScroll,
   shouldReportYamlCursorPosition,
 } from './yamlEditorSelection'
+import type { StoredEditorSelection } from './yamlEditorScroll'
+import {
+  dispatchPreservingEditorViewState,
+  scrollLinkedElementIntoView,
+} from './yamlEditorScroll'
 import {
   reconfigureLinkedElementIndex,
 } from './yamlLinkedElement'
@@ -36,6 +41,8 @@ export interface YamlEditorProps {
   /** Scroll linked element into view on canvas/property-driven YAML sync. */
   scrollLinkedElementOnSync?: boolean
   onCursorPositionChange?: (position: number) => void
+  /** Last known YAML selection — survives canvas-driven doc sync while unlinked. */
+  yamlSelectionRef?: { current: StoredEditorSelection }
   className?: string
   extraEntityIds?: readonly string[]
 }
@@ -67,6 +74,7 @@ export function YamlEditor({
   preserveLinkedElementIndex = null,
   scrollLinkedElementOnSync = false,
   onCursorPositionChange,
+  yamlSelectionRef,
   className,
   extraEntityIds = [],
 }: YamlEditorProps) {
@@ -109,6 +117,7 @@ export function YamlEditor({
         onCursorPositionChangeRef,
         shouldReportYamlCursorPosition,
         suppressCursorReportRef,
+        yamlSelectionRef,
       ),
       parent: container,
     })
@@ -181,19 +190,34 @@ export function YamlEditor({
         : null
     const scrollEffect =
       scrollLinkedElementOnSync && linkedPosition != null
-        ? EditorView.scrollIntoView(linkedPosition, { y: 'center', yMargin: 24 })
+        ? scrollLinkedElementIntoView(linkedPosition)
         : undefined
-
-    view.dispatch({
+    const editorHasFocus = view.hasFocus
+    const syncSpec = {
       changes: { from: 0, to: current.length, insert: value },
-      ...(linkedPosition != null ? { selection: { anchor: linkedPosition, head: linkedPosition } } : {}),
+      ...(linkedPosition != null && editorHasFocus
+        ? { selection: { anchor: linkedPosition, head: linkedPosition } }
+        : {}),
       ...(scrollEffect ? { effects: scrollEffect } : {}),
-    })
+    }
+
+    if (scrollEffect) {
+      if (editorHasFocus && linkedPosition != null) {
+        view.dispatch(syncSpec)
+        if (yamlSelectionRef) {
+          yamlSelectionRef.current = { anchor: linkedPosition, head: linkedPosition }
+        }
+      } else {
+        dispatchPreservingEditorViewState(view, { changes: syncSpec.changes, effects: scrollEffect }, yamlSelectionRef)
+      }
+    } else {
+      dispatchPreservingEditorViewState(view, { changes: syncSpec.changes }, yamlSelectionRef)
+    }
     lastEmittedValueRef.current = value
     queueMicrotask(() => {
       suppressCursorReportRef.current = false
     })
-  }, [preserveLinkedElementIndex, scrollLinkedElementOnSync, value])
+  }, [preserveLinkedElementIndex, scrollLinkedElementOnSync, value, yamlSelectionRef])
 
   useEffect(() => {
     if (!scrollCommand) {

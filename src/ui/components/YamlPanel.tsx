@@ -52,6 +52,7 @@ export function YamlPanel({
   const serialized = useMemo(() => serializeYamlPayload(elements), [elements])
   const [yamlText, setYamlText] = useState(serialized)
   const skipExternalSyncRef = useRef(false)
+  const yamlSelectionRef = useRef({ anchor: 0, head: 0 })
   const { fontSize, increase, decrease } = useYamlFontSize()
   const { couplingEnabled, toggleCoupling } = useYamlSelectionCoupling()
   const { height: panelHeight, startResize } = useResizablePanelHeight({
@@ -154,6 +155,7 @@ export function YamlPanel({
           scrollCommand={scrollCommand}
           preserveLinkedElementIndex={couplingEnabled ? selectedIndex : null}
           scrollLinkedElementOnSync={couplingEnabled && selectionSource !== 'yaml'}
+          yamlSelectionRef={yamlSelectionRef}
           onCursorPositionChange={handleCursorPosition}
           value={yamlText}
           onChange={handleYamlChange}

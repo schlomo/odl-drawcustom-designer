@@ -8,7 +8,10 @@ import {
   ICON_DEFAULT_ANCHOR,
   anchorPointFromBox,
   iconSequenceBoxSize,
+  isOppositeResizeHandle,
+  oppositeResizeHandleForAnchor,
   resolveDirection,
+  seSizeFromOppositeHandlePointer,
 } from '../../core/renderer/anchors'
 import { createQrModuleGrid } from '../../core/renderer/qr-modules'
 import type { ElementBounds } from './primitive-bounds'
@@ -154,7 +157,7 @@ export function supportsBoxResize(element: DrawElement): boolean {
     case 'progress_bar':
     case 'plot':
     case 'dlimg':
-      return isElementDraggable(element)
+      return isBoxResizeInteractive(element)
     default:
       return false
   }
@@ -165,10 +168,36 @@ export const SE_SIZE_RESIZE_HANDLE = 'se' as const satisfies ResizeHandle
 
 const BOX_RESIZE_HANDLES: ResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
 
-export function supportsSeSizeResize(element: DrawElement): boolean {
-  if (!isElementDraggable(element)) {
-    return false
+export interface CanvasResizeHandle {
+  handle: ResizeHandle
+  /** False when a template protects the property this handle would overwrite. */
+  interactive: boolean
+}
+
+/** Omitted size scalars use spec defaults and remain editable on canvas. */
+function isEditableResizeScalar(value: unknown): boolean {
+  if (value === undefined) {
+    return true
   }
+  return isInteractiveCoordinate(value)
+}
+
+function isSeSizeResizeInteractive(element: DrawElement): boolean {
+  switch (element.type) {
+    case 'icon':
+    case 'icon_sequence':
+      return isEditableResizeScalar(element.size)
+    case 'qrcode':
+      return isEditableResizeScalar(element.boxsize)
+    case 'circle':
+    case 'arc':
+      return isEditableResizeScalar(element.radius)
+    default:
+      return false
+  }
+}
+
+function elementHasSeSizeHandle(element: DrawElement): boolean {
   switch (element.type) {
     case 'icon':
     case 'icon_sequence':
@@ -181,25 +210,142 @@ export function supportsSeSizeResize(element: DrawElement): boolean {
   }
 }
 
-export function seSizeResizeHandles(): ResizeHandle[] {
-  return [SE_SIZE_RESIZE_HANDLE]
+function isBoxResizeInteractive(element: DrawElement): boolean {
+  switch (element.type) {
+    case 'rectangle':
+    case 'ellipse':
+    case 'progress_bar':
+      return (
+        isInteractiveCoordinate(element.x_start) &&
+        isInteractiveCoordinate(element.x_end) &&
+        isInteractiveCoordinate(element.y_start) &&
+        isInteractiveCoordinate(element.y_end)
+      )
+    case 'plot':
+      return (
+        isNumericCoordinate(element.x_start ?? 0) &&
+        isNumericCoordinate(element.y_start ?? 0) &&
+        isNumericCoordinate(element.x_end ?? 0) &&
+        isNumericCoordinate(element.y_end ?? 0)
+      )
+    case 'dlimg':
+      return (
+        isNumericCoordinate(element.x) &&
+        isNumericCoordinate(element.y) &&
+        isEditableResizeScalar(element.xsize) &&
+        isEditableResizeScalar(element.ysize)
+      )
+    default:
+      return false
+  }
 }
 
-export function supportsLineEndpointResize(element: DrawElement): element is DrawElement & { type: 'line' } {
-  return element.type === 'line' && isElementDraggable(element)
+function elementHasBoxHandles(element: DrawElement): boolean {
+  switch (element.type) {
+    case 'rectangle':
+    case 'ellipse':
+    case 'progress_bar':
+    case 'plot':
+    case 'dlimg':
+      return true
+    default:
+      return false
+  }
+}
+
+function isLineEndpointInteractive(
+  element: DrawElement & { type: 'line' },
+  endpoint: 'start' | 'end',
+): boolean {
+  if (endpoint === 'start') {
+    return (
+      isInteractiveCoordinate(element.x_start) &&
+      isInteractiveCoordinate(element.y_start ?? 0)
+    )
+  }
+  return (
+    isInteractiveCoordinate(element.x_end) &&
+    isInteractiveCoordinate(element.y_end ?? 0)
+  )
+}
+
+function anchorForSeSizeElement(element: DrawElement): string | undefined {
+  if (element.type === 'icon' || element.type === 'icon_sequence') {
+    return element.anchor
+  }
+  if (element.type === 'circle' || element.type === 'arc') {
+    return 'mm'
+  }
+  return undefined
+}
+
+export function seSizeResizeHandleForElement(element: DrawElement): ResizeHandle {
+  return oppositeResizeHandleForAnchor(anchorForSeSizeElement(element), ICON_DEFAULT_ANCHOR)
+}
+
+export function getCanvasResizeHandles(element: DrawElement): CanvasResizeHandle[] {
+  if (element.type === 'line') {
+    return [
+      { handle: 'line-start', interactive: isLineEndpointInteractive(element, 'start') },
+      { handle: 'line-end', interactive: isLineEndpointInteractive(element, 'end') },
+    ]
+  }
+
+  if (elementHasSeSizeHandle(element) && isElementDraggable(element)) {
+    return [
+      {
+        handle: seSizeResizeHandleForElement(element),
+        interactive: isSeSizeResizeInteractive(element),
+      },
+    ]
+  }
+
+  if (elementHasBoxHandles(element)) {
+    const interactive = isBoxResizeInteractive(element)
+    return BOX_RESIZE_HANDLES.map((handle) => ({ handle, interactive }))
+  }
+
+  return []
+}
+
+export function getInteractiveResizeHandles(element: DrawElement): ResizeHandle[] {
+  return getCanvasResizeHandles(element)
+    .filter((entry) => entry.interactive)
+    .map((entry) => entry.handle)
+}
+
+export function supportsSeSizeResize(element: DrawElement): boolean {
+  return (
+    elementHasSeSizeHandle(element) &&
+    isElementDraggable(element) &&
+    isSeSizeResizeInteractive(element)
+  )
+}
+
+export function seSizeResizeHandles(element: DrawElement): ResizeHandle[] {
+  return [seSizeResizeHandleForElement(element)]
+}
+
+export function supportsLineEndpointResize(
+  element: DrawElement,
+  handle?: ResizeHandle,
+): element is DrawElement & { type: 'line' } {
+  if (element.type !== 'line') {
+    return false
+  }
+  if (handle === 'line-start') {
+    return isLineEndpointInteractive(element, 'start')
+  }
+  if (handle === 'line-end') {
+    return isLineEndpointInteractive(element, 'end')
+  }
+  return (
+    isLineEndpointInteractive(element, 'start') || isLineEndpointInteractive(element, 'end')
+  )
 }
 
 export function getResizeHandlesForElement(element: DrawElement): ResizeHandle[] {
-  if (supportsLineEndpointResize(element)) {
-    return ['line-start', 'line-end']
-  }
-  if (supportsSeSizeResize(element)) {
-    return seSizeResizeHandles()
-  }
-  if (supportsBoxResize(element)) {
-    return BOX_RESIZE_HANDLES
-  }
-  return []
+  return getInteractiveResizeHandles(element)
 }
 
 export function translateElement(
@@ -332,16 +478,61 @@ function applyCenterAnchoredSeSize(
   return { ...element, radius }
 }
 
-/** Resize elements that expose one size via the southeast handle. */
+/** Resize elements that expose one scalar size via the anchor-opposite corner handle. */
 export function applySeSizeResize(
   element: DrawElement,
   startBounds: ElementBounds,
   pointerX: number,
   pointerY: number,
+  handle: ResizeHandle = seSizeResizeHandleForElement(element),
 ): DrawElement {
   if (element.type === 'circle' || element.type === 'arc') {
     return applyCenterAnchoredSeSize(element, pointerX, pointerY)
   }
+
+  const dragHandle = isOppositeResizeHandle(handle)
+    ? handle
+    : oppositeResizeHandleForAnchor(anchorForSeSizeElement(element), ICON_DEFAULT_ANCHOR)
+
+  if (element.type === 'icon') {
+    const anchorX = centerCoordinate(element.x)
+    const anchorY = centerCoordinate(element.y)
+    const size = seSizeFromOppositeHandlePointer(
+      element.anchor,
+      anchorX,
+      anchorY,
+      pointerX,
+      pointerY,
+      ICON_DEFAULT_ANCHOR,
+      (nextSize) => ({ width: nextSize, height: nextSize }),
+      dragHandle,
+    )
+    return { ...element, size }
+  }
+
+  if (element.type === 'icon_sequence') {
+    const direction = resolveDirection(element.direction)
+    const hasExplicitSpacing =
+      typeof element.spacing === 'number' && Number.isFinite(element.spacing)
+    const anchorX = centerCoordinate(element.x)
+    const anchorY = centerCoordinate(element.y)
+    const size = seSizeFromOppositeHandlePointer(
+      element.anchor,
+      anchorX,
+      anchorY,
+      pointerX,
+      pointerY,
+      ICON_DEFAULT_ANCHOR,
+      (nextSize) => {
+        const spacing =
+          hasExplicitSpacing && element.spacing != null ? element.spacing : nextSize / 4
+        return iconSequenceBoxSize(nextSize, element.icons.length, spacing, direction)
+      },
+      dragHandle,
+    )
+    return { ...element, size }
+  }
+
   const nextBounds = resizeBoundsWithHandle(
     startBounds,
     SE_SIZE_RESIZE_HANDLE,
@@ -508,7 +699,13 @@ export function resizeBoundsWithHandle(
 }
 
 export function moveElementInArray<T>(items: T[], fromIndex: number, toIndex: number): T[] {
-  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= items.length) {
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= items.length ||
+    toIndex >= items.length
+  ) {
     return items
   }
   const next = [...items]

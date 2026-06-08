@@ -16,6 +16,7 @@ type SidebarTab = 'elements' | 'simulator' | 'content'
 
 interface SidebarProps {
   elements: DrawElement[]
+  previewElements: DrawElement[]
   selectedIndex: number | null
   canvas: CanvasConfig
   mockContext: HaMockContext
@@ -48,6 +49,7 @@ const DEFAULT_SIDEBAR_WIDTH = 256
 
 export function Sidebar({
   elements,
+  previewElements,
   selectedIndex,
   canvas,
   mockContext,
@@ -198,7 +200,7 @@ export function Sidebar({
             </p>
             <div className="min-h-0 flex-1 overflow-y-auto">
               <ElementList
-                elements={elements}
+                previewElements={previewElements}
                 selectedIndex={selectedIndex}
                 onSelectElement={onSelectElement}
                 onReorderElement={onReorderElement}

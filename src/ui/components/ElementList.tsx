@@ -1,22 +1,19 @@
 import { useCallback, useState, type DragEvent } from 'react'
 import type { DrawElement } from '../../core'
 import { layerPanelDisplayOrder } from '../lib/draw-order'
-import { shell } from '../styles/shell'
+import { elementListRowMeta } from '../lib/element-list-row'
+import { ElementListThumbnail } from './ElementListThumbnail'
 
 interface ElementListProps {
-  elements: DrawElement[]
+  /** Template-evaluated elements for row labels and thumbnails. */
+  previewElements: DrawElement[]
   selectedIndex: number | null
   onSelectElement: (index: number) => void
   onReorderElement: (fromIndex: number, toIndex: number) => void
 }
 
-function elementLabel(element: DrawElement, index: number): string {
-  const typeLabel = element.type.replace(/_/g, ' ')
-  return `${index + 1}. ${typeLabel}`
-}
-
 export function ElementList({
-  elements,
+  previewElements,
   selectedIndex,
   onSelectElement,
   onReorderElement,
@@ -56,10 +53,13 @@ export function ElementList({
 
   return (
     <ul className="space-y-1 overflow-y-auto">
-      {elements.length === 0 ? (
-        <li className={`text-xs ${shell.muted}`}>No elements yet</li>
+      {previewElements.length === 0 ? (
+        <li className="text-xs text-[var(--shell-muted)]">No elements yet</li>
       ) : (
-        layerPanelDisplayOrder(elements).map(({ item: element, index }) => (
+        layerPanelDisplayOrder(previewElements).map(({ item: element, index }) => {
+          const selected = selectedIndex === index
+          const row = elementListRowMeta(element)
+          return (
           <li
             key={`${index}-${element.type}`}
             onDragOver={(event) => handleDragOver(event, index)}
@@ -75,20 +75,36 @@ export function ElementList({
               draggable
               onDragStart={(event) => handleDragStart(event, index)}
               onDragEnd={handleDragEnd}
-              className={`w-full rounded-md px-3 py-2 text-left text-sm ${
-                selectedIndex === index
+              className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm ${
+                selected
                   ? 'bg-[var(--shell-accent)] text-white'
                   : 'bg-[var(--shell-surface-2)] text-[var(--shell-text)] hover:bg-[var(--shell-hover)]'
               } ${dragIndex === index ? 'opacity-50' : ''}`}
               onClick={() => onSelectElement(index)}
             >
-              <span aria-hidden className="mr-2 cursor-grab opacity-60">
+              <span aria-hidden className="cursor-grab opacity-60">
                 ⠿
               </span>
-              {elementLabel(element, index)}
+              <ElementListThumbnail thumbnail={row.thumbnail} selected={selected} />
+              <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                <span className="shrink-0 font-medium">{row.typeLabel}</span>
+                {row.detail ? (
+                  <>
+                    <span className={`shrink-0 ${selected ? 'text-white/50' : 'text-[var(--shell-muted)]'}`}>
+                      ·
+                    </span>
+                    <span
+                      className={`min-w-0 truncate ${selected ? 'text-white/90' : 'text-[var(--shell-muted)]'}`}
+                    >
+                      {row.detail}
+                    </span>
+                  </>
+                ) : null}
+              </span>
             </button>
           </li>
-        ))
+          )
+        })
       )}
     </ul>
   )

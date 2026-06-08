@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
+import { nudgeWhenSelected } from '../../../src/ui/lib/canvas-keyboard'
 import { createElementFromTemplate } from '../../../src/ui/lib/create-element-from-template'
 import {
   applyAxisDelta,
   applyBoundsResize,
+  applyLineEndpoint,
   applySeSizeResize,
+  getCanvasResizeHandles,
+  getInteractiveResizeHandles,
   isElementDraggable,
   isInteractiveCoordinate,
   moveElementInArray,
+  resizeBoundsWithHandle,
   supportsSeSizeResize,
   translateElement,
 } from '../../../src/ui/lib/element-geometry'
@@ -76,6 +81,68 @@ describe('element geometry', () => {
       expect(resized.size).toBe(48)
       expect(resized.x).toBe(10)
       expect(resized.y).toBe(20)
+    }
+  })
+
+  it('keeps icon anchor fixed when resizing from the southeast handle', () => {
+    const element = {
+      type: 'icon' as const,
+      value: 'home',
+      x: 100,
+      y: 100,
+      size: 40,
+      anchor: 'mm',
+    }
+    const startBounds = { x: 80, y: 80, width: 40, height: 40 }
+    const resized = applySeSizeResize(element, startBounds, 130, 130)
+    expect(resized.type).toBe('icon')
+    if (resized.type === 'icon') {
+      expect(resized.size).toBe(60)
+      expect(resized.x).toBe(100)
+      expect(resized.y).toBe(100)
+    }
+  })
+
+  it('shows the east handle for lm-anchored icons', () => {
+    const element = {
+      type: 'icon' as const,
+      value: 'home',
+      x: 10,
+      y: 100,
+      size: 40,
+      anchor: 'lm',
+    }
+    expect(getCanvasResizeHandles(element)).toEqual([{ handle: 'e', interactive: true }])
+  })
+
+  it('shows the northwest handle for rb-anchored icons', () => {
+    const element = {
+      type: 'icon' as const,
+      value: 'home',
+      x: 100,
+      y: 100,
+      size: 40,
+      anchor: 'rb',
+    }
+    expect(getCanvasResizeHandles(element)).toEqual([{ handle: 'nw', interactive: true }])
+  })
+
+  it('resizes rb-anchored icons from the northwest without moving the anchor', () => {
+    const element = {
+      type: 'icon' as const,
+      value: 'home',
+      x: 100,
+      y: 100,
+      size: 40,
+      anchor: 'rb',
+    }
+    const startBounds = { x: 60, y: 60, width: 40, height: 40 }
+    const resized = applySeSizeResize(element, startBounds, 50, 50, 'nw')
+    expect(resized.type).toBe('icon')
+    if (resized.type === 'icon') {
+      expect(resized.size).toBe(50)
+      expect(resized.x).toBe(100)
+      expect(resized.y).toBe(100)
     }
   })
 
@@ -187,6 +254,42 @@ describe('element geometry', () => {
     expect(isElementDraggable(element)).toBe(false)
   })
 
+  it('shows a disabled southeast handle when icon size is templated', () => {
+    const element = {
+      type: 'icon' as const,
+      value: 'home',
+      x: 10,
+      y: 20,
+      size: "{{ 48 if is_state('input_boolean.big', 'on') else 24 }}",
+    }
+    expect(isElementDraggable(element)).toBe(true)
+    expect(supportsSeSizeResize(element)).toBe(false)
+    expect(getCanvasResizeHandles(element)).toEqual([{ handle: 'se', interactive: false }])
+    expect(getInteractiveResizeHandles(element)).toEqual([])
+  })
+
+  it('allows icon resize when size is a numeric literal', () => {
+    const element = {
+      type: 'icon' as const,
+      value: 'home',
+      x: 10,
+      y: 20,
+      size: 48,
+    }
+    expect(getCanvasResizeHandles(element)).toEqual([{ handle: 'se', interactive: true }])
+    expect(supportsSeSizeResize(element)).toBe(true)
+  })
+
+  it('shows disabled box handles when rectangle coordinates are templated', () => {
+    const element = {
+      ...createElementFromTemplate('rectangle'),
+      x_start: '{{ 10 }}',
+    }
+    const handles = getCanvasResizeHandles(element)
+    expect(handles.length).toBe(8)
+    expect(handles.every((entry) => !entry.interactive)).toBe(true)
+  })
+
   it('marks templated rectangle coordinates as not draggable', () => {
     const element = {
       ...createElementFromTemplate('rectangle'),
@@ -259,6 +362,82 @@ describe('element geometry', () => {
   it('reorders elements in an array', () => {
     const items = ['a', 'b', 'c']
     expect(moveElementInArray(items, 0, 2)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('returns the same array when toIndex is out of bounds', () => {
+    const items = ['a', 'b', 'c']
+    expect(moveElementInArray(items, 0, 3)).toBe(items)
+    expect(moveElementInArray(items, 1, 5)).toBe(items)
+  })
+
+  it('drags a line start endpoint to new coordinates', () => {
+    const element = {
+      type: 'line' as const,
+      x_start: 10,
+      y_start: 20,
+      x_end: 100,
+      y_end: 80,
+    }
+    const updated = applyLineEndpoint(element, 'start', 30, 40)
+    expect(updated).toEqual({
+      type: 'line',
+      x_start: 30,
+      y_start: 40,
+      x_end: 100,
+      y_end: 80,
+    })
+  })
+
+  it('drags a line end endpoint to new coordinates', () => {
+    const element = {
+      type: 'line' as const,
+      x_start: 10,
+      y_start: 20,
+      x_end: 100,
+      y_end: 80,
+    }
+    const updated = applyLineEndpoint(element, 'end', 150, 90)
+    expect(updated).toEqual({
+      type: 'line',
+      x_start: 10,
+      y_start: 20,
+      x_end: 150,
+      y_end: 90,
+    })
+  })
+
+  it('resizes a rectangle via the southeast handle bounds', () => {
+    const element = createElementFromTemplate('rectangle')
+    const startBounds = { x: 20, y: 30, width: 80, height: 50 }
+    const nextBounds = resizeBoundsWithHandle(startBounds, 'se', 120, 100)
+    const resized = applyBoundsResize(element, nextBounds)
+    expect(resized.type).toBe('rectangle')
+    if (resized.type === 'rectangle') {
+      expect(resized.x_start).toBe(20)
+      expect(resized.y_start).toBe(30)
+      expect(resized.x_end).toBe(120)
+      expect(resized.y_end).toBe(100)
+    }
+  })
+})
+
+describe('keyboard nudge guard', () => {
+  it('does not call nudge when nothing is selected', () => {
+    let called = false
+    nudgeWhenSelected(null, () => {
+      called = true
+    }, 5, 0)
+    expect(called).toBe(false)
+  })
+
+  it('calls nudge with the selected index', () => {
+    let nudgedIndex: number | null = null
+    nudgeWhenSelected(2, (index, dx, dy) => {
+      nudgedIndex = index
+      expect(dx).toBe(5)
+      expect(dy).toBe(-3)
+    }, 5, -3)
+    expect(nudgedIndex).toBe(2)
   })
 })
 

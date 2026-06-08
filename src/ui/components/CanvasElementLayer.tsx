@@ -1,6 +1,6 @@
 import type { AccentMode, DitherMode } from '../../core'
 import type opentype from 'opentype.js'
-import { useEffect, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import type { CanvasPrimitive } from '../../core/renderer/types'
 import { drawCanvasStub } from '../lib/draw-canvas-stubs'
 
@@ -16,7 +16,7 @@ interface CanvasElementLayerProps {
 }
 
 /** One full-size transparent canvas layer for a single payload element (z-order via DOM). */
-export function CanvasElementLayer({
+export const CanvasElementLayer = memo(function CanvasElementLayer({
   primitive,
   width,
   height,
@@ -53,4 +53,4 @@ export function CanvasElementLayer({
       aria-hidden
     />
   )
-}
+})

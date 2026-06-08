@@ -1,0 +1,66 @@
+import { describe, expect, it } from 'vitest'
+import {
+  displayIconName,
+  elementListRowMeta,
+  firstLinePreview,
+} from '../../../src/ui/lib/element-list-row'
+
+describe('elementListRowMeta', () => {
+  it('shows mdi thumbnail and icon name without list index', () => {
+    const meta = elementListRowMeta({ type: 'icon', value: 'mdi:home', x: 0, y: 0, size: 24 })
+    expect(meta.typeLabel).toBe('icon')
+    expect(meta.thumbnail).toEqual({ kind: 'mdi', name: 'mdi:home' })
+    expect(meta.detail).toBe('home')
+  })
+
+  it('shows first icon and count for icon_sequence', () => {
+    const meta = elementListRowMeta({
+      type: 'icon_sequence',
+      x: 0,
+      y: 0,
+      icons: ['mdi:home', 'mdi:office-building'],
+      size: 20,
+    })
+    expect(meta.typeLabel).toBe('icon sequence')
+    expect(meta.thumbnail).toEqual({
+      kind: 'mdi_sequence',
+      names: ['mdi:home'],
+      total: 2,
+    })
+    expect(meta.detail).toBe('2 icons')
+  })
+
+  it('uses first line of text value as detail', () => {
+    const meta = elementListRowMeta({
+      type: 'text',
+      value: 'Hello epaper world',
+      x: 0,
+      y: 0,
+    })
+    expect(meta.detail).toBe('Hello epaper world')
+    expect(meta.thumbnail).toEqual({ kind: 'text', preview: 'He' })
+  })
+
+  it('shows evaluated template output when passed preview values', () => {
+    const meta = elementListRowMeta({
+      type: 'text',
+      value: '72.4 °F',
+      x: 0,
+      y: 0,
+    })
+    expect(meta.detail).toBe('72.4 °F')
+  })
+})
+
+describe('firstLinePreview', () => {
+  it('keeps only the first line and collapses whitespace', () => {
+    expect(firstLinePreview('line one\nline two')).toBe('line one')
+    expect(firstLinePreview('  spaced   words  ')).toBe('spaced words')
+  })
+})
+
+describe('displayIconName', () => {
+  it('strips mdi prefix', () => {
+    expect(displayIconName('mdi:account-cowboy-hat')).toBe('account-cowboy-hat')
+  })
+})

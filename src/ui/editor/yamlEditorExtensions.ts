@@ -17,6 +17,7 @@ import { yamlWithJinja } from './yamlLanguage'
 import { yamlPayloadLinter } from './yamlLint'
 import { createYamlEditorTheme } from './yamlTheme'
 import { shouldSyncYamlCursorToCanvas, shouldReportYamlDocChange } from './yamlEditorSelection'
+import type { StoredEditorSelection } from './yamlEditorScroll'
 
 export const yamlThemeCompartment = new Compartment()
 
@@ -51,6 +52,7 @@ export function createYamlEditorState(
   },
   shouldReportCursor: (selection: { empty: boolean }) => boolean,
   suppressCursorReportRef: { current: boolean },
+  yamlSelectionRef?: { current: StoredEditorSelection },
 ): EditorState {
   return EditorState.create({
     doc,
@@ -80,6 +82,11 @@ export function createYamlEditorState(
         highlightLinkedElement(),
       ]),
       EditorView.updateListener.of((update) => {
+        if (update.selectionSet && yamlSelectionRef) {
+          const { anchor, head } = update.state.selection.main
+          yamlSelectionRef.current = { anchor, head }
+        }
+
         if (
           shouldReportYamlDocChange(update.docChanged, update.transactions)
         ) {

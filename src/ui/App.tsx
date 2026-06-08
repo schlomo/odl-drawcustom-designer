@@ -7,6 +7,7 @@ import { ThemeToggle } from './components/ThemeToggle'
 import { YamlPanel } from './components/YamlPanel'
 import { remapSelectedIndex } from './editor/yamlElementsSync'
 import { collectKnownFontKeys } from './lib/known-font-keys'
+import { nudgeWhenSelected } from './lib/canvas-keyboard'
 import type { StatusMessage } from './lib/status-messages'
 import { MIN_CANVAS_PREVIEW_HEIGHT } from './hooks/useResizablePanelHeight'
 import { useProjectState } from './hooks/useProjectState'
@@ -105,9 +106,7 @@ export function App() {
 
   const handleNudgeSelected = useCallback(
     (dx: number, dy: number) => {
-      if (selectedIndex != null) {
-        nudgeElement(selectedIndex, dx, dy)
-      }
+      nudgeWhenSelected(selectedIndex, nudgeElement, dx, dy)
     },
     [nudgeElement, selectedIndex],
   )
@@ -154,6 +153,7 @@ export function App() {
       <div className="flex min-h-0 flex-1">
         <Sidebar
           elements={elements}
+          previewElements={previewElements}
           selectedIndex={selectedIndex}
           canvas={canvas}
           mockContext={mockContext}
