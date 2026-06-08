@@ -1,6 +1,6 @@
 ---
 name: OEPL YAML Designer
-overview: Build a new open-source OpenEPaperLink drawcustom YAML designer (`oepl-designer`) that matches and exceeds existing reference designers, with full spec coverage, offline asset substitution via IndexedDB, hash-based sharing, and GitHub Pages deployment.
+overview: OpenEPaperLink drawcustom YAML designer — spec-complete core, global IndexedDB assets/mocks, last-session restore, hash share, multi-select editing, HA embed path, GH Pages + optional HA panel.
 todos:
   - id: scaffold
     content: "Create oepl-designer repo: Vite+React 19+TS, Tailwind, ESLint core/ui boundary, GH Actions Pages deploy"
@@ -24,13 +24,13 @@ todos:
     content: "Phase 1d: renderer stubs for all 16 types + render-element fixture sweep"
     status: completed
   - id: ha-simulator
-    content: "State Simulator UI + template preview; mocks in IndexedDB per project (§17a)"
+    content: "State Simulator UI + template preview (§17a; mocks → global in §18a)"
     status: completed
   - id: canvas-core
     content: "Phase 2e: canvas interaction — selection, drag, resize, snap, keyboard, layer ordering"
     status: completed
   - id: renderer
-    content: "Phase 3d–3e: QR, plot, parse_colors, dither (MDI done §17c)"
+    content: "Phase 3g: architecture + test quality gate before Phase 4 (§17g)"
     status: pending
   - id: content-manager
     content: "Content Manager UI + IndexedDB asset persistence (§17a)"
@@ -39,10 +39,22 @@ todos:
     content: "opentype text (§17b ✅); dlimg resize preview polish in §17d"
     status: pending
   - id: share-history
-    content: Hash share (#d=pako payload without assets), project naming, 20-item LRU history
+    content: "Hash share (#d=pako) + last-session restore — no multi-project library (§18b)"
     status: pending
   - id: polish
-    content: Dither/accent preview, parse_colors, real QR, plot sample data, undo/redo, PNG export, validation panel
+    content: "PNG/YAML export bars, undo/redo 50, multi-select, edge snap, HA embed prep (§18)"
+    status: pending
+  - id: phase4-storage
+    content: "§18a: global assets+mocks, single session blob, Dexie v2 (no migration)"
+    status: pending
+  - id: phase4-multiselect
+    content: "§18c: marquee select, bulk move/layer, align H/V"
+    status: pending
+  - id: phase4-ha-embed
+    content: "§18f: HA panel mode, drawcustom load/save, live state preview"
+    status: pending
+  - id: phase4-display-zoom
+    content: "§18i: resolution + color mode dropdowns; canvas zoom 50/100/200/fit (§18b)"
     status: pending
   - id: yaml-jinja-editor
     content: "CodeMirror 6 YAML panel: syntax highlighting (YAML + embedded Jinja), schema-driven autocomplete, lint diagnostics"
@@ -69,7 +81,7 @@ todos:
     content: "Commit Phase 2e after lint fix + review (§11f)"
     status: completed
   - id: phase3-indexeddb
-    content: "Phase 3a: IndexedDB assets + per-project mocks (§17a)"
+    content: "Phase 3a: IndexedDB assets + mocks (§17a; reshaped global in §18a)"
     status: completed
   - id: phase3-text
     content: "Phase 3b: opentype text/multiline + coord drag 19-3/19-4 (§17b)"
@@ -85,19 +97,31 @@ todos:
     status: completed
   - id: phase3-qr-plot
     content: "Phase 3d: QR + plot preview + plot property fields 19-5 (§17d)"
-    status: pending
+    status: completed
+  - id: phase3d-commit
+    content: "Commit Phase 3d after verification (§11j)"
+    status: completed
   - id: phase3-dither
     content: "Phase 3e: parse_colors + dither pipeline (§17e)"
-    status: pending
+    status: completed
+  - id: phase3e-commit
+    content: "Commit Phase 3e after verification (§11k)"
+    status: completed
   - id: phase3-canvas-perf
     content: "Phase 3f: canvas drag perf + interaction tests 19-1/19-2/19-6/19-13 (§17f)"
+    status: completed
+  - id: phase3f-commit
+    content: "Commit Phase 3f after verification (§11l)"
+    status: completed
+  - id: phase3g-arch-quality
+    content: "Phase 3g: architecture + test quality gate before Phase 4 (§17g)"
     status: pending
   - id: phase4-property-form-ux
-    content: "Phase 4: JSON field blur UX, property form tests, useProjectState refactor (§18, 19-7–19-9)"
-    status: pending
+    content: "Deferred post-v1: JSON blur UX + property form tests (19-7/19-8); 19-9 in §18d"
+    status: cancelled
   - id: phase4-canvas-clipboard
-    content: "Phase 4: element copy/paste + canvas pan/zoom (§18, 19-10–19-11)"
-    status: pending
+    content: "Deferred post-v1: element Ctrl+C/V (19-10), free pan + continuous zoom (19-11)"
+    status: cancelled
   - id: post-v1-canvas-handles
     content: "Post-v1: arc angle handles, polygon point editing (19-12)"
     status: pending
@@ -137,8 +161,8 @@ flowchart LR
 | Zone              | Contents                                                                                                                                         |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Header**        | App title, Share button (copies URL), dark/light mode                                                                                            |
-| **Left sidebar**  | Load Example dropdown (17 designs), Add Element icon grid (16 types), Display Config (34 tag presets + custom W/H, visual rotation 0/90/180/270) |
-| **Center canvas** | White e-paper preview on slate background, mouse coordinates overlay, Clear All, Snap On/Off, pan/zoom via SVG viewBox                           |
+| **Left sidebar**  | Load Example dropdown, Add Element grid (16 types), **resolution** + **color mode** dropdowns (not inch-based tag presets), rotation 0/90/180/270 |
+| **Center canvas** | E-paper preview; **top bar**: zoom 200/100/Fit/50, PNG copy/download, Clear All, Snap On/Off, coords overlay                                   |
 | **Right panel**   | Context form for selected element; Delete + Bring to Front                                                                                       |
 | **Bottom panel**  | Live YAML editor, Copy YAML, Parse YAML and load to canvas                                                                                       |
 
@@ -203,7 +227,7 @@ flowchart LR
 | Service options: `background`, `rotate`, `dither`, `ttl`, `dry-run` | Not modeled                                       |
 | Halftone / dithered color preview                                   | Flat RGB approximations only                      |
 | Hex colors (`#RGB`, `#RRGGBB`)                                      | Parsed; limited UI                                |
-| `parse_colors` inline markup                                        | Editor toggle only; **not rendered**              |
+| `parse_colors` inline markup                                        | ✅ Rendered on text/multiline (**3e**)            |
 | Text wrap / truncate / multiline `\n`                               | Not visually accurate                             |
 | Real TTF fonts (`ppb.ttf`, custom paths)                            | CSS `fontFamily` string only — **no TTF loading** |
 | `dlimg` from URL / HA paths / camera entities                       | Placeholder only (except clipboard preview)       |
@@ -250,7 +274,7 @@ flowchart TB
 
 **Bundled defaults:** Ship `ppb.ttf` + `rbm.ttf` (verify license) under `public/fonts/`; map treats these keys as resolved without upload.
 
-**Storage split:** IndexedDB (Dexie) for blobs + project snapshots; `localStorage` for prefs and history index.
+**Storage split (revised §7.2):** IndexedDB — global `assets`, global `mocks`, single `session` row (last design). `localStorage` — UI prefs only. No multi-project library.
 
 ### HA state simulator (template preview)
 
@@ -273,7 +297,7 @@ flowchart LR
 - **Scan** payload for Jinja patterns: `states('sensor.x')`, `is_state('binary_sensor.door', 'on')`, `states('sensor.battery')|float`, color tags with embedded templates, etc.
 - **State Simulator panel** (alongside Content Manager): table of discovered entities + editable mock values (string/number/bool); add manual entries for entities not yet referenced.
 - **Evaluate** templates client-side with a **restricted, testable** evaluator (not full Jinja2 — implement the subset HA actually uses in drawcustom examples: `states`, `is_state`, `float` filter, simple `if/else`).
-- Mock values persist **per project** in IndexedDB (included in project snapshot, **excluded** from share hash unless we add optional `mocks` in hash later — default: exclude, user re-enters mocks after opening shared link).
+- Mock values persist **globally** in IndexedDB (one shared map for the HA instance — same entities across all layouts). **Excluded** from share hash; embedded HA mode uses live states instead (§7.2).
 - Preview re-renders live when mock values change.
 - TDD: fixture YAML files with templates + expected evaluated strings.
 
@@ -358,7 +382,7 @@ Implementation notes:
 {
   "v": 1,
   "name": "Doorphone status",
-  "canvas": { "width": 296, "height": 128, "rotation": 0, "accent": "red" },
+  "canvas": { "width": 296, "height": 128, "rotation": 0, "colorMode": "bwr" },
   "service": { "background": "white", "rotate": 0, "dither": 2 },
   "elements": [ /* drawcustom payload */ ]
 }
@@ -368,11 +392,12 @@ Implementation notes:
 - On load: restore project metadata + elements; **re-bind** assets from local IndexedDB by path — shared links work across machines but previews need re-upload of same paths.
 - Show banner listing missing assets after import.
 
-### Edit history (20 projects)
+### Session persistence (replaces 20-project history)
 
-- `localStorage` record: `{ id, name, updatedAt, canvas, elementCount, hashSnippet }` — **not** full YAML × 20 (size limit).
-- Full snapshot in IndexedDB keyed by `id` (LRU eviction at 20).
-- Header: project name field + Recent projects dropdown/modal.
+- **One** auto-saved session in IndexedDB (`session` store): name, canvas, service options, elements, `updatedAt`.
+- On app load: restore last session if present; otherwise blank or hash `#d=…` if in URL.
+- **Primary portability:** Copy/download YAML, hash share link, HA automation embed — not a built-in project browser.
+- Optional editable project name in header (cosmetic label for export filename / share payload only).
 
 ---
 
@@ -382,31 +407,33 @@ Prioritized for a “really nice” designer:
 
 **High value**
 
-1. **Accent tag toggle** — preview as red-tag vs yellow-tag (maps `accent`/`half_accent` correctly).
+1. **Color mode dropdown** — BW / BWR / BWY / 6-color (scaffold); maps `accent`/`half_accent` correctly (replaces separate accent toggle + inch presets).
 2. **Dither preview modes** — ordered (d=2) and optional Floyd-Steinberg (d=1) on export/preview toggle so halftone colors look like the tag.
 3. **Service options panel** — `background`, `rotate`, `dither` with note that rotate in service vs visual canvas rotation are distinct (keep existing tool’s helpful note).
-4. **Undo/redo** — element + property changes (zustand temporal or custom stack).
-5. **Layer panel** — reorder, hide (`visible`), lock, duplicate; replaces “bring to front only”.
+4. **Undo/redo** — 50-step stack for element + property + multi-select batch edits.
+5. **Multi-select** — marquee/drag select, bulk move, raise/lower, align H/V (replaces separate layer-panel scope for v1).
 6. ~~Template playground~~ → **HA State Simulator** (see §2) — first-class panel, not optional polish.
 7. **Real QR rendering** — `qrcode` npm package.
-8. **Plot sample data editor** — CSV paste or synthetic generator; preview `span_gaps`, `smooth`, step lines.
+8. ~~Plot sample data editor~~ — **deferred**; synthetic preview in renderer (3d) + YAML `data` field is enough.
 9. `**parse_colors` renderer** — parse `[red]text[/red]` in preview.
-10. **PNG export** — dithered preview matching tag output (for sharing layouts without HA).
-11. **YAML + Jinja CodeMirror editor** — syntax highlighting, schema autocomplete, inline lint (see §2).
+10. **PNG export** — canvas toolbar: copy to clipboard + download PNG (dithered when §17e pipeline ready).
+11. **YAML toolbar** — copy + download `.yaml` alongside existing editor.
+12. **YAML + Jinja CodeMirror editor** — syntax highlighting, schema autocomplete, inline lint (see §2).
 
 **Medium value**
-12. Alignment tools (left/center/right, distribute, match size).
-13. Snap to canvas center/edges and other elements.
-14. Schema-driven property forms with inline docs linking to spec anchors.
-15. YAML validation panel (errors/warnings before copy) — complements inline CodeMirror lint.
-16. Import/export **asset bundle** (zip of substitutions + manifest) — separate from share link; for moving between your machines.
-17. PWA + offline shell (design without network after first load).
+13. Snap to canvas outer edges when snap on (bottom/right edge priority over grid).
+14. Alignment tools for multi-selection (left/center/right, top/middle/bottom).
+15. Schema-driven property forms with inline docs linking to spec anchors.
+16. **HA embed mode** — run inside HA as design editor; load/save `drawcustom` from automations; live entity states for preview (§7.2).
 
-**Lower priority / later** — tracked in §7.1 post-v1 list; do not block v1.
+**Cut or deferred (simplify v1)** — see §7.2 simplifications table.
 
-18. Multi-select and group move.
-19. HA automation snippet generator wrapping payload in `open_epaper_link.drawcustom` service call.
-20. Side-by-side diff of YAML versions from history.
+17. ~~20-project LRU history~~ → last session only.
+18. ~~Asset bundle zip~~, ~~PWA shell~~, ~~YAML validation summary panel~~, ~~side-by-side history diff~~ — post-v1.
+19. ~~Element Ctrl+C/V copy/paste~~, ~~canvas pan/zoom~~ — post-v1 (19-10, 19-11).
+20. ~~Layer panel hide/lock/duplicate~~ — defer; multi-select + raise/lower covers v1 editing.
+21. ~~Plot CSV sample editor~~ — synthetic preview in renderer is enough.
+22. ~~HA snippet generator~~ — superseded by HA embed load/save when feasible.
 
 ---
 
@@ -539,7 +566,9 @@ Maintain `docs/adr/` in repo (for future-you and contributors):
 | ------- | --------------------------------------------------------------------------------- |
 | ADR-001 | Core/UI separation — pure TS modules, no framework in renderer                    |
 | ADR-002 | Local content map vs YAML-embedded preview (reject HA comments)                   |
-| ADR-003 | IndexedDB schema (assets, projects, mocks)                                        |
+| ADR-003 | IndexedDB schema (global assets, mocks, session) — revised §18a                  |
+| ADR-010 | HA embed mode (standalone vs panel, load/save drawcustom)                         |
+| ADR-011 | Behavior-test policy (planned §17g) — core tests assert spec outcomes, not internals |
 | ADR-004 | Template evaluator scope (subset of Jinja, not full engine)                       |
 | ADR-005 | Share hash format and excluded data                                               |
 | ADR-006 | UI framework: **React** for shell (AI-maintainability); core stays framework-free |
@@ -677,12 +706,15 @@ flowchart LR
 | **3a** IndexedDB | ✅ Done | `9d58839` | 357 (49 files) | Dexie assets + mocks + project stub |
 | **3b** opentype text | ✅ Done | `23d12b5` | 427 (64 files) | Layout, anchors, wrap/truncate, multiline, bidi/RTL, glyph draw |
 | **3c** MDI icons | ✅ Done | `7deb2fd` | 480 (72 files) | `@mdi/js` paths, icon autocomplete, validation, canvas UX polish |
-| **3d–3f** Fidelity | ⬜ **Next** | — | — | QR, plot, parse_colors, dither, canvas perf (§17d–§17f) |
-| **4** Polish | ⬜ After 3 | — | — | Share, history, service options, undo/layers, PNG, e2e, deploy (§18) |
+| **3d** QR + plot | ✅ Done | `3b75953` | 500 (77 files) | `qrcode` package, plot axes/legends/series, **19-5** nested fields, SE resize |
+| **3e** parse_colors + dither | ✅ Done | `ce99de5` | 522 (80 files) | Inline color segments, ordered d=2, flat/dither canvas toggle |
+| **3f** Canvas polish | ✅ Done | `1b629ff` | 557 (85 files) | Drag overlay, pointer capture, interaction tests, sidebar previews |
+| **3g** Arch + quality | ⬜ **Next** | — | — | ADR audit, behavior tests (§17g) — before Phase 4 |
+| **4** Polish | ⬜ After 3g | — | — | Storage, export bars, multi-select, undo, edge snap, HA embed, deploy (§18) |
 
-**Current repo health:** `npm test` → **480 passed** (72 files) · `npm run lint` → **clean** · last commit `7deb2fd`
+**Current repo health:** `npm test` → **557 passed** (85 files) · `npm run lint` → **3 warnings** (hook deps) · last commit `1b629ff`
 
-**Next:** Phase **3d** — QR + plot (§17d).
+**Next:** Phase **3g** — architecture + quality gate (§17g).
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -701,7 +733,7 @@ flowchart LR
 - ✅ Renderer stubs — **all 16 types** in `src/core/renderer/`; exhaustive `switch` in `renderElement`
 - ✅ `tests/core/renderer/render-element.test.ts` — every spec fixture renders without error
 
-**Stub vs fidelity (Phase 3 upgrades):** line/rectangle/circle are real SVG; text/multiline + icon/icon_sequence are real (**3b**, **3c**); dlimg/qrcode/plot remain `-stub` primitives with bounds/placeholders only.
+**Stub vs fidelity (Phase 3 upgrades):** line/rectangle/circle are real SVG; text/multiline + icon/icon_sequence + qrcode/plot are real (**3b**–**3d**); dlimg remains `-stub` with bounds/placeholders only.
 
 ### Phase 2a — Stabilize before commit (§11d) ✅ (`84d2164`)
 
@@ -756,7 +788,7 @@ Committed: layout, canvas, YamlEditor, stabilization fixes, ADR-009, `elementTem
 - ✅ Canvas chrome: Clear all, mouse coordinates overlay
 - ✅ `element-geometry.ts`, `canvas-hit-test.ts`, `draw-order.ts`, `selection-remap.ts` — pure UI libs with tests
 - ✅ Resizable property panel width (`useResizablePanelWidth`)
-- ⬜ Deferred: Ctrl+C/V copy/paste elements; pan/zoom viewBox
+- ⬜ Deferred post-v1: Ctrl+C/V copy/paste (19-10); free pan/continuous zoom (19-11). Fixed zoom → **4b**.
 
 **Committed:** §19 review complete (2026-06-07). Fixes: lint (`ha-datetime.ts`, `DesignerCanvas.tsx` deps), keyboard nudge guard + safe `translateElement`, `resolveDirection` for templated direction fields.
 
@@ -766,19 +798,19 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 
 | ID | Task | Phase | Key files |
 |----|------|-------|-----------|
-| **19-1** | Canvas drag performance — avoid full re-render on every `pointermove`; drag overlay or memoized per-index layers | **3f** | `DesignerCanvas.tsx`, `CanvasElementLayer.tsx` |
-| **19-2** | Explicit `releasePointerCapture` on drag end / `lostpointercapture` | **3f** | `DesignerCanvas.tsx` |
+| **19-1** | Canvas drag performance — avoid full re-render on every `pointermove`; drag overlay or memoized per-index layers | **3f** ✅ | `DesignerCanvas.tsx`, `CanvasElementSlot.tsx` |
+| **19-2** | Explicit `releasePointerCapture` on drag end / `lostpointercapture` | **3f** ✅ | `DesignerCanvas.tsx` |
 | **19-3** | Numeric string coords (`"50"`) — align `isInteractiveCoordinate` with core `resolveX`/`resolveY` | **3b** ✅ | `element-geometry.ts` |
 | **19-4** | Percentage coord drag (`"50%"`) when position is not templated | **3b** ✅ | `element-geometry.ts`, `canvas-interaction.test.ts` |
-| **19-5** | Plot nested sub-object property fields (e.g. `yaxis.smooth`) beyond top-level JSON blobs | **3d** | `ElementPropertyForm.tsx`, `propertyMetadata.ts` |
-| **19-6** | Canvas interaction unit tests — line endpoints, circle radius, bounds resize, nudge guard | **3f** | `tests/ui/lib/canvas-interaction.test.ts` |
-| **19-7** | Property form tests — JSON blur/revert, enum↔template toggle, font/image upload paths | **4** | `ElementPropertyForm.tsx`, Testing Library |
-| **19-8** | JSON property field invalid-on-blur UX (inline error or revert to last valid) | **4** | `ElementPropertyForm.tsx` |
-| **19-9** | Refactor `useProjectState` — batch selection remap with element mutations (`useReducer` or paired updates); **partial:** `applyLayerMove` + ADR-009 selection-stability rules | **4** | `useProjectState.ts` — pair with undo/redo |
-| **19-10** | Element copy/paste (Ctrl+C/V, +10px offset) | **4** | `DesignerCanvas.tsx`, `useProjectState.ts` |
-| **19-11** | Canvas pan/zoom (SVG viewBox) | **4** | `DesignerCanvas.tsx` |
+| **19-5** | Plot nested sub-object property fields (e.g. `yaxis.smooth`) beyond top-level JSON blobs | **3d** ✅ | `ElementPropertyForm.tsx`, `propertyMetadata.ts` |
+| **19-6** | Canvas interaction unit tests — line endpoints, circle radius, bounds resize, nudge guard | **3f** ✅ | `tests/ui/lib/canvas-interaction.test.ts` |
+| **19-7** | Property form tests — JSON blur/revert, enum↔template toggle, font/image upload paths | **post-v1** | `ElementPropertyForm.tsx`, Testing Library |
+| **19-8** | JSON property field invalid-on-blur UX (inline error or revert to last valid) | **post-v1** | `ElementPropertyForm.tsx` |
+| **19-9** | Refactor `useProjectState` — batch selection remap with element mutations (`useReducer` or paired updates); **partial:** `applyLayerMove` + ADR-009 selection-stability rules | **4d** ✅ target | `useProjectState.ts` — pair with undo/redo |
+| **19-10** | Element copy/paste (Ctrl+C/V, +10px offset) | **post-v1** | `DesignerCanvas.tsx`, `useProjectState.ts` |
+| **19-11** | Free pan + continuous zoom (SVG viewBox) — fixed 50/100/200/Fit is **4b**, not this | **post-v1** | `DesignerCanvas.tsx` |
 | **19-12** | Arc angle handles; polygon vertex handles on canvas | **post-v1** | `DesignerCanvas.tsx`, `element-geometry.ts` |
-| **19-13** | `moveElementInArray` guard when `toIndex >= length` | **3f** | `element-geometry.ts` |
+| **19-13** | `moveElementInArray` guard when `toIndex >= length` | **3f** ✅ | `element-geometry.ts` |
 
 ### Phase 3a — IndexedDB storage (§17a) ✅ (`9d58839`)
 
@@ -790,7 +822,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 - ✅ `useProjectState` — hydrate on mount; persist mocks after hydration
 - ✅ `tests/storage/assets.test.ts`, `tests/storage/mocks.test.ts`
 
-**Phase 4 note:** plan may simplify to a **global mock store** (§7 Phase 4) — one HA instance, shared entity map like assets.
+**Superseded by §7.2 / §18a:** mocks and assets become global; per-`projectId` mocks and `projects` store removed in Dexie v2 (no migration).
 
 ### Phase 3b — opentype text fidelity (§17b) ✅ (`23d12b5`)
 
@@ -816,21 +848,55 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 - ✅ Tests: `mdi-icons`, `icon`, `icon-sequence`, `mdi-icon-names`
 - ✅ Bonus UX (same commit): canvas YAML error banner; polygon YAML linking (`yamlLinkedElement.ts`); property-panel color picker fixes; `icon_sequence` resize by direction (`canvas-resize-handles.ts`)
 
+### Phase 3d — QR + plot preview (§17d) ✅ (`3b75953`)
+
+- ✅ `qrcode` npm package + `qr-modules.ts` — real module grid; honors `boxsize`, `border`, colors
+- ✅ `qrcode.ts` — primitive `kind: 'qrcode'` (replaces `qrcode-stub`)
+- ✅ `plot.ts` + `plot-sample-data.ts` — axes, legends, grid, series lines; synthetic sample when `data` present
+- ✅ `draw-canvas-stubs.ts` — canvas draw for QR modules and plot series/axes
+- ✅ §19 **19-5** — `PLOT_NESTED_FIELDS` + structured plot sub-object fields in `propertyMetadata.ts` / `ElementPropertyForm.tsx`
+- ✅ `tests/fixtures/spec/plot-qrcode-rich.yaml` — rich golden fixture from spec
+- ✅ Tests: `qrcode`, `plot`, `plot-sample-data`, `plot-property-metadata`, `arc-geometry`
+- ✅ Bonus UX (same commit): qrcode SE resize handle; spec-aligned arc geometry (`arc-geometry.ts`)
+
+### Phase 3e — parse_colors + dither (§17e) ✅ (`ce99de5`)
+
+- ✅ `parse-colors.ts` — `[color]…[/color]` segment parser; `stripColorMarkup` for layout metrics
+- ✅ `text-color-lines.ts` — colored line segments on text/multiline primitives
+- ✅ `text.ts` / `multiline.ts` — `parse_colors` wired into renderer when enabled
+- ✅ `dither.ts` — ordered Bayer d=2; halftone + accent-aware patterns
+- ✅ `draw-canvas-stubs.ts` — multi-color glyph draw + dithered fill paths
+- ✅ `previewDitherMode` on canvas (flat vs d=2 toggle in `DesignerCanvas`)
+- ✅ Fixture `parse-colors-text.yaml`; tests: `parse-colors`, `parse-colors-render`, `dither`
+- **Note:** `palette.ts` / 6-color scaffold deferred to **§18i**; accent via existing `accentMode`
+
+### Phase 3f — Canvas interaction polish (§17f) ✅ (`1b629ff`)
+
+- ✅ §19 **19-1** — drag overlay via `CanvasElementSlot`; base layer hidden during drag
+- ✅ §19 **19-2** — `releasePointerCapture` on drag end
+- ✅ §19 **19-6** — extended `canvas-interaction.test.ts` (resize, nudge, line/circle)
+- ✅ §19 **19-13** — `moveElementInArray` bounds guard + tests
+- ✅ Anchor-opposite resize handles (`canvas-resize-handles.ts`, `anchors.ts`)
+- ✅ `font-layout-token.ts` — text relayout after async font load
+- ✅ Sidebar element list thumbnails (`ElementListThumbnail`, `element-list-row.ts`)
+- ✅ YAML editor scroll stability (`yamlEditorScroll.ts`, linked vs non-linked selection)
+- ✅ Tests: `canvas-keyboard`, `element-list-row`, `yaml-editor-scroll`, `anchors`
+
 ### Phase 3 — Fidelity (upgrade stubs → real tag preview)
 
 **Biggest user-visible gap after 2e.** Core renderer stubs become honest e-paper preview.
 
 | Area | Current (post-2d) | Phase 3 target |
 |------|-------------------|----------------|
-| Text | ✅ opentype layout + glyph draw (**3b**) | parse_colors segments (§17e) |
+| Text | ✅ opentype + parse_colors segments (**3b**, **3e**) | — |
 | Icons | ✅ real MDI paths (**3c**) | — |
-| QR | Decorative grid | Scannable via `qrcode` package |
-| Plot | Placeholder area | Axes, legends, sample/synthetic data, `span_gaps`, `smooth`, line styles; **19-5** nested plot property fields |
-| `parse_colors` | Not rendered | Parse `[red]…[/red]` markup in preview (ADR-004) |
-| Dither / accent | Flat RGB | Ordered dither (d=2), optional Floyd-Steinberg; red vs yellow accent toggle |
+| QR | ✅ scannable module grid (**3d**) | — |
+| Plot | ✅ axes, legends, series (**3d**) | parse_colors in plot labels optional post-v1 |
+| `parse_colors` | ✅ text/multiline canvas (**3e**) | — |
+| Dither / color mode | ✅ flat vs d=2 toggle (**3e**) | Color mode dropdown + 6-color scaffold (**4i**) |
 | dlimg | Uploaded images draw; no resize_method | Full resize/rotate preview per spec |
-| Assets / mocks | ✅ IndexedDB + sync resolver hydrate (**3a**) | Global mock simplification optional in **4** |
-| Canvas interaction | Full re-render on drag | **19-1** drag overlay / memo; **19-2** pointer capture; **19-6** interaction tests |
+| Assets / mocks | ✅ IndexedDB (**3a**); reshape to global + session in **4a** | — |
+| Canvas interaction | ✅ drag overlay + tests (**3f**) | — |
 | Coordinates | ✅ numeric strings + `"N%"` drag (**3b**) | — |
 | Tests | 16 minimal fixtures + exhaustiveness sweep | Rich fixtures from spec; geometry/PNG hash tests |
 
@@ -839,34 +905,120 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 - **3a** — IndexedDB (`src/storage/`) ✅ **`9d58839`**
 - **3b** — opentype text + multiline ✅ **`23d12b5`**
 - **3c** — MDI icons + icon_sequence ✅ **`7deb2fd`**
-- **3d** — QR + plot preview; **19-5** plot nested property fields
-- **3e** — parse_colors + dither pipeline (Best-of-N candidate)
-- **3f** — Canvas interaction follow-ups (§19): **19-1** drag perf, **19-2** pointer capture, **19-6** interaction tests, **19-13** array bounds guard
+- **3d** — QR + plot preview; **19-5** plot nested property fields ✅ **`3b75953`**
+- **3e** — parse_colors + dither pipeline ✅ **`ce99de5`**
+- **3f** — Canvas interaction follow-ups (§19) ✅ **`1b629ff`**
+- **3g** — Architecture + quality gate (**before Phase 4**): ADR review, adherence audit, test simplification → §17g
 
-### Phase 4 — Product polish + v1 ship criteria
+### Phase 3g — Architecture + quality gate (§17g) ⬜ before Phase 4
 
-**Closes the product loop** — share, history, service options, export. Required for §8 v1.
+**Why now:** Phase 4 reshapes storage (`useProjectState`, Dexie v2), adds undo/redo (50 steps), multi-select, and HA embed hooks. Cleaning architecture and tests first reduces refactor cost and prevents locking in brittle coverage.
 
-| Feature | Notes |
-|---------|--------|
-| **Share link** | Header Share button; `#d=pako…` restores name + canvas + elements; excludes assets/mocks (ADR-005) |
-| **20-project history** | Named projects, LRU eviction, searchable; index in `localStorage`, snapshots in IndexedDB |
-| **Global mock store** | Simplify mocks like assets: one HA instance → one shared mock map in IndexedDB (not per `projectId`); migrate existing rows; optional per-project overrides only if scenario testing needs them (see §18 note) |
-| **Project name** | Editable field in header |
-| **Service options panel** | `background`, `rotate`, `dither`, `ttl`, `dry-run` — schema exists; needs UI + YAML block |
-| **Undo/redo** | Element + property changes (zustand temporal or custom stack); **19-9** refactor `useProjectState` selection batching |
-| **Layer panel** | Reorder, hide (`visible`), lock, duplicate — beyond 2e bring-to-front |
-| **PNG export** | Dithered preview matching tag output |
-| **Header chrome** | Copy YAML button; missing-assets banner after share import |
-| **Element copy/paste** | **19-10** Ctrl/Cmd+C/V with +10px offset |
-| **Canvas pan/zoom** | **19-11** viewBox pan/zoom on canvas chrome |
-| **Property form UX** | **19-7** form tests; **19-8** JSON invalid-on-blur feedback |
-| **Playwright e2e** | Smoke: load app, add element, drag, edit property, edit YAML (**19-6**, **19-7**) |
-| **GH Pages** | Push to remote; workflow already runs lint/test/build |
+| Workstream | Deliverables |
+|------------|--------------|
+| **ADR audit** | Review ADR-001–010 vs code; update stale ADRs (003 session store, 010 embed); mark superseded decisions; add ADR-011 or extend ADR-008 with **behavior-test policy** |
+| **Boundary adherence** | Verify `src/core/` has zero React imports; ESLint rule enforced; UI calls core only via public APIs; document allowed exceptions |
+| **Test inventory** | Classify ~80 test files: **behavior** (user/spec observable) vs **implementation** (internal helpers, trivial wrappers) |
+| **Test consolidation** | Merge redundant UI helper tests; drop tests that only mirror function bodies; one golden round-trip per draw type where sweep is enough |
+| **Behavior tests** | Prioritize: YAML parse → edit → serialize HA-clean; fixture render smoke; canvas geometry outcomes (position after drag), not private helpers |
+| **Anti-patterns to remove** | Testing `shouldShowX` booleans in isolation; snapshotting stub labels; asserting export names exist without behavior |
+| **Guidelines doc** | `docs/testing.md` — what to test per layer (core vs UI), fixture conventions, when to delete a test |
 
-**Reference UI gaps (optional in 4):** clipboard paste in Content Manager, asset bundle zip import/export (§3 #16).
+**Gate:** test count may **decrease** while confidence increases; `npm test` + lint + build green; short adherence report in plan or PR summary.
 
-**Storage simplification (Phase 4, with history):** Phase 3a stores mocks per `projectId` (ADR-003). Typical use is one HA instance and many tag layouts — same entity states everywhere, like asset paths. Phase 4 should migrate to a **global mock store** (one map keyed by `entity_id`) and treat per-project mock snapshots as optional overrides only when restoring history or testing divergent scenarios.
+### Phase 4 — Product polish + v1 ship criteria (revised 2026-06)
+
+**Closes the product loop** — export, session restore, editing power, HA embed path. Required for §8 v1.
+
+| Chunk | Feature | Notes |
+|-------|---------|--------|
+| **4a** | **Storage reshape** | Dexie **v2**: global `assets`, global `mocks` (`entityId` key), single `session` row. **Drop** `projects` store and per-`projectId` mocks. Dev wipe OK — no migration. Update ADR-003. |
+| **4b** | **Canvas + YAML bars** | Canvas bar: zoom **200 / 100 / Fit / 50**, **PNG copy** + **download**. YAML bar: **copy** + **download**. Header: hash **Share** `#d=pako…`; missing-asset banner. |
+| **4i** | **Display config** | Drop inch-based tag presets. **Resolution** dropdown (common WxH quick-picks + Custom → W/H inputs). **Color mode** dropdown (BW, BWR, BWY; scaffold **6-color** palette in types/renderer). |
+| **4c** | **Multi-select** | Marquee/drag-select enclosed elements; bulk move; raise/lower selection; align left/center/right + top/middle/bottom. |
+| **4d** | **Undo/redo** | **50 steps**; batch mutations for multi-select; **19-9** `useProjectState` refactor paired with history stack. |
+| **4e** | **Edge snap** | When snap on: snap to canvas outer bounds in addition to grid; **higher priority** for bottom and right edges. |
+| **4f** | **HA embed prep** | Dual runtime: standalone vs HA panel. Load/save `drawcustom` payload from automation editor (if feasible). Live HA states for preview when embedded; standalone keeps State Simulator + global mocks. ADR-010 candidate. |
+| **4g** | **Service options** | `background`, `rotate`, `dither`, `ttl`, `dry-run` UI — schema exists. |
+| **4h** | **Ship** | GH Pages deploy; optional single Playwright smoke (load + add element). |
+
+**Explicitly cut from v1** (see §7.2): 20-project library, inch-based tag preset list, asset bundle zip, PWA, validation summary panel, history diff, element copy/paste, free pan/continuous zoom, layer hide/lock/duplicate panel, Floyd-Steinberg dither, property-form test suite (19-7/19-8).
+
+### 7.2 Simplifications (2026-06 plan revision)
+
+| Was planned | Decision | Rationale |
+|-------------|----------|-----------|
+| 20-project LRU + searchable history | **Cut** | YAML + hash share are primary; one last-session restore is enough |
+| `projects` IndexedDB store | **Cut** | Single `session` blob replaces library |
+| Per-project mocks + migration | **Cut** | Global mocks; bump Dexie version, wipe dev data |
+| Asset bundle zip import/export | **Defer post-v1** | Upload per key in Content Manager suffices |
+| PWA / offline shell | **Defer post-v1** | GH Pages + browser cache enough for v1 |
+| YAML validation summary panel | **Defer** | CodeMirror inline lint already covers this |
+| Side-by-side YAML history diff | **Defer post-v1** | No history library to diff |
+| Element Ctrl+C/V (19-10) | **Defer post-v1** | Multi-select bulk move covers main workflow |
+| Inch-based tag size presets (~34) | **Cut** | Resolution WxH + color mode are what matter (e.g. 7.5" → 800×480 custom) |
+| Canvas pan + continuous zoom (19-11) | **Defer post-v1** | Fixed zoom 50/100/200/Fit in canvas bar is enough for v1 |
+| Fixed canvas zoom 50/100/200/Fit | **Promote to v1** | **4b** — buttons in canvas top bar |
+| Display: resolution + color mode dropdowns | **Promote to v1** | **4i** — replaces tag preset panel |
+| Layer panel hide/lock/duplicate | **Defer** | `visible` in property form; multi-select z-order |
+| Plot CSV / sample data editor | **Defer** | Renderer synthetic data + YAML `data` field enough |
+| Floyd-Steinberg dither (d=1) | **Defer** | Ordered d=2 only for v1 |
+| Property form tests + JSON blur UX (19-7/19-8) | **Defer post-v1** | Not blocking ship |
+| HA automation snippet generator | **Replace** | HA embed load/save is the real integration |
+| Multi-select + alignment | **Promote to v1** | Was post-v1; now **4c** |
+| Canvas edge snap | **Promote to v1** | Was post-v1; now **4e** |
+| PNG + YAML toolbar export | **Promote to v1** | **4b** |
+
+**Runtime modes (4f):**
+
+```mermaid
+flowchart TB
+  subgraph standalone [Standalone GH Pages]
+    LS[Last session IDB]
+    GM[Global mocks + assets]
+    Hash["#d= share hash"]
+    Sim[State Simulator UI]
+  end
+  subgraph embedded [HA embedded editor]
+    Auto[Automation drawcustom block]
+    HAStates[Live HA entity states]
+    PostMsg[postMessage / panel API]
+  end
+  Core[Shared core renderer + YAML engine]
+  standalone --> Core
+  embedded --> Core
+  Auto --> PostMsg
+  HAStates --> Core
+  Sim --> GM
+```
+
+### 7.3 Display config + color modes (revised 2026-06)
+
+**Problem:** Inch-based tag presets (e.g. `7.5" BWR`) mislead — the same physical size can be 800×480, 880×528, etc. Preset labels are not used downstream except to set `width`/`height` and accent.
+
+**Replace sidebar "Tag preset" with two controls:**
+
+| Control | Options | Behavior |
+|---------|---------|----------|
+| **Resolution** | **Quick-picks** (common OEPL WxH) + **Custom** | Quick-pick sets W/H; Custom shows W/H number inputs for non-standard sizes (e.g. 800×480 on a 7.5" panel) |
+| **Color mode** | `BW`, `BWR` (red accent), `BWY` (yellow accent), `6-color` (scaffold) | Drives preview palette + `accent`/`half_accent` mapping; persisted in session |
+
+**Resolution quick-picks (v1 starter list — dimensions only, deduped from old inch catalog):**
+
+`152×152`, `200×200`, `212×104`, `250×122`, `296×128`, `296×152`, `296×160`, `360×184`, `384×168`, `384×184`, `400×300`, `600×448`, `640×384`, `640×960`, `800×480`, `880×528`, `960×672`, `168×384` — plus **Custom** at the bottom. Labels in UI are exactly `W×H` (no inch text). List can grow if spec adds common sizes; not tied to color mode.
+
+**6-color ESL (plan ahead, v1 scaffold):**
+
+- Add `TagColorMode` in core (e.g. `bw` \| `bwr` \| `bwy` \| `six`) — supersedes bare `AccentMode` where mode implies accent
+- v1: render + dither paths accept `six` with a **placeholder 6-palette** (black, white, red, yellow + 2 TBD from hardware spec when vendored); map unknown colors gracefully
+- §17e dither: implement 4-color (BW/BWR/BWY) first; structure `palette.ts` so 6-color is additive, not a rewrite
+- Drop `display-presets.ts` inch catalog; keep resolution quick-picks as a short flat list (dimensions only, no quote sizes)
+
+**Canvas zoom (v1, not 19-11):**
+
+- Top canvas bar buttons: **200%**, **100%**, **Fit**, **50%**
+- CSS/transform scale of preview viewport; **Fit** scales to available panel width/height
+- No scrollable pan canvas in v1 — large resolutions (800×480) need zoom-out to edit comfortably
 
 ### 7.1 After Phase 2e — remaining feature map
 
@@ -886,28 +1038,29 @@ flowchart LR
 - Visual editing: add, move, resize, snap, layer reorder, schema property forms
 - YamlEditor + YAML↔canvas coupling
 - Content Manager + State Simulator + template preview
-- Display presets, rotation, theme
+- Resolution + color mode + rotation, theme (presets → simplified in **4i**)
 
 **Already done (no further work for v1 unless noted):**
 
 - 16 draw types in schema + YAML engine + renderer stubs
 - YamlEditor (highlight, autocomplete, Jinja scaffolding, lint)
 - Content Manager + State Simulator + live template preview on canvas
-- Display presets (~30 tag sizes), rotation, dark/light theme
+- Display config (to simplify in **4i**), rotation, dark/light theme
 - HA-clean YAML export; bundled fonts in `public/fonts/`
 
-**Post-v1 / nice-to-have (§3 — defer until after v1):**
+**Post-v1 / nice-to-have:**
 
 - **19-12** Arc angle handles; polygon vertex editing on canvas
-- Alignment tools (center, distribute, match size)
-- Snap to canvas center/edges and other elements
-- Validation summary panel (beyond inline lint)
-- PWA / offline shell
-- Multi-select + group move
-- HA automation snippet generator (`open_epaper_link.drawcustom` wrapper)
-- Side-by-side YAML diff from history
+- **19-10** Element copy/paste; **19-11** free pan + continuous zoom (fixed 50/100/200/Fit is v1 **4b**)
+- Snap to other elements' edges (beyond canvas bounds)
+- Distribute / match-size alignment; layer hide/lock/duplicate panel
+- Asset bundle zip; PWA shell; YAML validation summary; history diff
+- **19-7/19-8** property form tests + JSON blur UX
+- Floyd-Steinberg dither; dlimg full resize/rotate preview
 
-**Recommended order:** **3d** (§17d) → §17e–§17f → Phase 4 (§18) → push for GH Pages.
+**Recommended order:** **3g** (arch/quality gate) → **§18a–i** → GH Pages.
+
+**Rationale for 3g before 4:** Phase 4 is the largest state-management churn since 2e. Undo, session persistence, and global mocks need trustworthy behavior tests and up-to-date ADRs — not more implementation-detail coverage.
 
 ---
 
@@ -917,24 +1070,34 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 
 | Requirement | Status | Phase |
 |-------------|--------|-------|
-| All 16 draw types add/edit/render/export per spec | 🟡 Text/multiline + icons real; QR/plot/parse_colors Phase 3d–3e | 3b–3e |
+| All 16 draw types add/edit/render/export per spec | 🟡 dlimg stub only; rest real (**3b**–**3e**) | 3b–3e |
 | Percentage coordinates + anchors (Pillow set) | ✅ Drag + resolve + opentype anchors (**3b**) | 3b |
-| All color aliases including hex, halftone shortcuts, accent | 🟡 Flat preview; dither Phase 3/4 | 3–4 |
+| All color aliases including hex, halftone shortcuts, accent | 🟡 Dither d=2 ✅ (**3e**); color mode dropdown **4i** | 3e–4i |
 | Plot nested objects round-trip | ✅ YAML engine | — |
 | Template strings preserved verbatim in HA export | ✅ | — |
 | Local content map by exact YAML path (no embedding) | ✅ IndexedDB + hydrate | 3a |
 | HA state simulator evaluates templates for preview | ✅ | 2d |
 | YAML editor: highlight, autocomplete, Jinja scaffolding, lint | ✅ | 2b |
 | Schema-driven property forms (all types) | ✅ | 2e |
-| Canvas drag/resize/snap/keyboard | ✅ | 2e |
+| Canvas drag/resize/snap/keyboard | ✅ perf overlay **3f** | 2e–3f |
 | Add Element + Load Example | ✅ | 2e |
-| Element copy/paste (Ctrl+C/V) | ⬜ **19-10** | 4 |
-| Share link restores name + canvas + elements (not assets/mocks) | ⬜ | 4 |
-| 20-project history with searchable names | ⬜ | 4 |
-| Service options UI (`background`, `rotate`, `dither`, …) | ⬜ Schema only | 4 |
-| Real QR, plot, icons, parse_colors in preview | 🟡 Icons ✅; QR/plot/parse_colors Phase 3d–3e | 3 |
+| Multi-select, bulk move, align H/V | ⬜ **4c** | 4 |
+| Canvas zoom 200/100/Fit/50 | ⬜ **4b** | 4 |
+| Canvas PNG copy + download | ⬜ **4b** | 4 |
+| Resolution + color mode (not inch presets) | ⬜ **4i** | 4 |
+| YAML copy + download (toolbar) | ⬜ **4b** | 4 |
+| Undo/redo (50 steps) | ⬜ **4d** | 4 |
+| Last-session restore on load | ⬜ **4a** | 4 |
+| Global assets + mocks (not per project) | ⬜ **4a** | 4 |
+| Canvas edge snap (bottom/right priority) | ⬜ **4e** | 4 |
+| Share link restores name + canvas + elements (not assets/mocks) | ⬜ **4b** | 4 |
+| HA embed: load/save drawcustom + live states | ⬜ **4f** (prep) | 4 |
+| Service options UI (`background`, `rotate`, `dither`, …) | ⬜ Schema only | 4g |
+| Real QR, plot, icons, parse_colors in preview | ✅ (**3c**–**3e**) | 3 |
 | Core test suite passes in CI | ✅ lint + test in workflow | — |
-| ADRs document major decisions | ✅ ADR-001–009 | — |
+| Tests assert behavior not implementation (ADR-011) | ⬜ **3g** | 3g |
+| ADRs current vs code; core/ui boundary verified | ⬜ **3g** | 3g |
+| ADRs document major decisions | ✅ ADR-001–010; ADR-011 in **3g** | — |
 | GH Pages deploy from clean source repo | ⬜ No remote yet | 4 |
 
 ---
@@ -1018,7 +1181,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **3a** ✅ (`9d58839`). Phase **3b** ✅ (`23d12b5`). Phase **3c** ✅ (`7deb2fd`). **Current work:** **§17d–§17f** → **§18**.
+- Phase **3a–3f** ✅ through `1b629ff`. **Phase 3 fidelity complete.** **Current work:** **§17g** → **§18**.
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1039,6 +1202,8 @@ flowchart LR
 
 
 Every merge requires: tests green, no React in core (lint), HA-clean YAML export unchanged.
+
+**Phase 3g gate (before Phase 4):** ADR audit complete; `docs/testing.md` published; architecture audit report; tests favor spec/user-visible behavior per ADR-011. Phase 4 agents read `docs/testing.md` before storage/undo work.
 
 ### Prompting patterns that work for you
 
@@ -1170,6 +1335,24 @@ Do not push unless I ask.
 
 ---
 
+## 11j. Commit Phase 3d prompt ✅ (`3b75953`)
+
+<!-- prompt archived — phase complete -->
+
+---
+
+## 11k. Commit Phase 3e prompt ✅ (`ce99de5`)
+
+<!-- prompt archived — phase complete -->
+
+---
+
+## 11l. Commit Phase 3f prompt ✅ (`1b629ff`)
+
+<!-- prompt archived — phase complete -->
+
+---
+
 ## 11c. Commit Phase 2 (partial) prompt ✅ (`84d2164`)
 
 Commit message used: `Phase 2a complete (YAML Editor)` — includes stabilization + UI shell + YamlEditor.
@@ -1231,8 +1414,8 @@ Commit message used: `Phase 2a complete (YAML Editor)` — includes stabilizatio
 | `icon` | svg | `icon` | Real MDI path (**3c** `7deb2fd`) |
 | `icon_sequence` | svg | `icon_sequence` | Real MDI paths + layout (**3c**) |
 | `dlimg` | canvas | `dlimg-stub` | Box + url metadata |
-| `qrcode` | canvas | `qrcode-stub` | Module grid placeholder |
-| `plot` | canvas | `plot-stub` | Chart area + series count |
+| `qrcode` | canvas | `qrcode` | Real module grid (**3d** `3b75953`) |
+| `plot` | canvas | `plot` | Axes, legends, series (**3d**) |
 | `progress_bar` | svg | `progress-bar-stub` | Bar + fill ratio |
 
 Shared: `colors.ts`, `coordinates.ts`, `bounds.ts`, `text-metrics.ts`, `visibility.ts`
@@ -1299,7 +1482,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17a** ✅ (`9d58839`). **§17b** ✅ (`23d12b5`). **§17c** ✅ (`7deb2fd`). **Next: §17d** (QR + plot). Remaining: §17e–§17f.
+**§17a** ✅ (`9d58839`). **§17b** ✅ (`23d12b5`). **§17c** ✅ (`7deb2fd`). **§17d** ✅ (`3b75953`). **§17e** ✅ (`ce99de5`). **§17f** ✅ (`1b629ff`). **Next: §17g** (arch gate) → §18.
 
 **Plan cross-reference map:**
 
@@ -1310,7 +1493,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 | **§7.1** | Post–Phase 2 roadmap; v1 still needs §17 + §18 |
 | **§8** | Parity checklist — preview fidelity rows completed in this chapter |
 | **§11f** | Phase 2e commit ✅ — prerequisite done |
-| **§19** | Phase 2e review; task IDs **19-1** … **19-13** referenced in §17b/§17d/§17f |
+| **§19** | Phase 2e review; task IDs **19-1** … **19-13** referenced in §17b/§17d/§17f; arch gate §17g |
 
 **Every session — standard opener:**
 
@@ -1352,132 +1535,224 @@ Key files: `mdi-icons.ts`, `icon.ts`, `icon-sequence.ts`, `mdi-icon-names.ts`, `
 
 ---
 
-### §17d — QR + plot preview (Phase 3d)
+### §17d — QR + plot preview (Phase 3d) ✅ (`3b75953`)
+
+Delivered — see §7 Phase 3d checklist.
+
+Key files: `qr-modules.ts`, `qrcode.ts`, `plot.ts`, `plot-sample-data.ts`, `propertyMetadata.ts`, `draw-canvas-stubs.ts`, `plot-qrcode-rich.yaml`
+
+<!-- prompt archived — phase complete -->
+
+---
+
+### §17e — parse_colors + dither (Phase 3e) ✅ (`ce99de5`)
+
+Delivered — see §7 Phase 3e checklist.
+
+Key files: `parse-colors.ts`, `text-color-lines.ts`, `dither.ts`, `draw-canvas-stubs.ts`, `parse-colors-text.yaml`
+
+<!-- prompt archived — phase complete -->
+
+---
+
+### §17f — Canvas interaction follow-ups (Phase 3f) ✅ (`1b629ff`)
+
+Delivered — see §7 Phase 3f checklist.
+
+Key files: `DesignerCanvas.tsx`, `CanvasElementSlot.tsx`, `canvas-resize-handles.ts`, `element-list-row.ts`, `yamlEditorScroll.ts`
+
+<!-- prompt archived — phase complete -->
+
+---
+
+### §17g — Architecture + quality gate (Phase 3g)
 
 ```
-Execute Phase 3d — scannable QR codes and plot preview with sample data.
+Execute Phase 3g — architecture and test quality review BEFORE Phase 4.
 
 Read:
-- docs/PLAN.md §7 Phase 3d, §19 task 19-5
-- docs/adr/ADR-007-hybrid-rendering.md
-- docs/spec/supported_types.md — qrcode, plot (nested ylegend, yaxis, xlegend, xaxis, data)
-- src/core/renderer/qrcode.ts, plot.ts
-- src/core/schema/propertyMetadata.ts, src/ui/components/ElementPropertyForm.tsx
+- docs/PLAN.md §7 Phase 3g
+- docs/adr/ADR-001 through ADR-010 (especially 003, 008, 010)
+- .cursor/rules/core-boundary.mdc
+- .cursor/agents/spec-reviewer.md
 
-Goal:
-Replace qrcode-stub and plot-stub with real preview. Add rich golden fixtures for plot nested objects.
+Part 1 — ADR audit:
+- For each ADR: Status still accurate? Code matches decision? List drift items and update ADR text or code (prefer doc update when plan already revised, e.g. ADR-003 session store)
+- Draft ADR-011 (behavior-test policy) or extend ADR-008: core tests assert spec-visible outcomes; UI tests assert user-visible wiring
+
+Part 2 — Adherence audit:
+- grep / lint: no React in src/core/
+- UI imports core only from src/core/index.ts public surface
+- Flag business logic in components that belongs in core (list only; fix obvious violations)
+- Deliver short markdown report: docs/reviews/architecture-audit-YYYY-MM-DD.md (or section in PR)
+
+Part 3 — Test review and simplification:
+- Inventory tests/ — tag each file: KEEP (behavior), MERGE, DELETE (implementation noise)
+- Delete or merge tests that only assert helper existence, mirror one-liner implementations, or duplicate render-element sweep
+- Consolidate scattered UI editor helper tests where one integration test suffices
+- Add/strengthen behavior tests where gaps exist:
+  - Golden YAML round-trip per type (if not already covered by sweep)
+  - User-visible canvas outcomes: drag translates coords, resize changes bounds (public element-geometry API)
+  - HA-clean export excludes designer-only fields
+- Write docs/testing.md — layer rules, fixture layout, anti-patterns, when NOT to add a test
+
+Rules:
+- Test count MAY go down; coverage of behavior must not
+- No new product features in this phase
+- npm run lint && npm test && npm run build must pass
+
+Invoke spec-reviewer against docs/spec/supported_types.md after test changes.
+
+Next: docs/PLAN.md §18a (Phase 4)
+```
+
+---
+
+## 18. Phase 4 — product polish prompts ⬜ after Phase 3g
+
+**Revised 2026-06.** One agent session per subsection. Read §7.2 simplifications first — do not implement cut features. **Prerequisite:** §17g architecture gate complete.
+
+**Order:** §18a → §18b → §18c → §18d → §18e → §18f → §18g → §18h (§18i can run parallel with §18b after §18a)
+
+### §18a — Storage reshape (global assets/mocks + session)
+
+```
+Execute Phase 4a — Dexie v2 per docs/PLAN.md §7.2 and ADR-003 update.
+
+- Bump OeplDatabase version; wipe old stores in dev (no migration)
+- assets: unchanged (global key → blob)
+- mocks: global entityId → value (drop projectId compound key)
+- session: single row — name, canvas, service, elements, updatedAt
+- Remove projects store, projectId.ts, per-project mock persistence
+- Auto-save session on change (debounced); hydrate on app load
+- State Simulator + Content Manager read/write global stores
+
+Tests: update tests/storage/*; npm test && npm run lint && npm run build
+Next: docs/PLAN.md §18b
+```
+
+### §18b — Canvas + YAML bars + hash share
+
+```
+Execute Phase 4b — canvas toolbar, YAML toolbar, share link.
+
+Canvas top bar:
+- Zoom buttons: 200%, 100%, Fit, 50% (CSS scale; Fit = fit panel — see §7.3)
+- Copy PNG to clipboard
+- Download PNG (dithered when §17e pipeline exists; flat RGB fallback OK)
+
+YAML top bar:
+- Copy YAML (HA-clean export)
+- Download .yaml file
+
+Header:
+- Share button → #d=pako URL (ADR-005); restore on load
+- Missing-asset banner after hash import
+
+Next: docs/PLAN.md §18c
+```
+
+### §18c — Multi-select + alignment
+
+```
+Execute Phase 4c — marquee selection and bulk editing.
+
+- Drag-select rectangle selects all enclosed elements (additive with Shift)
+- Bulk drag move; keyboard nudge applies to selection
+- Raise/lower selection in layer stack (not full layer panel)
+- Align: left/center/right, top/middle/bottom relative to selection bounds
+- Property panel: multi-select shows shared fields or "N selected" summary
+
+Tests: extend canvas-interaction.test.ts
+
+Next: docs/PLAN.md §18d
+```
+
+### §18d — Undo/redo (50 steps)
+
+```
+Execute Phase 4d — history stack.
+
+- 50-step undo/redo for element add/delete/move/resize, property edits, multi-select batch ops
+- Pair with 19-9 useProjectState batching (useReducer or immer patches)
+- Keyboard: Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z (or Ctrl+Y)
+
+Next: docs/PLAN.md §18e
+```
+
+### §18e — Canvas edge snap
+
+```
+Execute Phase 4e — snap to canvas bounds.
+
+When snap is on (existing grid toggle):
+- Snap element edges to canvas outer border (0 and width/height)
+- Higher priority for bottom and right edge snap vs grid
+- Unit tests in snap-to-grid.ts or element-geometry
+
+Next: docs/PLAN.md §18f
+```
+
+### §18f — HA embed preparation
+
+```
+Execute Phase 4f — dual runtime for Home Assistant embedding.
+
+Read ADR-010 (draft) when added. Spec: HA frontend panel / iframe patterns.
+
+Goals (feasibility spike + scaffolding):
+- Detect runtime: standalone vs embedded (query param, postMessage handshake, or HA-provided context)
+- Embedded: receive drawcustom payload from parent (automation/script editor)
+- Embedded: push saved payload back to parent on Save
+- Embedded: fetch live entity states from HA for template preview (REST or websocket — document auth/CORS constraints)
+- Standalone: unchanged State Simulator + global mocks
+
+Out of scope for first pass: full HA PR / custom panel registration — deliver message contract + dev mock parent.
+
+Next: docs/PLAN.md §18g
+```
+
+### §18g — Service options panel
+
+```
+Execute Phase 4g — service options UI.
+
+- Panel or header section for background, rotate, dither, ttl, dry-run
+- Round-trip to YAML service block; schema already in core
+
+Next: docs/PLAN.md §18h
+```
+
+### §18h — Deploy + smoke
+
+```
+Execute Phase 4h — v1 ship gate.
+
+- Push remote; GH Pages workflow
+- Optional: one Playwright smoke (app loads, add rectangle)
+- Verify §8 parity checklist
+
+Do not push unless I ask.
+```
+
+### §18i — Display config simplify + 6-color scaffold
+
+```
+Execute Phase 4i — resolution + color mode per docs/PLAN.md §7.3.
+
+Sidebar (replace Tag preset block):
+- Resolution dropdown: WxH quick-picks per §7.3 starter list + Custom → W/H inputs
+- Color mode dropdown: BW, BWR, BWY, 6-color (6-color may show "preview limited" until palette spec lands)
 
 Core:
-- Add qrcode package — generate module grid from data string; honor boxsize, border, colors
-- src/core/renderer/plot.ts — axes, legends, series lines; mock/sample data when data array present
-- tests/fixtures/spec/ — add plot-qrcode-rich.yaml (or split files) from supported_types examples
-- Vitest: QR produces stable module count; plot renders series count > 0
+- TagColorMode type; palette.ts with 4-color + 6-color scaffold
+- mapColor / dither respect active color mode
+- Remove display-presets.ts inch catalog; update displayConfig persistence + session payload
+- Tests: display-config parse; color mode switches accent mapping
 
-UI / properties (19-5):
-- ElementPropertyForm — structured fields for plot sub-objects (e.g. yaxis.smooth, ylegend.text) where propertyMetadata defines them; reduce raw JSON blobs for common fields
-- Optional: minimal sample data editor (CSV paste or synthetic sine) in property panel
+Out of scope: exact 6-color hardware palette until spec vendored — scaffold enum + renderer hook only.
 
-Out of scope:
-- Live HA history fetch
-- parse_colors in plot labels (§17e)
-
-Acceptance:
-- QR renders scannable pattern (visual sanity; optional decode test)
-- Plot example from spec fixture shows axes + at least one series
-- npm run lint && npm test && npm run build
-
-Next: docs/PLAN.md §17e
-```
-
----
-
-### §17e — parse_colors + dither (Phase 3e)
-
-```
-Execute Phase 3e — parse_colors markup and e-paper dither preview.
-
-Read:
-- docs/PLAN.md §7 Phase 3e, §3 (#2 accent toggle, #3 dither modes)
-- docs/adr/ADR-004-template-evaluator-scope.md, ADR-007-hybrid-rendering.md
-- docs/spec/supported_types.md — parse_colors, color aliases, halftone, accent
-- src/core/renderer/colors.ts, text.ts, draw-canvas-stubs.ts
-
-Goal:
-When parse_colors: true, render [red]text[/red] inline color segments in preview. Add ordered dither (d=2) for 4-color palette preview; accent red vs yellow toggle maps accent/half_accent correctly.
-
-Core (consider /best-of-n for dither if first approach fails):
-- src/core/renderer/parse-colors.ts — parse markup segments (TDD with fixtures)
-- Integrate into text/multiline canvas draw path
-- src/core/renderer/dither.ts — ordered dither for preview/export pipeline
-- Vitest: pixel samples or checksums for known 4-color inputs (ADR-008)
-
-UI:
-- Canvas/service preview toggle for accent mode (red/yellow) if not already wired to renderContext.accentMode
-- Optional: dither preview toggle (flat vs d=2)
-
-Out of scope:
-- Floyd-Steinberg (d=1) unless trivial after ordered dither
-- PNG export button (§18 — but pipeline should be reusable)
-
-Acceptance:
-- parse_colors fixture renders multi-color text
-- Halftone/accent colors distinguishable under dither toggle
-- npm run lint && npm test && npm run build
-
-Next: docs/PLAN.md §17f
-```
-
----
-
-### §17f — Canvas interaction follow-ups (Phase 3f)
-
-```
-Execute Phase 3f — deferred §19 canvas performance and test gaps.
-
-Read:
-- docs/PLAN.md §7 Phase 3f, §19 follow-up table (tasks 19-1, 19-2, 19-6, 19-13)
-- src/ui/components/DesignerCanvas.tsx, CanvasElementLayer.tsx
-- src/ui/lib/element-geometry.ts, tests/ui/lib/canvas-interaction.test.ts
-
-Goal:
-Address non-blocking Phase 2e review items without new product features.
-
-Tasks:
-- 19-1: Drag performance — drag overlay or per-index memoization so pointermove does not re-render entire canvas + reload assets/fonts
-- 19-2: Explicit releasePointerCapture on drag end; handle lostpointercapture
-- 19-6: Unit tests — line endpoint drag, circle radius drag, bounds resize, keyboard nudge guard (no-op when nothing selected)
-- 19-13: moveElementInArray — guard when toIndex >= length
-
-Note: **19-3** and **19-4** delivered in §17b — do not duplicate.
-
-Acceptance:
-- Manual smoke: drag feels smooth on 10+ element payload
-- New/extended tests in canvas-interaction.test.ts
-- npm run lint && npm test && npm run build
-
-Next: docs/PLAN.md §18 (Phase 4 product polish)
-```
-
----
-
-## 18. Phase 4 — product polish prompts ⬜ after Phase 3
-
-### §18 — Share, history, service options, export
-
-```
-Execute Phase 4 — product polish per docs/PLAN.md §7 Phase 4 and §8 parity checklist.
-
-Implement:
-- Hash share #d=pako (ADR-005): Share button, restore name/canvas/elements, missing-asset banner
-- 20-project LRU history + project name field
-- Global mock store: single shared HA mock map in IndexedDB (align with global assets); migrate Phase 3a per-project rows; defer per-project overrides unless needed
-- Service options panel (schema already exists)
-- Undo/redo, layer panel (hide/lock/duplicate), PNG export
-- Copy YAML header button
-- §19 follow-ups: 19-7 property form tests, 19-8 JSON blur UX, 19-9 useProjectState refactor (pair with undo/redo), 19-10 Ctrl+C/V copy/paste, 19-11 canvas pan/zoom
-- Playwright e2e smoke test in CI (drag, property edit, YAML round-trip)
-
-npm test && npm run lint && npm run build. Do not push unless I ask.
+Next: docs/PLAN.md §18h if not done
 ```
 
 ---

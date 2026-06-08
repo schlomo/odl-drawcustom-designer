@@ -2,31 +2,40 @@
 
 ## Status
 
-Accepted
+Accepted (revised Phase 4a — 2026-06)
 
 ## Context
 
-The designer runs in the browser without access to the user's Home Assistant instance. Fonts, images, project snapshots, and HA mock state must persist locally across sessions.
+The designer runs in the browser without access to the user's Home Assistant instance. Fonts, images, HA mock state, and the **current editing session** must persist locally. Multi-project libraries add complexity without matching how users actually share designs (YAML file, hash link, HA automation).
 
 ## Decision
 
-Use **Dexie** (IndexedDB wrapper) with these logical stores (Phase 3 implementation):
+Use **Dexie** (IndexedDB wrapper) with these logical stores:
 
 | Store | Contents |
 |-------|----------|
-| `assets` | `key` (exact YAML path) → `{ blob, mime, updatedAt }` |
-| `projects` | Full project snapshots keyed by `id` (LRU max 20) |
-| `mocks` | Per-project entity → mock value map for template preview |
+| `assets` | Global: `key` (exact YAML path) → `{ blob, mime, updatedAt }` |
+| `mocks` | Global: `entityId` → mock value for template preview (one map per browser, like assets) |
+| `session` | Single row `current` → `{ name, canvas, service, elements, updatedAt }` — last open design |
 
-`localStorage` holds lightweight index data: UI prefs, 20-project history metadata (name, updatedAt, element count — not full YAML × 20).
+`localStorage` holds UI prefs only (theme, snap, panel widths).
+
+**Dexie version bump:** Phase 4a introduces schema v2. **No migration** during initial development — dev/test may wipe the database.
+
+**Removed (was Phase 3a):**
+
+- `projects` store and 20-project LRU
+- Per-`projectId` mock compound keys
 
 ## Consequences
 
 - Large blobs stay out of localStorage size limits
-- Project history searchable without loading all snapshots
-- Share hash excludes assets and mocks by default
+- Opening the app restores the last session automatically
+- Hash share (`#d=pako`, ADR-005) excludes assets and mocks; global assets re-bind by path after import
+- Embedded HA mode (ADR-010) uses live states instead of mocks when available
 
 ## Alternatives considered
 
-- **localStorage only** — rejected; size limits and sync API unsuitable for font/image blobs
-- **File System Access API** — rejected as primary; not universally available; may supplement export/import later
+- **localStorage only** — rejected; size limits unsuitable for font/image blobs
+- **20-project history in IndexedDB** — rejected in 2026-06 plan revision; YAML + hash share are primary portability
+- **Per-project mocks** — rejected; one HA instance implies one entity state map

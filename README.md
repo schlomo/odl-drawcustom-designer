@@ -14,7 +14,13 @@ Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcus
 
 **Phase 3c** — MDI icons + icon_sequence (**committed** `7deb2fd`).
 
-**Next:** Phase **3d** QR + plot (§17d). Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §17.
+**Phase 3d** — QR + plot preview (**committed** `3b75953`).
+
+**Phase 3e** — parse_colors + ordered dither (**committed** `ce99de5`).
+
+**Phase 3f** — canvas interaction polish (**committed** `1b629ff`).
+
+**Next:** Phase **3g** architecture gate (§17g), then Phase 4. Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §17.
 
 ## Spec
 
