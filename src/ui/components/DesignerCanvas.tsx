@@ -67,6 +67,7 @@ interface DesignerCanvasProps {
   onToggleSnap: () => void
   previewDitherMode: 0 | 2
   onTogglePreviewDither: () => void
+  onDragActiveChange?: (active: boolean) => void
 }
 
 interface DragOverlay {
@@ -119,6 +120,7 @@ export function DesignerCanvas({
   onToggleSnap,
   previewDitherMode,
   onTogglePreviewDither,
+  onDragActiveChange,
 }: DesignerCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const dragSessionRef = useRef<DragSession | null>(null)
@@ -162,19 +164,13 @@ export function DesignerCanvas({
 
   const fontAssetKeys = useMemo(() => collectFontKeysFromElements(elements), [elements])
 
-  const fontLayoutToken = useMemo(
-    () => fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts),
-    [fontAssetKeys, opentypeFonts],
-  )
-
-  const hitTargets = useMemo(
-    () =>
-      elements.flatMap((element, index) => {
-        const result = renderElement(element, renderContext)
-        return result ? [{ index, bounds: getPrimitiveBounds(result.primitive) }] : []
-      }),
-    [elements, renderContext, fontLayoutToken],
-  )
+  const hitTargets = useMemo(() => {
+    void fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts)
+    return elements.flatMap((element, index) => {
+      const result = renderElement(element, renderContext)
+      return result ? [{ index, bounds: getPrimitiveBounds(result.primitive) }] : []
+    })
+  }, [elements, fontAssetKeys, renderContext, opentypeFonts])
 
   const dlimgAssetKeys = useMemo(
     () => collectDlimgAssetKeysFromElements(elements),
@@ -277,8 +273,9 @@ export function DesignerCanvas({
     if (!overlayElementForSelection) {
       return null
     }
+    void fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts)
     return renderElement(overlayElementForSelection, renderContext)
-  }, [overlayElementForSelection, renderContext, fontLayoutToken])
+  }, [fontAssetKeys, opentypeFonts, overlayElementForSelection, renderContext])
 
   const selectionBounds = useMemo(() => {
     if (!selectionRenderResult) {
@@ -340,7 +337,8 @@ export function DesignerCanvas({
     dragSessionRef.current = null
     setDragSession(null)
     setDragOverlay(null)
-  }, [releaseCapturedPointer])
+    onDragActiveChange?.(false)
+  }, [onDragActiveChange, releaseCapturedPointer])
 
   const updateDragVisual = useCallback(
     (index: number, overlayElement: DrawElement, commitElement: DrawElement) => {
@@ -355,8 +353,9 @@ export function DesignerCanvas({
       setFrozenElements(elements)
       dragSessionRef.current = session
       setDragSession(session)
+      onDragActiveChange?.(true)
     },
-    [elements],
+    [elements, onDragActiveChange],
   )
 
   const handlePointerMove = useCallback(

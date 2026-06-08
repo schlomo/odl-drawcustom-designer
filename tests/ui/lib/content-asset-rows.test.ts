@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { DrawElement } from '../../../src/core'
-import { listContentMapKeys, resetContentMap, setAsset } from '../../../src/core/assets'
+import { listContentMapKeys, resetContentMap, setAsset } from '../../../src/core'
 import { buildContentAssetRows } from '../../../src/ui/lib/content-asset-rows'
 
 const elementsWithImage: DrawElement[] = [

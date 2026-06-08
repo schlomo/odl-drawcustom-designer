@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it } from 'vitest'
-import { resetContentMap, setAsset } from '../../../src/core/assets'
+import { resetContentMap, setAsset } from '../../../src/core'
 import { clearOpentypeFontCacheForTests, loadOpentypeFontMapWithOutcomes } from '../../../src/ui/lib/load-opentype-fonts'
 import { bundledFontPath } from '../../core/renderer/font-test-utils'
 

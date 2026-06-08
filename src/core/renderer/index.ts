@@ -70,9 +70,14 @@ export {
   TEXT_DEFAULT_ANCHOR,
   iconSequenceBoxSize,
   iconSequenceIconPositions,
+  isOppositeResizeHandle,
+  oppositeResizeHandleForAnchor,
   resolveAnchoredBox,
   anchorPointFromBox,
+  resolveDirection,
+  seSizeFromOppositeHandlePointer,
 } from './anchors'
+export { buildArcPiePath, arcPieSliceBounds } from './arc-geometry'
 export {
   findMissingCharacters,
   formatMissingCharacterSample,
@@ -80,7 +85,9 @@ export {
   scanGlyphCoverageIssues,
   type GlyphCoverageIssue,
 } from './glyph-coverage'
+export { getCanvasTextDrawStyle, type CanvasTextDrawStyle } from './text-anchor-draw'
 export { computeOpentypeGlyphPositions, type OpentypeGlyphPosition } from './opentype-glyphs'
+export { createQrModuleGrid, qrRenderedSize, type QrModuleGrid } from './qr-modules'
 export { effectiveNumber, effectiveProperty, effectiveString } from './element-defaults'
 export { getDominantTextDirection, toVisualText } from './bidi-text'
 export { mapColor } from './colors'

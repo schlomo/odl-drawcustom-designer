@@ -1,5 +1,5 @@
 import type { DrawElement } from '../../core'
-import { normalizeMdiIconName } from '../../core/renderer/mdi-icons'
+import { normalizeMdiIconName } from '../../core'
 
 export type ElementListThumbnail =
   | { kind: 'mdi'; name: string }

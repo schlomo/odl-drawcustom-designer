@@ -35,6 +35,8 @@ interface YamlPanelProps {
   extraEntityIds?: readonly string[]
   entityScrollRequest?: { entityId: string; token: string } | null
   onStatusMessagesChange?: (messages: StatusMessage[]) => void
+  /** True while the canvas is in an active pointer drag (move/resize). */
+  canvasDragging?: boolean
 }
 
 export function YamlPanel({
@@ -48,11 +50,14 @@ export function YamlPanel({
   extraEntityIds = [],
   entityScrollRequest = null,
   onStatusMessagesChange,
+  canvasDragging = false,
 }: YamlPanelProps) {
   const serialized = useMemo(() => serializeYamlPayload(elements), [elements])
   const [yamlText, setYamlText] = useState(serialized)
   const skipExternalSyncRef = useRef(false)
   const yamlSelectionRef = useRef({ anchor: 0, head: 0 })
+  const yamlScrollRef = useRef(0)
+  const pendingSerializedRef = useRef<string | null>(null)
   const { fontSize, increase, decrease } = useYamlFontSize()
   const { couplingEnabled, toggleCoupling } = useYamlSelectionCoupling()
   const { height: panelHeight, startResize } = useResizablePanelHeight({
@@ -64,11 +69,19 @@ export function YamlPanel({
   })
 
   useEffect(() => {
+    if (!couplingEnabled && canvasDragging) {
+      pendingSerializedRef.current = serialized
+      return
+    }
+
+    const nextSerialized = pendingSerializedRef.current ?? serialized
+    pendingSerializedRef.current = null
+
     if (shouldApplyExternalYamlSync(skipExternalSyncRef.current)) {
-      setYamlText(serialized)
+      setYamlText(nextSerialized)
     }
     skipExternalSyncRef.current = false
-  }, [serialized])
+  }, [canvasDragging, couplingEnabled, serialized])
 
   const elementsRef = useRef(elements)
 
@@ -156,6 +169,7 @@ export function YamlPanel({
           preserveLinkedElementIndex={couplingEnabled ? selectedIndex : null}
           scrollLinkedElementOnSync={couplingEnabled && selectionSource !== 'yaml'}
           yamlSelectionRef={yamlSelectionRef}
+          yamlScrollRef={yamlScrollRef}
           onCursorPositionChange={handleCursorPosition}
           value={yamlText}
           onChange={handleYamlChange}

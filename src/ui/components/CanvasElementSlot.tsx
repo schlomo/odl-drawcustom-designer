@@ -30,14 +30,11 @@ export const CanvasElementSlot = memo(function CanvasElementSlot({
   hidden = false,
   layerZIndex,
 }: CanvasElementSlotProps) {
-  const fontLayoutToken = useMemo(
-    () => fontLayoutTokenForKeys(collectFontKeysFromElements([element]), opentypeFonts),
-    [element, opentypeFonts],
-  )
-  const result = useMemo(
-    () => renderElement(element, renderContext),
-    [element, renderContext, fontLayoutToken],
-  )
+  const result = useMemo(() => {
+    // renderElement reads font metrics via getFont(); token ties layout to loaded fonts.
+    void fontLayoutTokenForKeys(collectFontKeysFromElements([element]), opentypeFonts)
+    return renderElement(element, renderContext)
+  }, [element, renderContext, opentypeFonts])
 
   if (!result) {
     return null

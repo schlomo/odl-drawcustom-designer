@@ -1,4 +1,4 @@
-import { resolveMdiPath } from '../../core/renderer/mdi-icons'
+import { resolveMdiPath } from '../../core'
 import type { ElementListThumbnail as ThumbnailMeta } from '../lib/element-list-row'
 import { displayIconName } from '../lib/element-list-row'
 

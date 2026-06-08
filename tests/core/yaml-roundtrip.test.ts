@@ -7,6 +7,7 @@ import {
   roundTripYaml,
   serializeYamlPayload,
   validatePayload,
+  DESIGNER_ONLY_FIELDS,
 } from '../../src/core/yaml'
 
 const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), '../fixtures/spec')
@@ -32,7 +33,7 @@ describe('golden YAML round-trip (all spec fixtures)', () => {
 })
 
 describe('HA-clean serialize', () => {
-  it('strips designer-only fields from exported YAML', () => {
+  it('strips all designer-only fields from exported YAML', () => {
     const elements = parseYamlPayload(`
 - type: text
   value: Hello
@@ -41,11 +42,14 @@ describe('HA-clean serialize', () => {
   preview_data_url: data:image/png;base64,abc
   _yaml_comments:
     value: preview comment
+  _designer_meta: should not export
 `)
 
     const exported = serializeYamlPayload(elements)
-    expect(exported).not.toContain('preview_data_url')
-    expect(exported).not.toContain('_yaml_comments')
+    for (const field of DESIGNER_ONLY_FIELDS) {
+      expect(exported).not.toContain(field)
+    }
+    expect(exported).not.toMatch(/^_/m)
     expect(validatePayload(parseYamlPayload(exported)).success).toBe(true)
   })
 })

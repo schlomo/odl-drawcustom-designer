@@ -20,7 +20,7 @@ Correctness of YAML round-trip, template evaluation, and rendering is the produc
 **Rules:**
 
 - No feature merges without tests in the **core** layer first
-- UI tests follow for wiring, not business logic
+- UI tests follow for wiring, not business logic — see **ADR-011** for behavior vs implementation policy
 - ESLint core boundary must pass
 - CI: `npm ci` → `npm run lint` → `npm test` → `npm run build` → deploy to GH Pages
 
@@ -31,6 +31,7 @@ Fixtures live in `tests/fixtures/` derived from vendored spec at `docs/spec/supp
 - Phase 0 establishes Vitest harness + one golden YAML round-trip test
 - GitHub Actions blocks deploy on test or build failure
 - Agents use `tests/fixtures/` as source of truth for spec examples
+- Detailed layer rules and anti-patterns: `docs/testing.md` (Phase 3g)
 
 ## Alternatives considered
 

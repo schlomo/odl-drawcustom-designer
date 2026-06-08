@@ -1,4 +1,4 @@
-import type { DrawElement } from '../../core/schema/elements'
+import type { DrawElement } from '../../core'
 
 export const SAMPLE_ELEMENTS: DrawElement[] = [
   {

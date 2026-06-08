@@ -1,19 +1,17 @@
 import {
-  hasTemplateSyntax,
-  isNumericStringCoordinate,
-  isPercentageCoordinate,
-  type DrawElement,
-} from '../../core'
-import {
   ICON_DEFAULT_ANCHOR,
   anchorPointFromBox,
+  createQrModuleGrid,
+  hasTemplateSyntax,
   iconSequenceBoxSize,
+  isNumericStringCoordinate,
   isOppositeResizeHandle,
+  isPercentageCoordinate,
   oppositeResizeHandleForAnchor,
   resolveDirection,
   seSizeFromOppositeHandlePointer,
-} from '../../core/renderer/anchors'
-import { createQrModuleGrid } from '../../core/renderer/qr-modules'
+  type DrawElement,
+} from '../../core'
 import type { ElementBounds } from './primitive-bounds'
 
 export type ResizeHandle =

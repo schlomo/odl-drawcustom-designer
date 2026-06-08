@@ -29,6 +29,24 @@ const coreBoundaryRule = {
   ],
 }
 
+const uiCoreBoundaryRule = {
+  'no-restricted-imports': [
+    'error',
+    {
+      patterns: [
+        {
+          group: ['**/src/core/*'],
+          message: 'Import from src/core/index.ts only (ADR-001). Use the public core barrel.',
+        },
+        {
+          group: ['../../core/*', '../core/*', '../../../core/*'],
+          message: 'Import from src/core/index.ts only (ADR-001). Use the public core barrel.',
+        },
+      ],
+    },
+  ],
+}
+
 export default defineConfig([
   globalIgnores(['dist']),
   {
@@ -50,5 +68,25 @@ export default defineConfig([
   {
     files: ['tests/core/**/*.{ts,tsx}'],
     rules: coreBoundaryRule,
+  },
+  {
+    files: ['src/ui/**/*.{ts,tsx}'],
+    rules: uiCoreBoundaryRule,
+  },
+  {
+    files: ['tests/ui/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/src/core/*'],
+              message: 'Import from src/core/index.ts only (ADR-001).',
+            },
+          ],
+        },
+      ],
+    },
   },
 ])

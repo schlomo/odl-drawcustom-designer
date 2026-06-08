@@ -1,7 +1,7 @@
 import type { AccentMode, DitherMode } from '../../core'
 import type opentype from 'opentype.js'
 import { memo, useEffect, useRef } from 'react'
-import type { CanvasPrimitive } from '../../core/renderer/types'
+import type { CanvasPrimitive } from '../../core'
 import { drawCanvasStub } from '../lib/draw-canvas-stubs'
 
 interface CanvasElementLayerProps {

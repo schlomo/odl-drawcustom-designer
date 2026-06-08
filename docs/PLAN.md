@@ -31,7 +31,7 @@ todos:
     status: completed
   - id: renderer
     content: "Phase 3g: architecture + test quality gate before Phase 4 (§17g)"
-    status: pending
+    status: completed
   - id: content-manager
     content: "Content Manager UI + IndexedDB asset persistence (§17a)"
     status: completed
@@ -115,7 +115,7 @@ todos:
     status: completed
   - id: phase3g-arch-quality
     content: "Phase 3g: architecture + test quality gate before Phase 4 (§17g)"
-    status: pending
+    status: completed
   - id: phase4-property-form-ux
     content: "Deferred post-v1: JSON blur UX + property form tests (19-7/19-8); 19-9 in §18d"
     status: cancelled
@@ -568,7 +568,7 @@ Maintain `docs/adr/` in repo (for future-you and contributors):
 | ADR-002 | Local content map vs YAML-embedded preview (reject HA comments)                   |
 | ADR-003 | IndexedDB schema (global assets, mocks, session) — revised §18a                  |
 | ADR-010 | HA embed mode (standalone vs panel, load/save drawcustom)                         |
-| ADR-011 | Behavior-test policy (planned §17g) — core tests assert spec outcomes, not internals |
+| ADR-011 | Behavior-test policy — core spec outcomes, UI user-visible wiring (§17g ✅) |
 | ADR-004 | Template evaluator scope (subset of Jinja, not full engine)                       |
 | ADR-005 | Share hash format and excluded data                                               |
 | ADR-006 | UI framework: **React** for shell (AI-maintainability); core stays framework-free |
@@ -709,12 +709,12 @@ flowchart LR
 | **3d** QR + plot | ✅ Done | `3b75953` | 500 (77 files) | `qrcode` package, plot axes/legends/series, **19-5** nested fields, SE resize |
 | **3e** parse_colors + dither | ✅ Done | `ce99de5` | 522 (80 files) | Inline color segments, ordered d=2, flat/dither canvas toggle |
 | **3f** Canvas polish | ✅ Done | `1b629ff` | 557 (85 files) | Drag overlay, pointer capture, interaction tests, sidebar previews |
-| **3g** Arch + quality | ⬜ **Next** | — | — | ADR audit, behavior tests (§17g) — before Phase 4 |
+| **3g** Arch + quality | ✅ **Done** | ADR-011, `docs/testing.md`, audit report | — |
 | **4** Polish | ⬜ After 3g | — | — | Storage, export bars, multi-select, undo, edge snap, HA embed, deploy (§18) |
 
 **Current repo health:** `npm test` → **557 passed** (85 files) · `npm run lint` → **3 warnings** (hook deps) · last commit `1b629ff`
 
-**Next:** Phase **3g** — architecture + quality gate (§17g).
+**Next:** Phase **4a** — storage reshape (§18a). Prerequisite §17g ✅.
 
 ### Phase 0 — Bootstrap + ADRs ✅
 

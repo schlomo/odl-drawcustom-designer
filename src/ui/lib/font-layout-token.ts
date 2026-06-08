@@ -1,4 +1,4 @@
-import { getFont } from '../../core/renderer/fonts'
+import { getFont } from '../../core'
 
 export function isFontReadyForLayout(
   key: string,

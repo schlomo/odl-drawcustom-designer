@@ -1,5 +1,4 @@
-import { BUNDLED_FONT_KEYS, collectRequiredFontKeys, isSupportedFontKey, resolveAsset, type DrawElement } from '../../core'
-import { fontFamilyNameForKey } from '../../core/renderer/font-family-name'
+import { BUNDLED_FONT_KEYS, collectRequiredFontKeys, fontFamilyNameForKey, isSupportedFontKey, resolveAsset, type DrawElement } from '../../core'
 import { bundledFontUrl } from './font-url'
 
 const bundledFontKeys = new Set<string>(BUNDLED_FONT_KEYS)

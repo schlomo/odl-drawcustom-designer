@@ -1,6 +1,8 @@
-import { arcPieSliceBounds } from '../../core/renderer/arc-geometry'
-import type { RenderPrimitive } from '../../core/renderer/types'
-import { iconSequenceBoxSize } from '../../core/renderer/anchors'
+import {
+  arcPieSliceBounds,
+  iconSequenceBoxSize,
+  type RenderPrimitive,
+} from '../../core'
 
 export interface ElementBounds {
   x: number

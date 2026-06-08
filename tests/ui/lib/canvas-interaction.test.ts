@@ -15,7 +15,7 @@ import {
   supportsSeSizeResize,
   translateElement,
 } from '../../../src/ui/lib/element-geometry'
-import { createQrModuleGrid, qrRenderedSize } from '../../../src/core/renderer/qr-modules'
+import { createQrModuleGrid, qrRenderedSize } from '../../../src/core'
 import { findTopmostElementHit } from '../../../src/ui/lib/canvas-hit-test'
 import { snapMoveDelta, snapToGrid } from '../../../src/ui/lib/snap-to-grid'
 import {
@@ -45,6 +45,16 @@ describe('createElementFromTemplate', () => {
 })
 
 describe('element geometry', () => {
+  it('rounds drag deltas to whole pixels', () => {
+    expect(applyAxisDelta(10.4, 2.3)).toBe(13)
+    const moved = translateElement(
+      { type: 'icon', value: 'home', x: 10.2, y: 20.7, size: 24 },
+      3.4,
+      2.1,
+    )
+    expect(moved).toMatchObject({ x: 14, y: 23 })
+  })
+
   it('translates rectangle coordinates', () => {
     const element = createElementFromTemplate('rectangle')
     const moved = translateElement(element, 5, 10)

@@ -1,4 +1,4 @@
-import { fontFamilyNameForKey } from '../../core/renderer/font-family-name'
+import { fontFamilyNameForKey } from '../../core'
 
 export function resolveSvgFontFamily(
   fontKey: string | undefined,

@@ -24,6 +24,7 @@ export function App() {
     token: string
   } | null>(null)
   const [yamlStatusMessages, setYamlStatusMessages] = useState<StatusMessage[]>([])
+  const [canvasDragging, setCanvasDragging] = useState(false)
   const {
     elements,
     previewElements,
@@ -195,6 +196,7 @@ export function App() {
               onToggleSnap={toggleSnapGrid}
               previewDitherMode={canvas.previewDitherMode}
               onTogglePreviewDither={togglePreviewDither}
+              onDragActiveChange={setCanvasDragging}
             />
           </div>
           <YamlPanel
@@ -208,6 +210,7 @@ export function App() {
             selectedIndex={selectedIndex}
             selectionSource={selectionSource}
             entityScrollRequest={entityScrollRequest}
+            canvasDragging={canvasDragging}
           />
         </div>
 

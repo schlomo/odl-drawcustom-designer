@@ -1,1 +1,1 @@
-export { guessMimeFromAssetKey } from '../../core/assets/mime'
+export { guessMimeFromAssetKey } from '../../core'

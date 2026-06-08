@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { resetContentMap, setAsset } from '../../../src/core/assets'
+import { resetContentMap, setAsset } from '../../../src/core'
 import { collectKnownFontKeys } from '../../../src/ui/lib/known-font-keys'
 
 describe('collectKnownFontKeys', () => {

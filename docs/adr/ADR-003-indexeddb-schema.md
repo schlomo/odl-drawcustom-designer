@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (revised Phase 4a — 2026-06)
+Accepted (target schema — Phase 4a, 2026-06). **Implementation:** Dexie v1 still uses `projects` + per-`projectId` mocks until §18a lands.
 
 ## Context
 
@@ -26,6 +26,10 @@ Use **Dexie** (IndexedDB wrapper) with these logical stores:
 
 - `projects` store and 20-project LRU
 - Per-`projectId` mock compound keys
+
+## Implementation note (Phase 3, pre-4a)
+
+Current code (`src/storage/db.ts`, v1): `assets`, `mocks` compound key `[projectId+entityId]`, `projects` LRU table. UI still tracks an active project id in localStorage. Phase 4a replaces this with the table above — **no migration**, dev wipe OK.
 
 ## Consequences
 

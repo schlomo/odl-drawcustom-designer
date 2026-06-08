@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it } from 'vitest'
-import { resetContentMap } from '../../../src/core/assets'
+import { resetContentMap } from '../../../src/core'
 import {
   clearFontFamilyCacheForTests,
   collectFontKeysFromElements,

@@ -1,14 +1,19 @@
 import type opentype from 'opentype.js'
-import { mapColor } from '../../core/renderer/colors'
 import {
+  computeOpentypeGlyphPositions,
+  DEFAULT_FONT_KEY,
+  getCanvasTextDrawStyle,
+  getFont,
   halftoneTileColors,
+  mapColor,
   shouldUseHalftonePattern,
-} from '../../core/renderer/dither'
-import { DEFAULT_FONT_KEY, getFont } from '../../core/renderer/fonts'
-import { computeOpentypeGlyphPositions } from '../../core/renderer/opentype-glyphs'
-import type { AccentMode, DitherMode, TextDrawLine } from '../../core/renderer/types'
-import { getCanvasTextDrawStyle } from '../../core/renderer/text-anchor-draw'
-import type { CanvasPlotPrimitive, CanvasPrimitive, PlotSeriesPrimitive } from '../../core/renderer/types'
+  type AccentMode,
+  type CanvasPlotPrimitive,
+  type CanvasPrimitive,
+  type DitherMode,
+  type PlotSeriesPrimitive,
+  type TextDrawLine,
+} from '../../core'
 import { drawDlimgToCanvas } from './dlimg-resize'
 import { getCachedOpentypeFont } from './load-opentype-fonts'
 import { resolveCanvasFontFamily } from './load-font-faces'

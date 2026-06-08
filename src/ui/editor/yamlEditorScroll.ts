@@ -74,33 +74,49 @@ function mapSelectionThroughChanges(
   }
 }
 
+function restoreScrollPosition(
+  view: EditorViewType,
+  scrollTop: number,
+  scrollLeft: number,
+): void {
+  const apply = () => {
+    view.scrollDOM.scrollTop = scrollTop
+    view.scrollDOM.scrollLeft = scrollLeft
+  }
+  apply()
+  requestAnimationFrame(apply)
+}
+
 /** Keep YAML scroll and selection when syncing canvas edits without linked scroll. */
 export function dispatchPreservingEditorViewState(
   view: EditorViewType,
   spec: Parameters<EditorViewType['dispatch']>[0],
   selectionStore?: { current: StoredEditorSelection },
+  scrollStore?: { current: number },
 ): void {
-  const scrollTop = view.scrollDOM.scrollTop
+  const scrollTop = scrollStore?.current ?? view.scrollDOM.scrollTop
   const scrollLeft = view.scrollDOM.scrollLeft
   const oldDoc = view.state.doc.toString()
   const stored = selectionStore?.current
   const { anchor, head } = stored ?? view.state.selection.main
 
-  let merged = spec
+  let merged: Parameters<EditorViewType['dispatch']>[0] = spec
   if (!specHasExplicitSelection(spec)) {
     const mapped = mapSelectionThroughChanges(oldDoc, anchor, head, spec?.changes)
     merged = {
       ...spec,
       selection: mapped,
+      scrollIntoView: false,
     }
     if (selectionStore) {
       selectionStore.current = mapped
     }
+  } else if (spec != null) {
+    merged = { ...spec, scrollIntoView: false }
   }
 
   view.dispatch(merged)
-  view.scrollDOM.scrollTop = scrollTop
-  view.scrollDOM.scrollLeft = scrollLeft
+  restoreScrollPosition(view, scrollTop, scrollLeft)
 }
 
 /** @deprecated Use {@link dispatchPreservingEditorViewState}. */
@@ -108,4 +124,17 @@ export const dispatchPreservingEditorScroll = dispatchPreservingEditorViewState
 
 export function scrollLinkedElementIntoView(position: number) {
   return EditorView.scrollIntoView(position, { y: 'center', yMargin: 24 })
+}
+
+/** Track YAML scroller position for restore after programmatic doc sync. */
+export function bindYamlScrollStore(
+  view: EditorViewType,
+  scrollStore: { current: number },
+): () => void {
+  const onScroll = () => {
+    scrollStore.current = view.scrollDOM.scrollTop
+  }
+  onScroll()
+  view.scrollDOM.addEventListener('scroll', onScroll, { passive: true })
+  return () => view.scrollDOM.removeEventListener('scroll', onScroll)
 }

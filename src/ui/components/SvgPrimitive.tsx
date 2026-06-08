@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
-import { buildArcPiePath } from '../../core/renderer/arc-geometry'
-import type { SvgPrimitive as SvgPrimitiveType } from '../../core/renderer/types'
+import {
+  buildArcPiePath,
+  type SvgPrimitive as SvgPrimitiveType,
+} from '../../core'
 import { clampStrokeWidth, resolveSvgFontFamily } from '../lib/svg-font-family'
 
 interface SvgPrimitiveProps {

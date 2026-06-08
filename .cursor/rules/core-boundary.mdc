@@ -26,4 +26,4 @@ Fixtures: `tests/fixtures/` — examples derived from `docs/spec/supported_types
 - `src/core/assets/` — scanner + resolver
 - `src/core/renderer/` — canvas, colors, dither, element renderers
 
-UI code in `src/ui/` calls core via `src/core/index.ts` exports only.
+UI code in `src/ui/` calls core via `src/core/index.ts` exports only. ESLint enforces this on `src/ui/**` and `tests/ui/**` (for `src/core/*` subpaths).

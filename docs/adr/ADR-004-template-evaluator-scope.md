@@ -86,7 +86,7 @@ Use **Nunjucks** with Jinja compat mode and an injected **HA mock context**:
 - Syntax aligns with what HA users write and what `ha-nunjucks` targets — not identical to Python Jinja2 in every edge case (regex, some filters, Python-only methods)
 - Document known divergences; add fixture tests per spec template example
 - State Simulator remains required — Nunjucks does not replace mock data entry
-- Mock values persist per project in IndexedDB; excluded from share hash by default
+- Mock values persist globally in IndexedDB after Phase 4a (ADR-003); until then, per-project mocks in Dexie v1; excluded from share hash by default (ADR-005)
 
 ## Alternatives considered
 

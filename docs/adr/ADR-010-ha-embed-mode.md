@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (Phase 4f)
+Accepted (implementation Phase 4f — detection and HA API wiring TBD)
 
 ## Context
 

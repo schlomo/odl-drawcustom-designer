@@ -1,5 +1,4 @@
-import { listLibraryFontKeys, scanPayloadForAssets, type DrawElement } from '../../core'
-import { hasTemplateSyntax } from '../../core/templates/patterns'
+import { listLibraryFontKeys, scanPayloadForAssets, hasTemplateSyntax, type DrawElement } from '../../core'
 
 export const FONT_UPLOAD_OPTION = '__upload_font__'
 

@@ -16,6 +16,7 @@ import {
 } from './yamlEditorSelection'
 import type { StoredEditorSelection } from './yamlEditorScroll'
 import {
+  bindYamlScrollStore,
   dispatchPreservingEditorViewState,
   scrollLinkedElementIntoView,
 } from './yamlEditorScroll'
@@ -43,6 +44,8 @@ export interface YamlEditorProps {
   onCursorPositionChange?: (position: number) => void
   /** Last known YAML selection — survives canvas-driven doc sync while unlinked. */
   yamlSelectionRef?: { current: StoredEditorSelection }
+  /** Last known YAML scrollTop — survives canvas-driven doc sync while unlinked. */
+  yamlScrollRef?: { current: number }
   className?: string
   extraEntityIds?: readonly string[]
 }
@@ -75,6 +78,7 @@ export function YamlEditor({
   scrollLinkedElementOnSync = false,
   onCursorPositionChange,
   yamlSelectionRef,
+  yamlScrollRef,
   className,
   extraEntityIds = [],
 }: YamlEditorProps) {
@@ -126,7 +130,10 @@ export function YamlEditor({
     lastEmittedValueRef.current = value
     onCursorPositionChangeRef.current?.(view.state.selection.main.head)
 
+    const unbindScroll = yamlScrollRef ? bindYamlScrollStore(view, yamlScrollRef) : undefined
+
     return () => {
+      unbindScroll?.()
       view.destroy()
       viewRef.current = null
     }
@@ -208,16 +215,21 @@ export function YamlEditor({
           yamlSelectionRef.current = { anchor: linkedPosition, head: linkedPosition }
         }
       } else {
-        dispatchPreservingEditorViewState(view, { changes: syncSpec.changes, effects: scrollEffect }, yamlSelectionRef)
+        dispatchPreservingEditorViewState(
+          view,
+          { changes: syncSpec.changes, effects: scrollEffect },
+          yamlSelectionRef,
+          yamlScrollRef,
+        )
       }
     } else {
-      dispatchPreservingEditorViewState(view, { changes: syncSpec.changes }, yamlSelectionRef)
+      dispatchPreservingEditorViewState(view, { changes: syncSpec.changes }, yamlSelectionRef, yamlScrollRef)
     }
     lastEmittedValueRef.current = value
     queueMicrotask(() => {
       suppressCursorReportRef.current = false
     })
-  }, [preserveLinkedElementIndex, scrollLinkedElementOnSync, value, yamlSelectionRef])
+  }, [preserveLinkedElementIndex, scrollLinkedElementOnSync, value, yamlScrollRef, yamlSelectionRef])
 
   useEffect(() => {
     if (!scrollCommand) {

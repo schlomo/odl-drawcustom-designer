@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { resetContentMap, setAsset } from '../../../src/core/assets'
+import { resetContentMap, setAsset } from '../../../src/core'
 import { drawCanvasStub } from '../../../src/ui/lib/draw-canvas-stubs'
 import {
   areAssetImageMapsEqual,

@@ -1,6 +1,4 @@
-import { resolveAsset } from '../../core'
-import { isImageMime } from '../../core/assets/mime'
-import type { DrawElement } from '../../core/schema/elements'
+import { resolveAsset, isImageMime, type DrawElement } from '../../core'
 
 function loadImageElement(objectUrl: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
