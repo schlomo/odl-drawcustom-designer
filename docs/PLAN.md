@@ -76,7 +76,7 @@ todos:
     status: completed
   - id: phase3b-commit
     content: "Commit Phase 3b after verification (§11h)"
-    status: pending
+    status: completed
   - id: phase3-icons
     content: "Phase 3c: MDI icons + icon_sequence (§17c)"
     status: pending
@@ -672,13 +672,13 @@ flowchart LR
 | **2d** Content + templates | ✅ Done | `95ebf75` | +39 | Content Manager, State Simulator, template preview |
 | **2e** Canvas + forms | ✅ Done | `b559f08` | 325 (45 files) | Phase **2 complete** |
 | **3a** IndexedDB | ✅ Done | `9d58839` | 357 (49 files) | Dexie assets + mocks + project stub |
-| **3b** opentype text | ✅ Done | *uncommitted* | 427 (64 files) | Layout, anchors, wrap/truncate, multiline, bidi/RTL, glyph draw |
+| **3b** opentype text | ✅ Done | `23d12b5` | 427 (64 files) | Layout, anchors, wrap/truncate, multiline, bidi/RTL, glyph draw |
 | **3c–3f** Fidelity | ⬜ **Next** | — | — | MDI, QR, plot, parse_colors, dither, canvas perf (§17c–§17f) |
 | **4** Polish | ⬜ After 3 | — | — | Share, history, service options, undo/layers, PNG, e2e, deploy (§18) |
 
-**Current repo health:** `npm test` → **427 passed** (64 files) · `npm run lint` → **clean** · `npm run build` → **pass** · Phase **3b uncommitted** (last commit `9d58839`)
+**Current repo health:** `npm test` → **427 passed** (64 files) · `npm run lint` → **clean** · last commit `23d12b5`
 
-**Next:** commit Phase 3b (§11h) → Phase **3c** MDI icons (§17c).
+**Next:** Phase **3c** — MDI icons (§17c).
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -788,7 +788,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 
 **Phase 4 note:** plan may simplify to a **global mock store** (§7 Phase 4) — one HA instance, shared entity map like assets.
 
-### Phase 3b — opentype text fidelity (§17b) ✅ (uncommitted)
+### Phase 3b — opentype text fidelity (§17b) ✅ (`23d12b5`)
 
 - ✅ `opentype.js` + `src/core/renderer/fonts.ts` registry; `load-opentype-fonts.ts` (bundled + IndexedDB)
 - ✅ `text-layout.ts` — wrap (`max_width`), truncate, line spacing, multiline delimiter stack
@@ -822,7 +822,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 **Suggested Phase 3 chunks (one agent session each):**
 
 - **3a** — IndexedDB (`src/storage/`) ✅ **`9d58839`**
-- **3b** — opentype text + multiline ✅ (uncommitted)
+- **3b** — opentype text + multiline ✅ **`23d12b5`**
 - **3c** — MDI icons + icon_sequence
 - **3d** — QR + plot preview; **19-5** plot nested property fields
 - **3e** — parse_colors + dither pipeline (Best-of-N candidate)
@@ -892,7 +892,7 @@ flowchart LR
 - HA automation snippet generator (`open_epaper_link.drawcustom` wrapper)
 - Side-by-side YAML diff from history
 
-**Recommended order:** commit **3b** (§11h) → **3c** (§17c) → §17d–§17f → Phase 4 (§18) → push for GH Pages.
+**Recommended order:** **3c** (§17c) → §17d–§17f → Phase 4 (§18) → push for GH Pages.
 
 ---
 
@@ -1003,7 +1003,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **3a** ✅ (`9d58839`). Phase **3b** ✅ (uncommitted). **Current work:** **§17c–§17f** → **§18**.
+- Phase **3a** ✅ (`9d58839`). Phase **3b** ✅ (`23d12b5`). **Current work:** **§17c–§17f** → **§18**.
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1143,29 +1143,9 @@ Do not push unless I ask.
 
 ---
 
-## 11h. Commit Phase 3b prompt
+## 11h. Commit Phase 3b prompt ✅ (`23d12b5`)
 
-**Use now** — Phase 3b verified; work is uncommitted.
-
-```
-Read docs/PLAN.md §7 Phase 3b.
-
-Pre-flight: npm run lint && npm test && npm run build
-
-Commit Phase 3b work:
-- src/core/renderer/text-layout.ts, fonts.ts, opentype-glyphs.ts, bidi-text.ts, glyph-coverage.ts
-- src/core/renderer/text.ts, multiline.ts, text-metrics.ts, anchors.ts, element-defaults.ts
-- src/ui/lib/load-opentype-fonts.ts, font-load-outcome.ts, draw-canvas-stubs.ts
-- src/ui/components/CanvasElementLayer.tsx, DesignerCanvas.tsx
-- tests/core/renderer/text-layout.test.ts, text-anchor.test.ts, bidi-text.test.ts, rtl-text.test.ts
-- tests/core/renderer/glyph-coverage.test.ts, stub-preview.test.ts, renderer-defaults.test.ts
-- tests/ui/lib/load-opentype-fonts.test.ts, load-opentype-fonts-unsupported.test.ts
-- package.json, package-lock.json (opentype.js), docs/PLAN.md, README.md
-
-Message: "Phase 3b: opentype text layout and glyph preview"
-
-Do not push unless I ask. Next: docs/PLAN.md §17c
-```
+<!-- prompt archived — phase complete -->
 
 ---
 
@@ -1298,7 +1278,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17a** ✅ (`9d58839`). **§17b** ✅ (uncommitted). **Next: §17c** (MDI icons). Remaining: §17d–§17f.
+**§17a** ✅ (`9d58839`). **§17b** ✅ (`23d12b5`). **Next: §17c** (MDI icons). Remaining: §17d–§17f.
 
 **Plan cross-reference map:**
 
@@ -1333,7 +1313,7 @@ Key files: `src/storage/db.ts`, `assets.ts`, `mocks.ts`, `projectId.ts`; `hydrat
 
 <!-- prompt archived — phase complete -->
 
-### §17b — opentype text fidelity (Phase 3b) ✅ (uncommitted)
+### §17b — opentype text fidelity (Phase 3b) ✅ (`23d12b5`)
 
 Delivered — see §7 Phase 3b checklist.
 

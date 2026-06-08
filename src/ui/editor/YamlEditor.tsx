@@ -15,6 +15,9 @@ import {
   shouldReportYamlCursorPosition,
 } from './yamlEditorSelection'
 import {
+  reconfigureLinkedElementIndex,
+} from './yamlLinkedElement'
+import {
   shouldApplyYamlScrollCommand,
   type YamlScrollCommand,
 } from './yamlScrollCommand'
@@ -30,6 +33,8 @@ export interface YamlEditorProps {
   scrollCommand?: YamlScrollCommand | null
   /** When set, external doc sync restores the cursor to this element (property/canvas edits). */
   preserveLinkedElementIndex?: number | null
+  /** Scroll linked element into view on canvas/property-driven YAML sync. */
+  scrollLinkedElementOnSync?: boolean
   onCursorPositionChange?: (position: number) => void
   className?: string
   extraEntityIds?: readonly string[]
@@ -60,6 +65,7 @@ export function YamlEditor({
   fontSizePx,
   scrollCommand = null,
   preserveLinkedElementIndex = null,
+  scrollLinkedElementOnSync = false,
   onCursorPositionChange,
   className,
   extraEntityIds = [],
@@ -147,6 +153,17 @@ export function YamlEditor({
       return
     }
 
+    view.dispatch({
+      effects: reconfigureLinkedElementIndex(preserveLinkedElementIndex),
+    })
+  }, [preserveLinkedElementIndex])
+
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) {
+      return
+    }
+
     if (value === lastEmittedValueRef.current) {
       return
     }
@@ -158,22 +175,25 @@ export function YamlEditor({
     }
 
     suppressCursorReportRef.current = true
+    const linkedPosition =
+      preserveLinkedElementIndex != null
+        ? locateElementFocusInYaml(value, preserveLinkedElementIndex)
+        : null
+    const scrollEffect =
+      scrollLinkedElementOnSync && linkedPosition != null
+        ? EditorView.scrollIntoView(linkedPosition, { y: 'center', yMargin: 24 })
+        : undefined
+
     view.dispatch({
       changes: { from: 0, to: current.length, insert: value },
-      ...(preserveLinkedElementIndex != null
-        ? (() => {
-            const position = locateElementFocusInYaml(value, preserveLinkedElementIndex)
-            return position != null
-              ? { selection: { anchor: position, head: position } }
-              : {}
-          })()
-        : {}),
+      ...(linkedPosition != null ? { selection: { anchor: linkedPosition, head: linkedPosition } } : {}),
+      ...(scrollEffect ? { effects: scrollEffect } : {}),
     })
     lastEmittedValueRef.current = value
     queueMicrotask(() => {
       suppressCursorReportRef.current = false
     })
-  }, [preserveLinkedElementIndex, value])
+  }, [preserveLinkedElementIndex, scrollLinkedElementOnSync, value])
 
   useEffect(() => {
     if (!scrollCommand) {

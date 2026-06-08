@@ -14,6 +14,7 @@ import {
   spanGapsSchema,
   visibleSchema,
 } from './common'
+import { iconNameSchema } from './iconName'
 
 const debugGridSchema = z
   .object({
@@ -174,7 +175,7 @@ const arcSchema = z
 const iconSchema = z
   .object({
     type: z.literal('icon'),
-    value: z.string(),
+    value: iconNameSchema,
     x: coordinateSchema,
     y: coordinateSchema,
     size: numericTemplateSchema,
@@ -190,7 +191,7 @@ const iconSequenceSchema = z
     type: z.literal('icon_sequence'),
     x: coordinateSchema,
     y: coordinateSchema,
-    icons: z.array(z.string()).min(1),
+    icons: z.array(iconNameSchema).min(1),
     size: numericTemplateSchema,
     direction: directionSchema.optional(),
     spacing: z.number().optional(),

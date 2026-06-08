@@ -106,7 +106,51 @@ export function isClampedPercentProperty(property: string): boolean {
   return CLAMPED_0_100_PROPERTIES.has(property)
 }
 
-const JSON_PROPERTIES = new Set(['points', 'icons', 'ylegend', 'yaxis', 'xlegend', 'xaxis', 'corners'])
+/** Pixel/layout numbers stored as whole integers in YAML. */
+export const POSITION_NUMBER_PROPERTIES = new Set([
+  'x',
+  'y',
+  'size',
+  'spacing',
+  'offset_y',
+  'x_start',
+  'x_end',
+  'y_start',
+  'y_end',
+  'width',
+  'radius',
+  'dash_length',
+  'space_length',
+  'boxsize',
+  'border',
+  'label_step',
+  'label_font_size',
+  'stroke_width',
+  'xsize',
+  'ysize',
+  'x_size',
+  'x_offset',
+  'y_size',
+  'y_offset',
+  'tick_width',
+  'tick_length',
+  'point_size',
+  'y_padding',
+  'max_width',
+])
+
+export function isPositionNumberProperty(property: string): boolean {
+  return POSITION_NUMBER_PROPERTIES.has(property)
+}
+
+export function roundPositionNumber(property: string, value: number): number {
+  if (!isPositionNumberProperty(property)) {
+    return value
+  }
+  return Math.round(value)
+}
+
+const JSON_PROPERTIES = new Set(['points', 'icons', 'ylegend', 'yaxis', 'xlegend', 'xaxis'])
 
 /** plot `data` is edited as JSON; multiline `value` fields are separate. */
 export const MULTILINE_STRING_PROPERTIES = new Set(['value', 'url', 'data'])
@@ -128,6 +172,7 @@ const ENUM_PROPERTY_MAP: Record<string, keyof typeof ENUMS> = {
   resize_method: 'resize_method',
   line_style: 'line_style',
   grid_style: 'grid_style',
+  corners: 'corners',
 }
 
 function enumNameForProperty(property: string): keyof typeof ENUMS | null {
@@ -236,6 +281,9 @@ export function shouldUseEnumDropdown(
     return false
   }
   const raw = value == null || value === '' ? '' : String(value)
+  if (!raw) {
+    return true
+  }
   return enumValues.includes(raw)
 }
 
@@ -245,6 +293,10 @@ export function isFontProperty(property: string): boolean {
 
 export function isImageUrlProperty(property: string, elementType: DrawElement['type']): boolean {
   return property === 'url' && elementType === 'dlimg'
+}
+
+export function isIconNameProperty(property: string, elementType: DrawElement['type']): boolean {
+  return property === 'value' && elementType === 'icon'
 }
 
 export function getEditableProperties(element: DrawElement): string[] {

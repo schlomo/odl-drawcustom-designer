@@ -1,15 +1,18 @@
-import {
-  getYamlElementsParseIssues,
-  summarizeYamlElementsParseIssues,
-  type YamlElementsParseIssue,
-} from '../editor/yamlElementsSync'
+import { lintYamlDocument, type YamlLintDiagnostic } from '../editor/yamlLint'
 import type { StatusMessage } from './status-messages'
 
-export function yamlIssuesToStatusMessages(issues: YamlElementsParseIssue[]): StatusMessage[] {
-  const summary = summarizeYamlElementsParseIssues(issues)
-  if (!summary) {
+export function yamlLintDiagnosticsToStatusMessages(
+  diagnostics: readonly YamlLintDiagnostic[],
+): StatusMessage[] {
+  if (diagnostics.length === 0) {
     return []
   }
+
+  const first = diagnostics[0]!
+  const summary =
+    diagnostics.length === 1
+      ? first.message
+      : `${diagnostics.length} validation errors — ${first.message}`
 
   return [
     {
@@ -17,11 +20,11 @@ export function yamlIssuesToStatusMessages(issues: YamlElementsParseIssue[]): St
       title: 'YAML not applied to canvas',
       summary,
       detail:
-        'Fix the highlighted issue in the editor below (red underline). The canvas keeps the last valid design until validation passes.',
+        'Fix the highlighted issue in the YAML editor (red underline). The canvas keeps the last valid design until validation passes.',
     },
   ]
 }
 
 export function getYamlStatusMessages(source: string): StatusMessage[] {
-  return yamlIssuesToStatusMessages(getYamlElementsParseIssues(source))
+  return yamlLintDiagnosticsToStatusMessages(lintYamlDocument(source))
 }

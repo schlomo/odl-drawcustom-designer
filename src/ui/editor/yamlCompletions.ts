@@ -10,12 +10,14 @@ import {
   isDrawElementType,
 } from '../../core'
 import { getListItemBlockAtPosition } from './locateElementInYaml'
+import { listMdiIconNamesForCompletion } from '../lib/mdi-icon-names'
 
 export type YamlCompletionContext =
   | { kind: 'element-type'; prefix?: string }
   | { kind: 'list-item-key'; prefix?: string }
   | { kind: 'property'; elementType: (typeof DRAW_ELEMENT_TYPES)[number]; prefix?: string }
   | { kind: 'enum'; enumName: 'color' | 'direction' | 'resize_method'; prefix?: string }
+  | { kind: 'icon-name'; prefix?: string }
 
 type YamlEnumName = Extract<YamlCompletionContext, { kind: 'enum' }>['enumName']
 
@@ -51,7 +53,7 @@ export function inferCurrentElementType(
         return candidate as (typeof DRAW_ELEMENT_TYPES)[number]
       }
     }
-    if (/^\s*-\s/.test(line) && !/\btype:/.test(line)) {
+    if (/^-\s/.test(line) && !/\btype:/.test(line)) {
       return null
     }
   }
@@ -59,9 +61,47 @@ export function inferCurrentElementType(
   return null
 }
 
+const ICON_NAME_QUERY = String.raw`[\w: -]*`
+
+const ICON_NAME_VALUE_PATTERN = new RegExp(String.raw`^\s+value:\s*"?(${ICON_NAME_QUERY})$`)
+const ICON_NAME_LIST_ITEM_PATTERN = new RegExp(String.raw`^\s+-\s*"?(${ICON_NAME_QUERY})$`)
+
+export function isInIconSequenceIconsList(doc: string, pos: number): boolean {
+  const lineStart = doc.lastIndexOf('\n', pos - 1) + 1
+  const lineEnd = doc.indexOf('\n', pos)
+  const line = doc.slice(lineStart, lineEnd === -1 ? doc.length : lineEnd)
+  if (!ICON_NAME_LIST_ITEM_PATTERN.test(line)) {
+    return false
+  }
+
+  const currentIndent = line.match(/^(\s*)/)?.[1]?.length ?? 0
+  const lines = doc.slice(0, lineStart).split('\n')
+
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const prevLine = lines[index] ?? ''
+    const prevIndent = prevLine.match(/^(\s*)/)?.[1]?.length ?? 0
+
+    if (/^\s+icons:\s*$/.test(prevLine) && prevIndent < currentIndent) {
+      return true
+    }
+
+    if (prevIndent < currentIndent && /^\s+\w+:/.test(prevLine) && !/^\s+icons:\s*$/.test(prevLine)) {
+      return false
+    }
+
+    if (/^-\s/.test(prevLine) && prevIndent < currentIndent && !/\btype:/.test(prevLine)) {
+      return false
+    }
+  }
+
+  return false
+}
+
 export function resolveYamlCompletionContext(
   lineBeforeCursor: string,
   elementType: (typeof DRAW_ELEMENT_TYPES)[number] | null,
+  doc = '',
+  pos = 0,
 ): YamlCompletionContext | null {
   const typeValueMatch = lineBeforeCursor.match(/^\s*-?\s*type:\s*(\w*)$/)
   if (typeValueMatch) {
@@ -90,6 +130,22 @@ export function resolveYamlCompletionContext(
         ? { kind: 'enum', enumName }
         : { kind: 'enum', enumName, prefix }
     }
+  }
+
+  const iconValueMatch = lineBeforeCursor.match(ICON_NAME_VALUE_PATTERN)
+  if (elementType === 'icon' && iconValueMatch) {
+    const prefix = iconValueMatch[1]
+    return prefix === undefined || prefix.length === 0
+      ? { kind: 'icon-name' }
+      : { kind: 'icon-name', prefix }
+  }
+
+  const iconListMatch = lineBeforeCursor.match(ICON_NAME_LIST_ITEM_PATTERN)
+  if (elementType === 'icon_sequence' && iconListMatch && isInIconSequenceIconsList(doc, pos)) {
+    const prefix = iconListMatch[1]
+    return prefix === undefined || prefix.length === 0
+      ? { kind: 'icon-name' }
+      : { kind: 'icon-name', prefix }
   }
 
   const propertyMatch = lineBeforeCursor.match(/^\s+(\w*)$/)
@@ -164,6 +220,12 @@ export function completionEntriesForContext(context: YamlCompletionContext): Com
       return filterByPrefix(getPropertyCompletions(context.elementType), context.prefix)
     case 'enum':
       return filterByPrefix(getEnumCompletions(context.enumName), context.prefix)
+    case 'icon-name':
+      return listMdiIconNamesForCompletion(context.prefix, 50).map((label) => ({
+        label,
+        kind: 'enum',
+        detail: 'MDI icon',
+      }))
     default:
       return []
   }

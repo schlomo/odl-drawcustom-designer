@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { iconSequenceBoxSize } from '../../core/renderer/anchors'
 import type { SvgPrimitive as SvgPrimitiveType } from '../../core/renderer/types'
 import { clampStrokeWidth, resolveSvgFontFamily } from '../lib/svg-font-family'
 
@@ -7,6 +6,8 @@ interface SvgPrimitiveProps {
   primitive: SvgPrimitiveType
   fontFamilies?: ReadonlyMap<string, string>
 }
+
+const MDI_VIEWBOX_SIZE = 24
 
 function arcPath(
   cx: number,
@@ -25,6 +26,55 @@ function arcPath(
   }
   const largeArc = endAngle - startAngle > Math.PI ? 1 : 0
   return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y} Z`
+}
+
+function mdiIconPath(
+  x: number,
+  y: number,
+  size: number,
+  path: string,
+  fill: string,
+): ReactNode {
+  const scale = size / MDI_VIEWBOX_SIZE
+  return (
+    <g transform={`translate(${x}, ${y}) scale(${scale})`}>
+      <path d={path} fill={fill} />
+    </g>
+  )
+}
+
+function unknownIconFallback(
+  x: number,
+  y: number,
+  size: number,
+  label: string,
+  fill: string,
+): ReactNode {
+  const fontSize = Math.min(11, Math.max(8, size / 10))
+  return (
+    <g>
+      <rect
+        x={x}
+        y={y}
+        width={size}
+        height={size}
+        fill="#f8fafc"
+        stroke={fill}
+        strokeWidth={1}
+        strokeDasharray="4 2"
+      />
+      <text
+        x={x + size / 2}
+        y={y + size / 2}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize={fontSize}
+        fill={fill}
+      >
+        {label.length > 14 ? `${label.slice(0, 12)}…` : label}
+      </text>
+    </g>
+  )
 }
 
 export function SvgPrimitive({ primitive, fontFamilies = new Map() }: SvgPrimitiveProps) {
@@ -107,66 +157,31 @@ export function SvgPrimitive({ primitive, fontFamilies = new Map() }: SvgPrimiti
           strokeWidth={clampStrokeWidth(primitive.strokeWidth)}
         />
       )
-    case 'icon-stub': {
+    case 'icon': {
       const label = primitive.value.replace(/^mdi:/, '')
-      const fontSize = Math.min(11, Math.max(8, primitive.size / 10))
+      if (primitive.path) {
+        return mdiIconPath(primitive.x, primitive.y, primitive.size, primitive.path, primitive.fill)
+      }
+      return unknownIconFallback(primitive.x, primitive.y, primitive.size, label, primitive.fill)
+    }
+    case 'icon_sequence':
       return (
         <g>
-          <rect
-            x={primitive.x}
-            y={primitive.y}
-            width={primitive.size}
-            height={primitive.size}
-            fill="#f8fafc"
-            stroke={primitive.fill}
-            strokeWidth={1}
-            strokeDasharray="4 2"
-          />
-          <text
-            x={primitive.x + primitive.size / 2}
-            y={primitive.y + primitive.size / 2}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize={fontSize}
-            fill={primitive.fill}
-          >
-            {label.length > 14 ? `${label.slice(0, 12)}…` : label}
-          </text>
+          {primitive.icons.map((icon, index) => (
+            <g key={`${icon.name}-${index}`}>
+              {icon.path
+                ? mdiIconPath(icon.x, icon.y, primitive.size, icon.path, primitive.fill)
+                : unknownIconFallback(
+                    icon.x,
+                    icon.y,
+                    primitive.size,
+                    icon.name.replace(/^mdi:/, ''),
+                    primitive.fill,
+                  )}
+            </g>
+          ))}
         </g>
       )
-    }
-    case 'icon-sequence-stub': {
-      const sequenceBounds = iconSequenceBoxSize(
-        primitive.size,
-        primitive.icons.length,
-        primitive.spacing,
-        primitive.direction,
-      )
-      return (
-        <g>
-          <rect
-            x={primitive.x}
-            y={primitive.y}
-            width={sequenceBounds.width}
-            height={sequenceBounds.height}
-            fill="none"
-            stroke={primitive.fill}
-            strokeWidth={1}
-            strokeDasharray="4 2"
-          />
-          <text
-            x={primitive.x + sequenceBounds.width / 2}
-            y={primitive.y + sequenceBounds.height / 2}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize={9}
-            fill={primitive.fill}
-          >
-            {primitive.icons.length} icons
-          </text>
-        </g>
-      )
-    }
     case 'rectangle-pattern-stub':
       return (
         <g>

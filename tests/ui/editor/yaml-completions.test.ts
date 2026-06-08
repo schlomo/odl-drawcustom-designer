@@ -52,6 +52,17 @@ describe('inferCurrentElementType', () => {
     const pos = doc.indexOf('x_end')
     expect(inferCurrentElementType(doc, pos)).toBe('rectangle')
   })
+
+  it('finds icon_sequence for cursors on nested icons list lines', () => {
+    const doc = `- type: icon_sequence
+  x: 0
+  icons:
+    - mdi:home
+    - hom
+`
+    const pos = doc.indexOf('hom') + 2
+    expect(inferCurrentElementType(doc, pos)).toBe('icon_sequence')
+  })
 })
 
 describe('resolveYamlCompletionContext', () => {
@@ -108,6 +119,36 @@ describe('resolveYamlCompletionContext', () => {
       enumName: 'direction',
     })
   })
+
+  it('detects icon name completion on icon value', () => {
+    expect(resolveYamlCompletionContext('  value: hom', 'icon')).toEqual({
+      kind: 'icon-name',
+      prefix: 'hom',
+    })
+    expect(resolveYamlCompletionContext('  value: ', 'icon')).toEqual({
+      kind: 'icon-name',
+    })
+    expect(resolveYamlCompletionContext('  value: home group', 'icon')).toEqual({
+      kind: 'icon-name',
+      prefix: 'home group',
+    })
+  })
+
+  it('detects icon name completion on icon_sequence icons list items', () => {
+    const doc = `- type: icon_sequence
+  x: 0
+  y: 0
+  icons:
+    - hom
+    - mdi:arr
+  size: 24
+`
+    const firstIconPos = doc.indexOf('hom') + 2
+    expect(resolveYamlCompletionContext('    - hom', 'icon_sequence', doc, firstIconPos)).toEqual({
+      kind: 'icon-name',
+      prefix: 'hom',
+    })
+  })
 })
 
 describe('completionEntriesForContext', () => {
@@ -143,6 +184,22 @@ describe('completionEntriesForContext', () => {
     const entries = completionEntriesForContext({ kind: 'enum', enumName: 'color' })
     expect(entries.some((e) => e.label === 'red')).toBe(true)
     expect(entries.some((e) => e.label === 'black')).toBe(true)
+  })
+
+  it('returns MDI icon names for icon-name context', () => {
+    const entries = completionEntriesForContext({ kind: 'icon-name', prefix: 'home' })
+    expect(entries.length).toBeGreaterThan(0)
+    expect(entries.every((e) => e.label.includes('home'))).toBe(true)
+    expect(entries[0]?.detail).toBe('MDI icon')
+  })
+
+  it('returns multi-word icon-name matches', () => {
+    const entries = completionEntriesForContext({ kind: 'icon-name', prefix: 'home group' })
+    expect(entries.some((e) => e.label === 'home-group')).toBe(true)
+  })
+
+  it('returns no icon-name entries without a typed prefix', () => {
+    expect(completionEntriesForContext({ kind: 'icon-name' })).toEqual([])
   })
 })
 

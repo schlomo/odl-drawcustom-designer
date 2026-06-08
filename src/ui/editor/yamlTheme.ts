@@ -95,6 +95,12 @@ function editorChrome(theme: ResolvedTheme, fontSizePx: number) {
       '.cm-activeLine': {
         backgroundColor: isDark ? '#1e293b' : '#f8fafc',
       },
+      '.cm-linkedElementLine': {
+        backgroundColor: isDark ? '#172554' : '#eff6ff',
+        boxShadow: isDark
+          ? 'inset 3px 0 0 #60a5fa'
+          : 'inset 3px 0 0 #2563eb',
+      },
       '.cm-cursor, .cm-dropCursor': {
         borderLeftColor: isDark ? '#f8fafc' : '#0f172a',
       },
@@ -125,6 +131,10 @@ function editorChrome(theme: ResolvedTheme, fontSizePx: number) {
       '.cm-tooltip-autocomplete': {
         backgroundColor: isDark ? '#1e293b' : '#ffffff',
         color: isDark ? '#f8fafc' : '#0f172a',
+      },
+      '.cm-tooltip-autocomplete > ul': {
+        maxHeight: '12rem',
+        overflowY: 'auto',
       },
       '.cm-tooltip-autocomplete ul li[aria-selected]': {
         backgroundColor: isDark ? '#334155' : '#dbeafe',

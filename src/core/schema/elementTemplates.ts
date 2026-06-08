@@ -33,7 +33,7 @@ export const ELEMENT_TYPE_INSERTIONS: Record<DrawElement['type'], string> = {
   x_repeat: 1
   y_repeat: 4`,
   polygon: `polygon
-  points: [[10, 10], [50, 10], [50, 50], [10, 50]]`,
+  points: [[120, 40], [200, 140], [160, 200], [80, 200], [40, 140]]`,
   circle: `circle
   x: 50
   y: 50

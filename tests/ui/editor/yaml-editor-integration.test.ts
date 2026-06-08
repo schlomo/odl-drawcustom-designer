@@ -97,6 +97,71 @@ describe('yaml editor first-block integration', () => {
     expect(result!.from).toBeGreaterThan(0)
   })
 
+  it('offers MDI icon matches for typed icon value prefixes', () => {
+    const doc = `- type: icon
+  x: 0
+  y: 0
+  value: home
+  size: 24
+`
+    mountEditor(doc)
+    const pos = doc.indexOf('home') + 'home'.length
+    const context = new CompletionContext(view!.state, pos, true)
+    const result = yamlSchemaCompletionSource(context)
+
+    expect(result).not.toBeNull()
+    expect(result!.filter).toBe(false)
+    expect(result!.options.length).toBeGreaterThan(10)
+    expect(result!.options.every((option) => option.label.includes('home'))).toBe(true)
+  })
+
+  it('offers multi-word MDI icon matches in yaml value fields', () => {
+    const doc = `- type: icon
+  x: 0
+  y: 0
+  value: home group
+  size: 24
+`
+    mountEditor(doc)
+    const pos = doc.indexOf('home group') + 'home group'.length
+    const context = new CompletionContext(view!.state, pos, true)
+    const result = yamlSchemaCompletionSource(context)
+
+    expect(result).not.toBeNull()
+    expect(result!.options.some((option) => option.label === 'home-group')).toBe(true)
+  })
+
+  it('does not offer icon names before any value text is typed', () => {
+    const doc = `- type: icon
+  x: 0
+  y: 0
+  value: 
+  size: 24
+`
+    mountEditor(doc)
+    const pos = doc.indexOf('value: ') + 'value: '.length
+    const context = new CompletionContext(view!.state, pos, true)
+    expect(yamlSchemaCompletionSource(context)).toBeNull()
+  })
+
+  it('offers MDI icon matches on icon_sequence icons list lines', () => {
+    const doc = `- type: icon_sequence
+  x: 0
+  y: 0
+  icons:
+    - mdi:home
+    - home group
+  size: 24
+`
+    mountEditor(doc)
+    const pos = doc.indexOf('home group') + 'home group'.length
+    const context = new CompletionContext(view!.state, pos, true)
+    const result = yamlSchemaCompletionSource(context)
+
+    expect(result).not.toBeNull()
+    expect(result!.options.some((option) => option.label === 'home-group')).toBe(true)
+  })
+
   it('does not report programmatic document replacements', () => {
     const doc = `- type: text
   value: Hi

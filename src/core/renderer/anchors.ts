@@ -56,6 +56,39 @@ export function resolveAnchoredBox(
   }
 }
 
+/** Inverse of {@link resolveAnchoredBox}: anchor point for a drawn box origin. */
+export function anchorPointFromBox(
+  anchor: string | undefined,
+  box: AnchoredBox,
+  defaultAnchor: string,
+  metrics?: AnchoredBoxMetrics,
+): { x: number; y: number } {
+  const normalized = (anchor ?? defaultAnchor).trim().toLowerCase()
+  const horizontal = normalized[0] ?? 'l'
+  const vertical = normalized[1] ?? 'a'
+
+  let dx = 0
+  if (horizontal === 'm') {
+    dx = -box.width / 2
+  } else if (horizontal === 'r') {
+    dx = -box.width
+  }
+
+  let dy = 0
+  if (vertical === 'm') {
+    dy = -box.height / 2
+  } else if (vertical === 's') {
+    dy = -(metrics?.baselineOffset ?? box.height)
+  } else if (vertical === 'b' || vertical === 'd') {
+    dy = -box.height
+  }
+
+  return {
+    x: box.x - dx,
+    y: box.y - dy,
+  }
+}
+
 export function resolveNumericSize(size: number | string): number {
   if (typeof size === 'number') {
     return size
@@ -90,4 +123,30 @@ export function iconSequenceBoxSize(
     return { width: size + span, height: size }
   }
   return { width: size, height: span + size }
+}
+
+export function iconSequenceIconPositions(
+  originX: number,
+  originY: number,
+  size: number,
+  iconCount: number,
+  spacing: number,
+  direction: ResolvedDirection,
+): Array<{ x: number; y: number }> {
+  const step = size + spacing
+  const positions: Array<{ x: number; y: number }> = []
+
+  for (let index = 0; index < iconCount; index += 1) {
+    if (direction === 'right') {
+      positions.push({ x: originX + index * step, y: originY })
+    } else if (direction === 'left') {
+      positions.push({ x: originX + (iconCount - 1 - index) * step, y: originY })
+    } else if (direction === 'down') {
+      positions.push({ x: originX, y: originY + index * step })
+    } else {
+      positions.push({ x: originX, y: originY + (iconCount - 1 - index) * step })
+    }
+  }
+
+  return positions
 }

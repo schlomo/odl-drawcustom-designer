@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useMemo, useState } from 'react'
 import { FONT_UPLOAD_ACCEPT, type AssetUploadResult, type DrawElement } from '../../core'
 import {
   booleanPropertyDefault,
@@ -15,10 +15,13 @@ import {
   getPropertyTooltip,
   isCodeLikeStringValue,
   isFontProperty,
+  isIconNameProperty,
   isImageUrlProperty,
   isMultilineStringProperty,
   isNonNegativeNumberProperty,
   isClampedPercentProperty,
+  isPositionNumberProperty,
+  roundPositionNumber,
   parsePropertyInput,
   shouldUseEnumDropdown,
   TEMPLATE_EDITOR_OPTION,
@@ -26,6 +29,7 @@ import {
   type PropertyFieldKind,
 } from '../lib/property-field-meta'
 import { FONT_UPLOAD_OPTION } from '../lib/known-font-keys'
+import { filterMdiIconNames } from '../lib/mdi-icon-names'
 import { shell } from '../styles/shell'
 
 interface ElementPropertyFormProps {
@@ -138,6 +142,61 @@ function FontPropertyField({
         <option value={FONT_UPLOAD_OPTION}>Upload font…</option>
         <option value={TEMPLATE_EDITOR_OPTION}>Template…</option>
       </select>
+    </div>
+  )
+}
+
+function IconNamePropertyField({
+  element,
+  value,
+  onChange,
+}: {
+  element: DrawElement
+  value: unknown
+  onChange: (value: unknown) => void
+}) {
+  const current = typeof value === 'string' ? value : ''
+  const [focused, setFocused] = useState(false)
+  const suggestions = useMemo(() => {
+    if (!focused || isCodeLikeStringValue(current)) {
+      return []
+    }
+    return filterMdiIconNames(current)
+  }, [current, focused])
+
+  return (
+    <div className={`relative block text-xs ${shell.muted}`}>
+      <PropertyLabel element={element} property="value" />
+      <input
+        type="text"
+        className={`mt-1 w-full font-mono ${shell.input}`}
+        value={current}
+        placeholder="account-cowboy-hat"
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      {suggestions.length > 0 ? (
+        <ul
+          className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-[var(--shell-border)] bg-[var(--shell-surface)] py-1 text-[var(--shell-text)] shadow-lg ring-1 ring-black/5"
+          role="listbox"
+        >
+          {suggestions.map((name) => (
+            <li key={name}>
+              <button
+                type="button"
+                className="block w-full px-2 py-1.5 text-left font-mono text-sm text-[var(--shell-text)] hover:bg-[var(--shell-hover)]"
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  onChange(name)
+                }}
+              >
+                {name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   )
 }
@@ -308,6 +367,10 @@ function PropertyField({
     )
   }
 
+  if (isIconNameProperty(property, element.type) && !isCodeLikeStringValue(value)) {
+    return <IconNamePropertyField element={element} value={value} onChange={onChange} />
+  }
+
   if (isImageUrlProperty(property, element.type)) {
     const urlKey = typeof value === 'string' ? value : ''
 
@@ -419,6 +482,9 @@ function PropertyField({
             }
             if (clampedPercent) {
               next = Math.min(100, Math.max(0, next))
+            }
+            if (isPositionNumberProperty(property)) {
+              next = roundPositionNumber(property, next)
             }
             onChange(next)
           }}

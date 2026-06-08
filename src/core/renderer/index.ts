@@ -69,7 +69,9 @@ export {
   ICON_DEFAULT_ANCHOR,
   TEXT_DEFAULT_ANCHOR,
   iconSequenceBoxSize,
+  iconSequenceIconPositions,
   resolveAnchoredBox,
+  anchorPointFromBox,
 } from './anchors'
 export {
   findMissingCharacters,
@@ -107,6 +109,7 @@ export {
   wrapTextLines,
   type TextBlockLayout,
 } from './text-layout'
+export { mdiExportName, normalizeMdiIconName, resolveMdiPath } from './mdi-icons'
 export { renderArc } from './arc'
 export { renderCircle } from './circle'
 export { renderDebugGrid } from './debug-grid'
@@ -141,8 +144,9 @@ export type {
   SvgCirclePrimitive,
   SvgDebugGridStubPrimitive,
   SvgEllipsePrimitive,
-  SvgIconSequenceStubPrimitive,
-  SvgIconStubPrimitive,
+  SvgIconPrimitive,
+  SvgIconSequenceIcon,
+  SvgIconSequencePrimitive,
   SvgLinePrimitive,
   SvgPolygonPrimitive,
   SvgPrimitive,

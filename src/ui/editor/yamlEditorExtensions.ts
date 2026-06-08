@@ -9,6 +9,7 @@ import { basicSetup } from '@uiw/codemirror-extensions-basic-setup'
 import type { ResolvedTheme } from '../preferences/theme'
 import { jinjaBraceInputHandler, yamlCloseBrackets } from './jinjaBracketHandling'
 import { highlightActiveLineWhenCollapsed } from './yamlActiveLine'
+import { highlightLinkedElement, linkedElementIndexFacet, yamlLinkedElementCompartment } from './yamlLinkedElement'
 import { yamlEditorAutocompletion } from './yamlCompletionSource'
 import { YAML_EDITOR_BASIC_SETUP } from './yamlEditorSetup'
 import { yamlEntityIdsCompartment, yamlEntityIdsFacet } from './yamlEntityIds'
@@ -74,6 +75,10 @@ export function createYamlEditorState(
         },
       }),
       highlightActiveLineWhenCollapsed(),
+      yamlLinkedElementCompartment.of([
+        linkedElementIndexFacet.of(null),
+        highlightLinkedElement(),
+      ]),
       EditorView.updateListener.of((update) => {
         if (
           shouldReportYamlDocChange(update.docChanged, update.transactions)

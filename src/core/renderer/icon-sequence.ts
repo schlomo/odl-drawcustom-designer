@@ -2,12 +2,14 @@ import type { DrawElement } from '../schema/elements'
 import {
   ICON_DEFAULT_ANCHOR,
   iconSequenceBoxSize,
+  iconSequenceIconPositions,
   resolveAnchoredBox,
   resolveDirection,
 } from './anchors'
 import { effectiveFontSize, effectiveNumber, effectiveString } from './element-defaults'
 import { mapColor } from './colors'
 import { resolveX, resolveY } from './coordinates'
+import { resolveMdiPath } from './mdi-icons'
 import type { RenderContext, RenderResult } from './types'
 import { isVisible } from './visibility'
 
@@ -34,18 +36,31 @@ export function renderIconSequence(
     height,
     ICON_DEFAULT_ANCHOR,
   )
+  const positions = iconSequenceIconPositions(
+    anchored.x,
+    anchored.y,
+    size,
+    element.icons.length,
+    spacing,
+    direction,
+  )
 
   return {
     layer: 'svg',
     primitive: {
-      kind: 'icon-sequence-stub',
+      kind: 'icon_sequence',
       x: anchored.x,
       y: anchored.y,
       size,
-      icons: element.icons,
       direction,
       spacing,
       fill: mapColor(effectiveString(element, 'fill', 'black'), colorOptions) ?? '#000000',
+      icons: element.icons.map((name, index) => ({
+        name,
+        path: resolveMdiPath(name),
+        x: positions[index]!.x,
+        y: positions[index]!.y,
+      })),
     },
   }
 }

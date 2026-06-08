@@ -74,6 +74,8 @@ export const lineStyleSchema = enumOrJinjaTemplateSchema(LINE_STYLE_OPTIONS)
 
 export const gridStyleSchema = enumOrJinjaTemplateSchema(GRID_STYLE_OPTIONS)
 
+export const CORNERS_OPTIONS = ['all'] as const
+
 export const cornersSchema = z.union([
   z.literal('all'),
   z.string(),

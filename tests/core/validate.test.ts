@@ -142,6 +142,50 @@ describe('validatePayload', () => {
     ])
     expect(result.success).toBe(true)
   })
+
+  it('rejects unknown icon names', () => {
+    const result = validatePayload([
+      {
+        type: 'icon',
+        value: 'not-a-real-mdi-icon',
+        x: 0,
+        y: 0,
+        size: 24,
+      },
+    ])
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.issues.some((issue) => issue.includes('Unknown Material Design icon name'))).toBe(
+        true,
+      )
+    }
+  })
+
+  it('accepts templated icon names without MDI lookup', () => {
+    const result = validatePayload([
+      {
+        type: 'icon',
+        value: "{{ 'mdi:home' if is_state('binary_sensor.door', 'on') else 'mdi:alert' }}",
+        x: 0,
+        y: 0,
+        size: 24,
+      },
+    ])
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects unknown names in icon_sequence icons', () => {
+    const result = validatePayload([
+      {
+        type: 'icon_sequence',
+        x: 0,
+        y: 0,
+        icons: ['home', 'not-a-real-mdi-icon'],
+        size: 24,
+      },
+    ])
+    expect(result.success).toBe(false)
+  })
 })
 
 describe('validateServiceOptions', () => {

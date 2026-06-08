@@ -43,6 +43,20 @@ describe('locateElementIndexAtPosition', () => {
   it('returns null before the first list item', () => {
     expect(locateElementIndexAtPosition('\n\n', 1)).toBeNull()
   })
+
+  it('maps cursor positions inside block-form polygon points to the polygon element', () => {
+    const doc = `- type: text
+  value: one
+- type: polygon
+  points:
+    - - 10
+      - 10
+    - - 50
+      - 10
+`
+    const pointPos = doc.indexOf('- - 50')
+    expect(locateElementIndexAtPosition(doc, pointPos)).toBe(1)
+  })
 })
 
 describe('locateElementFocusInYaml', () => {

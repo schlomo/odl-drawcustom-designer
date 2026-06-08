@@ -21,6 +21,25 @@ describe('findListItemSpans', () => {
     expect(spans[1]?.index).toBe(1)
     expect(spans[0]?.end).toBe(spans[1]?.start)
   })
+
+  it('ignores nested list items inside polygon points', () => {
+    const doc = `- type: text
+  value: one
+- type: polygon
+  points:
+    - - 10
+      - 10
+    - - 50
+      - 10
+    - - 30
+      - 40
+`
+    const spans = findListItemSpans(doc)
+    expect(spans).toHaveLength(2)
+    expect(spans[1]?.index).toBe(1)
+    expect(doc.slice(spans[1]!.start, spans[1]!.end)).toContain('type: polygon')
+    expect(doc.slice(spans[1]!.start, spans[1]!.end)).toContain('- - 10')
+  })
 })
 
 describe('findFieldRange', () => {

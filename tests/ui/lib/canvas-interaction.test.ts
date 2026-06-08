@@ -6,6 +6,7 @@ import {
   isElementDraggable,
   isInteractiveCoordinate,
   moveElementInArray,
+  supportsIconSizeResize,
   translateElement,
 } from '../../../src/ui/lib/element-geometry'
 import { findTopmostElementHit } from '../../../src/ui/lib/canvas-hit-test'
@@ -54,6 +55,60 @@ describe('element geometry', () => {
     if (resized.type === 'dlimg') {
       expect(resized.xsize).toBe(100)
       expect(resized.ysize).toBe(50)
+    }
+  })
+
+  it('resizes icon size from the southeast handle bounds', () => {
+    const element = {
+      type: 'icon' as const,
+      value: 'home',
+      x: 10,
+      y: 20,
+      size: 24,
+      anchor: 'la',
+    }
+    expect(supportsIconSizeResize(element)).toBe(true)
+    const resized = applyBoundsResize(element, { x: 10, y: 20, width: 48, height: 48 })
+    expect(resized.type).toBe('icon')
+    if (resized.type === 'icon') {
+      expect(resized.size).toBe(48)
+      expect(resized.x).toBe(10)
+      expect(resized.y).toBe(20)
+    }
+  })
+
+  it('resizes icon_sequence size from bounds height', () => {
+    const element = {
+      type: 'icon_sequence' as const,
+      x: 0,
+      y: 0,
+      icons: ['home', 'home'],
+      size: 20,
+      spacing: 8,
+      direction: 'right' as const,
+    }
+    expect(supportsIconSizeResize(element)).toBe(true)
+    const resized = applyBoundsResize(element, { x: 0, y: 0, width: 100, height: 36 })
+    expect(resized.type).toBe('icon_sequence')
+    if (resized.type === 'icon_sequence') {
+      expect(resized.size).toBe(36)
+    }
+  })
+
+  it('resizes vertical icon_sequence from bounds width and height', () => {
+    const element = {
+      type: 'icon_sequence' as const,
+      x: 0,
+      y: 0,
+      icons: ['home', 'home', 'home'],
+      size: 20,
+      spacing: 8,
+      direction: 'down' as const,
+    }
+    const resized = applyBoundsResize(element, { x: 0, y: 0, width: 36, height: 120 })
+    expect(resized.type).toBe('icon_sequence')
+    if (resized.type === 'icon_sequence') {
+      expect(resized.size).toBe(36)
     }
   })
 
@@ -232,6 +287,10 @@ describe('property field meta', () => {
     expect(shouldUseEnumDropdown('anchor', 'mm', getPropertyEnumValues('anchor') ?? [])).toBe(true)
     expect(shouldUseEnumDropdown('color', "{{ 'red' if is_state('x','on') else 'black' }}", ['red', 'black'])).toBe(false)
     expect(shouldUseEnumDropdown('fill', '#ff0000', ['red', 'black'])).toBe(false)
+    expect(shouldUseEnumDropdown('fill', null, ['red', 'black', 'none'])).toBe(true)
+    expect(shouldUseEnumDropdown('corners', undefined, ['all'])).toBe(true)
+    expect(getPropertyFieldKind('corners', 'all')).toBe('enum')
+    expect(getPropertyFieldKind('corners', 'top_left,top_right')).toBe('enum')
     expect(isCodeLikeStringValue('{{ states("x") }}')).toBe(true)
   })
 

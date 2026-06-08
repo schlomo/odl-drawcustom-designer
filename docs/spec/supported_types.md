@@ -253,7 +253,7 @@ Draws text.
 | `stroke_width` | Outline width                        | No       | `0`                            | Pixels                                                                                    |
 | `stroke_fill`  | Outline color                        | No       | `white`                        | `white`, `black`, `accent`, `red`, `yellow`                                               |
 | `y_padding`    | Vertical offset when y not specified | No       | `10`                           | Pixels                                                                                    |
-| `visible`      | Show/hide element                    | No       | `true`                         | `true`, `false`                                                                           |
+| `visible`      | Show this element                    | No       | `true`                         | `true`, `false`                                                                           |
 | `parse_colors` | Enable color markup in text          | No       | false                          | Enables `[color]text[/color]` syntax                                                      |
 | `truncate`     | Truncate text if exceeds max_width   | No       | false                          | Adds ellipsis (...) when truncating                                                       |
 
@@ -363,7 +363,7 @@ Splits text into multiple lines based on a delimiter.
 | `font`      | Font file name                 | No       | `ppb.ttf`                 | Available fonts: `ppb.ttf`, `rbm.ttf`       |
 | `color`     | Text color                     | No       | `black`                   | `white`, `black`, `accent`, `red`, `yellow` |
 | `spacing`   | Additional line spacing        | No       | `0`                       | Pixels                                      |
-| `visible`   | Show/hide element              | No       | `true`                    | `true`, `false`                             |
+| `visible`   | Show this element              | No       | `true`                    | `true`, `false`                             |
 
 
 ### Inline Color Markup
@@ -399,7 +399,7 @@ Draws a straight line.
 | `dashed`       | Enable dashed line behaviour         | No       | `False`         | `False`, `True`                             |
 | `dash_length`  | Length of dashes                     | No       | 5               | Pixels                                      |
 | `space_length` | Length of spaces between dashes      | No       | 3               | Pixels                                      |
-| `visible`      | Show/hide element                    | No       | `True`          | `True`, `False`                             |
+| `visible`      | Show this element                    | No       | `True`          | `True`, `False`                             |
 
 
 ### Rectangle
@@ -429,7 +429,7 @@ Draws a rectangle with optional rounded corners.
 | `width`   | Border thickness       | No       | `1`     | Pixels                                                                                   |
 | `radius`  | Corner radius          | No       | `0`     | Pixels                                                                                   |
 | `corners` | Which corners to round | No       | `all`   | `all` or comma-separated list of: `top_left`, `top_right`, `bottom_left`, `bottom_right` |
-| `visible` | Show/hide element      | No       | `true`  | `true`, `false`                                                                          |
+| `visible` | Show this element      | No       | `true`  | `true`, `false`                                                                          |
 
 
 ### Rectangle Pattern
@@ -465,7 +465,7 @@ Draws repeated rectangles in a grid pattern.
 | `fill`     | Fill color                   | No       | `null`  | `white`, `black`, `accent`, `red`, `yellow`, `null` |
 | `outline`  | Border color                 | No       | `black` | `white`, `black`, `accent`, `red`, `yellow`         |
 | `width`    | Border thickness             | No       | `1`     | Pixels                                              |
-| `visible`  | Show/hide element            | No       | `true`  | `true`, `false`                                     |
+| `visible`  | Show this element            | No       | `true`  | `true`, `false`                                     |
 
 
 ### Polygon
@@ -508,7 +508,7 @@ Draws a circle around a center point.
 | `fill`    | Fill color        | No       | `null`  | `white`, `black`, `accent`, `red`, `yellow` , `null` |
 | `outline` | Border color      | No       | `black` | `white`, `black`, `accent`, `red`, `yellow`          |
 | `width`   | Border thickness  | No       | `1`     | Pixels                                               |
-| `visible` | Show/hide element | No       | `true`  | `true`, `false`                                      |
+| `visible` | Show this element | No       | `true`  | `true`, `false`                                      |
 
 
 ### Ellipse
@@ -533,7 +533,7 @@ Draws an ellipse inside the bounding box.
 | `fill`    | Fill color        | No       | `null`  | `white`, `black`, `accent`, `red`, `yellow` `null` |
 | `outline` | Border color      | No       | `black` | `white`, `black`, `accent`, `red`, `yellow`        |
 | `width`   | Border thickness  | No       | `1`     | Pixels                                             |
-| `visible` | Show/hide element | No       | `true`  | `true`, `false`                                    |
+| `visible` | Show this element | No       | `true`  | `true`, `false`                                    |
 
 
 ### Arc/ Pie Slice
@@ -591,7 +591,7 @@ Draws Material Design Icons.
 | `size`    | Icon size         | Yes      | -       | Pixels                                                               |
 | `fill`    | Icon color        | No       | `black` | `white`, `black`, `accent`, `red`, `yellow`                          |
 | `anchor`  | Icon anchor point | No       | `la`    | See text anchors                                                     |
-| `visible` | Show/hide element | No       | `true`  | `true`, `false`                                                      |
+| `visible` | Show this element | No       | `true`  | `true`, `false`                                                      |
 
 
 Note: Icon name can be prefixed with `mdi:` (e.g., `mdi:account-cowboy-hat`)
@@ -623,7 +623,7 @@ Draws multiple Material Design Icons in a sequence with specified direction and 
 | `spacing`   | Space between icons   | No       | size/4  | Pixels                                                               |
 | `fill`      | Icon color            | No       | `black` | `white`, `black`, `accent`, `red`, `yellow`                          |
 | `anchor`    | Icon anchor point     | No       | `la`    | See text anchors                                                     |
-| `visible`   | Show/hide element     | No       | `true`  | `true`, `false`                                                      |
+| `visible`   | Show this element     | No       | `true`  | `true`, `false`                                                      |
 
 
 ### Download Image
@@ -650,7 +650,7 @@ Downloads and displays an image from a URL.
 | `ysize`         | Target height     | Yes      | -         | Pixels                                                      |
 | `resize_method` | Resizing method   | No       | `stretch` | `stretch`, `crop`, `cover`, `contain`                       |
 | `rotate`        | Rotation angle    | No       | `0`       | Degrees                                                     |
-| `visible`       | Show/hide element | No       | `true`    | `true`, `false`                                             |
+| `visible`       | Show this element | No       | `true`    | `true`, `false`                                             |
 
 
 Notes:
@@ -685,7 +685,7 @@ Generates and displays a QR code.
 | `border`  | QR code border width | No       | `1`     | Units                                       |
 | `color`   | QR code color        | No       | `black` | `white`, `black`, `accent`, `red`, `yellow` |
 | `bgcolor` | Background color     | No       | `white` | `white`, `black`, `accent`, `red`, `yellow` |
-| `visible` | Show/hide element    | No       | `true`  | `true`, `false`                             |
+| `visible` | Show this element    | No       | `true`  | `true`, `false`                             |
 
 
 ### Plot
@@ -728,7 +728,7 @@ Renders historical data from Home Assistant entities as a line plot.
 | `round_values` | Round min/max to integers | No       | `false`       | `true`, `false`                           |
 | `size`         | Font size                 | No       | `10`          | Pixels                                    |
 | `debug`        | Show debug borders        | No       | `false`       | `true`, `false`                           |
-| `visible`      | Show/hide element         | No       | `true`        | `true`, `false`                           |
+| `visible`      | Show this element         | No       | `true`        | `true`, `false`                           |
 
 
 #### Line Options (per entity)
@@ -976,7 +976,7 @@ Displays a progress bar with optional percentage text.
 | `width`           | Border thickness     | No       | `1`       | Pixels                                      |
 | `show_percentage` | Show percentage text | No       | `false`   | `true`, `false`                             |
 | `font`            | Percentage text font | No       | `ppb.ttf` | Font name                                   |
-| `visible`         | Show/hide element    | No       | `true`    | `true`, `false`                             |
+| `visible`         | Show this element    | No       | `true`    | `true`, `false`                             |
 
 
 ## Template Examples

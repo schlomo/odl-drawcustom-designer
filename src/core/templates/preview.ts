@@ -1,4 +1,5 @@
 import type { Payload } from '../schema/payload'
+import { normalizePayload } from '../schema/normalizeElements'
 import { evaluateTemplate } from './evaluate'
 import { hasTemplateSyntax } from './patterns'
 import type { HaMockContext } from './types'
@@ -40,5 +41,6 @@ export function applyTemplateContextToPayload(
   payload: Payload,
   context: HaMockContext,
 ): Payload {
-  return applyContextToValue(payload, context) as Payload
+  const evaluated = applyContextToValue(payload, context) as Payload
+  return normalizePayload(evaluated)
 }

@@ -92,4 +92,27 @@ describe('lintYamlDocument', () => {
 `
     expect(lintYamlDocument(source)).toEqual([])
   })
+
+  it('reports unknown icon names on the value field', () => {
+    const source = `- type: icon
+  value: not-a-real-mdi-icon
+  x: 0
+  y: 0
+  size: 24
+`
+    const diagnostics = lintYamlDocument(source)
+    const iconDiagnostic = diagnostics.find((d) => d.message.includes('Unknown Material Design icon name'))
+    expect(iconDiagnostic).toBeDefined()
+    expect(source.slice(iconDiagnostic!.from, iconDiagnostic!.to)).toBe('not-a-real-mdi-icon')
+  })
+
+  it('accepts templated icon value fields', () => {
+    const source = `- type: icon
+  value: "{{ 'mdi:home' if is_state('binary_sensor.door', 'on') else 'mdi:alert' }}"
+  x: 0
+  y: 0
+  size: 24
+`
+    expect(lintYamlDocument(source)).toEqual([])
+  })
 })

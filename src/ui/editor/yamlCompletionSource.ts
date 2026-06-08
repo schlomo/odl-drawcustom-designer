@@ -50,6 +50,17 @@ export function completionInsertFrom(
     }
   }
 
+  if (completionContext.kind === 'icon-name') {
+    const valueMatch = lineBefore.match(new RegExp(String.raw`^(\s+value:\s*"?)([\w: -]*)$`))
+    if (valueMatch) {
+      return line.from + valueMatch[1]!.length
+    }
+    const listMatch = lineBefore.match(new RegExp(String.raw`^(\s+-\s*"?)([\w: -]*)$`))
+    if (listMatch) {
+      return line.from + listMatch[1]!.length
+    }
+  }
+
   const word = context.matchBefore(/[\w-]*/)
   return word?.from ?? context.pos
 }
@@ -57,17 +68,35 @@ export function completionInsertFrom(
 export function yamlSchemaCompletionSource(context: CompletionContext): CompletionResult | null {
   const lineBefore = lineTextBeforeCursor(context)
   const elementType = inferCurrentElementType(context.state.doc.toString(), context.pos)
-  const completionContext = resolveYamlCompletionContext(lineBefore, elementType)
+  const completionContext = resolveYamlCompletionContext(
+    lineBefore,
+    elementType,
+    context.state.doc.toString(),
+    context.pos,
+  )
 
   if (!completionContext) {
     return null
   }
 
+  const options = completionsFromContext(completionContext)
+  if (options.length === 0) {
+    return null
+  }
+
   const from = completionInsertFrom(context, lineBefore, completionContext)
+
+  if (completionContext.kind === 'icon-name') {
+    return {
+      from,
+      options,
+      filter: false,
+    }
+  }
 
   return {
     from,
-    options: completionsFromContext(completionContext),
+    options,
     validFor: /^[\w-]*$/,
   }
 }

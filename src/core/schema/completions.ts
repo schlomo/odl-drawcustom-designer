@@ -1,5 +1,6 @@
 import {
   COLOR_ALIASES,
+  CORNERS_OPTIONS,
   DIRECTION_OPTIONS,
   GRID_STYLE_OPTIONS,
   LINE_STYLE_OPTIONS,
@@ -105,7 +106,7 @@ export const PROPERTIES_BY_TYPE: Record<(typeof DRAW_ELEMENT_TYPES)[number], rea
   circle: ['x', 'y', 'radius', 'fill', 'outline', 'width', 'visible'],
   ellipse: ['x_start', 'x_end', 'y_start', 'y_end', 'fill', 'outline', 'width', 'visible'],
   arc: ['x', 'y', 'radius', 'start_angle', 'end_angle', 'fill', 'outline', 'width'],
-  icon: ['value', 'x', 'y', 'size', 'fill', 'color', 'anchor', 'visible'],
+  icon: ['value', 'x', 'y', 'size', 'fill', 'anchor', 'visible'],
   icon_sequence: ['x', 'y', 'icons', 'size', 'direction', 'spacing', 'fill', 'anchor', 'visible'],
   dlimg: ['url', 'x', 'y', 'xsize', 'ysize', 'resize_method', 'rotate', 'visible'],
   qrcode: ['data', 'x', 'y', 'boxsize', 'border', 'color', 'bgcolor', 'visible'],
@@ -171,6 +172,7 @@ export const ENUMS = {
   resize_method: RESIZE_METHOD_OPTIONS,
   line_style: LINE_STYLE_OPTIONS,
   grid_style: GRID_STYLE_OPTIONS,
+  corners: CORNERS_OPTIONS,
   dither: ['0', '1', '2'] as const,
   dry_run: ['true', 'false', 'True', 'False'] as const,
 } as const

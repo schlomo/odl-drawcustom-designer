@@ -68,7 +68,7 @@ const SHARED_PROPERTY_SPECS: Record<string, PropertySpecMeta> = {
   stroke_width: { description: 'Outline width', default: 0 },
   stroke_fill: { description: 'Outline color', default: 'white' },
   y_padding: { description: 'Vertical offset when y is omitted', default: 10 },
-  visible: { description: 'Show or hide this element', default: true },
+  visible: { description: 'Show this element', default: true },
   parse_colors: { description: 'Enable [color]markup[/color] in text', default: false },
   truncate: { description: 'Truncate with ellipsis when text exceeds max_width', default: false },
   delimiter: { description: 'Character that splits text into lines' },
@@ -164,7 +164,6 @@ const TYPE_PROPERTY_SPECS: Partial<
   icon: {
     value: { description: 'Material Design icon name' },
     size: { description: 'Icon size in pixels' },
-    color: { description: 'Icon color', default: 'black' },
     fill: { description: 'Icon color', default: 'black' },
     anchor: { description: 'Icon anchor point', default: 'la' },
   },

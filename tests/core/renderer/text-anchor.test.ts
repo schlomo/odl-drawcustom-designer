@@ -45,7 +45,7 @@ describe('anchor rendering', () => {
     )
 
     expect(result?.primitive).toMatchObject({
-      kind: 'icon-stub',
+      kind: 'icon',
       x: 0,
       y: 225,
       size: 30,
@@ -71,7 +71,7 @@ describe('anchor rendering', () => {
     )
 
     expect(result?.primitive).toMatchObject({
-      kind: 'icon-sequence-stub',
+      kind: 'icon_sequence',
       x: 200 - width / 2,
       y: 100 - height / 2,
     })

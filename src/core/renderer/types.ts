@@ -76,21 +76,29 @@ export interface SvgArcPrimitive {
   strokeWidth?: number
 }
 
-export interface SvgIconStubPrimitive {
-  kind: 'icon-stub'
+export interface SvgIconPrimitive {
+  kind: 'icon'
   x: number
   y: number
   size: number
   value: string
+  path: string | null
   fill: string
 }
 
-export interface SvgIconSequenceStubPrimitive {
-  kind: 'icon-sequence-stub'
+export interface SvgIconSequenceIcon {
+  name: string
+  path: string | null
+  x: number
+  y: number
+}
+
+export interface SvgIconSequencePrimitive {
+  kind: 'icon_sequence'
   x: number
   y: number
   size: number
-  icons: string[]
+  icons: SvgIconSequenceIcon[]
   direction: 'right' | 'left' | 'up' | 'down'
   spacing: number
   fill: string
@@ -208,8 +216,8 @@ export type SvgPrimitive =
   | SvgEllipsePrimitive
   | SvgPolygonPrimitive
   | SvgArcPrimitive
-  | SvgIconStubPrimitive
-  | SvgIconSequenceStubPrimitive
+  | SvgIconPrimitive
+  | SvgIconSequencePrimitive
   | SvgRectanglePatternStubPrimitive
   | SvgProgressBarStubPrimitive
   | SvgDebugGridStubPrimitive

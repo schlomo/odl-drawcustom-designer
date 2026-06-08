@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   ICON_DEFAULT_ANCHOR,
+  anchorPointFromBox,
   iconSequenceBoxSize,
   resolveAnchoredBox,
   resolveDirection,
@@ -62,6 +63,13 @@ describe('resolveAnchoredBox', () => {
       width: 20,
       height: 20,
     })
+  })
+})
+
+describe('anchorPointFromBox', () => {
+  it('inverts resolveAnchoredBox for icon anchors', () => {
+    const box = resolveAnchoredBox('rm', 30, 240, 30, 30, ICON_DEFAULT_ANCHOR)
+    expect(anchorPointFromBox('rm', box, ICON_DEFAULT_ANCHOR)).toEqual({ x: 30, y: 240 })
   })
 })
 

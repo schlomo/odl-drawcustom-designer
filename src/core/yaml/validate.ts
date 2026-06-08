@@ -3,6 +3,7 @@ import type { DrawElement } from '../schema/elements'
 import { payloadSchema } from '../schema/payload'
 import type { ServiceOptions } from '../schema/service'
 import { serviceOptionsSchema } from '../schema/service'
+import { normalizePayload } from '../schema/normalizeElements'
 import { stripDesignerFieldsFromPayload } from './designer-fields'
 
 export interface ValidationResult {
@@ -32,7 +33,7 @@ export function validatePayload(elements: unknown): PayloadValidationResult {
 
   const result = payloadSchema.safeParse(cleaned)
   if (result.success) {
-    return { success: true, data: result.data }
+    return { success: true, data: normalizePayload(result.data) }
   }
 
   return {

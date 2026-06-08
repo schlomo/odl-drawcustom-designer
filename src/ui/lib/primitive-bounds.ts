@@ -1,4 +1,5 @@
 import type { RenderPrimitive } from '../../core/renderer/types'
+import { iconSequenceBoxSize } from '../../core/renderer/anchors'
 
 export interface ElementBounds {
   x: number
@@ -71,15 +72,16 @@ export function getPrimitiveBounds(primitive: RenderPrimitive): ElementBounds {
         width: primitive.r * 2,
         height: primitive.r * 2,
       }
-    case 'icon-stub':
+    case 'icon':
       return { x: primitive.x, y: primitive.y, width: primitive.size, height: primitive.size }
-    case 'icon-sequence-stub': {
-      const count = primitive.icons.length
-      const span = Math.max(0, count - 1) * (primitive.size + primitive.spacing)
-      if (primitive.direction === 'right' || primitive.direction === 'left') {
-        return { x: primitive.x, y: primitive.y, width: primitive.size + span, height: primitive.size }
-      }
-      return { x: primitive.x, y: primitive.y, width: primitive.size, height: primitive.size + span }
+    case 'icon_sequence': {
+      const { width, height } = iconSequenceBoxSize(
+        primitive.size,
+        primitive.icons.length,
+        primitive.spacing,
+        primitive.direction,
+      )
+      return { x: primitive.x, y: primitive.y, width, height }
     }
     case 'rectangle-pattern-stub':
       if (primitive.rects.length === 0) {

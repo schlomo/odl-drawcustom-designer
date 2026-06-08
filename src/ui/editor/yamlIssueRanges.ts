@@ -25,7 +25,7 @@ export function findListItemSpans(doc: string): ListItemSpan[] {
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const line = lines[lineIndex] ?? ''
-    if (!/^\s*-\s/.test(line)) {
+    if (!/^-\s/.test(line)) {
       continue
     }
 

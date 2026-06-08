@@ -7,7 +7,6 @@ import {
   tryParseYamlElements,
 } from '../editor/yamlElementsSync'
 import { getYamlStatusMessages } from '../lib/yaml-status-messages'
-import { StatusBanner } from './StatusBanner'
 import { YamlEditor } from '../editor/YamlEditor'
 import { createYamlScrollCommand, createEntityScrollCommand, mergeYamlScrollCommands } from '../editor/yamlScrollCommand'
 import {
@@ -18,6 +17,7 @@ import type { SelectionSource } from '../hooks/useProjectState'
 import { useYamlFontSize } from '../hooks/useYamlFontSize'
 import { useYamlSelectionCoupling } from '../hooks/useYamlSelectionCoupling'
 import type { ResolvedTheme } from '../preferences/theme'
+import type { StatusMessage } from '../lib/status-messages'
 import { shell } from '../styles/shell'
 import { YamlCouplingToggle } from './YamlCouplingToggle'
 import { YamlFontSizeControls } from './YamlFontSizeControls'
@@ -34,6 +34,7 @@ interface YamlPanelProps {
   containerRef: RefObject<HTMLDivElement | null>
   extraEntityIds?: readonly string[]
   entityScrollRequest?: { entityId: string; token: string } | null
+  onStatusMessagesChange?: (messages: StatusMessage[]) => void
 }
 
 export function YamlPanel({
@@ -46,6 +47,7 @@ export function YamlPanel({
   containerRef,
   extraEntityIds = [],
   entityScrollRequest = null,
+  onStatusMessagesChange,
 }: YamlPanelProps) {
   const serialized = useMemo(() => serializeYamlPayload(elements), [elements])
   const [yamlText, setYamlText] = useState(serialized)
@@ -83,6 +85,10 @@ export function YamlPanel({
   )
 
   const yamlStatusMessages = useMemo(() => getYamlStatusMessages(yamlText), [yamlText])
+
+  useEffect(() => {
+    onStatusMessagesChange?.(yamlStatusMessages)
+  }, [onStatusMessagesChange, yamlStatusMessages])
 
   const handleYamlChange = useCallback(
     (text: string) => {
@@ -138,9 +144,6 @@ export function YamlPanel({
           <YamlFontSizeControls fontSize={fontSize} onDecrease={decrease} onIncrease={increase} />
         </div>
       </div>
-      {yamlStatusMessages.map((message, index) => (
-        <StatusBanner key={`yaml-status-${index}`} message={message} />
-      ))}
       <div className="min-h-0 flex-1">
         <YamlEditor
           className="h-full min-h-0 [&_.cm-editor]:h-full [&_.cm-scroller]:min-h-0"
@@ -150,6 +153,7 @@ export function YamlPanel({
           height="100%"
           scrollCommand={scrollCommand}
           preserveLinkedElementIndex={couplingEnabled ? selectedIndex : null}
+          scrollLinkedElementOnSync={couplingEnabled && selectionSource !== 'yaml'}
           onCursorPositionChange={handleCursorPosition}
           value={yamlText}
           onChange={handleYamlChange}

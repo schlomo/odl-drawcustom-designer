@@ -4,6 +4,12 @@ import {
   isPercentageCoordinate,
   type DrawElement,
 } from '../../core'
+import {
+  ICON_DEFAULT_ANCHOR,
+  anchorPointFromBox,
+  iconSequenceBoxSize,
+  resolveDirection,
+} from '../../core/renderer/anchors'
 import type { ElementBounds } from './primitive-bounds'
 
 export type ResizeHandle =
@@ -23,6 +29,11 @@ export interface TranslateCanvasDefaults {
   height: number
 }
 
+/** Round pixel coordinates to whole numbers for YAML and canvas edits. */
+export function roundCoordinate(value: number): number {
+  return Math.round(value)
+}
+
 /** Apply drag/nudge delta; materialize omitted numeric coords from `missingDefault` when delta ≠ 0. */
 export function applyAxisDelta(
   value: number | string | undefined,
@@ -31,15 +42,15 @@ export function applyAxisDelta(
   dimension?: number,
 ): number | string | undefined {
   if (isNumericCoordinate(value)) {
-    return value + delta
+    return roundCoordinate(value + delta)
   }
   if (typeof value === 'string') {
     if (isPercentageCoordinate(value) && dimension !== undefined) {
       const current = (dimension * Number.parseFloat(value)) / 100
-      return current + delta
+      return roundCoordinate(current + delta)
     }
     if (isNumericStringCoordinate(value)) {
-      return Number.parseFloat(value) + delta
+      return roundCoordinate(Number.parseFloat(value) + delta)
     }
     return value
   }
@@ -49,7 +60,7 @@ export function applyAxisDelta(
   if (delta === 0 || missingDefault === undefined) {
     return undefined
   }
-  return missingDefault + delta
+  return roundCoordinate(missingDefault + delta)
 }
 
 function spreadAxisDelta(
@@ -148,6 +159,10 @@ export function supportsBoxResize(element: DrawElement): boolean {
   }
 }
 
+export function supportsIconSizeResize(element: DrawElement): boolean {
+  return (element.type === 'icon' || element.type === 'icon_sequence') && isElementDraggable(element)
+}
+
 export function supportsLineEndpointResize(element: DrawElement): element is DrawElement & { type: 'line' } {
   return element.type === 'line' && isElementDraggable(element)
 }
@@ -195,21 +210,21 @@ export function translateElement(
     case 'progress_bar':
       return {
         ...element,
-        ...(isNumericCoordinate(element.x_start) ? { x_start: element.x_start + dx } : {}),
-        ...(isNumericCoordinate(element.x_end) ? { x_end: element.x_end + dx } : {}),
-        ...(isNumericCoordinate(element.y_start) ? { y_start: element.y_start + dy } : {}),
-        ...(isNumericCoordinate(element.y_end) ? { y_end: element.y_end + dy } : {}),
+        ...(isNumericCoordinate(element.x_start) ? { x_start: roundCoordinate(element.x_start + dx) } : {}),
+        ...(isNumericCoordinate(element.x_end) ? { x_end: roundCoordinate(element.x_end + dx) } : {}),
+        ...(isNumericCoordinate(element.y_start) ? { y_start: roundCoordinate(element.y_start + dy) } : {}),
+        ...(isNumericCoordinate(element.y_end) ? { y_end: roundCoordinate(element.y_end + dy) } : {}),
       }
     case 'rectangle_pattern':
       return {
         ...element,
-        ...(isNumericCoordinate(element.x_start) ? { x_start: element.x_start + dx } : {}),
-        ...(isNumericCoordinate(element.y_start) ? { y_start: element.y_start + dy } : {}),
+        ...(isNumericCoordinate(element.x_start) ? { x_start: roundCoordinate(element.x_start + dx) } : {}),
+        ...(isNumericCoordinate(element.y_start) ? { y_start: roundCoordinate(element.y_start + dy) } : {}),
       }
     case 'polygon':
       return {
         ...element,
-        points: element.points.map(([x, y]) => [x + dx, y + dy] as [number, number]),
+        points: element.points.map(([x, y]) => [roundCoordinate(x + dx), roundCoordinate(y + dy)] as [number, number]),
       }
     case 'circle':
     case 'arc':
@@ -228,8 +243,8 @@ export function translateElement(
     case 'dlimg':
       return {
         ...element,
-        x: element.x + dx,
-        y: element.y + dy,
+        x: roundCoordinate(element.x + dx),
+        y: roundCoordinate(element.y + dy),
       }
     case 'qrcode':
       return {
@@ -252,6 +267,15 @@ export function translateElement(
   }
 }
 
+function iconSequenceSizeFromBounds(
+  bounds: ElementBounds,
+  direction: ReturnType<typeof resolveDirection>,
+): number {
+  const horizontal = direction === 'right' || direction === 'left'
+  const thickness = horizontal ? bounds.height : bounds.width
+  return Math.max(1, Math.round(thickness))
+}
+
 export function applyBoundsResize(element: DrawElement, bounds: ElementBounds): DrawElement {
   const x2 = bounds.x + bounds.width
   const y2 = bounds.y + bounds.height
@@ -262,27 +286,54 @@ export function applyBoundsResize(element: DrawElement, bounds: ElementBounds): 
     case 'progress_bar':
       return {
         ...element,
-        x_start: bounds.x,
-        y_start: bounds.y,
-        x_end: x2,
-        y_end: y2,
+        x_start: roundCoordinate(bounds.x),
+        y_start: roundCoordinate(bounds.y),
+        x_end: roundCoordinate(x2),
+        y_end: roundCoordinate(y2),
       }
     case 'plot':
       return {
         ...element,
-        x_start: bounds.x,
-        y_start: bounds.y,
-        x_end: x2,
-        y_end: y2,
+        x_start: roundCoordinate(bounds.x),
+        y_start: roundCoordinate(bounds.y),
+        x_end: roundCoordinate(x2),
+        y_end: roundCoordinate(y2),
       }
     case 'dlimg':
       return {
         ...element,
-        x: bounds.x,
-        y: bounds.y,
+        x: roundCoordinate(bounds.x),
+        y: roundCoordinate(bounds.y),
         xsize: Math.max(1, Math.round(bounds.width)),
         ysize: Math.max(1, Math.round(bounds.height)),
       }
+    case 'icon': {
+      const size = Math.max(1, Math.round(Math.max(bounds.width, bounds.height)))
+      const box = { x: bounds.x, y: bounds.y, width: size, height: size }
+      const anchor = anchorPointFromBox(element.anchor, box, ICON_DEFAULT_ANCHOR)
+      return {
+        ...element,
+        x: roundCoordinate(anchor.x),
+        y: roundCoordinate(anchor.y),
+        size,
+      }
+    }
+    case 'icon_sequence': {
+      const direction = resolveDirection(element.direction)
+      const hasExplicitSpacing =
+        typeof element.spacing === 'number' && Number.isFinite(element.spacing)
+      const size = iconSequenceSizeFromBounds(bounds, direction)
+      const spacing = hasExplicitSpacing ? element.spacing : size / 4
+      const layout = iconSequenceBoxSize(size, element.icons.length, spacing, direction)
+      const box = { x: bounds.x, y: bounds.y, width: layout.width, height: layout.height }
+      const anchor = anchorPointFromBox(element.anchor, box, ICON_DEFAULT_ANCHOR)
+      return {
+        ...element,
+        x: roundCoordinate(anchor.x),
+        y: roundCoordinate(anchor.y),
+        size,
+      }
+    }
     default:
       return element
   }
@@ -295,9 +346,9 @@ export function applyLineEndpoint(
   y: number,
 ): DrawElement {
   if (endpoint === 'start') {
-    return { ...element, x_start: x, y_start: y }
+    return { ...element, x_start: roundCoordinate(x), y_start: roundCoordinate(y) }
   }
-  return { ...element, x_end: x, y_end: y }
+  return { ...element, x_end: roundCoordinate(x), y_end: roundCoordinate(y) }
 }
 
 export function applyRadiusResize(
@@ -366,10 +417,10 @@ export function resizeBoundsWithHandle(
     height = Math.abs(height)
   }
 
-  width = Math.max(minSize, width)
-  height = Math.max(minSize, height)
+  width = Math.max(minSize, roundCoordinate(width))
+  height = Math.max(minSize, roundCoordinate(height))
 
-  return { x, y, width, height }
+  return { x: roundCoordinate(x), y: roundCoordinate(y), width, height }
 }
 
 export function moveElementInArray<T>(items: T[], fromIndex: number, toIndex: number): T[] {

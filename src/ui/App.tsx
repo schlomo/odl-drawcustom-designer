@@ -7,6 +7,7 @@ import { ThemeToggle } from './components/ThemeToggle'
 import { YamlPanel } from './components/YamlPanel'
 import { remapSelectedIndex } from './editor/yamlElementsSync'
 import { collectKnownFontKeys } from './lib/known-font-keys'
+import type { StatusMessage } from './lib/status-messages'
 import { MIN_CANVAS_PREVIEW_HEIGHT } from './hooks/useResizablePanelHeight'
 import { useProjectState } from './hooks/useProjectState'
 import { useThemePreference } from './hooks/useThemePreference'
@@ -21,6 +22,7 @@ export function App() {
     entityId: string
     token: string
   } | null>(null)
+  const [yamlStatusMessages, setYamlStatusMessages] = useState<StatusMessage[]>([])
   const {
     elements,
     previewElements,
@@ -183,6 +185,7 @@ export function App() {
               selectedIndex={selectedIndex}
               assetRevision={assetRevision}
               snapGrid={snapGrid}
+              extraStatusMessages={yamlStatusMessages}
               onSelectElement={selectElement}
               onUpdateElement={updateElement}
               onDeleteSelected={handleDeleteSelected}
@@ -198,6 +201,7 @@ export function App() {
             extraEntityIds={extraEntityIds}
             onElementsChange={handleYamlElementsChange}
             onSelectElement={selectElement}
+            onStatusMessagesChange={setYamlStatusMessages}
             selectedIndex={selectedIndex}
             selectionSource={selectionSource}
             entityScrollRequest={entityScrollRequest}

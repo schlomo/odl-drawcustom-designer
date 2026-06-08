@@ -8,6 +8,7 @@ import {
   applyRadiusResize,
   isElementDraggable,
   resizeBoundsWithHandle,
+  supportsIconSizeResize,
   supportsBoxResize,
   supportsLineEndpointResize,
   supportsRadiusResize,
@@ -27,12 +28,18 @@ import {
 } from '../lib/load-font-faces'
 import { areFontLoadOutcomeMapsEqual, type FontLoadOutcome } from '../lib/font-load-outcome'
 import { getFontStatusMessages } from '../lib/font-readiness'
+import { sortStatusMessages, type StatusMessage } from '../lib/status-messages'
 import {
   areOpentypeFontMapsEqual,
   loadOpentypeFontMapWithOutcomes,
 } from '../lib/load-opentype-fonts'
 import { StatusBanner } from './StatusBanner'
 import { findTopmostElementHit } from '../lib/canvas-hit-test'
+import {
+  HANDLE_VISUAL_SIZE,
+  handlePosition,
+  hitResizeHandle,
+} from '../lib/canvas-resize-handles'
 import { getPrimitiveBounds, type ElementBounds } from '../lib/primitive-bounds'
 import { snapMoveDelta, snapToGrid } from '../lib/snap-to-grid'
 import type { SnapGridPrefs } from '../preferences/snapGrid'
@@ -48,6 +55,7 @@ interface DesignerCanvasProps {
   selectedIndex: number | null
   assetRevision: number
   snapGrid: SnapGridPrefs
+  extraStatusMessages?: readonly StatusMessage[]
   onSelectElement: (index: number | null) => void
   onUpdateElement: (index: number, element: DrawElement) => void
   onDeleteSelected: () => void
@@ -71,77 +79,11 @@ interface DragSession {
   handle?: ResizeHandle
 }
 
-const HANDLE_SIZE = 8
+const HANDLE_SIZE = HANDLE_VISUAL_SIZE
 const BOX_HANDLES: ResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
 
 function paperTransform(rotation: CanvasRotation, scale: number): string {
   return `rotate(${rotation}deg) scale(${scale})`
-}
-
-function handlePosition(
-  bounds: ElementBounds,
-  handle: ResizeHandle,
-  lineCoords?: { x1: number; y1: number; x2: number; y2: number },
-): { x: number; y: number } {
-  if (lineCoords) {
-    if (handle === 'line-start') {
-      return { x: lineCoords.x1, y: lineCoords.y1 }
-    }
-    if (handle === 'line-end') {
-      return { x: lineCoords.x2, y: lineCoords.y2 }
-    }
-  }
-
-  const cx = bounds.x + bounds.width / 2
-  const cy = bounds.y + bounds.height / 2
-  const right = bounds.x + bounds.width
-  const bottom = bounds.y + bounds.height
-
-  switch (handle) {
-    case 'nw':
-      return { x: bounds.x, y: bounds.y }
-    case 'n':
-      return { x: cx, y: bounds.y }
-    case 'ne':
-      return { x: right, y: bounds.y }
-    case 'e':
-      return { x: right, y: cy }
-    case 'se':
-      return { x: right, y: bottom }
-    case 's':
-      return { x: cx, y: bottom }
-    case 'sw':
-      return { x: bounds.x, y: bottom }
-    case 'w':
-      return { x: bounds.x, y: cy }
-    case 'line-start':
-      return { x: bounds.x, y: bounds.y }
-    case 'line-end':
-      return { x: right, y: bottom }
-    default:
-      return { x: cx, y: cy }
-  }
-}
-
-function hitHandle(
-  point: { x: number; y: number },
-  bounds: ElementBounds,
-  handles: ResizeHandle[],
-  lineCoords?: { x1: number; y1: number; x2: number; y2: number },
-): ResizeHandle | null {
-  for (const handle of handles) {
-    const pos = handlePosition(bounds, handle, lineCoords)
-    const half = HANDLE_SIZE
-    if (
-      point.x >= pos.x - half &&
-      point.x <= pos.x + half &&
-      point.y >= pos.y - half &&
-      point.y <= pos.y + half
-    ) {
-      return handle
-    }
-  }
-  return null
 }
 
 function getResizeHandles(element: DrawElement): ResizeHandle[] {
@@ -150,6 +92,9 @@ function getResizeHandles(element: DrawElement): ResizeHandle[] {
   }
   if (supportsRadiusResize(element)) {
     return ['e']
+  }
+  if (supportsIconSizeResize(element)) {
+    return ['se']
   }
   if (supportsBoxResize(element)) {
     return BOX_HANDLES
@@ -172,6 +117,7 @@ export function DesignerCanvas({
   selectedIndex,
   assetRevision,
   snapGrid,
+  extraStatusMessages = [],
   onSelectElement,
   onUpdateElement,
   onDeleteSelected,
@@ -257,6 +203,11 @@ export function DesignerCanvas({
   const fontStatusMessages = useMemo(
     () => getFontStatusMessages(elements, fontLoadOutcomes, fontsLoading),
     [elements, fontLoadOutcomes, fontsLoading],
+  )
+
+  const statusMessages = useMemo(
+    () => sortStatusMessages([...extraStatusMessages, ...fontStatusMessages]),
+    [extraStatusMessages, fontStatusMessages],
   )
 
   useEffect(() => {
@@ -441,7 +392,7 @@ export function DesignerCanvas({
         return
       }
 
-      if (supportsBoxResize(element)) {
+      if (supportsBoxResize(element) || supportsIconSizeResize(element)) {
         const nextBounds = resizeBoundsWithHandle(session.startBounds, handle, snapped.x, snapped.y)
         onUpdateElement(session.index, applyBoundsResize(element, nextBounds))
       }
@@ -468,17 +419,15 @@ export function DesignerCanvas({
 
       didDragRef.current = false
 
-      const topHit = findTopmostElementHit(hitTargets, point)
-
       if (
         selectedIndex != null &&
         selectionBounds &&
         selectedEditElement &&
-        topHit?.index === selectedIndex
+        isElementDraggable(selectedEditElement)
       ) {
         const handles = getResizeHandles(selectedEditElement)
-        const handle = hitHandle(point, selectionBounds, handles, lineCoords)
-        if (handle && isElementDraggable(selectedEditElement)) {
+        const handle = hitResizeHandle(point, selectionBounds, handles, lineCoords)
+        if (handle) {
           event.preventDefault()
           event.currentTarget.setPointerCapture(event.pointerId)
           const session: DragSession = {
@@ -494,7 +443,16 @@ export function DesignerCanvas({
           setDragSession(session)
           return
         }
+      }
 
+      const topHit = findTopmostElementHit(hitTargets, point)
+
+      if (
+        selectedIndex != null &&
+        selectionBounds &&
+        selectedEditElement &&
+        topHit?.index === selectedIndex
+      ) {
         if (isElementDraggable(selectedEditElement)) {
           event.preventDefault()
           event.currentTarget.setPointerCapture(event.pointerId)
@@ -654,7 +612,7 @@ export function DesignerCanvas({
           </span>
         </div>
       </div>
-      {fontStatusMessages.map((message, index) => (
+      {statusMessages.map((message, index) => (
         <StatusBanner key={`${message.severity}-${message.title}-${index}`} message={message} />
       ))}
       <div

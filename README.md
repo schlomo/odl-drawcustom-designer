@@ -10,9 +10,9 @@ Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcus
 
 **Phase 3a** — IndexedDB (**committed** `9d58839`).
 
-**Phase 3b** — opentype text/multiline preview (**uncommitted**): wrap, truncate, anchors, glyph drawing.
+**Phase 3b** — opentype text/multiline (**committed** `23d12b5`).
 
-**Next:** commit §11h → Phase **3c** MDI icons (§17c). Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §17.
+**Next:** Phase **3c** MDI icons (§17c). Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §17.
 
 ## Spec
 
