@@ -58,6 +58,12 @@ todos:
     status: completed
   - id: phase4-multiselect
     content: "§18c: marquee select, bulk move/layer, align H/V"
+    status: completed
+  - id: phase4c-commit
+    content: "Commit Phase 4c after verification (§11p)"
+    status: completed
+  - id: phase4-undo
+    content: "§18d: undo/redo 50 steps + useProjectState history (19-9)"
     status: pending
   - id: phase4-ha-embed
     content: "§18f: HA panel mode, drawcustom load/save, live state preview"
@@ -740,14 +746,15 @@ flowchart LR
 | **3g** Arch + quality | ✅ Done | `e8ff378` | — | ADR-011, `docs/testing.md`, audit report, core barrel ESLint |
 | **4a** Storage reshape | ✅ Done | `5ad7e6f` | 593 (91 files) | Dexie v3, global mocks, `session` row, `appBootstrap`, auto-save |
 | **4b** Export + share | ✅ Done | `0bac3b6` | 636 (97 files) | Zoom, PNG/YAML export, `#d=pako` share, missing-asset banner |
-| **4c** Multi-select | ⬜ **Next** | — | — | Marquee, bulk move, align (§18c) |
-| **4d–4i** Polish | ⬜ Pending | — | — | Undo, edge snap, HA embed, deploy (§18d–h, §18i) |
+| **4c** Multi-select | ✅ Done | `adb3988` | 661 (102 files) | Marquee, Shift+click, bulk drag/nudge/layer, align toolbar |
+| **4d** Undo/redo | ⬜ **Next** | — | — | 50-step history stack (§18d) |
+| **4e–4i** Polish | ⬜ Pending | — | — | Edge snap, HA embed, deploy (§18e–h, §18i) |
 | **4j** ODL alignment | ⬜ Pending | — | — | Cross-cutting schema/renderer parity with OpenDisplay Language (§18j) |
 | **4k–4r** UX + brand | ⬜ Pending | — | — | Load Demo header button (§18k); demo visible refactor (**§18m**); rebrand (§7.5 / §18r) |
 
-**Current repo health:** `npm test` → **636 passed** (97 files) · `npm run lint` → **clean** · last commit `0bac3b6`
+**Current repo health:** `npm test` → **661 passed** (102 files) · `npm run lint` → **clean** · last commit `adb3988`
 
-**Next:** Phase **4c** — multi-select + alignment (§18c).
+**Next:** Phase **4d** — undo/redo (§18d).
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -973,7 +980,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **4a** | **Storage reshape** | ✅ Dexie **v3**: global `assets`, global `mocks`, single `session` row. Dropped `projects` + per-`projectId` mocks. `ensureDbReady` wipe-on-upgrade. |
 | **4b** | **Canvas + YAML bars** | ✅ Zoom **200/100/Fit/50**, PNG copy/download, YAML copy/download, header **Share** `#d=pako`, hash bootstrap, missing-asset banner (`0bac3b6`). |
 | **4i** | **Display config** | Drop inch-based tag presets. **Resolution** dropdown (common WxH quick-picks + Custom → W/H inputs). **Color mode** dropdown (BW, BWR, BWY; scaffold **6-color** palette in types/renderer). |
-| **4c** | **Multi-select** | Marquee/drag-select enclosed elements; bulk move; raise/lower selection; align left/center/right + top/middle/bottom. |
+| **4c** | **Multi-select** | ✅ Marquee, Shift+click, bulk drag/nudge/layer, align toolbar, shared property form (`adb3988`). |
 | **4d** | **Undo/redo** | **50 steps**; batch mutations for multi-select; **19-9** `useProjectState` refactor paired with history stack. |
 | **4e** | **Edge snap** | When snap on: snap to canvas outer bounds in addition to grid; **higher priority** for bottom and right edges. |
 | **4f** | **HA embed prep** | Dual runtime: standalone vs HA panel. Load/save `drawcustom` payload from automation editor (if feasible). Live HA states for preview when embedded; standalone keeps State Simulator + global mocks. ADR-010 candidate. |
@@ -1201,7 +1208,7 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 | Add Element + Load Example | ✅ sidebar dropdown today → **cut in 4k** | 2e / **4k** |
 | Load Demo (single header button) | ⬜ **4k** | 4 |
 | Product rebrand (odl-designer) | ⬜ decision **§7.5** / **4r** | 4 |
-| Multi-select, bulk move, align H/V | ⬜ **4c** | 4 |
+| Multi-select, bulk move, align H/V | ✅ (**4c**) | 4 |
 | Canvas zoom 200/100/Fit/50 | ✅ (**4b**) | 4 |
 | Canvas PNG copy + download | ✅ (**4b**) | 4 |
 | Resolution + color mode (not inch presets) | ⬜ **4i** | 4 |
@@ -1499,6 +1506,14 @@ Delivered 2026-06-08. Share hash, export bars, canvas zoom, missing-asset banner
 
 ---
 
+## 11p. Commit Phase 4c prompt ✅ (`adb3988`)
+
+Delivered 2026-06-08. Multi-select, marquee, align, bulk layer ops, toolbar polish.
+
+<!-- prompt archived — phase complete -->
+
+---
+
 ## 11c. Commit Phase 2 (partial) prompt ✅ (`84d2164`)
 
 Commit message used: `Phase 2a complete (YAML Editor)` — includes stabilization + UI shell + YamlEditor.
@@ -1628,7 +1643,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **Next: §18c** (multi-select + alignment).
+**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **§18c** ✅ (`adb3988`). **Next: §18d** (undo/redo).
 
 **Plan cross-reference map:**
 
@@ -1741,42 +1756,38 @@ Delivered — see §7 Phase 4b. Key files: `src/share/`, `canvas-png-export.ts`,
 
 <!-- prompt archived — phase complete -->
 
-### §18c — Multi-select + alignment ⬜ **Next**
+### §18c — Multi-select + alignment ✅ (`adb3988`)
 
-Read `docs/testing.md` (ADR-011). Today selection is single `selectedIndex` in `useProjectState.ts`.
+Delivered — see §7 Phase 4c. Key files: `align-elements.ts`, `marquee-selection.ts`, `CanvasSelectionToolbar.tsx`, `SharedPropertyForm.tsx`, `useProjectState.ts` (`selectedIndices`).
 
-```
-Execute Phase 4c — marquee selection and bulk editing.
+<!-- prompt archived — phase complete -->
 
-State (useProjectState.ts):
-- selectedIndices: number[] (replace or extend selectedIndex; keep YAML coupling semantics)
-- selectElement(index, { additive?: boolean }) — Shift+click toggles/adds
-- clearSelection, selectAllInRect(bounds), selectedElements helper
+### §18d — Undo/redo (50 steps) ⬜ **Next**
 
-Canvas (DesignerCanvas.tsx):
-- Marquee drag on empty canvas/paper selects enclosed elements (hit bounds from resolveElementHitBounds)
-- Shift additive; bulk drag moves all selected; keyboard nudge via existing nudgeElement batch
-- Layer: bringToFront/sendToBack/moveLayerUp/moveLayerDown apply to selection set
-- Align toolbar or canvas bar: left/center/right, top/middle/bottom vs selection union bounds
-  (new src/ui/lib/align-elements.ts — pure geometry, Vitest first)
-
-Property panel (PropertyPanel.tsx / ElementPropertyForm.tsx):
-- 0 selected: empty state; 1: current form; 2+: shared fields only or "N selected" summary
-- Delete removes all selected
-
-Tests: extend tests/ui/lib/canvas-interaction.test.ts; align-elements.test.ts
-
-Next: docs/PLAN.md §18d
-```
-
-### §18d — Undo/redo (50 steps)
+Read `docs/testing.md` (ADR-011). Multi-select batch ops live in `useProjectState.ts` + `batch-element-updates.ts`.
 
 ```
-Execute Phase 4d — history stack.
+Execute Phase 4d — 50-step undo/redo history stack.
 
-- 50-step undo/redo for element add/delete/move/resize, property edits, multi-select batch ops
-- Pair with 19-9 useProjectState batching (useReducer or immer patches)
-- Keyboard: Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z (or Ctrl+Y)
+Core:
+- src/ui/history/ or src/ui/lib/edit-history.ts — snapshot or patch stack (max 50)
+- Capture: elements + canvas service-relevant fields + selectedIndices after each mutation
+- Debounce/coalesce rapid drags into one undo step (pointer up boundary)
+
+useProjectState.ts (19-9):
+- Route mutations through dispatchHistory(action) wrapper
+- undo() / redo() restore snapshot; remap selection indices via selection-remap.ts
+- Keyboard: Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z or Ctrl+Y redo (App or DesignerCanvas)
+
+UI:
+- Header or canvas bar: Undo / Redo buttons (disabled when stack empty)
+- Optional: history depth indicator for dev
+
+Tests:
+- tests/ui/lib/edit-history.test.ts — push/pop/limit/coalesce
+- integration: add → undo → redo; multi-select align → undo
+
+Do not push unless I ask. After green: docs/PLAN.md §11q commit prompt.
 
 Next: docs/PLAN.md §18e
 ```

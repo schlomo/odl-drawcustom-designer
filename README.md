@@ -26,7 +26,9 @@ Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcus
 
 **Phase 4b** — export bars, zoom, hash share (**committed** `0bac3b6`).
 
-**Next:** Phase **4c** — multi-select + alignment (§18c). Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §18.
+**Phase 4c** — multi-select, marquee, align (**committed** `adb3988`).
+
+**Next:** Phase **4d** — undo/redo (§18d). Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §18.
 
 ## Spec
 
