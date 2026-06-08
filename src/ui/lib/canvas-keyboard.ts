@@ -1,14 +1,16 @@
-/** Apply keyboard nudge only when an element is selected (no-op when `selectedIndex` is null). */
+/** Apply keyboard nudge to every selected index (no-op when selection is empty). */
 export function nudgeWhenSelected(
-  selectedIndex: number | null,
+  selectedIndices: readonly number[],
   nudge: (index: number, dx: number, dy: number) => void,
   dx: number,
   dy: number,
 ): void {
-  if (selectedIndex == null) {
+  if (selectedIndices.length === 0) {
     return
   }
-  nudge(selectedIndex, dx, dy)
+  for (const index of selectedIndices) {
+    nudge(index, dx, dy)
+  }
 }
 
 /** Canvas shortcuts yield to YAML editing and form fields. */

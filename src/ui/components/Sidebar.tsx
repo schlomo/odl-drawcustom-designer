@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { AssetKind, AssetUploadResult, DrawElement } from '../../core'
 import type { HaMockContext } from '../../core'
 import { EXAMPLE_DESIGNS } from '../data/example-designs'
-import type { CanvasConfig, CanvasRotation } from '../hooks/useProjectState'
+import type { CanvasConfig, CanvasRotation, SelectElementOptions } from '../hooks/useProjectState'
 import { useResizablePanelWidth } from '../hooks/useResizablePanelWidth'
 import { SIDEBAR_WIDTH_STORAGE_KEY } from '../preferences/keys'
 import { shell } from '../styles/shell'
@@ -17,11 +17,11 @@ type SidebarTab = 'elements' | 'simulator' | 'content'
 interface SidebarProps {
   elements: DrawElement[]
   previewElements: DrawElement[]
-  selectedIndex: number | null
+  selectedIndices: number[]
   canvas: CanvasConfig
   mockContext: HaMockContext
   assetRevision: number
-  onSelectElement: (index: number) => void
+  onSelectElement: (index: number, options?: SelectElementOptions) => void
   onApplyPreset: (presetId: string) => void
   onCanvasSizeChange: (width: number, height: number) => void
   onRotationChange: (rotation: CanvasRotation) => void
@@ -31,7 +31,11 @@ interface SidebarProps {
   onUploadAsset: (key: string, kind: AssetKind, file: File) => Promise<AssetUploadResult>
   onClearAsset: (key: string) => void
   onLoadExample: (exampleId: string) => void
-  onReorderElement: (fromIndex: number, toIndex: number) => void
+  onReorderElement: (
+    fromIndex: number,
+    toIndex: number,
+    movingIndices?: readonly number[],
+  ) => void
   onFocusSimulatorEntity?: (entityId: string) => void
 }
 
@@ -50,7 +54,7 @@ const DEFAULT_SIDEBAR_WIDTH = 256
 export function Sidebar({
   elements,
   previewElements,
-  selectedIndex,
+  selectedIndices,
   canvas,
   mockContext,
   assetRevision,
@@ -201,7 +205,7 @@ export function Sidebar({
             <div className="min-h-0 flex-1 overflow-y-auto">
               <ElementList
                 previewElements={previewElements}
-                selectedIndex={selectedIndex}
+                selectedIndices={selectedIndices}
                 onSelectElement={onSelectElement}
                 onReorderElement={onReorderElement}
               />

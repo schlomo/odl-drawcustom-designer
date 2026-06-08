@@ -39,6 +39,8 @@ interface ElementPropertyFormProps {
   onPropertyChange: (key: string, value: unknown) => void
   onUploadFont: (file: File) => Promise<AssetUploadResult>
   onUploadImageForUrl: (urlKey: string, file: File) => Promise<AssetUploadResult>
+  properties?: string[]
+  mixedProperties?: string[]
 }
 
 function PropertyLabel({ element, property }: { element: DrawElement; property: string }) {
@@ -317,6 +319,7 @@ function PropertyField({
   property,
   element,
   value,
+  mixed = false,
   fontKeys,
   onChange,
   onUploadFont,
@@ -325,11 +328,33 @@ function PropertyField({
   property: string
   element: DrawElement
   value: unknown
+  mixed?: boolean
   fontKeys: string[]
   onChange: (value: unknown) => void
   onUploadFont: (file: File) => Promise<AssetUploadResult>
   onUploadImageForUrl: (urlKey: string, file: File) => Promise<AssetUploadResult>
 }) {
+  if (mixed) {
+    return (
+      <label className={`block text-xs ${shell.muted}`}>
+        <PropertyLabel element={element} property={property} />
+        <input
+          type="text"
+          className={`mt-1 w-full ${shell.input}`}
+          value=""
+          placeholder="Mixed values"
+          readOnly
+          onFocus={(event) => {
+            event.currentTarget.readOnly = false
+            event.currentTarget.placeholder = ''
+            event.currentTarget.value = ''
+          }}
+          onChange={(event) => onChange(event.target.value || undefined)}
+        />
+      </label>
+    )
+  }
+
   const kind: PropertyFieldKind = getPropertyFieldKind(property, value)
   const enumValues = kind === 'enum' ? getPropertyEnumValues(property) : null
 
@@ -545,8 +570,11 @@ export function ElementPropertyForm({
   onPropertyChange,
   onUploadFont,
   onUploadImageForUrl,
+  properties: propertiesOverride,
+  mixedProperties = [],
 }: ElementPropertyFormProps) {
-  const properties = getEditableProperties(element)
+  const properties = propertiesOverride ?? getEditableProperties(element)
+  const mixed = new Set(mixedProperties)
 
   return (
     <div className="space-y-3">
@@ -555,7 +583,10 @@ export function ElementPropertyForm({
           key={property}
           property={property}
           element={element}
-          value={getPropertyEffectiveValue(element, property)}
+          value={
+            mixed.has(property) ? undefined : getPropertyEffectiveValue(element, property)
+          }
+          mixed={mixed.has(property)}
           fontKeys={fontKeys}
           onChange={(next) =>
             onPropertyChange(property, normalizePropertyValueForStorage(element, property, next))

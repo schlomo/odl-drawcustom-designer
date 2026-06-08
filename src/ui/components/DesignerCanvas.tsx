@@ -64,7 +64,9 @@ import {
 } from '../lib/export-download'
 import { toolbarGroup, toolbarGroups } from '../lib/export-action-feedback'
 import { type ElementBounds } from '../lib/primitive-bounds'
-import { resolveElementHitBounds } from '../lib/hidden-element-hints'
+import { unionBounds, type ElementAlign } from '../lib/align-elements'
+import { isElementCanvasSelectable, resolveElementHitBounds } from '../lib/hidden-element-hints'
+import { normalizeMarqueeRect } from '../lib/marquee-selection'
 import { snapMoveDelta, snapToGrid } from '../lib/snap-to-grid'
 import type { SnapGridPrefs } from '../preferences/snapGrid'
 import {
@@ -72,10 +74,12 @@ import {
   writeCanvasZoomMode,
   type CanvasZoomMode,
 } from '../preferences/canvasZoom'
-import type { CanvasRotation } from '../hooks/useProjectState'
+import type { CanvasRotation, SelectElementOptions } from '../hooks/useProjectState'
 import { useExportActionFeedback } from '../hooks/useExportActionFeedback'
-import { ExportActionButton } from './ExportActionButton'
+import { CanvasSelectionToolbar } from './CanvasSelectionToolbar'
+import { ExportIconButton } from './ExportIconButton'
 import { FeatureToggle } from './FeatureToggle'
+import { TOOL_ICONS } from '../lib/mdi-tool-icons'
 import { shell } from '../styles/shell'
 
 interface DesignerCanvasProps {
@@ -83,7 +87,7 @@ interface DesignerCanvasProps {
   editElements: DrawElement[]
   renderContext: RenderContext
   rotation: CanvasRotation
-  selectedIndex: number | null
+  selectedIndices: number[]
   assetRevision: number
   sessionName: string
   /** Client size of the slot above the YAML divider (from App allocation ref). */
@@ -92,8 +96,15 @@ interface DesignerCanvasProps {
   showHiddenHints: boolean
   onToggleShowHiddenHints: () => void
   extraStatusMessages?: readonly StatusMessage[]
-  onSelectElement: (index: number | null) => void
+  onSelectElement: (index: number | null, options?: SelectElementOptions) => void
+  onSelectAllInRect: (bounds: ElementBounds, additive?: boolean) => void
+  onAlignSelection: (align: ElementAlign, boundsByIndex: Map<number, ElementBounds>) => void
   onUpdateElement: (index: number, element: DrawElement) => void
+  onUpdateElementsBatch: (updates: ReadonlyMap<number, DrawElement>) => void
+  onBringSelectionToFront: () => void
+  onSendSelectionToBack: () => void
+  onMoveSelectionLayer: (direction: 'up' | 'down') => void
+  elementCount: number
   onDeleteSelected: () => void
   onNudgeSelected: (dx: number, dy: number) => void
   onClearAll: () => void
@@ -108,17 +119,26 @@ interface DragOverlay {
   element: DrawElement
 }
 
-interface DragSession {
-  kind: 'move' | 'resize'
+interface DragMoveStart {
   index: number
-  pointerId: number
-  startCanvas: { x: number; y: number }
-  /** Raw edit payload — committed on pointer up. */
   startElement: DrawElement
-  /** Resolved preview payload — shown in the drag overlay only. */
   startDisplayElement: DrawElement
   startBounds: ElementBounds
+}
+
+interface DragSession {
+  kind: 'move' | 'resize'
+  indices: number[]
+  pointerId: number
+  startCanvas: { x: number; y: number }
+  starts: DragMoveStart[]
   handle?: ResizeHandle
+}
+
+interface MarqueeSession {
+  pointerId: number
+  startCanvas: { x: number; y: number }
+  additive: boolean
 }
 
 const HANDLE_SIZE = HANDLE_VISUAL_SIZE
@@ -144,7 +164,7 @@ export function DesignerCanvas({
   editElements,
   renderContext,
   rotation,
-  selectedIndex,
+  selectedIndices,
   assetRevision,
   sessionName,
   allocationSize,
@@ -153,7 +173,14 @@ export function DesignerCanvas({
   onToggleShowHiddenHints,
   extraStatusMessages = [],
   onSelectElement,
+  onSelectAllInRect,
+  onAlignSelection,
   onUpdateElement,
+  onUpdateElementsBatch,
+  onBringSelectionToFront,
+  onSendSelectionToBack,
+  onMoveSelectionLayer,
+  elementCount,
   onDeleteSelected,
   onNudgeSelected,
   onClearAll,
@@ -180,13 +207,24 @@ export function DesignerCanvas({
     () => new Map(),
   )
   const [dragSession, setDragSession] = useState<DragSession | null>(null)
-  const [dragOverlay, setDragOverlay] = useState<DragOverlay | null>(null)
+  const [marqueeSession, setMarqueeSession] = useState<MarqueeSession | null>(null)
+  const [marqueeRect, setMarqueeRect] = useState<ElementBounds | null>(null)
+  const marqueeRectRef = useRef<ElementBounds | null>(null)
+  const marqueeSessionRef = useRef<MarqueeSession | null>(null)
+  const [dragOverlays, setDragOverlays] = useState<DragOverlay[]>([])
   /** Preview stack frozen at drag start so live YAML/property updates do not re-render every layer. */
   const [frozenElements, setFrozenElements] = useState<DrawElement[] | null>(null)
 
   useEffect(() => {
     dragSessionRef.current = dragSession
   }, [dragSession])
+
+  useEffect(() => {
+    marqueeSessionRef.current = marqueeSession
+  }, [marqueeSession])
+
+  const selectedIndex = selectedIndices.length === 1 ? selectedIndices[0]! : selectedIndices.length > 0 ? selectedIndices[selectedIndices.length - 1]! : null
+  const isMultiSelect = selectedIndices.length > 1
 
   useEffect(() => {
     const scrollport = containerRef.current
@@ -264,6 +302,9 @@ export function DesignerCanvas({
   const hitTargets = useMemo(() => {
     void fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts)
     return elements.flatMap((element, index) => {
+      if (!isElementCanvasSelectable(element, renderContext)) {
+        return []
+      }
       const bounds = resolveElementHitBounds(element, renderContext)
       return bounds ? [{ index, bounds }] : []
     })
@@ -356,15 +397,50 @@ export function DesignerCanvas({
 
   const baseElements = frozenElements ?? elements
 
+  const selectionBoundsByIndex = useMemo(() => {
+    void fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts)
+    const map = new Map<number, ElementBounds>()
+    for (const index of selectedIndices) {
+      const element = elements[index]
+      if (!element) {
+        continue
+      }
+      const bounds = resolveElementHitBounds(element, renderContext)
+      if (bounds) {
+        map.set(index, bounds)
+      }
+    }
+    return map
+  }, [elements, fontAssetKeys, opentypeFonts, renderContext, selectedIndices])
+
   const overlayElementForSelection = useMemo(() => {
-    if (selectedIndex == null) {
+    if (selectedIndex == null || isMultiSelect) {
       return null
     }
-    if (dragOverlay?.index === selectedIndex) {
-      return dragOverlay.element
+    const overlay = dragOverlays.find((entry) => entry.index === selectedIndex)
+    if (overlay) {
+      return overlay.element
     }
     return elements[selectedIndex] ?? null
-  }, [dragOverlay, elements, selectedIndex])
+  }, [dragOverlays, elements, isMultiSelect, selectedIndex])
+
+  const selectionBounds = useMemo(() => {
+    if (!overlayElementForSelection) {
+      if (isMultiSelect) {
+        return unionBounds([...selectionBoundsByIndex.values()])
+      }
+      return null
+    }
+    void fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts)
+    return resolveElementHitBounds(overlayElementForSelection, renderContext)
+  }, [
+    fontAssetKeys,
+    isMultiSelect,
+    opentypeFonts,
+    overlayElementForSelection,
+    renderContext,
+    selectionBoundsByIndex,
+  ])
 
   const selectionRenderResult = useMemo(() => {
     if (!overlayElementForSelection) {
@@ -372,14 +448,6 @@ export function DesignerCanvas({
     }
     void fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts)
     return renderElement(overlayElementForSelection, renderContext)
-  }, [fontAssetKeys, opentypeFonts, overlayElementForSelection, renderContext])
-
-  const selectionBounds = useMemo(() => {
-    if (!overlayElementForSelection) {
-      return null
-    }
-    void fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts)
-    return resolveElementHitBounds(overlayElementForSelection, renderContext)
   }, [fontAssetKeys, opentypeFonts, overlayElementForSelection, renderContext])
 
   const lineCoords = useMemo(() => {
@@ -425,6 +493,25 @@ export function DesignerCanvas({
     }
   }, [])
 
+  const finishMarquee = useCallback(() => {
+    const session = marqueeSessionRef.current
+    marqueeSessionRef.current = null
+    setMarqueeSession(null)
+    const rect = marqueeRectRef.current
+    marqueeRectRef.current = null
+    setMarqueeRect(null)
+    if (!session) {
+      return
+    }
+    if (rect && (rect.width >= 2 || rect.height >= 2)) {
+      onSelectAllInRect(rect, session.additive)
+      return
+    }
+    if (!session.additive) {
+      onSelectElement(null)
+    }
+  }, [onSelectAllInRect, onSelectElement])
+
   const finishDrag = useCallback(() => {
     const session = dragSessionRef.current
     if (session) {
@@ -434,16 +521,57 @@ export function DesignerCanvas({
     setFrozenElements(null)
     dragSessionRef.current = null
     setDragSession(null)
-    setDragOverlay(null)
+    setDragOverlays([])
     onDragActiveChange?.(false)
   }, [onDragActiveChange, releaseCapturedPointer])
 
+  const updateBulkMoveVisual = useCallback(
+    (
+      starts: DragMoveStart[],
+      dx: number,
+      dy: number,
+    ) => {
+      const canvas = { width: renderContext.width, height: renderContext.height }
+      const updates = new Map<number, DrawElement>()
+      const overlays: DragOverlay[] = []
+      for (const start of starts) {
+        updates.set(start.index, translateElement(start.startElement, dx, dy, canvas))
+        overlays.push({
+          index: start.index,
+          element: translateElement(start.startDisplayElement, dx, dy, canvas),
+        })
+      }
+      setDragOverlays(overlays)
+      onUpdateElementsBatch(updates)
+    },
+    [onUpdateElementsBatch, renderContext.height, renderContext.width],
+  )
+
   const updateDragVisual = useCallback(
     (index: number, overlayElement: DrawElement, commitElement: DrawElement) => {
-      setDragOverlay({ index, element: overlayElement })
+      setDragOverlays([{ index, element: overlayElement }])
       onUpdateElement(index, commitElement)
     },
     [onUpdateElement],
+  )
+
+  const beginMarqueeSession = useCallback(
+    (
+      target: HTMLElement,
+      pointerId: number,
+      startCanvas: { x: number; y: number },
+      additive: boolean,
+    ) => {
+      target.setPointerCapture(pointerId)
+      pointerCaptureTargetRef.current = target
+      marqueeSessionRef.current = {
+        pointerId,
+        startCanvas,
+        additive,
+      }
+      setMarqueeSession(marqueeSessionRef.current)
+    },
+    [],
   )
 
   const beginDragSession = useCallback(
@@ -459,12 +587,22 @@ export function DesignerCanvas({
   const handlePointerMove = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       const dragging = dragSessionRef.current != null
-      const point = mapClientToCanvas(event.clientX, event.clientY, dragging)
-      setPointer(dragging ? point : point)
+      const marqueing = marqueeSessionRef.current != null
+      const point = mapClientToCanvas(event.clientX, event.clientY, dragging || marqueing)
+      setPointer(point)
 
-      if (!dragging && point) {
+      const marquee = marqueeSessionRef.current
+      if (marquee && event.pointerId === marquee.pointerId && point) {
+        didDragRef.current = true
+        const rect = normalizeMarqueeRect(marquee.startCanvas, point)
+        marqueeRectRef.current = rect
+        setMarqueeRect(rect)
+      }
+
+      if (!dragging && !marqueing && point) {
         let cursor = 'default'
         if (
+          !isMultiSelect &&
           selectedIndex != null &&
           selectionBounds &&
           selectedEditElement &&
@@ -491,6 +629,8 @@ export function DesignerCanvas({
         setHoverCursor(cursor)
       } else if (dragging) {
         setHoverCursor('grabbing')
+      } else if (marqueing) {
+        setHoverCursor('crosshair')
       }
 
       const session = dragSessionRef.current
@@ -502,28 +642,40 @@ export function DesignerCanvas({
       event.preventDefault()
 
       if (session.kind === 'move') {
+        const primary = session.starts[0]
+        if (!primary) {
+          return
+        }
         const rawDx = point.x - session.startCanvas.x
         const rawDy = point.y - session.startCanvas.y
         const { dx, dy } = snapMoveDelta(
-          session.startBounds,
+          primary.startBounds,
           rawDx,
           rawDy,
           snapGrid.size,
           snapGrid.enabled,
         )
         if (dx !== 0 || dy !== 0) {
-          const canvas = { width: renderContext.width, height: renderContext.height }
-          updateDragVisual(
-            session.index,
-            translateElement(session.startDisplayElement, dx, dy, canvas),
-            translateElement(session.startElement, dx, dy, canvas),
-          )
+          if (session.starts.length === 1) {
+            const canvas = { width: renderContext.width, height: renderContext.height }
+            updateDragVisual(
+              primary.index,
+              translateElement(primary.startDisplayElement, dx, dy, canvas),
+              translateElement(primary.startElement, dx, dy, canvas),
+            )
+          } else {
+            updateBulkMoveVisual(session.starts, dx, dy)
+          }
         }
         return
       }
 
-      const element = session.startElement
-      const displayElement = session.startDisplayElement
+      const primary = session.starts[0]
+      if (!primary) {
+        return
+      }
+      const element = primary.startElement
+      const displayElement = primary.startDisplayElement
       const handle = session.handle
       if (!handle) {
         return
@@ -534,7 +686,7 @@ export function DesignerCanvas({
         const snapped = applySnap(point, snapGrid)
         if (displayElement.type === 'line' && element.type === 'line') {
           updateDragVisual(
-            session.index,
+            primary.index,
             applyLineEndpoint(displayElement, endpoint, snapped.x, snapped.y),
             applyLineEndpoint(element, endpoint, snapped.x, snapped.y),
           )
@@ -542,23 +694,22 @@ export function DesignerCanvas({
         return
       }
 
-      // Size resizes use raw pointer coords — grid snap applies to move/nudge only, not width/height/radius.
       const pointerX = point.x
       const pointerY = point.y
 
       if (supportsSeSizeResize(element)) {
         updateDragVisual(
-          session.index,
-          applySeSizeResize(displayElement, session.startBounds, pointerX, pointerY, handle),
-          applySeSizeResize(element, session.startBounds, pointerX, pointerY, handle),
+          primary.index,
+          applySeSizeResize(displayElement, primary.startBounds, pointerX, pointerY, handle),
+          applySeSizeResize(element, primary.startBounds, pointerX, pointerY, handle),
         )
         return
       }
 
       if (supportsBoxResize(element)) {
-        const nextBounds = resizeBoundsWithHandle(session.startBounds, handle, pointerX, pointerY)
+        const nextBounds = resizeBoundsWithHandle(primary.startBounds, handle, pointerX, pointerY)
         updateDragVisual(
-          session.index,
+          primary.index,
           applyBoundsResize(displayElement, nextBounds),
           applyBoundsResize(element, nextBounds),
         )
@@ -567,6 +718,7 @@ export function DesignerCanvas({
     [
       editElements,
       hitTargets,
+      isMultiSelect,
       lineCoords,
       mapClientToCanvas,
       renderContext.height,
@@ -575,6 +727,7 @@ export function DesignerCanvas({
       selectedIndex,
       selectionBounds,
       snapGrid,
+      updateBulkMoveVisual,
       updateDragVisual,
     ],
   )
@@ -586,8 +739,13 @@ export function DesignerCanvas({
         releaseCapturedPointer(event.currentTarget, session.pointerId)
         finishDrag()
       }
+      const marquee = marqueeSessionRef.current
+      if (marquee && event.pointerId === marquee.pointerId) {
+        releaseCapturedPointer(event.currentTarget, marquee.pointerId)
+        finishMarquee()
+      }
     },
-    [finishDrag, releaseCapturedPointer],
+    [finishDrag, finishMarquee, releaseCapturedPointer],
   )
 
   const handleLostPointerCapture = useCallback(
@@ -596,108 +754,145 @@ export function DesignerCanvas({
       if (session && event.pointerId === session.pointerId) {
         finishDrag()
       }
+      const marquee = marqueeSessionRef.current
+      if (marquee && event.pointerId === marquee.pointerId) {
+        finishMarquee()
+      }
     },
-    [finishDrag],
+    [finishDrag, finishMarquee],
+  )
+
+  const buildMoveStarts = useCallback(
+    (indices: number[]): DragMoveStart[] =>
+      indices.flatMap((index) => {
+        const startElement = editElements[index]
+        const startDisplayElement = elements[index]
+        const startBounds = hitTargets.find((target) => target.index === index)?.bounds
+        if (!startElement || !startDisplayElement || !startBounds) {
+          return []
+        }
+        return [{ index, startElement, startDisplayElement, startBounds }]
+      }),
+    [editElements, elements, hitTargets],
   )
 
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      const point = mapClientToCanvas(event.clientX, event.clientY)
-      if (!point) {
+      const paperPoint = mapClientToCanvas(event.clientX, event.clientY, false)
+      const canvasPoint = paperPoint ?? mapClientToCanvas(event.clientX, event.clientY, true)
+      if (!canvasPoint) {
         return
       }
 
       event.currentTarget.focus({ preventScroll: true })
       didDragRef.current = false
-      setDragOverlay(null)
+      setDragOverlays([])
+      setMarqueeRect(null)
+      marqueeRectRef.current = null
 
-      const topHit = findTopmostElementHit(hitTargets, point)
+      const onPaper = paperPoint != null
+      const interactionPoint = paperPoint ?? canvasPoint
+      const topHit = onPaper ? findTopmostElementHit(hitTargets, interactionPoint) : null
+      const additive = event.shiftKey
+      const forceMarquee = event.altKey
+
+      const startMarquee = () => {
+        event.preventDefault()
+        beginMarqueeSession(event.currentTarget, event.pointerId, canvasPoint, additive)
+      }
+
+      if (!onPaper || forceMarquee) {
+        if (!additive && !forceMarquee) {
+          onSelectElement(null)
+        }
+        startMarquee()
+        return
+      }
 
       if (
+        !isMultiSelect &&
         selectedIndex != null &&
         selectionBounds &&
         selectedEditElement &&
         isElementDraggable(selectedEditElement)
       ) {
         const handles = getInteractiveResizeHandles(selectedEditElement)
-        const handle = hitResizeHandle(point, selectionBounds, handles, lineCoords)
+        const handle = hitResizeHandle(interactionPoint, selectionBounds, handles, lineCoords)
         if (
           handle &&
-          !shouldPreferMoveOverResize(point, selectionBounds, handle, lineCoords)
+          !shouldPreferMoveOverResize(interactionPoint, selectionBounds, handle, lineCoords)
         ) {
           event.preventDefault()
           event.currentTarget.setPointerCapture(event.pointerId)
           pointerCaptureTargetRef.current = event.currentTarget
           beginDragSession({
             kind: 'resize',
-            index: selectedIndex,
+            indices: [selectedIndex],
             pointerId: event.pointerId,
-            startCanvas: point,
-            startElement: selectedEditElement,
-            startDisplayElement: elements[selectedIndex],
-            startBounds: selectionBounds,
+            startCanvas: interactionPoint,
+            starts: buildMoveStarts([selectedIndex]),
             handle,
           })
           return
         }
       }
 
-      if (
-        selectedIndex != null &&
-        selectionBounds &&
-        selectedEditElement &&
-        topHit?.index === selectedIndex
-      ) {
-        if (isElementDraggable(selectedEditElement)) {
-          event.preventDefault()
-          event.currentTarget.setPointerCapture(event.pointerId)
-          pointerCaptureTargetRef.current = event.currentTarget
-          beginDragSession({
-            kind: 'move',
-            index: selectedIndex,
-            pointerId: event.pointerId,
-            startCanvas: point,
-            startElement: selectedEditElement,
-            startDisplayElement: elements[selectedIndex],
-            startBounds: selectionBounds,
-          })
-          return
-        }
-      }
-
       if (topHit) {
-        onSelectElement(topHit.index)
-        const editElement = editElements[topHit.index]
-        if (editElement && isElementDraggable(editElement)) {
+        const wasSelected = selectedIndices.includes(topHit.index)
+        if (additive) {
+          onSelectElement(topHit.index, { additive: true })
+          if (wasSelected) {
+            return
+          }
+        } else if (!wasSelected) {
+          onSelectElement(topHit.index)
+        }
+
+        const moveIndices =
+          topHit && selectedIndices.includes(topHit.index) && selectedIndices.length > 1
+            ? selectedIndices
+            : additive
+              ? [...new Set([...selectedIndices, topHit.index])].sort((left, right) => left - right)
+              : wasSelected
+                ? selectedIndices
+                : [topHit.index]
+
+        const draggableStarts = buildMoveStarts(moveIndices).filter((start) =>
+          isElementDraggable(start.startElement),
+        )
+        if (draggableStarts.length > 0) {
           event.preventDefault()
           event.currentTarget.setPointerCapture(event.pointerId)
           pointerCaptureTargetRef.current = event.currentTarget
           beginDragSession({
             kind: 'move',
-            index: topHit.index,
+            indices: draggableStarts.map((start) => start.index),
             pointerId: event.pointerId,
-            startCanvas: point,
-            startElement: editElement,
-            startDisplayElement: elements[topHit.index],
-            startBounds: topHit.bounds,
+            startCanvas: interactionPoint,
+            starts: draggableStarts,
           })
         }
         return
       }
 
-      onSelectElement(null)
+      if (!additive) {
+        onSelectElement(null)
+      }
+      startMarquee()
     },
     [
       beginDragSession,
-      editElements,
-      elements,
+      beginMarqueeSession,
+      buildMoveStarts,
       hitTargets,
+      isMultiSelect,
+      lineCoords,
       mapClientToCanvas,
       onSelectElement,
       selectedEditElement,
       selectedIndex,
+      selectedIndices,
       selectionBounds,
-      lineCoords,
     ],
   )
 
@@ -721,7 +916,7 @@ export function DesignerCanvas({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (selectedIndex == null || !shouldHandleCanvasKeyboard(event)) {
+      if (selectedIndices.length === 0 || !shouldHandleCanvasKeyboard(event)) {
         return
       }
 
@@ -756,10 +951,20 @@ export function DesignerCanvas({
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onDeleteSelected, onNudgeSelected, selectedIndex, snapGrid.enabled, snapGrid.size])
+  }, [onDeleteSelected, onNudgeSelected, selectedIndices, snapGrid.enabled, snapGrid.size])
+
+  const overlayIndices = useMemo(
+    () => new Set(dragOverlays.map((entry) => entry.index)),
+    [dragOverlays],
+  )
 
   const resizeHandles =
-    selectedEditElement && selectionBounds ? getCanvasResizeHandles(selectedEditElement) : []
+    !isMultiSelect && selectedEditElement && selectionBounds
+      ? getCanvasResizeHandles(selectedEditElement)
+      : []
+
+  const canMoveSelectionUp = selectedIndices.some((index) => index < elementCount - 1)
+  const canMoveSelectionDown = selectedIndices.some((index) => index > 0)
 
   const gridLines = useMemo(() => {
     if (!snapGrid.enabled) {
@@ -848,20 +1053,20 @@ export function DesignerCanvas({
             })}
           </div>
           <div className={toolbarGroup} role="group" aria-label="Canvas export">
-            <ExportActionButton
+            <ExportIconButton
               actionId="copy-png"
               feedback={getFeedback('copy-png')}
+              iconPath={TOOL_ICONS.copy}
+              label="Copy PNG"
               onClick={() => void handleCopyPng()}
-            >
-              Copy PNG
-            </ExportActionButton>
-            <ExportActionButton
+            />
+            <ExportIconButton
               actionId="download-png"
               feedback={getFeedback('download-png')}
+              iconPath={TOOL_ICONS.download}
+              label="Download PNG"
               onClick={() => void handleDownloadPng()}
-            >
-              Download PNG
-            </ExportActionButton>
+            />
           </div>
           <div className={toolbarGroup} role="group" aria-label="Canvas view options">
             <FeatureToggle
@@ -897,6 +1102,17 @@ export function DesignerCanvas({
         <StatusBanner key={`${message.severity}-${message.title}-${index}`} message={message} />
       ))}
       <div className="relative min-h-0 flex-1">
+        <CanvasSelectionToolbar
+          selectionCount={selectedIndices.length}
+          canMoveUp={canMoveSelectionUp}
+          canMoveDown={canMoveSelectionDown}
+          onAlign={onAlignSelection}
+          boundsByIndex={selectionBoundsByIndex}
+          onBringToFront={onBringSelectionToFront}
+          onSendToBack={onSendSelectionToBack}
+          onMoveUp={() => onMoveSelectionLayer('up')}
+          onMoveDown={() => onMoveSelectionLayer('down')}
+        />
         {pointer ? (
           <div
             className="pointer-events-none absolute bottom-3 left-3 z-30 rounded-md bg-[var(--shell-text)]/75 px-2 py-0.5 font-mono text-xs tabular-nums text-[var(--shell-surface)] shadow-sm"
@@ -971,32 +1187,47 @@ export function DesignerCanvas({
               key={index}
               element={element}
               index={index}
-              hidden={dragOverlay?.index === index}
+              hidden={overlayIndices.has(index)}
               renderContext={renderContext}
               assetImages={displayAssetImages}
               fontFamilies={fontFamilies}
               opentypeFonts={opentypeFonts}
             />
           ))}
-          {dragOverlay ? (
+          {dragOverlays.map((overlay) => (
             <CanvasElementSlot
-              key={`drag-overlay-${dragOverlay.index}`}
-              element={dragOverlay.element}
-              index={dragOverlay.index}
-              layerZIndex={baseElements.length + dragOverlay.index + 1}
+              key={`drag-overlay-${overlay.index}`}
+              element={overlay.element}
+              index={overlay.index}
+              layerZIndex={baseElements.length + overlay.index + 1}
               renderContext={renderContext}
               assetImages={displayAssetImages}
               fontFamilies={fontFamilies}
               opentypeFonts={opentypeFonts}
             />
-          ) : null}
+          ))}
           <svg
             viewBox={`0 0 ${renderContext.width} ${renderContext.height}`}
             className="pointer-events-none absolute inset-0 h-full w-full"
-            style={{ zIndex: baseElements.length + (dragOverlay ? 2 : 1) }}
+            style={{ zIndex: baseElements.length + dragOverlays.length + 1 }}
             aria-hidden
           >
-            {selectionBounds ? (
+            {isMultiSelect
+              ? [...selectionBoundsByIndex.entries()].map(([index, bounds]) => (
+                  <rect
+                    key={`sel-${index}`}
+                    x={bounds.x - 2}
+                    y={bounds.y - 2}
+                    width={bounds.width + 4}
+                    height={bounds.height + 4}
+                    fill="none"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    strokeDasharray="6 3"
+                  />
+                ))
+              : null}
+            {selectionBounds && !isMultiSelect ? (
               <>
                 <rect
                   x={selectionBounds.x - 2}
@@ -1025,6 +1256,18 @@ export function DesignerCanvas({
                   )
                 })}
               </>
+            ) : null}
+            {marqueeRect ? (
+              <rect
+                x={marqueeRect.x}
+                y={marqueeRect.y}
+                width={marqueeRect.width}
+                height={marqueeRect.height}
+                fill="rgba(59, 130, 246, 0.08)"
+                stroke="#3b82f6"
+                strokeWidth={1}
+                strokeDasharray="4 2"
+              />
             ) : null}
           </svg>
             </div>

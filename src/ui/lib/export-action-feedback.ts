@@ -26,3 +26,6 @@ export function getExportActionButtonClassName(
 /** Toolbar layout: grouped controls with spacing between groups. */
 export const toolbarGroups = 'flex flex-wrap items-center justify-end gap-x-4 gap-y-2'
 export const toolbarGroup = 'flex flex-wrap items-center gap-1'
+export const toolbarDivider = 'mx-0.5 h-4 w-px shrink-0 bg-[var(--shell-border)]'
+export const floatingToolbarShell =
+  'pointer-events-auto flex items-center gap-1 rounded-lg border border-[var(--shell-border)] bg-[var(--shell-surface)]/95 px-1 py-0.5 shadow-md backdrop-blur-sm'

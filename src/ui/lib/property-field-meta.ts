@@ -338,6 +338,29 @@ export function getEditableProperties(element: DrawElement): string[] {
   return getVisibleProperties(element)
 }
 
+export function getSharedEditableProperties(elements: DrawElement[]): string[] {
+  if (elements.length === 0) {
+    return []
+  }
+  const [first, ...rest] = elements
+  let shared = new Set(getEditableProperties(first!))
+  for (const element of rest) {
+    const keys = new Set(getEditableProperties(element))
+    shared = new Set([...shared].filter((key) => keys.has(key)))
+  }
+  return [...shared]
+}
+
+export function isSharedPropertyValueMixed(elements: DrawElement[], property: string): boolean {
+  if (elements.length <= 1) {
+    return false
+  }
+  const baseline = formatPropertyValue(getPropertyEffectiveValue(elements[0]!, property))
+  return elements.some(
+    (element) => formatPropertyValue(getPropertyEffectiveValue(element, property)) !== baseline,
+  )
+}
+
 export { getPropertyEffectiveValue, normalizePropertyValueForStorage }
 
 export function parsePropertyInput(

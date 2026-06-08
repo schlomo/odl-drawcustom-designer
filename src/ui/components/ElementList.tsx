@@ -1,31 +1,51 @@
-import { useCallback, useState, type DragEvent } from 'react'
+import { useCallback, useRef, useState, type DragEvent, type MouseEvent } from 'react'
 import type { DrawElement } from '../../core'
 import { layerPanelDisplayOrder } from '../lib/draw-order'
+import {
+  elementListDragIndices,
+  normalizeElementListDropIndex,
+} from '../lib/element-list-drag'
 import { elementListRowMeta } from '../lib/element-list-row'
+import { mdiDragVertical } from '@mdi/js'
+import { MdiIcon } from './MdiIcon'
 import { ElementListThumbnail } from './ElementListThumbnail'
+
+import type { SelectElementOptions } from '../hooks/useProjectState'
 
 interface ElementListProps {
   /** Template-evaluated elements for row labels and thumbnails. */
   previewElements: DrawElement[]
-  selectedIndex: number | null
-  onSelectElement: (index: number) => void
-  onReorderElement: (fromIndex: number, toIndex: number) => void
+  selectedIndices: number[]
+  onSelectElement: (index: number, options?: SelectElementOptions) => void
+  onReorderElement: (
+    fromIndex: number,
+    toIndex: number,
+    movingIndices?: readonly number[],
+  ) => void
 }
 
 export function ElementList({
   previewElements,
-  selectedIndex,
+  selectedIndices,
   onSelectElement,
   onReorderElement,
 }: ElementListProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [dropIndex, setDropIndex] = useState<number | null>(null)
+  const [movingIndices, setMovingIndices] = useState<number[]>([])
+  const didDragRef = useRef(false)
 
-  const handleDragStart = useCallback((event: DragEvent<HTMLButtonElement>, index: number) => {
-    setDragIndex(index)
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', String(index))
-  }, [])
+  const handleDragStart = useCallback(
+    (event: DragEvent<HTMLButtonElement>, index: number) => {
+      didDragRef.current = true
+      const nextMovingIndices = elementListDragIndices(index, selectedIndices)
+      setMovingIndices(nextMovingIndices)
+      setDragIndex(index)
+      event.dataTransfer.effectAllowed = 'move'
+      event.dataTransfer.setData('text/plain', String(index))
+    },
+    [selectedIndices],
+  )
 
   const handleDragOver = useCallback((event: DragEvent<HTMLLIElement>, index: number) => {
     event.preventDefault()
@@ -37,19 +57,33 @@ export function ElementList({
     (event: DragEvent<HTMLLIElement>, index: number) => {
       event.preventDefault()
       const fromIndex = dragIndex ?? Number(event.dataTransfer.getData('text/plain'))
-      if (Number.isInteger(fromIndex) && fromIndex !== index) {
-        onReorderElement(fromIndex, index)
+      const dropTarget = normalizeElementListDropIndex(fromIndex, index, movingIndices)
+      if (Number.isInteger(fromIndex) && dropTarget != null) {
+        onReorderElement(fromIndex, dropTarget, movingIndices)
       }
       setDragIndex(null)
       setDropIndex(null)
+      setMovingIndices([])
     },
-    [dragIndex, onReorderElement],
+    [dragIndex, movingIndices, onReorderElement],
   )
 
   const handleDragEnd = useCallback(() => {
     setDragIndex(null)
     setDropIndex(null)
+    setMovingIndices([])
   }, [])
+
+  const handleRowClick = useCallback(
+    (event: MouseEvent<HTMLButtonElement>, index: number) => {
+      if (didDragRef.current) {
+        didDragRef.current = false
+        return
+      }
+      onSelectElement(index, { additive: event.shiftKey || event.metaKey || event.ctrlKey })
+    },
+    [onSelectElement],
+  )
 
   return (
     <ul className="space-y-1 overflow-y-auto">
@@ -57,18 +91,19 @@ export function ElementList({
         <li className="text-xs text-[var(--shell-muted)]">No elements yet</li>
       ) : (
         layerPanelDisplayOrder(previewElements).map(({ item: element, index }) => {
-          const selected = selectedIndex === index
+          const selected = selectedIndices.includes(index)
+          const draggingBlock = dragIndex != null ? movingIndices : []
           const row = elementListRowMeta(element)
+          const dropActive =
+            dropIndex === index &&
+            dragIndex != null &&
+            normalizeElementListDropIndex(dragIndex, index, movingIndices) != null
           return (
           <li
             key={`${index}-${element.type}`}
             onDragOver={(event) => handleDragOver(event, index)}
             onDrop={(event) => handleDrop(event, index)}
-            className={
-              dropIndex === index && dragIndex !== index
-                ? 'rounded-md ring-2 ring-[var(--shell-accent)]'
-                : undefined
-            }
+            className={dropActive ? 'rounded-md ring-2 ring-[var(--shell-accent)]' : undefined}
           >
             <button
               type="button"
@@ -79,11 +114,11 @@ export function ElementList({
                 selected
                   ? 'bg-[var(--shell-accent)] text-white'
                   : 'bg-[var(--shell-surface-2)] text-[var(--shell-text)] hover:bg-[var(--shell-hover)]'
-              } ${dragIndex === index ? 'opacity-50' : ''}`}
-              onClick={() => onSelectElement(index)}
+              } ${draggingBlock.includes(index) ? 'opacity-50' : ''}`}
+              onClick={(event) => handleRowClick(event, index)}
             >
               <span aria-hidden className="cursor-grab opacity-60">
-                ⠿
+                <MdiIcon path={mdiDragVertical} size={16} />
               </span>
               <ElementListThumbnail
                 thumbnail={row.thumbnail}

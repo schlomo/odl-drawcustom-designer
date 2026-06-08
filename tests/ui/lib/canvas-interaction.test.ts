@@ -434,7 +434,7 @@ describe('element geometry', () => {
 describe('keyboard nudge guard', () => {
   it('does not call nudge when nothing is selected', () => {
     let called = false
-    nudgeWhenSelected(null, () => {
+    nudgeWhenSelected([], () => {
       called = true
     }, 5, 0)
     expect(called).toBe(false)
@@ -442,12 +442,49 @@ describe('keyboard nudge guard', () => {
 
   it('calls nudge with the selected index', () => {
     let nudgedIndex: number | null = null
-    nudgeWhenSelected(2, (index, dx, dy) => {
+    nudgeWhenSelected([2], (index, dx, dy) => {
       nudgedIndex = index
       expect(dx).toBe(5)
       expect(dy).toBe(-3)
     }, 5, -3)
     expect(nudgedIndex).toBe(2)
+  })
+
+  it('nudges every selected index', () => {
+    const nudged: number[] = []
+    nudgeWhenSelected([1, 3, 4], (index) => {
+      nudged.push(index)
+    }, 2, 0)
+    expect(nudged).toEqual([1, 3, 4])
+  })
+})
+
+describe('marquee selection', () => {
+  it('selects indices fully enclosed by the marquee rect', async () => {
+    const { boundsFullyEnclosedInRect, normalizeMarqueeRect, selectIndicesEnclosedInRect } =
+      await import('../../../src/ui/lib/marquee-selection')
+
+    const rect = normalizeMarqueeRect({ x: 0, y: 0 }, { x: 100, y: 100 })
+    const targets = [
+      { index: 0, bounds: { x: 10, y: 10, width: 20, height: 20 } },
+      { index: 1, bounds: { x: 50, y: 50, width: 20, height: 20 } },
+      { index: 2, bounds: { x: 90, y: 90, width: 20, height: 20 } },
+    ]
+
+    expect(boundsFullyEnclosedInRect(targets[0]!.bounds, rect)).toBe(true)
+    expect(boundsFullyEnclosedInRect(targets[2]!.bounds, rect)).toBe(false)
+    expect(selectIndicesEnclosedInRect(targets, rect)).toEqual([0, 1])
+  })
+})
+
+describe('selection remap batch helpers', () => {
+  it('remaps multiple indices after a layer move', async () => {
+    const { remapIndicesAfterMove, indicesAfterBringToFront, indicesAfterSendToBack } =
+      await import('../../../src/ui/lib/selection-remap')
+
+    expect(remapIndicesAfterMove([0, 2, 4], 1, 3)).toEqual([0, 1, 4])
+    expect(indicesAfterBringToFront([1, 3], 5)).toEqual([3, 4])
+    expect(indicesAfterSendToBack([1, 3])).toEqual([0, 1])
   })
 })
 

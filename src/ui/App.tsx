@@ -25,8 +25,11 @@ import { useProjectState } from './hooks/useProjectState'
 import { useElementSize } from './hooks/useElementSize'
 import { useThemePreference } from './hooks/useThemePreference'
 import { useYamlSelectionCoupling } from './hooks/useYamlSelectionCoupling'
-import { ExportActionButton } from './components/ExportActionButton'
+import { ExportIconButton } from './components/ExportIconButton'
 import { shell } from './styles/shell'
+import type { DrawElement } from '../core'
+import type { AddElementResult } from './hooks/useProjectState'
+import { toolIconPath } from './lib/mdi-tool-icons'
 
 interface AppProps {
   bootstrap: AppBootstrap
@@ -44,16 +47,19 @@ export function App({ bootstrap }: AppProps) {
   } | null>(null)
   const [yamlStatusMessages, setYamlStatusMessages] = useState<StatusMessage[]>([])
   const [canvasDragging, setCanvasDragging] = useState(false)
+  const [elementAddNotice, setElementAddNotice] = useState<StatusMessage | null>(null)
   const { flashSuccess, flashError, getFeedback } = useExportActionFeedback()
   const {
     sessionName,
     service,
     elements,
     previewElements,
+    selectedIndices,
     selectedIndex,
     selectionSource,
-    selectedElement,
+    selectedElements,
     selectElement,
+    applyYamlSelection,
     canvas,
     renderContext,
     applyPreset,
@@ -69,17 +75,21 @@ export function App({ bootstrap }: AppProps) {
     uploadAsset,
     clearAsset,
     updateElement,
+    updateElementsBatch,
     updateElementProperty,
-    deleteElement,
+    updateSelectedProperty,
+    deleteSelectedElements,
     addElement,
     clearElements,
     loadExample,
     nudgeElement,
-    bringToFront,
-    sendToBack,
-    moveLayerUp,
-    moveLayerDown,
+    selectAllInRect,
+    bringSelectionToFront,
+    sendSelectionToBack,
+    moveSelectionLayer,
+    alignSelection,
     reorderElement,
+    reorderSelection,
     snapGrid,
     toggleSnapGrid,
     showHiddenHints,
@@ -111,6 +121,29 @@ export function App({ bootstrap }: AppProps) {
     return getMissingAssetMessages(elements)
   }, [bootstrap.importSource, elements])
 
+  const handleAddElement = useCallback(
+    (type: DrawElement['type']): AddElementResult => {
+      const result = addElement(type)
+      if (!result.ok) {
+        setElementAddNotice({
+          severity: 'info',
+          title: 'Cannot add element',
+          summary: result.message,
+        })
+      }
+      return result
+    },
+    [addElement],
+  )
+
+  useEffect(() => {
+    if (elementAddNotice == null) {
+      return
+    }
+    const timer = window.setTimeout(() => setElementAddNotice(null), 4000)
+    return () => window.clearTimeout(timer)
+  }, [elementAddNotice])
+
   const handleShare = useCallback(async () => {
     const payload = buildSharePayload({
       name: sessionName,
@@ -133,15 +166,26 @@ export function App({ bootstrap }: AppProps) {
   const handleYamlElementsChange = useCallback(
     (next: typeof elements) => {
       const previous = elementsRef.current
-      const nextIndex = remapSelectedIndex(previous, next, selectedIndex)
+      const remapped = selectedIndices
+        .map((index) => remapSelectedIndex(previous, next, index))
+        .filter((index): index is number => index != null)
       setElements(next)
-      if (nextIndex != null) {
-        if (nextIndex !== selectedIndex) {
-          selectElement(nextIndex, 'yaml')
+      if (remapped.length > 0) {
+        const unchanged =
+          remapped.length === selectedIndices.length &&
+          remapped.every((index, offset) => index === selectedIndices[offset])
+        if (!unchanged) {
+          applyYamlSelection(remapped)
         }
         return
       }
-      // Property-only edit at the same index (yaml round-trip normalization).
+      const nextIndex = remapSelectedIndex(previous, next, selectedIndex)
+      if (nextIndex != null) {
+        if (nextIndex !== selectedIndex) {
+          selectElement(nextIndex, { source: 'yaml' })
+        }
+        return
+      }
       if (
         selectedIndex != null &&
         next.length === previous.length &&
@@ -150,31 +194,33 @@ export function App({ bootstrap }: AppProps) {
       ) {
         return
       }
-      selectElement(null, 'yaml')
+      selectElement(null, { source: 'yaml' })
     },
-    [selectedIndex, selectElement, setElements],
+    [applyYamlSelection, selectedIndex, selectedIndices, selectElement, setElements],
   )
 
   const handleDeleteSelected = useCallback(() => {
-    if (selectedIndex != null) {
-      deleteElement(selectedIndex)
-    }
-  }, [deleteElement, selectedIndex])
+    deleteSelectedElements()
+  }, [deleteSelectedElements])
 
   const handleNudgeSelected = useCallback(
     (dx: number, dy: number) => {
-      nudgeWhenSelected(selectedIndex, nudgeElement, dx, dy)
+      nudgeWhenSelected(selectedIndices, nudgeElement, dx, dy)
     },
-    [nudgeElement, selectedIndex],
+    [nudgeElement, selectedIndices],
   )
 
   const handlePropertyChange = useCallback(
     (key: string, value: unknown) => {
-      if (selectedIndex != null) {
-        updateElementProperty(selectedIndex, key, value)
+      if (selectedIndices.length === 1) {
+        updateElementProperty(selectedIndices[0]!, key, value)
+        return
+      }
+      if (selectedIndices.length > 1) {
+        updateSelectedProperty(key, value)
       }
     },
-    [selectedIndex, updateElementProperty],
+    [selectedIndices, updateElementProperty, updateSelectedProperty],
   )
 
   const handleUploadFont = useCallback(
@@ -185,6 +231,22 @@ export function App({ bootstrap }: AppProps) {
   const handleUploadImageForUrl = useCallback(
     (urlKey: string, file: File) => uploadAsset(urlKey, 'image', file),
     [uploadAsset],
+  )
+
+  const handleReorderElement = useCallback(
+    (fromIndex: number, toIndex: number, movingIndices?: readonly number[]) => {
+      const indices =
+        movingIndices ??
+        (selectedIndices.includes(fromIndex) && selectedIndices.length > 1
+          ? selectedIndices
+          : [fromIndex])
+      if (indices.length > 1) {
+        reorderSelection(indices, toIndex)
+        return
+      }
+      reorderElement(fromIndex, toIndex)
+    },
+    [reorderElement, reorderSelection, selectedIndices],
   )
 
   const handleSimulatorEntityFocus = useCallback(
@@ -206,19 +268,23 @@ export function App({ bootstrap }: AppProps) {
         </div>
         <div className={toolbarGroups}>
           <div className={toolbarGroup} role="group" aria-label="Copy share link">
-            <ExportActionButton
+            <ExportIconButton
               actionId="share-link"
               feedback={getFeedback('share-link')}
+              iconPath={toolIconPath('share')}
+              label="Copy share link"
               onClick={() => void handleShare()}
-            >
-              Copy share link
-            </ExportActionButton>
+            />
           </div>
           <div className={toolbarGroup} role="group" aria-label="Appearance">
             <ThemeToggle mode={mode} resolvedTheme={resolvedTheme} onCycle={cycleMode} />
           </div>
         </div>
       </header>
+
+      {elementAddNotice != null ? (
+        <StatusBanner message={elementAddNotice} />
+      ) : null}
 
       {hashImportMessages.map((message, index) => (
         <StatusBanner key={`hash-import-${message.title}-${index}`} message={message} />
@@ -228,7 +294,7 @@ export function App({ bootstrap }: AppProps) {
         <Sidebar
           elements={elements}
           previewElements={previewElements}
-          selectedIndex={selectedIndex}
+          selectedIndices={selectedIndices}
           canvas={canvas}
           mockContext={mockContext}
           assetRevision={assetRevision}
@@ -242,12 +308,12 @@ export function App({ bootstrap }: AppProps) {
           onUploadAsset={uploadAsset}
           onClearAsset={clearAsset}
           onLoadExample={loadExample}
-          onReorderElement={reorderElement}
+          onReorderElement={handleReorderElement}
           onFocusSimulatorEntity={handleSimulatorEntityFocus}
         />
 
         <div ref={columnRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <ElementToolbar onAddElement={addElement} />
+          <ElementToolbar elements={elements} onAddElement={handleAddElement} />
           <div
             ref={canvasAllocationRef}
             data-canvas-allocation
@@ -258,7 +324,7 @@ export function App({ bootstrap }: AppProps) {
               editElements={elements}
               renderContext={renderContext}
               rotation={canvas.rotation}
-              selectedIndex={selectedIndex}
+              selectedIndices={selectedIndices}
               assetRevision={assetRevision}
               sessionName={sessionName}
               allocationSize={canvasAllocationSize}
@@ -267,7 +333,14 @@ export function App({ bootstrap }: AppProps) {
               onToggleShowHiddenHints={toggleShowHiddenHints}
               extraStatusMessages={yamlStatusMessages}
               onSelectElement={selectElement}
+              onSelectAllInRect={selectAllInRect}
+              onAlignSelection={alignSelection}
               onUpdateElement={updateElement}
+              onUpdateElementsBatch={updateElementsBatch}
+              onBringSelectionToFront={bringSelectionToFront}
+              onSendSelectionToBack={sendSelectionToBack}
+              onMoveSelectionLayer={moveSelectionLayer}
+              elementCount={elements.length}
               onDeleteSelected={handleDeleteSelected}
               onNudgeSelected={handleNudgeSelected}
               onClearAll={clearElements}
@@ -295,34 +368,18 @@ export function App({ bootstrap }: AppProps) {
         </div>
 
         <PropertyPanel
-          element={selectedElement}
-          index={selectedIndex}
+          elements={selectedElements}
+          indices={selectedIndices}
           elementCount={elements.length}
           fontKeys={fontKeys}
           onPropertyChange={handlePropertyChange}
           onUploadFont={handleUploadFont}
           onUploadImageForUrl={handleUploadImageForUrl}
           onDelete={handleDeleteSelected}
-          onBringToFront={() => {
-            if (selectedIndex != null) {
-              bringToFront(selectedIndex)
-            }
-          }}
-          onSendToBack={() => {
-            if (selectedIndex != null) {
-              sendToBack(selectedIndex)
-            }
-          }}
-          onMoveUp={() => {
-            if (selectedIndex != null) {
-              moveLayerUp(selectedIndex)
-            }
-          }}
-          onMoveDown={() => {
-            if (selectedIndex != null) {
-              moveLayerDown(selectedIndex)
-            }
-          }}
+          onBringToFront={bringSelectionToFront}
+          onSendToBack={sendSelectionToBack}
+          onMoveUp={() => moveSelectionLayer('up')}
+          onMoveDown={() => moveSelectionLayer('down')}
         />
       </div>
     </div>

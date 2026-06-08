@@ -31,7 +31,8 @@ import {
 } from '../lib/export-download'
 import { toolbarGroup, toolbarGroups } from '../lib/export-action-feedback'
 import { useExportActionFeedback } from '../hooks/useExportActionFeedback'
-import { ExportActionButton } from './ExportActionButton'
+import { ExportIconButton } from './ExportIconButton'
+import { TOOL_ICONS } from '../lib/mdi-tool-icons'
 
 const MIN_YAML_PANEL_HEIGHT = 120
 
@@ -186,20 +187,20 @@ export function YamlPanel({
         <h2 className={shell.heading}>YAML</h2>
         <div className={toolbarGroups}>
           <div className={toolbarGroup} role="group" aria-label="YAML export">
-            <ExportActionButton
+            <ExportIconButton
               actionId="copy-yaml"
               feedback={getFeedback('copy-yaml')}
+              iconPath={TOOL_ICONS.copy}
+              label="Copy YAML"
               onClick={() => void handleCopyYaml()}
-            >
-              Copy YAML
-            </ExportActionButton>
-            <ExportActionButton
+            />
+            <ExportIconButton
               actionId="download-yaml"
               feedback={getFeedback('download-yaml')}
+              iconPath={TOOL_ICONS.download}
+              label="Download YAML"
               onClick={handleDownloadYaml}
-            >
-              Download YAML
-            </ExportActionButton>
+            />
           </div>
           <div className={toolbarGroup} role="group" aria-label="YAML editor options">
             <YamlTemplatePreviewToggle enabled={templatePreviewEnabled} onToggle={toggleTemplatePreview} />

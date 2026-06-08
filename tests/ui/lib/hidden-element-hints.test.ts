@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { applyTemplateContextToPayload, renderElement } from '../../../src/core'
 import {
+  isElementCanvasSelectable,
   resolveElementHitBounds,
   resolveHiddenElementHint,
 } from '../../../src/ui/lib/hidden-element-hints'
@@ -88,6 +89,31 @@ describe('hidden element hints', () => {
     const result = renderElement(element, context)
     expect(result).not.toBeNull()
     expect(resolveHiddenElementHint(element, result, context)?.reason).toBe('fill_none')
+  })
+
+  it('excludes invisible-on-tag elements from hit bounds when ghost hints are off', () => {
+    const invisible = {
+      type: 'text' as const,
+      value: 'Hidden',
+      x: 10,
+      y: 20,
+      visible: false,
+    }
+    const fillNone = {
+      type: 'rectangle' as const,
+      x_start: 0,
+      x_end: 100,
+      y_start: 0,
+      y_end: 100,
+      fill: 'none',
+      outline: 'black',
+    }
+    const ctx = { ...context, showHiddenHints: false }
+
+    expect(isElementCanvasSelectable(invisible, ctx)).toBe(false)
+    expect(isElementCanvasSelectable(fillNone, ctx)).toBe(false)
+    expect(resolveElementHitBounds(invisible, ctx)).toBeNull()
+    expect(resolveElementHitBounds(fillNone, ctx)).toBeNull()
   })
 
   it('returns null when ghost hints are disabled', () => {

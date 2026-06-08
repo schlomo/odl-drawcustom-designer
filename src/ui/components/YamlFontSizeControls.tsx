@@ -2,7 +2,9 @@ import {
   YAML_FONT_SIZE_MAX,
   YAML_FONT_SIZE_MIN,
 } from '../preferences/yamlFontSize'
-import { shell } from '../styles/shell'
+import { TOOL_ICONS } from '../lib/mdi-tool-icons'
+import { toolbarGroup } from '../lib/export-action-feedback'
+import { IconButton } from './IconButton'
 
 interface YamlFontSizeControlsProps {
   fontSize: number
@@ -16,28 +18,24 @@ export function YamlFontSizeControls({
   onIncrease,
 }: YamlFontSizeControlsProps) {
   return (
-    <div className="flex items-center gap-1" role="group" aria-label="YAML editor font size">
-      <button
-        type="button"
-        className={shell.button}
-        onClick={onDecrease}
+    <div className={toolbarGroup} role="group" aria-label="YAML editor font size">
+      <IconButton
+        compact
+        iconPath={TOOL_ICONS.fontDecrease}
+        title="Decrease YAML font size"
         disabled={fontSize <= YAML_FONT_SIZE_MIN}
-        aria-label="Decrease YAML font size"
-      >
-        A−
-      </button>
+        onClick={onDecrease}
+      />
       <span className="min-w-12 text-center text-xs text-[var(--shell-muted)]" aria-live="polite">
         {fontSize}px
       </span>
-      <button
-        type="button"
-        className={shell.button}
-        onClick={onIncrease}
+      <IconButton
+        compact
+        iconPath={TOOL_ICONS.fontIncrease}
+        title="Increase YAML font size"
         disabled={fontSize >= YAML_FONT_SIZE_MAX}
-        aria-label="Increase YAML font size"
-      >
-        A+
-      </button>
+        onClick={onIncrease}
+      />
     </div>
   )
 }

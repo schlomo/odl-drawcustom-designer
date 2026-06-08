@@ -1,5 +1,6 @@
 import { FeatureToggle } from './FeatureToggle'
-import { LinkCouplingIcon } from './LinkCouplingIcon'
+import { MdiIcon } from './MdiIcon'
+import { TOOL_ICONS } from '../lib/mdi-tool-icons'
 
 interface YamlCouplingToggleProps {
   enabled: boolean
@@ -17,7 +18,7 @@ export function YamlCouplingToggle({ enabled, onToggle }: YamlCouplingToggleProp
           : 'Editors are independent. Click to link YAML, canvas, and list.'
       }
     >
-      <LinkCouplingIcon />
+      <MdiIcon path={enabled ? TOOL_ICONS.linkOn : TOOL_ICONS.linkOff} size={14} />
       <span>Linked</span>
     </FeatureToggle>
   )

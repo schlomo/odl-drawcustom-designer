@@ -5,7 +5,7 @@ import {
   type RenderContext,
   type RenderResult,
 } from '../../core'
-import { isFillNoneOnTag } from './hidden-on-tag'
+import { isFillNoneOnTag, isHiddenOnTag } from './hidden-on-tag'
 import { getPrimitiveBounds, type ElementBounds } from './primitive-bounds'
 
 export type HiddenElementReason = 'visible_false' | 'fill_none'
@@ -67,11 +67,23 @@ export function resolveHiddenElementHint(
   return null
 }
 
+/** Whether the element participates in canvas hit-testing and marquee selection. */
+export function isElementCanvasSelectable(element: DrawElement, ctx: RenderContext): boolean {
+  if (!ctx.showHiddenHints && isHiddenOnTag(element)) {
+    return false
+  }
+  return true
+}
+
 /** Canvas hit-test bounds — includes hidden-on-tag elements when invisible overlays are enabled. */
 export function resolveElementHitBounds(
   element: DrawElement,
   ctx: RenderContext,
 ): ElementBounds | null {
+  if (!isElementCanvasSelectable(element, ctx)) {
+    return null
+  }
+
   const result = renderElement(element, ctx)
   if (result && !isFillNoneOnTag(element)) {
     return getPrimitiveBounds(result.primitive)
