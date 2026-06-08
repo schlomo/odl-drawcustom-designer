@@ -58,6 +58,7 @@ export function App() {
     reorderElement,
     snapGrid,
     toggleSnapGrid,
+    togglePreviewDither,
   } = useProjectState()
 
   const elementsRef = useRef(elements)
@@ -192,6 +193,8 @@ export function App() {
               onNudgeSelected={handleNudgeSelected}
               onClearAll={clearElements}
               onToggleSnap={toggleSnapGrid}
+              previewDitherMode={canvas.previewDitherMode}
+              onTogglePreviewDither={togglePreviewDither}
             />
           </div>
           <YamlPanel

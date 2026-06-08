@@ -1,12 +1,22 @@
 import type opentype from 'opentype.js'
+import { mapColor } from '../../core/renderer/colors'
+import {
+  halftoneTileColors,
+  shouldUseHalftonePattern,
+} from '../../core/renderer/dither'
 import { DEFAULT_FONT_KEY, getFont } from '../../core/renderer/fonts'
 import { computeOpentypeGlyphPositions } from '../../core/renderer/opentype-glyphs'
-import type { TextDrawLine } from '../../core/renderer/types'
+import type { AccentMode, DitherMode, TextDrawLine } from '../../core/renderer/types'
 import { getCanvasTextDrawStyle } from '../../core/renderer/text-anchor-draw'
 import type { CanvasPlotPrimitive, CanvasPrimitive, PlotSeriesPrimitive } from '../../core/renderer/types'
 import { drawDlimgToCanvas } from './dlimg-resize'
 import { getCachedOpentypeFont } from './load-opentype-fonts'
 import { resolveCanvasFontFamily } from './load-font-faces'
+
+export interface CanvasDrawColorContext {
+  accentMode: AccentMode
+  ditherMode?: DitherMode
+}
 
 function resolveDrawFont(
   fontKey: string | undefined,
@@ -16,38 +26,105 @@ function resolveDrawFont(
   return opentypeFonts.get(key) ?? getCachedOpentypeFont(key) ?? getFont(key)
 }
 
+function createHalftonePattern(
+  ctx: CanvasRenderingContext2D,
+  colorName: string,
+  drawColor: CanvasDrawColorContext,
+): CanvasPattern | string {
+  const tileSize = 4
+  const tile = document.createElement('canvas')
+  tile.width = tileSize
+  tile.height = tileSize
+  const tileCtx = tile.getContext('2d')
+  if (!tileCtx) {
+    return mapColor(colorName, drawColor) ?? colorName
+  }
+
+  const colors = halftoneTileColors(colorName, drawColor.accentMode, tileSize)
+  for (let y = 0; y < tileSize; y++) {
+    for (let x = 0; x < tileSize; x++) {
+      tileCtx.fillStyle = colors[y * tileSize + x] ?? '#000000'
+      tileCtx.fillRect(x, y, 1, 1)
+    }
+  }
+
+  return ctx.createPattern(tile, 'repeat') ?? mapColor(colorName, drawColor) ?? colorName
+}
+
+function resolveCanvasFill(
+  ctx: CanvasRenderingContext2D,
+  colorName: string,
+  drawColor: CanvasDrawColorContext,
+): string | CanvasPattern {
+  if (shouldUseHalftonePattern(colorName, drawColor.ditherMode)) {
+    return createHalftonePattern(ctx, colorName, drawColor)
+  }
+  return mapColor(colorName, drawColor) ?? colorName
+}
+
 function drawOpentypeLine(
   ctx: CanvasRenderingContext2D,
   font: opentype.Font,
   line: TextDrawLine,
   fontSize: number,
-  color: string,
+  fill: string | CanvasPattern,
 ): void {
   const positions = computeOpentypeGlyphPositions(font, line.text, fontSize, line.x, line.y)
 
   for (const { glyph, x, y } of positions) {
     const path = glyph.getPath(x, y, fontSize)
-    path.fill = color
+    path.fill = fill as string
     path.draw(ctx)
   }
 }
 
-function drawOpentypeLines(
+function drawTextLineContent(
   ctx: CanvasRenderingContext2D,
-  font: opentype.Font,
-  drawLines: ReadonlyArray<TextDrawLine>,
+  font: opentype.Font | undefined,
+  line: TextDrawLine,
   fontSize: number,
-  color: string,
+  defaultColor: string,
+  drawColor: CanvasDrawColorContext,
+  fontFamily: string,
 ): void {
-  for (const line of drawLines) {
-    drawOpentypeLine(ctx, font, line, fontSize, color)
+  if (line.colorSegments != null && line.colorSegments.length > 0) {
+    if (font) {
+      for (const segment of line.colorSegments) {
+        const fill = resolveCanvasFill(ctx, segment.color, drawColor)
+        drawOpentypeLine(
+          ctx,
+          font,
+          { ...line, text: segment.text, visualText: segment.visualText, x: segment.x },
+          fontSize,
+          fill,
+        )
+      }
+      return
+    }
+
+    ctx.font = `${fontSize}px ${fontFamily}, sans-serif`
+    for (const segment of line.colorSegments) {
+      ctx.fillStyle = resolveCanvasFill(ctx, segment.color, drawColor) as string
+      ctx.fillText(segment.visualText, segment.x, line.y)
+    }
+    return
   }
+
+  const fill = resolveCanvasFill(ctx, defaultColor, drawColor)
+  if (font) {
+    drawOpentypeLine(ctx, font, line, fontSize, fill)
+    return
+  }
+
+  ctx.fillStyle = fill as string
+  ctx.fillText(line.visualText, line.x, line.y)
 }
 
 function drawTextFallback(
   ctx: CanvasRenderingContext2D,
   primitive: Extract<CanvasPrimitive, { kind: 'text-stub' }>,
   fontFamilies: ReadonlyMap<string, string>,
+  drawColor: CanvasDrawColorContext,
 ): void {
   ctx.font = `${primitive.fontSize}px ${resolveCanvasFontFamily(primitive.font, fontFamilies)}, sans-serif`
   const { textAlign, textBaseline } = getCanvasTextDrawStyle(primitive.anchor)
@@ -57,9 +134,18 @@ function drawTextFallback(
   if (primitive.drawLines.length > 0) {
     for (const line of primitive.drawLines) {
       ctx.direction = 'ltr'
-      ctx.fillText(line.visualText, line.x, line.y)
+      drawTextLineContent(
+        ctx,
+        undefined,
+        line,
+        primitive.fontSize,
+        primitive.defaultColor,
+        drawColor,
+        resolveCanvasFontFamily(primitive.font, fontFamilies),
+      )
     }
   } else {
+    ctx.fillStyle = resolveCanvasFill(ctx, primitive.defaultColor, drawColor) as string
     ctx.fillText(primitive.value, primitive.anchorX, primitive.anchorY)
   }
 
@@ -197,27 +283,56 @@ export function drawCanvasStub(
   assetImages: ReadonlyMap<string, HTMLImageElement> = new Map(),
   fontFamilies: ReadonlyMap<string, string> = new Map(),
   opentypeFonts: ReadonlyMap<string, opentype.Font> = new Map(),
+  drawColor: CanvasDrawColorContext = { accentMode: 'red', ditherMode: 0 },
 ): void {
   switch (primitive.kind) {
     case 'text-stub': {
-      ctx.fillStyle = primitive.color
       const font = resolveDrawFont(primitive.font, opentypeFonts)
+      const fontFamily = resolveCanvasFontFamily(primitive.font, fontFamilies)
       if (font) {
-        drawOpentypeLines(ctx, font, primitive.drawLines, primitive.fontSize, primitive.color)
+        for (const line of primitive.drawLines) {
+          drawTextLineContent(
+            ctx,
+            font,
+            line,
+            primitive.fontSize,
+            primitive.defaultColor,
+            drawColor,
+            fontFamily,
+          )
+        }
       } else {
-        drawTextFallback(ctx, primitive, fontFamilies)
+        drawTextFallback(ctx, primitive, fontFamilies, drawColor)
       }
       break
     }
     case 'multiline-stub': {
-      ctx.fillStyle = primitive.color
       const font = resolveDrawFont(primitive.font, opentypeFonts)
+      const fontFamily = resolveCanvasFontFamily(primitive.font, fontFamilies)
       if (font) {
-        drawOpentypeLines(ctx, font, primitive.drawLines, primitive.fontSize, primitive.color)
-      } else {
-        ctx.font = `${primitive.fontSize}px ${resolveCanvasFontFamily(primitive.font, fontFamilies)}, sans-serif`
         for (const line of primitive.drawLines) {
-          ctx.fillText(line.visualText, line.x, line.y)
+          drawTextLineContent(
+            ctx,
+            font,
+            line,
+            primitive.fontSize,
+            primitive.defaultColor,
+            drawColor,
+            fontFamily,
+          )
+        }
+      } else {
+        ctx.font = `${primitive.fontSize}px ${fontFamily}, sans-serif`
+        for (const line of primitive.drawLines) {
+          drawTextLineContent(
+            ctx,
+            undefined,
+            line,
+            primitive.fontSize,
+            primitive.defaultColor,
+            drawColor,
+            fontFamily,
+          )
         }
       }
       break

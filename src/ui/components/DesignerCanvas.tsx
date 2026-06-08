@@ -62,6 +62,8 @@ interface DesignerCanvasProps {
   onNudgeSelected: (dx: number, dy: number) => void
   onClearAll: () => void
   onToggleSnap: () => void
+  previewDitherMode: 0 | 2
+  onTogglePreviewDither: () => void
 }
 
 interface RenderedElement {
@@ -107,6 +109,8 @@ export function DesignerCanvas({
   onNudgeSelected,
   onClearAll,
   onToggleSnap,
+  previewDitherMode,
+  onTogglePreviewDither,
 }: DesignerCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const dragSessionRef = useRef<DragSession | null>(null)
@@ -585,6 +589,13 @@ export function DesignerCanvas({
           >
             Snap {snapGrid.enabled ? 'On' : 'Off'}
           </button>
+          <button
+            type="button"
+            className={`${shell.button} ${previewDitherMode === 2 ? 'border-[var(--shell-accent)] text-[var(--shell-accent)]' : ''}`}
+            onClick={onTogglePreviewDither}
+          >
+            Dither {previewDitherMode === 2 ? 'd=2' : 'flat'}
+          </button>
           <button type="button" className={shell.button} onClick={onClearAll}>
             Clear all
           </button>
@@ -657,6 +668,8 @@ export function DesignerCanvas({
                   primitive={entry.result.primitive}
                   width={renderContext.width}
                   height={renderContext.height}
+                  accentMode={renderContext.accentMode}
+                  ditherMode={renderContext.ditherMode}
                   assetImages={displayAssetImages}
                   fontFamilies={fontFamilies}
                   opentypeFonts={opentypeFonts}

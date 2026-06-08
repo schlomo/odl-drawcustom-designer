@@ -92,6 +92,11 @@ export {
 } from './templates'
 export {
   mapColor,
+  parseColorMarkup,
+  stripColorMarkup,
+  sampleOrderedDitherColor,
+  shouldUseHalftonePattern,
+  isHalftoneColorName,
   renderElement,
   renderPayload,
   renderLine,
@@ -127,6 +132,7 @@ export {
   formatMissingCharacterSample,
   scanGlyphCoverageIssues,
   type AccentMode,
+  type DitherMode,
   type RenderContext,
   type RenderResult,
   type RenderPrimitive,

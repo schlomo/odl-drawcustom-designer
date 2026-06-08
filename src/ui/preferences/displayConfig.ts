@@ -3,16 +3,19 @@ import { DEFAULT_PRESET_ID, DISPLAY_PRESETS } from '../data/display-presets'
 import { DISPLAY_CONFIG_STORAGE_KEY } from './keys'
 
 export type CanvasRotation = 0 | 90 | 180 | 270
+export type PreviewDitherMode = 0 | 2
 
 export interface DisplayConfig {
   width: number
   height: number
   rotation: CanvasRotation
   accentMode: AccentMode
+  previewDitherMode: PreviewDitherMode
 }
 
 const ROTATIONS = new Set<CanvasRotation>([0, 90, 180, 270])
 const ACCENT_MODES = new Set<AccentMode>(['red', 'yellow'])
+const PREVIEW_DITHER_MODES = new Set<PreviewDitherMode>([0, 2])
 
 const defaultPreset = DISPLAY_PRESETS.find((preset) => preset.id === DEFAULT_PRESET_ID)!
 
@@ -21,6 +24,7 @@ export const DEFAULT_DISPLAY_CONFIG: DisplayConfig = {
   height: defaultPreset.height ?? 184,
   rotation: 0,
   accentMode: 'red',
+  previewDitherMode: 0,
 }
 
 function isRotation(value: unknown): value is CanvasRotation {
@@ -29,6 +33,10 @@ function isRotation(value: unknown): value is CanvasRotation {
 
 function isAccentMode(value: unknown): value is AccentMode {
   return typeof value === 'string' && ACCENT_MODES.has(value as AccentMode)
+}
+
+function isPreviewDitherMode(value: unknown): value is PreviewDitherMode {
+  return typeof value === 'number' && PREVIEW_DITHER_MODES.has(value as PreviewDitherMode)
 }
 
 export function parseDisplayConfig(value: unknown): DisplayConfig | null {
@@ -53,11 +61,16 @@ export function parseDisplayConfig(value: unknown): DisplayConfig | null {
     return null
   }
 
+  const previewDitherMode = isPreviewDitherMode(record.previewDitherMode)
+    ? record.previewDitherMode
+    : DEFAULT_DISPLAY_CONFIG.previewDitherMode
+
   return {
     width: Math.round(width),
     height: Math.round(height),
     rotation: record.rotation,
     accentMode: record.accentMode,
+    previewDitherMode,
   }
 }
 

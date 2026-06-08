@@ -4,10 +4,12 @@ import { mapColor } from './colors'
 import { resolveX, resolveY } from './coordinates'
 import { effectiveFontSize, effectiveNumber, effectiveString } from './element-defaults'
 import { DEFAULT_FONT_KEY, getFont } from './fonts'
+import { stripColorMarkup } from './parse-colors'
+import { buildColoredMultilineDrawLines } from './text-color-lines'
 import { layoutMultilineBlock, positionTextDrawLines } from './text-layout'
 import { estimateMultilineBounds } from './text-metrics'
 import type { RenderContext, RenderResult } from './types'
-import { isVisible } from './visibility'
+import { isVisible, parseBool } from './visibility'
 
 type MultilineElement = Extract<DrawElement, { type: 'multiline' }>
 
@@ -19,26 +21,42 @@ export function renderMultiline(
     return null
   }
 
-  const colorOptions = { accentMode: ctx.accentMode }
+  const colorOptions = { accentMode: ctx.accentMode, ditherMode: ctx.ditherMode }
   const fontKey = effectiveString(element, 'font', DEFAULT_FONT_KEY)
   const fontSize = effectiveFontSize(element, 'size', 20)
   const lineSpacing = effectiveNumber(element, 'spacing', 0)
+  const defaultColor = effectiveString(element, 'color', 'black')
+  const parseColors = parseBool(element.parse_colors)
   const lineTexts = element.value.split(element.delimiter)
+  const layoutLineTexts = parseColors
+    ? lineTexts.map((line) => stripColorMarkup(line))
+    : lineTexts
   const font = getFont(fontKey)
 
   const layout = font
-    ? layoutMultilineBlock(font, lineTexts, fontSize, lineSpacing)
+    ? layoutMultilineBlock(font, layoutLineTexts, fontSize, lineSpacing)
     : null
   const { width, height } =
-    layout ?? estimateMultilineBounds(lineTexts, fontSize, lineSpacing, fontKey)
+    layout ?? estimateMultilineBounds(layoutLineTexts, fontSize, lineSpacing, fontKey)
 
   const x = resolveX(element.x, ctx)
   const y = element.y != null ? resolveY(element.y, ctx) : element.offset_y
 
   const drawLines =
-    layout != null
-      ? positionTextDrawLines(layout, x, y, 'lt', lineSpacing, 'lt')
-      : lineTexts.map((text, index) => ({
+    layout != null && font != null
+      ? parseColors
+        ? buildColoredMultilineDrawLines(
+            font,
+            lineTexts,
+            defaultColor,
+            true,
+            fontSize,
+            lineSpacing,
+            x,
+            y,
+          )
+        : positionTextDrawLines(layout, x, y, 'lt', lineSpacing, 'lt')
+      : layoutLineTexts.map((text, index) => ({
           text,
           visualText: toVisualText(text),
           x: x + 2,
@@ -55,7 +73,9 @@ export function renderMultiline(
     height,
     lines: lineTexts,
     drawLines,
-    color: mapColor(effectiveString(element, 'color', 'black'), colorOptions) ?? '#000000',
+    color: mapColor(defaultColor, colorOptions) ?? '#000000',
+    defaultColor,
+    parseColors,
     fontSize,
     ...(element.font != null ? { font: element.font } : {}),
     ...(lineSpacing > 0 ? { lineSpacing } : {}),

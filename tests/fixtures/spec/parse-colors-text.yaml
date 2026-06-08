@@ -1,0 +1,7 @@
+- type: text
+  value: "[black]Current[/black] temp: [accent]25°C[/accent]"
+  x: 10
+  y: 10
+  size: 20
+  parse_colors: true
+  font: ppb.ttf

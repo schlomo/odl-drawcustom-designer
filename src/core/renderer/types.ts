@@ -1,13 +1,16 @@
 export type AccentMode = 'red' | 'yellow'
+export type DitherMode = 0 | 1 | 2
 
 export interface RenderContext {
   width: number
   height: number
   accentMode: AccentMode
+  ditherMode?: DitherMode
 }
 
 export interface ColorOptions {
   accentMode?: AccentMode
+  ditherMode?: DitherMode
 }
 
 export interface SvgLinePrimitive {
@@ -136,6 +139,13 @@ export interface SvgDebugGridStubPrimitive {
   labelFontKey?: string
 }
 
+export interface ColoredTextDrawSegment {
+  text: string
+  visualText: string
+  color: string
+  x: number
+}
+
 export interface TextDrawLine {
   /** Logical string (YAML / glyph coverage). */
   text: string
@@ -145,6 +155,7 @@ export interface TextDrawLine {
   y: number
   width: number
   direction: 'ltr' | 'rtl'
+  colorSegments?: ColoredTextDrawSegment[]
 }
 
 export interface CanvasTextStubPrimitive {
@@ -159,6 +170,8 @@ export interface CanvasTextStubPrimitive {
   value: string
   drawLines: TextDrawLine[]
   color: string
+  defaultColor: string
+  parseColors?: boolean
   fontSize: number
   font?: string
   lineSpacing?: number
@@ -173,6 +186,8 @@ export interface CanvasMultilineStubPrimitive {
   lines: string[]
   drawLines: TextDrawLine[]
   color: string
+  defaultColor: string
+  parseColors?: boolean
   fontSize: number
   font?: string
   lineSpacing?: number

@@ -20,6 +20,7 @@ import {
   readDisplayConfig,
   writeDisplayConfig,
   type CanvasRotation,
+  type PreviewDitherMode,
 } from '../preferences/displayConfig'
 import {
   DEFAULT_MOCK_STATES,
@@ -36,6 +37,7 @@ export interface CanvasConfig {
   height: number
   rotation: CanvasRotation
   accentMode: AccentMode
+  previewDitherMode: PreviewDitherMode
 }
 
 export interface ProjectState {
@@ -155,8 +157,9 @@ export function useProjectState() {
       width: canvas.width,
       height: canvas.height,
       accentMode: canvas.accentMode,
+      ditherMode: canvas.previewDitherMode,
     }),
-    [canvas.width, canvas.height, canvas.accentMode],
+    [canvas.width, canvas.height, canvas.accentMode, canvas.previewDitherMode],
   )
 
   const previewElements = useMemo(
@@ -407,6 +410,13 @@ export function useProjectState() {
 
   const reorderElement = moveElementLayer
 
+  const togglePreviewDither = useCallback(() => {
+    setCanvas((current) => ({
+      ...current,
+      previewDitherMode: current.previewDitherMode === 2 ? 0 : 2,
+    }))
+  }, [])
+
   const toggleSnapGrid = useCallback(() => {
     setSnapGrid((current) => ({ ...current, enabled: !current.enabled }))
   }, [])
@@ -456,5 +466,6 @@ export function useProjectState() {
     snapGrid,
     toggleSnapGrid,
     setSnapGridSize,
+    togglePreviewDither,
   }
 }

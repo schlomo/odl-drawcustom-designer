@@ -1,3 +1,4 @@
+import type { AccentMode, DitherMode } from '../../core'
 import type opentype from 'opentype.js'
 import { useEffect, useRef } from 'react'
 import type { CanvasPrimitive } from '../../core/renderer/types'
@@ -7,6 +8,8 @@ interface CanvasElementLayerProps {
   primitive: CanvasPrimitive
   width: number
   height: number
+  accentMode: AccentMode
+  ditherMode?: DitherMode
   assetImages: ReadonlyMap<string, HTMLImageElement>
   fontFamilies: ReadonlyMap<string, string>
   opentypeFonts: ReadonlyMap<string, opentype.Font>
@@ -17,6 +20,8 @@ export function CanvasElementLayer({
   primitive,
   width,
   height,
+  accentMode,
+  ditherMode,
   assetImages,
   fontFamilies,
   opentypeFonts,
@@ -33,8 +38,11 @@ export function CanvasElementLayer({
       return
     }
     ctx.clearRect(0, 0, width, height)
-    drawCanvasStub(ctx, primitive, assetImages, fontFamilies, opentypeFonts)
-  }, [assetImages, fontFamilies, height, opentypeFonts, primitive, width])
+    drawCanvasStub(ctx, primitive, assetImages, fontFamilies, opentypeFonts, {
+      accentMode,
+      ditherMode,
+    })
+  }, [accentMode, assetImages, ditherMode, fontFamilies, height, opentypeFonts, primitive, width])
 
   return (
     <canvas

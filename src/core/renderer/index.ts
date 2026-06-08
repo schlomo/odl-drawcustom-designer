@@ -84,6 +84,18 @@ export { computeOpentypeGlyphPositions, type OpentypeGlyphPosition } from './ope
 export { effectiveNumber, effectiveProperty, effectiveString } from './element-defaults'
 export { getDominantTextDirection, toVisualText } from './bidi-text'
 export { mapColor } from './colors'
+export {
+  applyOrderedDitherBuffer,
+  halftoneTileColors,
+  isHalftoneColorName,
+  resolveHalftonePair,
+  resolvePreviewColor,
+  sampleOrderedDitherColor,
+  shouldUseHalftonePattern,
+} from './dither'
+export type { HalftonePair } from './dither'
+export { parseColorMarkup, stripColorMarkup } from './parse-colors'
+export type { TextColorSegment } from './parse-colors'
 export { resolveBounds } from './bounds'
 export {
   isNumericStringCoordinate,
@@ -128,6 +140,8 @@ export { renderRectanglePattern } from './rectangle-pattern'
 export { renderText } from './text'
 export type {
   AccentMode,
+  ColoredTextDrawSegment,
+  DitherMode,
   CanvasDlimgStubPrimitive,
   CanvasMultilineStubPrimitive,
   CanvasPlotPrimitive,

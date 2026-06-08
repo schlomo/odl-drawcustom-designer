@@ -5,6 +5,8 @@ import { mapColor } from './colors'
 import { resolveCoordinate, resolveX, resolveY } from './coordinates'
 import { effectiveFontSize, effectiveNumber, effectiveString } from './element-defaults'
 import { DEFAULT_FONT_KEY, getFont } from './fonts'
+import { stripColorMarkup } from './parse-colors'
+import { buildColoredDrawLines } from './text-color-lines'
 import { layoutTextBlock, positionTextDrawLines } from './text-layout'
 import { estimateTextBounds } from './text-metrics'
 import type { RenderContext, RenderResult } from './types'
@@ -17,10 +19,13 @@ export function renderText(element: TextElement, ctx: RenderContext): RenderResu
     return null
   }
 
-  const colorOptions = { accentMode: ctx.accentMode }
+  const colorOptions = { accentMode: ctx.accentMode, ditherMode: ctx.ditherMode }
   const fontKey = effectiveString(element, 'font', DEFAULT_FONT_KEY)
   const fontSize = effectiveFontSize(element, 'size', 20)
   const font = getFont(fontKey)
+  const defaultColor = effectiveString(element, 'color', 'black')
+  const parseColors = parseBool(element.parse_colors)
+  const layoutText = parseColors ? stripColorMarkup(element.value) : element.value
   const maxWidth =
     element.max_width != null
       ? resolveCoordinate(element.max_width, ctx.width)
@@ -29,7 +34,7 @@ export function renderText(element: TextElement, ctx: RenderContext): RenderResu
   const lineSpacing = wraps ? effectiveNumber(element, 'spacing', 5) : 0
 
   const layout = font
-    ? layoutTextBlock(font, element.value, {
+    ? layoutTextBlock(font, layoutText, {
         fontSize,
         maxWidth,
         lineSpacing,
@@ -38,7 +43,7 @@ export function renderText(element: TextElement, ctx: RenderContext): RenderResu
     : null
 
   const { width, height } = layout ?? {
-    ...estimateTextBounds(element.value, fontSize, fontKey),
+    ...estimateTextBounds(layoutText, fontSize, fontKey),
   }
   const baselineOffset = layout?.metrics.baselineOffset ?? fontSize
   const anchorX = resolveX(element.x, ctx)
@@ -55,16 +60,30 @@ export function renderText(element: TextElement, ctx: RenderContext): RenderResu
   )
 
   const drawLines =
-    layout != null
-      ? positionTextDrawLines(layout, anchored.x, anchored.y, anchor, lineSpacing, TEXT_DEFAULT_ANCHOR)
+    layout != null && font != null
+      ? parseColors
+        ? buildColoredDrawLines(
+            font,
+            element.value,
+            defaultColor,
+            true,
+            layout,
+            fontSize,
+            anchored.x,
+            anchored.y,
+            anchor,
+            lineSpacing,
+            TEXT_DEFAULT_ANCHOR,
+          )
+        : positionTextDrawLines(layout, anchored.x, anchored.y, anchor, lineSpacing, TEXT_DEFAULT_ANCHOR)
       : [
           {
-            text: element.value,
-            visualText: toVisualText(element.value),
+            text: layoutText,
+            visualText: toVisualText(layoutText),
             x: anchorX,
             y: anchorY + baselineOffset,
             width,
-            direction: getDominantTextDirection(element.value),
+            direction: getDominantTextDirection(layoutText),
           },
         ]
 
@@ -79,7 +98,9 @@ export function renderText(element: TextElement, ctx: RenderContext): RenderResu
     anchor,
     value: element.value,
     drawLines,
-    color: mapColor(effectiveString(element, 'color', 'black'), colorOptions) ?? '#000000',
+    color: mapColor(defaultColor, colorOptions) ?? '#000000',
+    defaultColor,
+    parseColors,
     fontSize,
     ...(element.font != null ? { font: element.font } : {}),
     ...(wraps ? { lineSpacing } : {}),

@@ -22,6 +22,7 @@ describe('display config preferences', () => {
       height: 528,
       rotation: 90,
       accentMode: 'yellow',
+      previewDitherMode: 2,
     })
 
     expect(readDisplayConfig()).toEqual({
@@ -29,6 +30,7 @@ describe('display config preferences', () => {
       height: 528,
       rotation: 90,
       accentMode: 'yellow',
+      previewDitherMode: 2,
     })
   })
 
