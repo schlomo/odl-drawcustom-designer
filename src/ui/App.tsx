@@ -64,7 +64,10 @@ export function App() {
     elementsRef.current = elements
   }, [elements])
 
-  const fontKeys = useMemo(() => collectKnownFontKeys(elements), [elements])
+  const fontKeys = useMemo(() => {
+    void assetRevision
+    return collectKnownFontKeys(elements)
+  }, [assetRevision, elements])
 
   const handleYamlElementsChange = useCallback(
     (next: typeof elements) => {

@@ -1,3 +1,4 @@
+import type opentype from 'opentype.js'
 import { useEffect, useRef } from 'react'
 import type { CanvasPrimitive } from '../../core/renderer/types'
 import { drawCanvasStub } from '../lib/draw-canvas-stubs'
@@ -8,6 +9,7 @@ interface CanvasElementLayerProps {
   height: number
   assetImages: ReadonlyMap<string, HTMLImageElement>
   fontFamilies: ReadonlyMap<string, string>
+  opentypeFonts: ReadonlyMap<string, opentype.Font>
 }
 
 /** One full-size transparent canvas layer for a single payload element (z-order via DOM). */
@@ -17,6 +19,7 @@ export function CanvasElementLayer({
   height,
   assetImages,
   fontFamilies,
+  opentypeFonts,
 }: CanvasElementLayerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -30,8 +33,8 @@ export function CanvasElementLayer({
       return
     }
     ctx.clearRect(0, 0, width, height)
-    drawCanvasStub(ctx, primitive, assetImages, fontFamilies)
-  }, [assetImages, fontFamilies, height, primitive, width])
+    drawCanvasStub(ctx, primitive, assetImages, fontFamilies, opentypeFonts)
+  }, [assetImages, fontFamilies, height, opentypeFonts, primitive, width])
 
   return (
     <canvas

@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import type { AssetUploadResult, DrawElement } from '../../core'
+import { FONT_UPLOAD_ACCEPT, type AssetUploadResult, type DrawElement } from '../../core'
 import {
   booleanPropertyDefault,
   enumPropertyDefault,
@@ -17,6 +17,8 @@ import {
   isFontProperty,
   isImageUrlProperty,
   isMultilineStringProperty,
+  isNonNegativeNumberProperty,
+  isClampedPercentProperty,
   parsePropertyInput,
   shouldUseEnumDropdown,
   TEMPLATE_EDITOR_OPTION,
@@ -96,7 +98,7 @@ function FontPropertyField({
       <input
         ref={fontInputRef}
         type="file"
-        accept=".ttf,.otf,.woff,.woff2"
+        accept={FONT_UPLOAD_ACCEPT}
         className="sr-only"
         tabIndex={-1}
         aria-hidden="true"
@@ -394,6 +396,8 @@ function PropertyField({
   }
 
   if (kind === 'number') {
+    const nonNegative = isNonNegativeNumberProperty(property)
+    const clampedPercent = isClampedPercentProperty(property)
     return (
       <label className={`block text-xs ${shell.muted}`}>
         <PropertyLabel element={element} property={property} />
@@ -401,7 +405,23 @@ function PropertyField({
           type="number"
           className={`mt-1 w-full font-mono ${shell.input}`}
           value={value == null ? '' : String(value)}
-          onChange={(event) => onChange(parsePropertyInput('number', event.target.value))}
+          min={nonNegative || clampedPercent ? 0 : undefined}
+          max={clampedPercent ? 100 : undefined}
+          onChange={(event) => {
+            const parsed = parsePropertyInput('number', event.target.value)
+            if (typeof parsed !== 'number') {
+              onChange(parsed)
+              return
+            }
+            let next = parsed
+            if (nonNegative) {
+              next = Math.max(0, next)
+            }
+            if (clampedPercent) {
+              next = Math.min(100, Math.max(0, next))
+            }
+            onChange(next)
+          }}
         />
       </label>
     )

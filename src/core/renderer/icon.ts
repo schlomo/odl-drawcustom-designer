@@ -1,5 +1,6 @@
 import type { DrawElement } from '../schema/elements'
-import { ICON_DEFAULT_ANCHOR, resolveAnchoredBox, resolveNumericSize } from './anchors'
+import { ICON_DEFAULT_ANCHOR, resolveAnchoredBox } from './anchors'
+import { effectiveFontSize, effectiveString } from './element-defaults'
 import { mapColor } from './colors'
 import { resolveX, resolveY } from './coordinates'
 import type { RenderContext, RenderResult } from './types'
@@ -13,10 +14,14 @@ export function renderIcon(element: IconElement, ctx: RenderContext): RenderResu
   }
 
   const colorOptions = { accentMode: ctx.accentMode }
-  const fillColor = element.color ?? element.fill ?? 'black'
-  const size = resolveNumericSize(element.size)
+  const record = element as Record<string, unknown>
+  const fillColor =
+    record.color !== undefined
+      ? effectiveString(element, 'color', 'black')
+      : effectiveString(element, 'fill', 'black')
+  const size = effectiveFontSize(element, 'size', 20)
   const anchored = resolveAnchoredBox(
-    element.anchor,
+    effectiveString(element, 'anchor', ICON_DEFAULT_ANCHOR),
     resolveX(element.x, ctx),
     resolveY(element.y, ctx),
     size,

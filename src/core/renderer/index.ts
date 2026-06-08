@@ -71,9 +71,42 @@ export {
   iconSequenceBoxSize,
   resolveAnchoredBox,
 } from './anchors'
+export {
+  findMissingCharacters,
+  formatMissingCharacterSample,
+  isIgnorableCharacter,
+  scanGlyphCoverageIssues,
+  type GlyphCoverageIssue,
+} from './glyph-coverage'
+export { computeOpentypeGlyphPositions, type OpentypeGlyphPosition } from './opentype-glyphs'
+export { effectiveNumber, effectiveProperty, effectiveString } from './element-defaults'
+export { getDominantTextDirection, toVisualText } from './bidi-text'
 export { mapColor } from './colors'
 export { resolveBounds } from './bounds'
-export { resolveCoordinate, resolveX, resolveY } from './coordinates'
+export {
+  isNumericStringCoordinate,
+  isPercentageCoordinate,
+  resolveCoordinate,
+  resolveX,
+  resolveY,
+} from './coordinates'
+export { fontFamilyNameForKey } from './font-family-name'
+export {
+  clearFontRegistry,
+  DEFAULT_FONT_KEY,
+  getFont,
+  parseFont,
+  registerFont,
+  unregisterFont,
+} from './fonts'
+export {
+  layoutMultilineBlock,
+  layoutTextBlock,
+  measureTextWidth,
+  positionTextDrawLines,
+  wrapTextLines,
+  type TextBlockLayout,
+} from './text-layout'
 export { renderArc } from './arc'
 export { renderCircle } from './circle'
 export { renderDebugGrid } from './debug-grid'
@@ -99,6 +132,7 @@ export type {
   CanvasQrcodeStubPrimitive,
   CanvasRenderResult,
   CanvasTextStubPrimitive,
+  TextDrawLine,
   ColorOptions,
   RenderContext,
   RenderPrimitive,

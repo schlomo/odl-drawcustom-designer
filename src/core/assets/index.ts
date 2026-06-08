@@ -1,3 +1,10 @@
+export {
+  collectRequiredFontKeys,
+  collectTemplatedFontKeys,
+  scanFontReferences,
+  type FontReference,
+} from './font-requirements'
+export { listLibraryFontKeys } from './font-library'
 export { scanPayloadForAssets } from './scanner'
 export {
   BUNDLED_FONT_KEYS,
@@ -9,12 +16,16 @@ export {
   setAsset,
 } from './resolver'
 export {
+  FONT_UPLOAD_ACCEPT,
   guessMimeFromAssetKey,
   isFontExtension,
   isFontMime,
   isImageExtension,
   isImageMime,
+  isSupportedFontKey,
+  isSupportedFontMime,
   resolveUploadMime,
+  unsupportedFontFormatMessage,
 } from './mime'
 export { validateAssetUpload, type AssetUploadResult } from './validateUpload'
 export type {

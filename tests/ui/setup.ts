@@ -2,6 +2,9 @@ import '@testing-library/jest-dom/vitest'
 import 'fake-indexeddb/auto'
 import { beforeEach } from 'vitest'
 import { clearAllStores } from '../../src/storage'
+import { loadBundledTestFont } from '../core/renderer/font-test-utils'
+
+loadBundledTestFont('ppb.ttf')
 
 function createLocalStorage(): Storage {
   const storage = new Map<string, string>()

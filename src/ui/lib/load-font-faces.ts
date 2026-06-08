@@ -1,62 +1,77 @@
-import { BUNDLED_FONT_KEYS, resolveAsset } from '../../core'
-import type { DrawElement } from '../../core/schema/elements'
-import { hasTemplateSyntax } from '../../core/templates/patterns'
+import { BUNDLED_FONT_KEYS, collectRequiredFontKeys, isSupportedFontKey, resolveAsset, type DrawElement } from '../../core'
+import { fontFamilyNameForKey } from '../../core/renderer/font-family-name'
+import { bundledFontUrl } from './font-url'
 
 const bundledFontKeys = new Set<string>(BUNDLED_FONT_KEYS)
+const fontFamilyCache = new Map<string, string>()
 
-export function fontFamilyNameForKey(key: string): string {
-  const slug = key.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-  return `oepl-font-${slug || 'default'}`
-}
-
-function bundledFontUrl(key: string): string {
-  const base = import.meta.env.BASE_URL ?? '/'
-  return `${base}fonts/${encodeURIComponent(key)}`
-}
+export { fontFamilyNameForKey }
 
 export function collectFontKeysFromElements(elements: readonly DrawElement[]): string[] {
-  const keys = new Set<string>()
+  return collectRequiredFontKeys(elements)
+}
 
-  for (const element of elements) {
-    if ('font' in element && typeof element.font === 'string' && element.font) {
-      if (!hasTemplateSyntax(element.font)) {
-        keys.add(element.font)
-      }
+function isFontKeyAvailable(key: string): boolean {
+  const resolution = resolveAsset(key)
+  return resolution.status === 'resolved' || resolution.status === 'bundled' || bundledFontKeys.has(key)
+}
+
+function evictStaleFontFamilyEntries(keys: readonly string[]): void {
+  for (const key of keys) {
+    if (fontFamilyCache.has(key) && !isFontKeyAvailable(key)) {
+      fontFamilyCache.delete(key)
     }
   }
-
-  return [...keys].sort()
 }
 
 export async function loadFontFamilyMap(keys: readonly string[]): Promise<Map<string, string>> {
-  const families = new Map<string, string>()
   const uniqueKeys = [...new Set(keys)]
+  evictStaleFontFamilyEntries(uniqueKeys)
+  const pendingKeys = uniqueKeys.filter((key) => !fontFamilyCache.has(key))
 
+  await Promise.all(
+    pendingKeys.map(async (key) => {
+      if (!isSupportedFontKey(key) && !bundledFontKeys.has(key)) {
+        return
+      }
+
+      const family = fontFamilyNameForKey(key)
+      const resolution = resolveAsset(key)
+
+      try {
+        if (resolution.status === 'resolved' && resolution.blob) {
+          const face = new FontFace(family, await resolution.blob.arrayBuffer())
+          await face.load()
+          document.fonts.add(face)
+          fontFamilyCache.set(key, family)
+          return
+        }
+
+        if (resolution.status === 'bundled' || bundledFontKeys.has(key)) {
+          const face = new FontFace(family, `url(${bundledFontUrl(key)})`)
+          await face.load()
+          document.fonts.add(face)
+          fontFamilyCache.set(key, family)
+        }
+      } catch {
+        // Keep sans-serif fallback for this key.
+      }
+    }),
+  )
+
+  const families = new Map<string, string>()
   for (const key of uniqueKeys) {
-    const family = fontFamilyNameForKey(key)
-    const resolution = resolveAsset(key)
-
-    try {
-      if (resolution.status === 'resolved' && resolution.blob) {
-        const face = new FontFace(family, await resolution.blob.arrayBuffer())
-        await face.load()
-        document.fonts.add(face)
-        families.set(key, family)
-        continue
-      }
-
-      if (resolution.status === 'bundled' || bundledFontKeys.has(key)) {
-        const face = new FontFace(family, `url(${bundledFontUrl(key)})`)
-        await face.load()
-        document.fonts.add(face)
-        families.set(key, family)
-      }
-    } catch {
-      // Keep sans-serif fallback for this key.
+    const family = fontFamilyCache.get(key)
+    if (family) {
+      families.set(key, family)
     }
   }
 
   return families
+}
+
+export function clearFontFamilyCacheForTests(): void {
+  fontFamilyCache.clear()
 }
 
 export function resolveCanvasFontFamily(

@@ -3,16 +3,17 @@
 With `drawcustom`, you can create an image in Home Assistant and send the rendered image to an OpenEpaperLink AP.
 
 ## List of draw types
+
 - [Debug Grid](#debug_grid)
 - [Text](#text)
 - [Multiline Text](#multiline-text)
 - [Line](#line)
-- [Rectangle](#rectangle)
+- [Rectanglefont](#rectangle)
 - [Rectangle Pattern](#rectangle-pattern)
 - [Polygon](#polygon)
 - [Circle](#circle)
 - [Ellipse](#ellipse)
-- [Arc/ Pie Slice](#arc-pie-slice)
+- [Arc/ Pie Slicefont](#arc-pie-slice)
 - [Icon](#icon)
 - [Icon Sequence](#icon-sequence)
 - [Download Image](#download-image)
@@ -28,6 +29,7 @@ ESLs come in multiple variants - red and yellow are the most common accent color
 The payload is a list of drawing elements that define what to display. Each element must specify its type and required properties. The elements are drawn in order from first to last.
 
 Example payload:
+
 ```yaml
 - type: text
   value: Hello World!
@@ -46,8 +48,9 @@ Example payload:
 
 ### Service Options
 
+
 | Option       | Description                     | Default |
-|--------------|---------------------------------|---------|
+| ------------ | ------------------------------- | ------- |
 | `payload`    | List of drawing elements (YAML) | -       |
 | `background` | Background color                | white   |
 | `rotate`     | Rotation of image               | 0       |
@@ -55,8 +58,10 @@ Example payload:
 | `ttl`        | Cache time in seconds           | 60      |
 | `dry-run`    | Generate without sending        | false   |
 
+
+
 | Dither | Description                                           |
-|--------|-------------------------------------------------------|
+| ------ | ----------------------------------------------------- |
 | `0`    | No dithering                                          |
 | `1`    | Floyd-Steinberg dithering (best for photos)           |
 | `2`    | Ordered dithering (default, best for halftone colors) |
@@ -74,6 +79,7 @@ ESLs predominantly come in two variants: red and yellow accent colors (tags with
 - Using hex colors: `"#RGB"` or `"#RRGGBB"` (e.g., `"#F00"` or `"#FF0000"` for red)
 
 Example payload adapting to tag color:
+
 ```yaml
 - type: text
   value: Hello World!
@@ -88,12 +94,14 @@ Example payload adapting to tag color:
 
 All elements that support colors (text, shapes, icons, etc.) accept the following color properties:
 
-| Property     | Description                        | Values                                                      |
-|--------------|------------------------------------|-------------------------------------------------------------|
-| `color`      | Primary color                      | `white`, `black`, `accent`, `red`, `yellow`, `#RRGGBB`      |
-| `fill`       | Fill color                         | `white`, `black`, `accent`, `red`, `yellow`, `#RRGGBB`      |
-| `outline`    | Outline/border color               | `white`, `black`, `accent`, `red`, `yellow`, `#RRGGBB`      |
-| `background` | Background color (when applicable) | `white`, `black`, `accent`, `red`, `yellow`, `#RRGGBB`      |
+
+| Property     | Description                        | Values                                                 |
+| ------------ | ---------------------------------- | ------------------------------------------------------ |
+| `color`      | Primary color                      | `white`, `black`, `accent`, `red`, `yellow`, `#RRGGBB` |
+| `fill`       | Fill color                         | `white`, `black`, `accent`, `red`, `yellow`, `#RRGGBB` |
+| `outline`    | Outline/border color               | `white`, `black`, `accent`, `red`, `yellow`, `#RRGGBB` |
+| `background` | Background color (when applicable) | `white`, `black`, `accent`, `red`, `yellow`, `#RRGGBB` |
+
 
 Using `"accent"` is recommended for portable scripts that should work with both red and yellow tags.
 
@@ -150,6 +158,7 @@ mkdir -p /media/fonts
 ```
 
 You can access these directories:
+
 - Through the Home Assistant File Editor or the VSCode Addon by navigating to `/config/www/fonts/`
 - Via SFTP/SSH if you have direct access to your Home Assistant server
 - Through Samba shares if configured
@@ -157,6 +166,7 @@ You can access these directories:
 ### Default fonts
 
 The integration provides two default fonts:
+
 - `ppb.ttf`
 - `rbm.ttf`
 
@@ -169,18 +179,20 @@ You can add custom font directories in the integrations configuration:
 1. Go to **Settings** → **Devices & Services**
 2. Find the OpenEPaperLink integration and click **Configure**
 3. Enter custom font directories, separated by semicolons (must be absolute paths)
-   ```
+  ```
    /config/custom/fonts;/usr/share/fonts;/home/homeassistant/fonts
-   ```
+  ```
 4. Click **Submit**
 
 ### Font not found
 
 If a font can't be found, the integration:
+
 1. Logs a warning message
 2. Falls back to the default `ppb.ttf` font
 
 Check the Home Assistant logs for messages like:
+
 ```
 Font 'myfont.ttf' not found in any of the standard locations.
 Place fonts in /config/www/fonts/ or /media/fonts/ or provide absolute path.
@@ -190,13 +202,16 @@ Falling back to default font.
 ## Types
 
 ### debug_grid
+
 The `debug_grid` draw type overlays a grid on the image canvas to help with layout debugging.
 
 ```yaml
 - type: debug_grid
 ```
+
+
 | Parameter         | Description                                | Required | Default            | Notes               |
-|-------------------|--------------------------------------------|----------|--------------------|---------------------|
+| ----------------- | ------------------------------------------ | -------- | ------------------ | ------------------- |
 | `spacing`         | Distance between grid lines                | No       | `20`               | Pixels              |
 | `line_color`      | Color of the grid lines                    | No       | `black`            | Any supported color |
 | `dashed`          | Whether to use dashed lines for the grid   | No       | `True`             | `True`, `False`     |
@@ -208,7 +223,9 @@ The `debug_grid` draw type overlays a grid on the image canvas to help with layo
 | `label_font_size` | Font size for coordinate labels            | No       | `12`               | Pixels              |
 | `font`            | Font for labels                            | No       | `ppb.ttf`          | -                   |
 
+
 ### text
+
 Draws text.
 
 ```yaml
@@ -221,8 +238,9 @@ Draws text.
   color: red
 ```
 
+
 | Parameter      | Description                          | Required | Default                        | Notes                                                                                     |
-|----------------|--------------------------------------|----------|--------------------------------|-------------------------------------------------------------------------------------------|
+| -------------- | ------------------------------------ | -------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
 | `value`        | Text to display                      | Yes      | -                              | String                                                                                    |
 | `x`            | X position                           | Yes      | -                              | Pixels or percentage                                                                      |
 | `y`            | Y position                           | No       | Last text position + y_padding | Pixels or percentage                                                                      |
@@ -238,20 +256,26 @@ Draws text.
 | `visible`      | Show/hide element                    | No       | `true`                         | `true`, `false`                                                                           |
 | `parse_colors` | Enable color markup in text          | No       | false                          | Enables `[color]text[/color]` syntax                                                      |
 | `truncate`     | Truncate text if exceeds max_width   | No       | false                          | Adds ellipsis (...) when truncating                                                       |
+
+
 ### Inline Color Markup
 
 Text elements support inline color markup when `parse_colors` is enabled. This allows different parts of the text to be rendered in different colors without needing to create multiple text elements.
 
+
 | Parameter      | Description                 | Required | Default | Notes                                           |
-|----------------|-----------------------------|----------|---------|-------------------------------------------------|
+| -------------- | --------------------------- | -------- | ------- | ----------------------------------------------- |
 | `parse_colors` | Enable color markup parsing | No       | `false` | Set to `true` to enable color markup processing |
 
+
 Color markup syntax:
+
 ```
 [color]text[/color]
 ```
 
 Available colors:
+
 - `black` - Black text
 - `white` - White text
 - `red` - Red text (for red displays)
@@ -259,6 +283,7 @@ Available colors:
 - `accent` - Uses the display's accent color (red or yellow depending on hardware)
 
 Examples:
+
 ```yaml
 # Simple colored text
 - type: text
@@ -283,6 +308,7 @@ Examples:
 ```
 
 Notes:
+
 - Color markup only works when `parse_colors: true` is set
 - Without `parse_colors: true`, markup characters are treated as literal text
 - Works with Home Assistant templates
@@ -302,13 +328,16 @@ When `parse_colors` is enabled, text elements support newline characters (`\n`) 
   parse_colors: true
   anchor: "mm"
 ```
+
 Anchor Behavior with Multiline Colored Text:
-  - Anchors apply to the entire text block (all lines together)
-  - For example, anchor: "mm" centers the entire block at the specified coordinates
-  - Line spacing is controlled by the spacing parameter
-  - Each line respects the align parameter (left, center, right)
+
+- Anchors apply to the entire text block (all lines together)
+- For example, anchor: "mm" centers the entire block at the specified coordinates
+- Line spacing is controlled by the spacing parameter
+- Each line respects the align parameter (left, center, right)
 
 ### Multiline Text
+
 Splits text into multiple lines based on a delimiter.
 
 ```yaml
@@ -322,8 +351,9 @@ Splits text into multiple lines based on a delimiter.
   color: black
 ```
 
+
 | Parameter   | Description                    | Required | Default                   | Notes                                       |
-|-------------|--------------------------------|----------|---------------------------|---------------------------------------------|
+| ----------- | ------------------------------ | -------- | ------------------------- | ------------------------------------------- |
 | `value`     | Text with delimiters           | Yes      | -                         | String                                      |
 | `delimiter` | Character to split text        | Yes      | -                         | Single character                            |
 | `x`         | X position                     | Yes      | -                         | Pixels or percentage                        |
@@ -335,6 +365,7 @@ Splits text into multiple lines based on a delimiter.
 | `spacing`   | Additional line spacing        | No       | `0`                       | Pixels                                      |
 | `visible`   | Show/hide element              | No       | `true`                    | `true`, `false`                             |
 
+
 ### Inline Color Markup
 
 Multiline elements support inline color markup when `parse_colors` is enabled. This allows different parts of the text to be rendered in different colors without needing to create multiple text elements.
@@ -342,6 +373,7 @@ Multiline elements support inline color markup when `parse_colors` is enabled. T
 **Important Limitation:** Color tags must be complete within each delimiter-separated segment. Color tags **cannot span across delimiters**.
 
 ### Line
+
 Draws a straight line.
 
 ```yaml
@@ -354,8 +386,9 @@ Draws a straight line.
   fill: red
 ```
 
+
 | Parameter      | Description                          | Required | Default         | Notes                                       |
-|----------------|--------------------------------------|----------|-----------------|---------------------------------------------|
+| -------------- | ------------------------------------ | -------- | --------------- | ------------------------------------------- |
 | `x_start`      | Starting X position                  | Yes      | -               | Pixels or percentage                        |
 | `x_end`        | Ending X position                    | Yes      | -               | Pixels or percentage                        |
 | `y_start`      | Starting Y position                  | No       | Auto-positioned | Pixels or percentage                        |
@@ -368,7 +401,9 @@ Draws a straight line.
 | `space_length` | Length of spaces between dashes      | No       | 3               | Pixels                                      |
 | `visible`      | Show/hide element                    | No       | `True`          | `True`, `False`                             |
 
+
 ### Rectangle
+
 Draws a rectangle with optional rounded corners.
 
 ```yaml
@@ -382,20 +417,23 @@ Draws a rectangle with optional rounded corners.
   outline: black
 ```
 
+
 | Parameter | Description            | Required | Default | Notes                                                                                    |
-|-----------|------------------------|----------|---------|------------------------------------------------------------------------------------------|
+| --------- | ---------------------- | -------- | ------- | ---------------------------------------------------------------------------------------- |
 | `x_start` | Left position          | Yes      | -       | Pixels or percentage                                                                     |
 | `x_end`   | Right position         | Yes      | -       | Pixels or percentage                                                                     |
 | `y_start` | Top position           | Yes      | -       | Pixels or percentage                                                                     |
 | `y_end`   | Bottom position        | Yes      | -       | Pixels or percentage                                                                     |
-| `fill`    | Fill color             | No       | `null`  | `white`, `black`, `accent`, `red`, `yellow`  `null`                                      |
+| `fill`    | Fill color             | No       | `null`  | `white`, `black`, `accent`, `red`, `yellow` `null`                                       |
 | `outline` | Border color           | No       | `black` | `white`, `black`, `accent`, `red`, `yellow`                                              |
 | `width`   | Border thickness       | No       | `1`     | Pixels                                                                                   |
 | `radius`  | Corner radius          | No       | `0`     | Pixels                                                                                   |
 | `corners` | Which corners to round | No       | `all`   | `all` or comma-separated list of: `top_left`, `top_right`, `bottom_left`, `bottom_right` |
 | `visible` | Show/hide element      | No       | `true`  | `true`, `false`                                                                          |
 
+
 ### Rectangle Pattern
+
 Draws repeated rectangles in a grid pattern.
 
 ```yaml
@@ -413,20 +451,22 @@ Draws repeated rectangles in a grid pattern.
     y_repeat: 4
 ```
 
-| Parameter  | Description                  | Required | Default | Notes                                                |
-|------------|------------------------------|----------|---------|------------------------------------------------------|
-| `x_start`  | Starting X position          | Yes      | -       | Pixels or percentage                                 |
-| `x_size`   | Width of each rectangle      | Yes      | -       | Pixels                                               |
-| `x_offset` | Horizontal spacing           | Yes      | -       | Pixels                                               |
-| `y_start`  | Starting Y position          | Yes      | -       | Pixels or percentage                                 |
-| `y_size`   | Height of each rectangle     | Yes      | -       | Pixels                                               |
-| `y_offset` | Vertical spacing             | Yes      | -       | Pixels                                               |
-| `x_repeat` | Number of horizontal repeats | Yes      | -       | Integer                                              |
-| `y_repeat` | Number of vertical repeats   | Yes      | -       | Integer                                              |
-| `fill`     | Fill color                   | No       | `null`  | `white`, `black`, `accent`, `red`, `yellow`,  `null` |
-| `outline`  | Border color                 | No       | `black` | `white`, `black`, `accent`, `red`, `yellow`          |
-| `width`    | Border thickness             | No       | `1`     | Pixels                                               |
-| `visible`  | Show/hide element            | No       | `true`  | `true`, `false`                                      |
+
+| Parameter  | Description                  | Required | Default | Notes                                               |
+| ---------- | ---------------------------- | -------- | ------- | --------------------------------------------------- |
+| `x_start`  | Starting X position          | Yes      | -       | Pixels or percentage                                |
+| `x_size`   | Width of each rectangle      | Yes      | -       | Pixels                                              |
+| `x_offset` | Horizontal spacing           | Yes      | -       | Pixels                                              |
+| `y_start`  | Starting Y position          | Yes      | -       | Pixels or percentage                                |
+| `y_size`   | Height of each rectangle     | Yes      | -       | Pixels                                              |
+| `y_offset` | Vertical spacing             | Yes      | -       | Pixels                                              |
+| `x_repeat` | Number of horizontal repeats | Yes      | -       | Integer                                             |
+| `y_repeat` | Number of vertical repeats   | Yes      | -       | Integer                                             |
+| `fill`     | Fill color                   | No       | `null`  | `white`, `black`, `accent`, `red`, `yellow`, `null` |
+| `outline`  | Border color                 | No       | `black` | `white`, `black`, `accent`, `red`, `yellow`         |
+| `width`    | Border thickness             | No       | `1`     | Pixels                                              |
+| `visible`  | Show/hide element            | No       | `true`  | `true`, `false`                                     |
+
 
 ### Polygon
 
@@ -439,8 +479,9 @@ Draws a filled or outlined polygon based on the provided points.
   outline: "black"
 ```
 
+
 | Parameter | Description                              | Required | Default | Notes                    |
-|-----------|------------------------------------------|----------|---------|--------------------------|
+| --------- | ---------------------------------------- | -------- | ------- | ------------------------ |
 | `points`  | List of coordinate pairs for the polygon | Yes      | -       | Example: [[x1, y1], ...] |
 | `fill`    | Fill color for the polygon               | No       | `none`  | Any supported color      |
 | `outline` | Outline color for the polygon            | No       | `black` | Any supported color      |
@@ -448,6 +489,7 @@ Draws a filled or outlined polygon based on the provided points.
 
 
 ### Circle
+
 Draws a circle around a center point.
 
 ```yaml
@@ -457,8 +499,9 @@ Draws a circle around a center point.
   radius: 20
 ```
 
+
 | Parameter | Description       | Required | Default | Notes                                                |
-|-----------|-------------------|----------|---------|------------------------------------------------------|
+| --------- | ----------------- | -------- | ------- | ---------------------------------------------------- |
 | `x`       | Center X position | Yes      | -       | Pixels or percentage                                 |
 | `y`       | Center Y position | Yes      | -       | Pixels or percentage                                 |
 | `radius`  | Circle radius     | Yes      | -       | Pixels                                               |
@@ -467,7 +510,9 @@ Draws a circle around a center point.
 | `width`   | Border thickness  | No       | `1`     | Pixels                                               |
 | `visible` | Show/hide element | No       | `true`  | `true`, `false`                                      |
 
+
 ### Ellipse
+
 Draws an ellipse inside the bounding box.
 
 ```yaml
@@ -478,19 +523,23 @@ Draws an ellipse inside the bounding box.
   y_end: 100
 ```
 
-| Parameter | Description       | Required | Default | Notes                                               |
-|-----------|-------------------|----------|---------|-----------------------------------------------------|
-| `x_start` | Left position     | Yes      | -       | Pixels or percentage                                |
-| `x_end`   | Right position    | Yes      | -       | Pixels or percentage                                |
-| `y_start` | Top position      | Yes      | -       | Pixels or percentage                                |
-| `y_end`   | Bottom position   | Yes      | -       | Pixels or percentage                                |
-| `fill`    | Fill color        | No       | `null`  | `white`, `black`, `accent`, `red`, `yellow`  `null` |
-| `outline` | Border color      | No       | `black` | `white`, `black`, `accent`, `red`, `yellow`         |
-| `width`   | Border thickness  | No       | `1`     | Pixels                                              |
-| `visible` | Show/hide element | No       | `true`  | `true`, `false`                                     |
+
+| Parameter | Description       | Required | Default | Notes                                              |
+| --------- | ----------------- | -------- | ------- | -------------------------------------------------- |
+| `x_start` | Left position     | Yes      | -       | Pixels or percentage                               |
+| `x_end`   | Right position    | Yes      | -       | Pixels or percentage                               |
+| `y_start` | Top position      | Yes      | -       | Pixels or percentage                               |
+| `y_end`   | Bottom position   | Yes      | -       | Pixels or percentage                               |
+| `fill`    | Fill color        | No       | `null`  | `white`, `black`, `accent`, `red`, `yellow` `null` |
+| `outline` | Border color      | No       | `black` | `white`, `black`, `accent`, `red`, `yellow`        |
+| `width`   | Border thickness  | No       | `1`     | Pixels                                             |
+| `visible` | Show/hide element | No       | `true`  | `true`, `false`                                    |
+
 
 ### Arc/ Pie Slice
+
 Draws an arc (outline-only) or a pie slice (filled) based on the specified center, radius, and angles.
+
 ```yaml
 - type: arc
   x: 100
@@ -506,8 +555,10 @@ Draws an arc (outline-only) or a pie slice (filled) based on the specified cente
   start_angle: 90
   end_angle: 0
 ```
+
+
 | Parameter     | Description                          | Required | Default | Notes                       |
-|---------------|--------------------------------------|----------|---------|-----------------------------|
+| ------------- | ------------------------------------ | -------- | ------- | --------------------------- |
 | `x`           | X coordinate of the center           | Yes      | -       | Pixels or percentage        |
 | `y`           | Y coordinate of the center           | Yes      | -       | Pixels or percentage        |
 | `radius`      | Radius of the arc or pie slice       | Yes      | -       | Pixels                      |
@@ -519,6 +570,7 @@ Draws an arc (outline-only) or a pie slice (filled) based on the specified cente
 
 
 ### Icon
+
 Draws Material Design Icons.
 
 ```yaml
@@ -530,8 +582,9 @@ Draws Material Design Icons.
   color: red
 ```
 
+
 | Parameter | Description       | Required | Default | Notes                                                                |
-|-----------|-------------------|----------|---------|----------------------------------------------------------------------|
+| --------- | ----------------- | -------- | ------- | -------------------------------------------------------------------- |
 | `value`   | Icon name         | Yes      | -       | From [Material Design Icons](https://pictogrammers.com/library/mdi/) |
 | `x`       | X position        | Yes      | -       | Pixels or percentage                                                 |
 | `y`       | Y position        | Yes      | -       | Pixels or percentage                                                 |
@@ -540,9 +593,11 @@ Draws Material Design Icons.
 | `anchor`  | Icon anchor point | No       | `la`    | See text anchors                                                     |
 | `visible` | Show/hide element | No       | `true`  | `true`, `false`                                                      |
 
+
 Note: Icon name can be prefixed with `mdi:` (e.g., `mdi:account-cowboy-hat`)
 
 ### Icon Sequence
+
 Draws multiple Material Design Icons in a sequence with specified direction and spacing.
 
 ```yaml
@@ -557,20 +612,22 @@ Draws multiple Material Design Icons in a sequence with specified direction and 
   direction: right
 ```
 
-| Parameter      | Description           | Required | Default | Notes                                                                |
-|----------------|-----------------------|----------|---------|----------------------------------------------------------------------|
-| `x`            | X position            | Yes      | -       | Pixels or percentage                                                 |
-| `y`            | Y position            | Yes      | -       | Pixels or percentage                                                 |
-| `icons`        | List of icon names    | Yes      | -       | From [Material Design Icons](https://pictogrammers.com/library/mdi/) |
-| `size`         | Size of each icon     | Yes      | -       | Pixels                                                               |
-| `direction`    | Direction of sequence | No       | `right` | `right`, `left`, `up`, `down`                                        |
-| `spacing`      | Space between icons   | No       | size/4  | Pixels                                                               |
-| `fill`         | Icon color            | No       | `black` | `white`, `black`, `accent`, `red`, `yellow`                          |
-| `anchor`       | Icon anchor point     | No       | `la`    | See text anchors                                                     |
-| `visible`      | Show/hide element     | No       | `true`  | `true`, `false`                                                      |
+
+| Parameter   | Description           | Required | Default | Notes                                                                |
+| ----------- | --------------------- | -------- | ------- | -------------------------------------------------------------------- |
+| `x`         | X position            | Yes      | -       | Pixels or percentage                                                 |
+| `y`         | Y position            | Yes      | -       | Pixels or percentage                                                 |
+| `icons`     | List of icon names    | Yes      | -       | From [Material Design Icons](https://pictogrammers.com/library/mdi/) |
+| `size`      | Size of each icon     | Yes      | -       | Pixels                                                               |
+| `direction` | Direction of sequence | No       | `right` | `right`, `left`, `up`, `down`                                        |
+| `spacing`   | Space between icons   | No       | size/4  | Pixels                                                               |
+| `fill`      | Icon color            | No       | `black` | `white`, `black`, `accent`, `red`, `yellow`                          |
+| `anchor`    | Icon anchor point     | No       | `la`    | See text anchors                                                     |
+| `visible`   | Show/hide element     | No       | `true`  | `true`, `false`                                                      |
 
 
 ### Download Image
+
 Downloads and displays an image from a URL.
 
 ```yaml
@@ -583,8 +640,9 @@ Downloads and displays an image from a URL.
   rotate: 0
 ```
 
+
 | Parameter       | Description       | Required | Default   | Notes                                                       |
-|-----------------|-------------------|----------|-----------|-------------------------------------------------------------|
+| --------------- | ----------------- | -------- | --------- | ----------------------------------------------------------- |
 | `url`           | Image URL or path | Yes      | -         | HTTP/HTTPS URL, Data URI, local path or camera/image entity |
 | `x`             | X position        | Yes      | -         | Pixels                                                      |
 | `y`             | Y position        | Yes      | -         | Pixels                                                      |
@@ -594,13 +652,16 @@ Downloads and displays an image from a URL.
 | `rotate`        | Rotation angle    | No       | `0`       | Degrees                                                     |
 | `visible`       | Show/hide element | No       | `true`    | `true`, `false`                                             |
 
+
 Notes:
+
 - Local images must be in `/config/media/`
 - Data URIs supported (e.g., `data:image/gif;base64,...`)
 - External images must be publicly accessible
 - Camera entities (e.g. `camera.p1s_camera`) must have a `entity_picture` attribute
 
 ### QR Code
+
 Generates and displays a QR code.
 
 ```yaml
@@ -614,8 +675,9 @@ Generates and displays a QR code.
   bgcolor: "white"
 ```
 
+
 | Parameter | Description          | Required | Default | Notes                                       |
-|-----------|----------------------|----------|---------|---------------------------------------------|
+| --------- | -------------------- | -------- | ------- | ------------------------------------------- |
 | `data`    | Content to encode    | Yes      | -       | String                                      |
 | `x`       | X position           | Yes      | -       | Pixels or percentage                        |
 | `y`       | Y position           | Yes      | -       | Pixels or percentage                        |
@@ -625,7 +687,9 @@ Generates and displays a QR code.
 | `bgcolor` | Background color     | No       | `white` | `white`, `black`, `accent`, `red`, `yellow` |
 | `visible` | Show/hide element    | No       | `true`  | `true`, `false`                             |
 
+
 ### Plot
+
 Renders historical data from Home Assistant entities as a line plot.
 
 ```yaml
@@ -643,10 +707,11 @@ Renders historical data from Home Assistant entities as a line plot.
       width: 3
     - entity: sensor.humidity
       color: red
-  ```
+```
+
 
 | Parameter      | Description               | Required | Default       | Notes                                     |
-|----------------|---------------------------|----------|---------------|-------------------------------------------|
+| -------------- | ------------------------- | -------- | ------------- | ----------------------------------------- |
 | `data`         | List of entities to plot  | Yes      | -             | Array                                     |
 | `ylegend`      | Y-axis legend options     | No       | -             | See [Y-Legend Options](#Y-Legend-Options) |
 | `yaxis`        | Y-axis options            | No       | -             | See [Y-Axis Options](#Y-Axis-Options)     |
@@ -665,8 +730,11 @@ Renders historical data from Home Assistant entities as a line plot.
 | `debug`        | Show debug borders        | No       | `false`       | `true`, `false`                           |
 | `visible`      | Show/hide element         | No       | `true`        | `true`, `false`                           |
 
+
 #### Line Options (per entity)
+
 Each entry in the `data` array can have these options:
+
 ```yaml
 - entity: sensor.temperature  
   color: red
@@ -677,8 +745,10 @@ Each entry in the `data` array can have these options:
   point_color: black
   value_scale: 1.0
 ```
+
+
 | Parameter     | Description                                                        | Required | Default | Notes                       |
-|---------------|--------------------------------------------------------------------|----------|---------|-----------------------------|
+| ------------- | ------------------------------------------------------------------ | -------- | ------- | --------------------------- |
 | `entity`      | Entity ID to plot                                                  | Yes      | -       | String                      |
 | `color`       | Line color                                                         | No       | `black` | Any supported color         |
 | `width`       | Line width                                                         | No       | `1`     | Pixels                      |
@@ -690,11 +760,12 @@ Each entry in the `data` array can have these options:
 | `point_color` | Data point color                                                   | No       | `black` | Any supported color         |
 | `value_scale` | Scale data points by a factor                                      | No       | `1.0`   | Float                       |
 
+
 #### Gap Handling
 
 By default, the plot creates visual gaps when sensor data is unavailable or null. This matches Home Assistant's history graph behavior and prevents misleading visual connections across missing data periods.
 
-**`span_gaps` Parameter Options:**
+`**span_gaps` Parameter Options:**
 
 - `false` (default): Break lines at null/unavailable values - creates visual gaps
 - `true`: Connect lines across all gaps
@@ -724,6 +795,7 @@ By default, the plot creates visual gaps when sensor data is unavailable or null
 ```
 
 #### Y-Legend Options
+
 ```yaml
 ylegend:
   width: -1
@@ -731,8 +803,10 @@ ylegend:
   position: left
   size: 10
 ```
+
+
 | Parameter  | Description     | Required | Default | Notes                         |
-|------------|-----------------|----------|---------|-------------------------------|
+| ---------- | --------------- | -------- | ------- | ----------------------------- |
 | `width`    | Legend width    | No       | -1      | Pixels or `-1` for auto width |
 | `color`    | Legend color    | No       | `black` | Any supported color           |
 | `position` | Legend position | No       | `left`  | `left`, `right`               |
@@ -740,6 +814,7 @@ ylegend:
 
 
 #### Y-Axis Options
+
 ```yaml
 yaxis:
   width: 1
@@ -750,17 +825,21 @@ yaxis:
   grid_color: black
   grid_style: dotted
 ```
-| Parameter    | Description     | Required | Default   | Notes                                  |
-|--------------|-----------------|----------|-----------|----------------------------------------|
-| `width`      | Axis line width | No       | `1`       | Pixels                                 |
-| `color`      | Axis color      | No       | `black`   | Any supported color                    |
-| `tick_width` | Tick mark width | No       | `2`       | Pixels                                 |
-| `tick_every` | Tick interval   | No       | `1.0`     | Float                                  |
-| `grid`       | Enable Grid     | No       | `true`    | Boolean                                |
-| `grid_color` | Grid color      | No       | `black`   | Any supported color                    |
-| `grid_style` | Grid line style | No       | `dotted`  | `dotted`, `dashed`, or `lines` (solid) |
+
+
+| Parameter    | Description     | Required | Default  | Notes                                  |
+| ------------ | --------------- | -------- | -------- | -------------------------------------- |
+| `width`      | Axis line width | No       | `1`      | Pixels                                 |
+| `color`      | Axis color      | No       | `black`  | Any supported color                    |
+| `tick_width` | Tick mark width | No       | `2`      | Pixels                                 |
+| `tick_every` | Tick interval   | No       | `1.0`    | Float                                  |
+| `grid`       | Enable Grid     | No       | `true`   | Boolean                                |
+| `grid_color` | Grid color      | No       | `black`  | Any supported color                    |
+| `grid_style` | Grid line style | No       | `dotted` | `dotted`, `dashed`, or `lines` (solid) |
+
 
 #### X-Legend Options
+
 ```yaml
 xlegend:
   width: -1
@@ -771,8 +850,10 @@ xlegend:
   position: bottom
   color: black
 ```
+
+
 | Parameter       | Description                | Required | Default  | Notes                                           |
-|-----------------|----------------------------|----------|----------|-------------------------------------------------|
+| --------------- | -------------------------- | -------- | -------- | ----------------------------------------------- |
 | `width`         | Legend width               | No       | -1       | Pixels or `-1` for auto width                   |
 | `format`        | Time label format          | No       | `%H:%M`  | [Python strftime format](https://strftime.org/) |
 | `interval`      | Time interval in seconds   | No       | `3600`   | Seconds                                         |
@@ -781,7 +862,9 @@ xlegend:
 | `position`      | Position of time labels    | No       | `bottom` | `bottom` or `top`                               |
 | `color`         | Color for time labels      | No       | `black`  | Any supported color                             |
 
+
 #### X-Axis Options
+
 ```yaml
 xaxis:
   width: 1
@@ -793,8 +876,10 @@ xaxis:
   grid_color: black
   grid_style: dotted
 ```
+
+
 | Parameter     | Description      | Required | Default  | Notes                                  |
-|---------------|------------------|----------|----------|----------------------------------------|
+| ------------- | ---------------- | -------- | -------- | -------------------------------------- |
 | `width`       | Axis line width  | No       | `1`      | Pixels                                 |
 | `color`       | Axis color       | No       | `black`  | Any supported color                    |
 | `tick_width`  | Tick mark width  | No       | `2`      | Pixels                                 |
@@ -804,7 +889,9 @@ xaxis:
 | `grid_color`  | Grid color       | No       | `black`  | Any supported color                    |
 | `grid_style`  | Grid line style  | No       | `dotted` | `dotted`, `dashed`, or `lines` (solid) |
 
+
 #### Example with Full Configuration
+
 ```yaml
 - type: plot
   x_start: 10
@@ -856,6 +943,7 @@ xaxis:
 ```
 
 ### Progress Bar
+
 Displays a progress bar with optional percentage text.
 
 ```yaml
@@ -873,25 +961,28 @@ Displays a progress bar with optional percentage text.
   font: "ppb.ttf"
 ```
 
-| Parameter         | Description               | Required | Default   | Notes                                       |
-|-------------------|---------------------------|----------|-----------|---------------------------------------------|
-| `x_start`         | Left position             | Yes      | -         | Pixels or percentage                        |
-| `y_start`         | Top position              | Yes      | -         | Pixels or percentage                        |
-| `x_end`           | Right position            | Yes      | -         | Pixels or percentage                        |
-| `y_end`           | Bottom position           | Yes      | -         | Pixels or percentage                        |
-| `progress`        | Progress value            | Yes      | -         | 0-100 (clamped)                             |
-| `direction`       | Fill direction            | No       | `right`   | `right`, `left`, `up`, `down`               |
-| `background`      | Background color          | No       | `white`   | `white`, `black`, `accent`, `red`, `yellow` |
-| `fill`            | Progress bar color        | No       | `red`     | `white`, `black`, `accent`, `red`, `yellow` |
-| `outline`         | Border color              | No       | `black`   | `white`, `black`, `accent`, `red`, `yellow` |
-| `width`           | Border thickness          | No       | `1`       | Pixels                                      |
-| `show_percentage` | Show percentage text      | No       | `false`   | `true`, `false`                             |
-| `font`            | Percentage text font      | No       | `ppb.ttf` | Font name                                   |
-| `visible`         | Show/hide element         | No       | `true`    | `true`, `false`                             |
+
+| Parameter         | Description          | Required | Default   | Notes                                       |
+| ----------------- | -------------------- | -------- | --------- | ------------------------------------------- |
+| `x_start`         | Left position        | Yes      | -         | Pixels or percentage                        |
+| `y_start`         | Top position         | Yes      | -         | Pixels or percentage                        |
+| `x_end`           | Right position       | Yes      | -         | Pixels or percentage                        |
+| `y_end`           | Bottom position      | Yes      | -         | Pixels or percentage                        |
+| `progress`        | Progress value       | Yes      | -         | 0-100 (clamped)                             |
+| `direction`       | Fill direction       | No       | `right`   | `right`, `left`, `up`, `down`               |
+| `background`      | Background color     | No       | `white`   | `white`, `black`, `accent`, `red`, `yellow` |
+| `fill`            | Progress bar color   | No       | `red`     | `white`, `black`, `accent`, `red`, `yellow` |
+| `outline`         | Border color         | No       | `black`   | `white`, `black`, `accent`, `red`, `yellow` |
+| `width`           | Border thickness     | No       | `1`       | Pixels                                      |
+| `show_percentage` | Show percentage text | No       | `false`   | `true`, `false`                             |
+| `font`            | Percentage text font | No       | `ppb.ttf` | Font name                                   |
+| `visible`         | Show/hide element    | No       | `true`    | `true`, `false`                             |
+
 
 ## Template Examples
 
 Basic state display:
+
 ```yaml
 - type: "text"
   value: "Temperature: {{ states('sensor.temperature') }}°C"
@@ -900,6 +991,7 @@ Basic state display:
 ```
 
 Conditional formatting:
+
 ```yaml
 - type: "text"
   value: >
@@ -913,6 +1005,7 @@ Conditional formatting:
 ```
 
 Dynamic positioning:
+
 ```yaml
 - type: "text"
   value: "Centered"
@@ -924,6 +1017,7 @@ Dynamic positioning:
 ### Common Use Cases
 
 Battery status with icon:
+
 ```yaml
 - type: "icon"
   value: "mdi:battery"
@@ -938,6 +1032,7 @@ Battery status with icon:
 ```
 
 Header with divider:
+
 ```yaml
 - type: "text"
   value: "Status Overview"
@@ -952,6 +1047,7 @@ Header with divider:
 ```
 
 Multi-sensor display:
+
 ```yaml
 - type: "text"
   value: "Living Room"
@@ -977,3 +1073,4 @@ Multi-sensor display:
   x: 35
   y: 70
 ```
+

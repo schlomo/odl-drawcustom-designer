@@ -25,6 +25,13 @@ import {
   collectFontKeysFromElements,
   loadFontFamilyMap,
 } from '../lib/load-font-faces'
+import { areFontLoadOutcomeMapsEqual, type FontLoadOutcome } from '../lib/font-load-outcome'
+import { getFontStatusMessages } from '../lib/font-readiness'
+import {
+  areOpentypeFontMapsEqual,
+  loadOpentypeFontMapWithOutcomes,
+} from '../lib/load-opentype-fonts'
+import { StatusBanner } from './StatusBanner'
 import { findTopmostElementHit } from '../lib/canvas-hit-test'
 import { getPrimitiveBounds, type ElementBounds } from '../lib/primitive-bounds'
 import { snapMoveDelta, snapToGrid } from '../lib/snap-to-grid'
@@ -179,6 +186,12 @@ export function DesignerCanvas({
   const [fitScale, setFitScale] = useState(1)
   const [assetImages, setAssetImages] = useState<Map<string, HTMLImageElement>>(() => new Map())
   const [fontFamilies, setFontFamilies] = useState<Map<string, string>>(() => new Map())
+  const [opentypeFonts, setOpentypeFonts] = useState<Map<string, import('opentype.js').Font>>(
+    () => new Map(),
+  )
+  const [fontLoadOutcomes, setFontLoadOutcomes] = useState<Map<string, FontLoadOutcome>>(
+    () => new Map(),
+  )
   const [dragSession, setDragSession] = useState<DragSession | null>(null)
 
   useEffect(() => {
@@ -202,11 +215,12 @@ export function DesignerCanvas({
   }, [renderContext.height, renderContext.width])
 
   const renderedElements = useMemo<RenderedElement[]>(() => {
+    void opentypeFonts
     return elements.flatMap((element, index) => {
       const result = renderElement(element, renderContext)
       return result ? [{ index, result }] : []
     })
-  }, [elements, renderContext])
+  }, [elements, opentypeFonts, renderContext])
 
   const hitTargets = useMemo(
     () =>
@@ -223,6 +237,27 @@ export function DesignerCanvas({
   )
 
   const fontAssetKeys = useMemo(() => collectFontKeysFromElements(elements), [elements])
+
+  const fontsLoading = useMemo(() => {
+    if (fontAssetKeys.length === 0) {
+      return false
+    }
+
+    return fontAssetKeys.some((key) => {
+      const outcome = fontLoadOutcomes.get(key)
+      return (
+        outcome == null ||
+        (outcome.status !== 'ready' &&
+          outcome.status !== 'missing' &&
+          outcome.status !== 'failed')
+      )
+    })
+  }, [fontAssetKeys, fontLoadOutcomes])
+
+  const fontStatusMessages = useMemo(
+    () => getFontStatusMessages(elements, fontLoadOutcomes, fontsLoading),
+    [elements, fontLoadOutcomes, fontsLoading],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -241,10 +276,29 @@ export function DesignerCanvas({
   useEffect(() => {
     let cancelled = false
 
-    void loadFontFamilyMap(fontAssetKeys).then((families) => {
+    const loadPromise =
+      fontAssetKeys.length === 0
+        ? Promise.resolve({
+            families: new Map<string, string>(),
+            batch: { fonts: new Map(), outcomes: new Map<string, FontLoadOutcome>() },
+          })
+        : Promise.all([
+            loadFontFamilyMap(fontAssetKeys),
+            loadOpentypeFontMapWithOutcomes(fontAssetKeys),
+          ]).then(([families, batch]) => ({ families, batch }))
+
+    void loadPromise.then((result) => {
       if (!cancelled) {
         setFontFamilies((current) =>
-          areFontFamilyMapsEqual(current, families) ? current : families,
+          areFontFamilyMapsEqual(current, result.families) ? current : result.families,
+        )
+        setOpentypeFonts((current) =>
+          areOpentypeFontMapsEqual(current, result.batch.fonts) ? current : result.batch.fonts,
+        )
+        setFontLoadOutcomes((current) =>
+          areFontLoadOutcomeMapsEqual(current, result.batch.outcomes)
+            ? current
+            : result.batch.outcomes,
         )
       }
     })
@@ -600,6 +654,9 @@ export function DesignerCanvas({
           </span>
         </div>
       </div>
+      {fontStatusMessages.map((message, index) => (
+        <StatusBanner key={`${message.severity}-${message.title}-${index}`} message={message} />
+      ))}
       <div
         ref={containerRef}
         className="relative flex flex-1 items-center justify-center overflow-hidden bg-[var(--shell-hover)] p-6"
@@ -652,7 +709,7 @@ export function DesignerCanvas({
                   className="h-full w-full"
                   aria-hidden
                 >
-                  <SvgPrimitive primitive={entry.result.primitive} />
+                  <SvgPrimitive primitive={entry.result.primitive} fontFamilies={fontFamilies} />
                 </svg>
               ) : (
                 <CanvasElementLayer
@@ -661,6 +718,7 @@ export function DesignerCanvas({
                   height={renderContext.height}
                   assetImages={displayAssetImages}
                   fontFamilies={fontFamilies}
+                  opentypeFonts={opentypeFonts}
                 />
               )}
             </div>

@@ -2,17 +2,39 @@ import type { RenderContext } from './types'
 
 export type CoordinateInput = number | string
 
+export function isPercentageCoordinate(value: unknown): value is string {
+  return typeof value === 'string' && /^\d+(\.\d+)?%$/.test(value)
+}
+
+export function isNumericStringCoordinate(value: unknown): value is string {
+  if (typeof value !== 'string') {
+    return false
+  }
+  const trimmed = value.trim()
+  if (trimmed.length === 0 || isPercentageCoordinate(trimmed)) {
+    return false
+  }
+  const parsed = Number.parseFloat(trimmed)
+  return Number.isFinite(parsed)
+}
+
 export function resolveCoordinate(value: CoordinateInput, dimension: number): number {
   if (typeof value === 'number') {
     return value
   }
 
-  const match = /^(\d+(?:\.\d+)?)%$/.exec(value)
-  if (!match) {
-    throw new Error(`Invalid coordinate: ${value}`)
+  const trimmed = value.trim()
+  const percentMatch = /^(\d+(?:\.\d+)?)%$/.exec(trimmed)
+  if (percentMatch) {
+    return (dimension * Number.parseFloat(percentMatch[1])) / 100
   }
 
-  return (dimension * Number.parseFloat(match[1])) / 100
+  const parsed = Number.parseFloat(trimmed)
+  if (Number.isFinite(parsed)) {
+    return parsed
+  }
+
+  throw new Error(`Invalid coordinate: ${value}`)
 }
 
 export function resolveX(value: CoordinateInput, ctx: RenderContext): number {

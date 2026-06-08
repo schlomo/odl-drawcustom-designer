@@ -1,5 +1,6 @@
 import type { DrawElement } from '../schema/elements'
 import { mapColor } from './colors'
+import { effectiveColorName, effectiveString, effectiveStrokeWidth } from './element-defaults'
 import { resolveX, resolveY } from './coordinates'
 import type { RenderContext, RenderResult } from './types'
 import { isVisible } from './visibility'
@@ -26,9 +27,9 @@ export function renderRectangle(
     y: Math.min(y1, y2),
     width: Math.abs(x2 - x1),
     height: Math.abs(y2 - y1),
-    fill: mapColor(element.fill ?? null, colorOptions),
-    stroke: mapColor(element.outline ?? 'black', colorOptions) ?? undefined,
-    strokeWidth: element.width ?? 1,
+    fill: mapColor(effectiveColorName(element, 'fill'), colorOptions),
+    stroke: mapColor(effectiveString(element, 'outline', 'black'), colorOptions) ?? undefined,
+    strokeWidth: effectiveStrokeWidth(element, 'width', 1),
     ...(element.radius != null ? { radius: element.radius } : {}),
   }
 

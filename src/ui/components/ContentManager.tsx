@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { AssetKind, AssetUploadResult, DrawElement } from '../../core'
+import { FONT_UPLOAD_ACCEPT, type AssetKind, type AssetUploadResult, type DrawElement } from '../../core'
 import { buildContentAssetRows } from '../lib/content-asset-rows'
 import { shell } from '../styles/shell'
 import { PanelScopeToggle, type PanelListScope } from './PanelScopeToggle'
@@ -31,7 +31,7 @@ function kindLabel(kind: AssetKind): string {
 }
 
 function acceptForKind(kind: AssetKind): string {
-  return kind === 'font' ? '.ttf,.otf,.woff,.woff2' : 'image/*'
+  return kind === 'font' ? FONT_UPLOAD_ACCEPT : 'image/*'
 }
 
 function uploadInputId(key: string): string {

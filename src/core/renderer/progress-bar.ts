@@ -2,8 +2,10 @@ import type { DrawElement } from '../schema/elements'
 import { resolveDirection } from './anchors'
 import { mapColor } from './colors'
 import { resolveBounds } from './bounds'
+import { effectiveBool, effectiveProgress, effectiveString, effectiveStrokeWidth } from './element-defaults'
+import { DEFAULT_FONT_KEY } from './fonts'
 import type { RenderContext, RenderResult, SvgRectPrimitive } from './types'
-import { isVisible, parseBool } from './visibility'
+import { isVisible } from './visibility'
 
 type ProgressBarElement = Extract<DrawElement, { type: 'progress_bar' }>
 
@@ -70,11 +72,11 @@ export function renderProgressBar(
 
   const colorOptions = { accentMode: ctx.accentMode }
   const bounds = resolveBounds(element.x_start, element.x_end, element.y_start, element.y_end, ctx)
-  const direction = resolveDirection(element.direction)
-  const backgroundFill = mapColor(element.background ?? 'white', colorOptions)
-  const progressFill = mapColor(element.fill ?? 'black', colorOptions)
-  const stroke = mapColor(element.outline ?? 'black', colorOptions) ?? undefined
-  const strokeWidth = element.width ?? 1
+  const direction = resolveDirection(effectiveString(element, 'direction', 'right'))
+  const backgroundFill = mapColor(effectiveString(element, 'background', 'white'), colorOptions)
+  const progressFill = mapColor(effectiveString(element, 'fill', 'red'), colorOptions)
+  const stroke = mapColor(effectiveString(element, 'outline', 'black'), colorOptions) ?? undefined
+  const strokeWidth = effectiveStrokeWidth(element, 'width', 1)
 
   const background: SvgRectPrimitive = {
     kind: 'rect',
@@ -84,7 +86,7 @@ export function renderProgressBar(
     strokeWidth,
   }
 
-  const fill = buildFillRect(bounds, element.progress, direction, progressFill)
+  const fill = buildFillRect(bounds, effectiveProgress(element, 'progress'), direction, progressFill)
 
   return {
     layer: 'svg',
@@ -92,9 +94,15 @@ export function renderProgressBar(
       kind: 'progress-bar-stub',
       background,
       fill,
-      progress: element.progress,
-      ...(element.show_percentage != null
-        ? { showPercentage: parseBool(element.show_percentage) }
+      progress: effectiveProgress(element, 'progress'),
+      ...(effectiveBool(element, 'show_percentage')
+        ? {
+            showPercentage: true,
+            percentageColor:
+              mapColor(effectiveString(element, 'outline', 'black'), colorOptions) ?? '#000000',
+            percentageFontSize: Math.max(8, Math.round(bounds.height * 0.55)),
+            percentageFontKey: effectiveString(element, 'font', DEFAULT_FONT_KEY),
+          }
         : {}),
     },
   }

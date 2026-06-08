@@ -1,5 +1,6 @@
 import type { DrawElement } from '../schema/elements'
 import { mapColor } from './colors'
+import { effectiveColorName, effectiveString, effectiveStrokeWidth } from './element-defaults'
 import type { RenderContext, RenderResult } from './types'
 
 type PolygonElement = Extract<DrawElement, { type: 'polygon' }>
@@ -12,9 +13,9 @@ export function renderPolygon(element: PolygonElement, _ctx: RenderContext): Ren
     primitive: {
       kind: 'polygon',
       points: element.points,
-      fill: mapColor(element.fill ?? 'none', colorOptions),
-      stroke: mapColor(element.outline ?? 'black', colorOptions) ?? undefined,
-      strokeWidth: element.width ?? 1,
+      fill: mapColor(effectiveColorName(element, 'fill'), colorOptions),
+      stroke: mapColor(effectiveString(element, 'outline', 'black'), colorOptions) ?? undefined,
+      strokeWidth: effectiveStrokeWidth(element, 'width', 1),
     },
   }
 }

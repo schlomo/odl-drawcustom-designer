@@ -1,43 +1,101 @@
+import type opentype from 'opentype.js'
+import { DEFAULT_FONT_KEY, getFont } from '../../core/renderer/fonts'
+import { computeOpentypeGlyphPositions } from '../../core/renderer/opentype-glyphs'
+import type { TextDrawLine } from '../../core/renderer/types'
 import { getCanvasTextDrawStyle } from '../../core/renderer/text-anchor-draw'
 import type { CanvasPrimitive } from '../../core/renderer/types'
 import { drawDlimgToCanvas } from './dlimg-resize'
+import { getCachedOpentypeFont } from './load-opentype-fonts'
 import { resolveCanvasFontFamily } from './load-font-faces'
+
+function resolveDrawFont(
+  fontKey: string | undefined,
+  opentypeFonts: ReadonlyMap<string, opentype.Font>,
+): opentype.Font | undefined {
+  const key = fontKey ?? DEFAULT_FONT_KEY
+  return opentypeFonts.get(key) ?? getCachedOpentypeFont(key) ?? getFont(key)
+}
+
+function drawOpentypeLine(
+  ctx: CanvasRenderingContext2D,
+  font: opentype.Font,
+  line: TextDrawLine,
+  fontSize: number,
+  color: string,
+): void {
+  const positions = computeOpentypeGlyphPositions(font, line.text, fontSize, line.x, line.y)
+
+  for (const { glyph, x, y } of positions) {
+    const path = glyph.getPath(x, y, fontSize)
+    path.fill = color
+    path.draw(ctx)
+  }
+}
+
+function drawOpentypeLines(
+  ctx: CanvasRenderingContext2D,
+  font: opentype.Font,
+  drawLines: ReadonlyArray<TextDrawLine>,
+  fontSize: number,
+  color: string,
+): void {
+  for (const line of drawLines) {
+    drawOpentypeLine(ctx, font, line, fontSize, color)
+  }
+}
+
+function drawTextFallback(
+  ctx: CanvasRenderingContext2D,
+  primitive: Extract<CanvasPrimitive, { kind: 'text-stub' }>,
+  fontFamilies: ReadonlyMap<string, string>,
+): void {
+  ctx.font = `${primitive.fontSize}px ${resolveCanvasFontFamily(primitive.font, fontFamilies)}, sans-serif`
+  const { textAlign, textBaseline } = getCanvasTextDrawStyle(primitive.anchor)
+  ctx.textAlign = textAlign
+  ctx.textBaseline = textBaseline
+
+  if (primitive.drawLines.length > 0) {
+    for (const line of primitive.drawLines) {
+      ctx.direction = 'ltr'
+      ctx.fillText(line.visualText, line.x, line.y)
+    }
+  } else {
+    ctx.fillText(primitive.value, primitive.anchorX, primitive.anchorY)
+  }
+
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'alphabetic'
+}
 
 export function drawCanvasStub(
   ctx: CanvasRenderingContext2D,
   primitive: CanvasPrimitive,
   assetImages: ReadonlyMap<string, HTMLImageElement> = new Map(),
   fontFamilies: ReadonlyMap<string, string> = new Map(),
+  opentypeFonts: ReadonlyMap<string, opentype.Font> = new Map(),
 ): void {
   switch (primitive.kind) {
     case 'text-stub': {
       ctx.fillStyle = primitive.color
-      ctx.strokeStyle = '#94a3b8'
-      ctx.lineWidth = 1
-      ctx.setLineDash([4, 2])
-      ctx.strokeRect(primitive.x, primitive.y, primitive.width, primitive.height)
-      ctx.setLineDash([])
-      ctx.font = `${primitive.fontSize}px ${resolveCanvasFontFamily(primitive.font, fontFamilies)}, sans-serif`
-      const { textAlign, textBaseline } = getCanvasTextDrawStyle(primitive.anchor)
-      ctx.textAlign = textAlign
-      ctx.textBaseline = textBaseline
-      ctx.fillText(primitive.value, primitive.anchorX, primitive.anchorY)
-      ctx.textAlign = 'left'
-      ctx.textBaseline = 'alphabetic'
+      const font = resolveDrawFont(primitive.font, opentypeFonts)
+      if (font) {
+        drawOpentypeLines(ctx, font, primitive.drawLines, primitive.fontSize, primitive.color)
+      } else {
+        drawTextFallback(ctx, primitive, fontFamilies)
+      }
       break
     }
     case 'multiline-stub': {
       ctx.fillStyle = primitive.color
-      ctx.strokeStyle = '#94a3b8'
-      ctx.lineWidth = 1
-      ctx.setLineDash([4, 2])
-      ctx.strokeRect(primitive.x, primitive.y, primitive.width, primitive.height)
-      ctx.setLineDash([])
-      ctx.font = `${primitive.fontSize}px ${resolveCanvasFontFamily(primitive.font, fontFamilies)}, sans-serif`
-      primitive.lines.forEach((line, index) => {
-        const lineHeight = primitive.fontSize + (primitive.lineSpacing ?? 4)
-        ctx.fillText(line, primitive.x + 2, primitive.y + primitive.fontSize + index * lineHeight)
-      })
+      const font = resolveDrawFont(primitive.font, opentypeFonts)
+      if (font) {
+        drawOpentypeLines(ctx, font, primitive.drawLines, primitive.fontSize, primitive.color)
+      } else {
+        ctx.font = `${primitive.fontSize}px ${resolveCanvasFontFamily(primitive.font, fontFamilies)}, sans-serif`
+        for (const line of primitive.drawLines) {
+          ctx.fillText(line.visualText, line.x, line.y)
+        }
+      }
       break
     }
     case 'dlimg-stub': {

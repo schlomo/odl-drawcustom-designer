@@ -1,8 +1,9 @@
 import type { DrawElement } from '../schema/elements'
 import { mapColor } from './colors'
 import { resolveX, resolveY } from './coordinates'
+import { effectiveBool, effectiveNumber, effectiveString, effectiveStrokeWidth } from './element-defaults'
 import type { RenderContext, RenderResult } from './types'
-import { isVisible, parseBool } from './visibility'
+import { isVisible } from './visibility'
 
 type LineElement = Extract<DrawElement, { type: 'line' }>
 
@@ -12,7 +13,7 @@ export function renderLine(element: LineElement, ctx: RenderContext): RenderResu
   }
 
   const colorOptions = { accentMode: ctx.accentMode }
-  const stroke = mapColor(element.fill ?? 'black', colorOptions) ?? '#000000'
+  const stroke = mapColor(effectiveString(element, 'fill', 'black'), colorOptions) ?? '#000000'
 
   const primitive = {
     kind: 'line' as const,
@@ -21,12 +22,12 @@ export function renderLine(element: LineElement, ctx: RenderContext): RenderResu
     x2: resolveX(element.x_end, ctx),
     y2: resolveY(element.y_end, ctx),
     stroke,
-    strokeWidth: element.width ?? 1,
-    ...(parseBool(element.dashed)
+    strokeWidth: effectiveStrokeWidth(element, 'width', 1),
+    ...(effectiveBool(element, 'dashed')
       ? {
           dashed: true,
-          dashLength: element.dash_length,
-          spaceLength: element.space_length,
+          dashLength: effectiveNumber(element, 'dash_length', 5, 0),
+          spaceLength: effectiveNumber(element, 'space_length', 3, 0),
         }
       : {}),
   }

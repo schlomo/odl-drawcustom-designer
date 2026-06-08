@@ -3,7 +3,7 @@ import { PROPERTIES_BY_TYPE } from './completions'
 
 export interface PropertySpecMeta {
   description: string
-  default?: string | number | boolean
+  default?: string | number | boolean | null
 }
 
 /** Required property keys per element type (from docs/spec/supported_types.md). */
@@ -33,6 +33,19 @@ export const REQUIRED_PROPERTIES_BY_TYPE: Record<DrawElement['type'], readonly s
   qrcode: ['data', 'x', 'y'],
   plot: ['data'],
   progress_bar: ['x_start', 'y_start', 'x_end', 'y_end', 'progress'],
+}
+
+function computedPropertyDefault(
+  element: DrawElement,
+  property: string,
+): string | number | boolean | null | undefined {
+  if (element.type === 'icon_sequence' && property === 'spacing') {
+    const size = getPropertyEffectiveValue(element, 'size')
+    if (typeof size === 'number' && Number.isFinite(size)) {
+      return size / 4
+    }
+  }
+  return undefined
 }
 
 const SHARED_PROPERTY_SPECS: Record<string, PropertySpecMeta> = {
@@ -108,6 +121,7 @@ const TYPE_PROPERTY_SPECS: Partial<
 > = {
   debug_grid: {
     spacing: { description: 'Distance between grid lines', default: 20 },
+    dashed: { description: 'Use dashed lines for the grid', default: true },
     font: { description: 'Font for coordinate labels', default: 'ppb.ttf' },
   },
   text: {
@@ -130,19 +144,38 @@ const TYPE_PROPERTY_SPECS: Partial<
     space_length: { description: 'Space between dashes', default: 3 },
   },
   rectangle: {
-    fill: { description: 'Fill color' },
+    fill: { description: 'Fill color', default: null },
+  },
+  rectangle_pattern: {
+    fill: { description: 'Fill color', default: null },
+  },
+  polygon: {
+    fill: { description: 'Fill color', default: 'none' },
+  },
+  circle: {
+    fill: { description: 'Fill color', default: null },
+  },
+  ellipse: {
+    fill: { description: 'Fill color', default: null },
+  },
+  arc: {
+    fill: { description: 'Fill color', default: 'none' },
   },
   icon: {
     value: { description: 'Material Design icon name' },
     size: { description: 'Icon size in pixels' },
+    color: { description: 'Icon color', default: 'black' },
     fill: { description: 'Icon color', default: 'black' },
     anchor: { description: 'Icon anchor point', default: 'la' },
   },
   icon_sequence: {
     fill: { description: 'Icon color', default: 'black' },
-    spacing: { description: 'Space between icons' },
+    spacing: { description: 'Space between icons (defaults to size / 4)' },
     anchor: { description: 'Icon anchor point', default: 'la' },
     size: { description: 'Size of each icon in pixels' },
+  },
+  progress_bar: {
+    fill: { description: 'Progress bar color', default: 'red' },
   },
   qrcode: {
     data: { description: 'Content to encode in the QR code' },
@@ -168,9 +201,10 @@ export function getPropertySpec(
 ): PropertySpecMeta {
   const typeSpec = TYPE_PROPERTY_SPECS[elementType]?.[property]
   const shared = SHARED_PROPERTY_SPECS[property]
+  const hasTypeOverride = Object.hasOwn(TYPE_PROPERTY_SPECS[elementType] ?? {}, property)
   return {
     description: typeSpec?.description ?? shared?.description ?? property,
-    default: typeSpec?.default ?? shared?.default,
+    default: hasTypeOverride ? typeSpec?.default : shared?.default,
   }
 }
 
@@ -184,7 +218,7 @@ export function getPropertyDescription(
 export function getPropertyDefault(
   elementType: DrawElement['type'],
   property: string,
-): string | number | boolean | undefined {
+): string | number | boolean | null | undefined {
   return getPropertySpec(elementType, property).default
 }
 
@@ -192,6 +226,9 @@ export function hasPropertyDefault(
   elementType: DrawElement['type'],
   property: string,
 ): boolean {
+  if (elementType === 'icon_sequence' && property === 'spacing') {
+    return true
+  }
   return getPropertyDefault(elementType, property) !== undefined
 }
 
@@ -201,6 +238,10 @@ export function getPropertyEffectiveValue(element: DrawElement, property: string
   const stored = record[property]
   if (stored !== undefined) {
     return stored
+  }
+  const computed = computedPropertyDefault(element, property)
+  if (computed !== undefined) {
+    return computed
   }
   return getPropertyDefault(element.type, property)
 }
@@ -214,7 +255,8 @@ export function normalizePropertyValueForStorage(
   if (value === undefined || value === null) {
     return undefined
   }
-  const defaultValue = getPropertyDefault(element.type, property)
+  const defaultValue =
+    computedPropertyDefault(element, property) ?? getPropertyDefault(element.type, property)
   if (defaultValue === undefined) {
     return value
   }

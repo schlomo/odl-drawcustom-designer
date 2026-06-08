@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { createElementFromTemplate } from '../../../src/ui/lib/create-element-from-template'
 import {
+  applyAxisDelta,
   applyBoundsResize,
   isElementDraggable,
+  isInteractiveCoordinate,
   moveElementInArray,
   translateElement,
 } from '../../../src/ui/lib/element-geometry'
@@ -53,6 +55,27 @@ describe('element geometry', () => {
       expect(resized.xsize).toBe(100)
       expect(resized.ysize).toBe(50)
     }
+  })
+
+  it('treats numeric string coordinates as interactive', () => {
+    expect(isInteractiveCoordinate('50')).toBe(true)
+    const element = { type: 'text' as const, value: 'Hi', x: '50', y: '20' }
+    expect(isElementDraggable(element)).toBe(true)
+    const moved = translateElement(element, 5, 0)
+    if (moved.type === 'text') {
+      expect(moved.x).toBe(55)
+    }
+  })
+
+  it('allows drag for percentage coordinates when not templated', () => {
+    const element = { type: 'text' as const, value: 'Hi', x: '50%', y: '25%' }
+    expect(isElementDraggable(element)).toBe(true)
+    const moved = translateElement(element, 10, 5, { width: 400, height: 200 })
+    if (moved.type === 'text') {
+      expect(moved.x).toBe(210)
+      expect(moved.y).toBe(55)
+    }
+    expect(applyAxisDelta('50%', 10, undefined, 400)).toBe(210)
   })
 
   it('marks template text as not draggable on x', () => {

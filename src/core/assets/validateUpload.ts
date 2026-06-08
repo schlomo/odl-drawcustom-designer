@@ -1,10 +1,13 @@
 import {
+  fileExtension,
   guessMimeFromAssetKey,
   isFontExtension,
   isFontMime,
   isImageExtension,
   isImageMime,
-  fileExtension,
+  isLegacyFontExtension,
+  isSupportedFontExtension,
+  isSupportedFontMime,
   resolveUploadMime,
 } from './mime'
 import type { AssetKind } from './types'
@@ -17,6 +20,20 @@ function fileLabel(file: File, key: string): string {
   return file.name || key
 }
 
+function rejectUnsupportedFont(file: File, key: string): AssetUploadResult {
+  const ext = fileExtension(file.name) || fileExtension(key)
+  if (isLegacyFontExtension(ext)) {
+    return {
+      ok: false,
+      message: `"${fileLabel(file, key)}" is ${ext} — only .ttf and .otf fonts are supported.`,
+    }
+  }
+  return {
+    ok: false,
+    message: `"${fileLabel(file, key)}" is not a supported font format — use .ttf or .otf only.`,
+  }
+}
+
 /** Reject uploads whose MIME type or extension does not match the YAML asset slot. */
 export function validateAssetUpload(kind: AssetKind, file: File, key: string): AssetUploadResult {
   const mime = resolveUploadMime(file.type, key)
@@ -26,16 +43,16 @@ export function validateAssetUpload(kind: AssetKind, file: File, key: string): A
     if (isImageMime(mime) || isImageExtension(ext)) {
       return {
         ok: false,
-        message: `"${fileLabel(file, key)}" is an image — this slot expects a font (.ttf, .otf, .woff).`,
+        message: `"${fileLabel(file, key)}" is an image — this slot expects a .ttf or .otf font.`,
       }
     }
-    if (!isFontMime(mime) && !isFontExtension(ext)) {
-      return {
-        ok: false,
-        message: `"${fileLabel(file, key)}" is not a supported font format.`,
-      }
+    if (isLegacyFontExtension(ext) || (isFontMime(mime) && !isSupportedFontMime(mime))) {
+      return rejectUnsupportedFont(file, key)
     }
-    return { ok: true, mime: isFontMime(mime) ? mime : guessMimeFromAssetKey(key) }
+    if (!isSupportedFontExtension(ext) && !isSupportedFontMime(mime)) {
+      return rejectUnsupportedFont(file, key)
+    }
+    return { ok: true, mime: isSupportedFontMime(mime) ? mime : guessMimeFromAssetKey(key) }
   }
 
   if (isFontMime(mime) || isFontExtension(ext)) {

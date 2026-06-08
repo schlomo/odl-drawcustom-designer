@@ -24,19 +24,19 @@ todos:
     content: "Phase 1d: renderer stubs for all 16 types + render-element fixture sweep"
     status: completed
   - id: ha-simulator
-    content: "State Simulator UI + template preview wiring (localStorage mocks; IndexedDB per-project in Phase 3)"
+    content: "State Simulator UI + template preview; mocks in IndexedDB per project (§17a)"
     status: completed
   - id: canvas-core
     content: "Phase 2e: canvas interaction — selection, drag, resize, snap, keyboard, layer ordering"
     status: completed
   - id: renderer
-    content: "Phase 3: upgrade renderer stubs to full fidelity (opentype, MDI, QR, plot, dlimg)"
+    content: "Phase 3c–3e: MDI, QR, plot, parse_colors, dither (text done in §17b)"
     status: pending
   - id: content-manager
-    content: "Content Manager UI + in-memory upload (IndexedDB persistence in Phase 3)"
+    content: "Content Manager UI + IndexedDB asset persistence (§17a)"
     status: completed
   - id: fonts-images
-    content: Integrate opentype.js font loading, dlimg from IndexedDB, bundle default ppb/rbm fonts
+    content: "opentype text (§17b ✅); dlimg resize preview polish in §17d"
     status: pending
   - id: share-history
     content: Hash share (#d=pako payload without assets), project naming, 20-item LRU history
@@ -70,9 +70,12 @@ todos:
     status: completed
   - id: phase3-indexeddb
     content: "Phase 3a: IndexedDB assets + per-project mocks (§17a)"
-    status: pending
+    status: completed
   - id: phase3-text
     content: "Phase 3b: opentype text/multiline + coord drag 19-3/19-4 (§17b)"
+    status: completed
+  - id: phase3b-commit
+    content: "Commit Phase 3b after verification (§11h)"
     status: pending
   - id: phase3-icons
     content: "Phase 3c: MDI icons + icon_sequence (§17c)"
@@ -667,13 +670,15 @@ flowchart LR
 | **1b–1d** Core | ✅ Done | `a56eee6` | 108 | Templates, assets, renderer stubs (16/16) |
 | **2a–2c** Shell + YamlEditor | ✅ Done | `84d2164` | 220 (27 files) | Stabilize, editor, layout |
 | **2d** Content + templates | ✅ Done | `95ebf75` | +39 | Content Manager, State Simulator, template preview |
-| **2e** Canvas + forms | ✅ Done | `b559f08` | 325 (45 files) | §19 review done; Phase **2 complete** |
-| **3** Fidelity | ⬜ **Next** | — | — | opentype, MDI, QR, plot, parse_colors, dither, IndexedDB (§17) |
+| **2e** Canvas + forms | ✅ Done | `b559f08` | 325 (45 files) | Phase **2 complete** |
+| **3a** IndexedDB | ✅ Done | `9d58839` | 357 (49 files) | Dexie assets + mocks + project stub |
+| **3b** opentype text | ✅ Done | *uncommitted* | 427 (64 files) | Layout, anchors, wrap/truncate, multiline, bidi/RTL, glyph draw |
+| **3c–3f** Fidelity | ⬜ **Next** | — | — | MDI, QR, plot, parse_colors, dither, canvas perf (§17c–§17f) |
 | **4** Polish | ⬜ After 3 | — | — | Share, history, service options, undo/layers, PNG, e2e, deploy (§18) |
 
-**Current repo health:** `npm test` → **325 passed** (45 files) · `npm run lint` → **clean** · `npm run build` → **pass** · Phase **2 complete** on `main`
+**Current repo health:** `npm test` → **427 passed** (64 files) · `npm run lint` → **clean** · `npm run build` → **pass** · Phase **3b uncommitted** (last commit `9d58839`)
 
-**Next:** Phase **3** fidelity (§17).
+**Next:** commit Phase 3b (§11h) → Phase **3c** MDI icons (§17c).
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -688,7 +693,7 @@ flowchart LR
 - ✅ Schema + YAML parse/serialize/validate (all 16 types) — tests from spec fixtures
 - ✅ **`src/core/schema/completions.ts`** — completion metadata for editor
 - ✅ Template scanner + evaluator (`src/core/templates/` — Nunjucks + HA mock context; ADR-004)
-- ✅ Content map resolver (`src/core/assets/` — in-memory; IndexedDB UI Phase 3)
+- ✅ Content map resolver (`src/core/assets/` — sync resolver hydrated from IndexedDB via `src/storage/`)
 - ✅ Renderer stubs — **all 16 types** in `src/core/renderer/`; exhaustive `switch` in `renderElement`
 - ✅ `tests/core/renderer/render-element.test.ts` — every spec fixture renders without error
 
@@ -759,8 +764,8 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 |----|------|-------|-----------|
 | **19-1** | Canvas drag performance — avoid full re-render on every `pointermove`; drag overlay or memoized per-index layers | **3f** | `DesignerCanvas.tsx`, `CanvasElementLayer.tsx` |
 | **19-2** | Explicit `releasePointerCapture` on drag end / `lostpointercapture` | **3f** | `DesignerCanvas.tsx` |
-| **19-3** | Numeric string coords (`"50"`) — align `isInteractiveCoordinate` with core `resolveX`/`resolveY` | **3b** | `element-geometry.ts`, `src/core/renderer/coordinates.ts` |
-| **19-4** | Percentage coord drag (`"50%"`) when position is not templated | **3b** | `element-geometry.ts`, `DesignerCanvas.tsx` |
+| **19-3** | Numeric string coords (`"50"`) — align `isInteractiveCoordinate` with core `resolveX`/`resolveY` | **3b** ✅ | `element-geometry.ts` |
+| **19-4** | Percentage coord drag (`"50%"`) when position is not templated | **3b** ✅ | `element-geometry.ts`, `canvas-interaction.test.ts` |
 | **19-5** | Plot nested sub-object property fields (e.g. `yaxis.smooth`) beyond top-level JSON blobs | **3d** | `ElementPropertyForm.tsx`, `propertyMetadata.ts` |
 | **19-6** | Canvas interaction unit tests — line endpoints, circle radius, bounds resize, nudge guard | **3f** | `tests/ui/lib/canvas-interaction.test.ts` |
 | **19-7** | Property form tests — JSON blur/revert, enum↔template toggle, font/image upload paths | **4** | `ElementPropertyForm.tsx`, Testing Library |
@@ -771,28 +776,53 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **19-12** | Arc angle handles; polygon vertex handles on canvas | **post-v1** | `DesignerCanvas.tsx`, `element-geometry.ts` |
 | **19-13** | `moveElementInArray` guard when `toIndex >= length` | **3f** | `element-geometry.ts` |
 
+### Phase 3a — IndexedDB storage (§17a) ✅ (`9d58839`)
+
+- ✅ `src/storage/` — Dexie `OeplDatabase`: `assets`, `mocks`, `projects` stores (ADR-003)
+- ✅ `hydrateContentMapFromStorage` — loads blobs into sync `src/core/assets/resolver.ts`
+- ✅ `persistAsset` / `removePersistedAsset` — Content Manager upload/clear survives reload
+- ✅ Per-`projectId` mock states in IndexedDB; `getOrCreateActiveProjectId()` in `localStorage`
+- ✅ Legacy global `localStorage` mock migration (`MOCK_STATES_MIGRATED_KEY`)
+- ✅ `useProjectState` — hydrate on mount; persist mocks after hydration
+- ✅ `tests/storage/assets.test.ts`, `tests/storage/mocks.test.ts`
+
+**Phase 4 note:** plan may simplify to a **global mock store** (§7 Phase 4) — one HA instance, shared entity map like assets.
+
+### Phase 3b — opentype text fidelity (§17b) ✅ (uncommitted)
+
+- ✅ `opentype.js` + `src/core/renderer/fonts.ts` registry; `load-opentype-fonts.ts` (bundled + IndexedDB)
+- ✅ `text-layout.ts` — wrap (`max_width`), truncate, line spacing, multiline delimiter stack
+- ✅ `text.ts` / `multiline.ts` — opentype metrics, anchors (`anchors.ts`), `drawLines` on primitives
+- ✅ `draw-canvas-stubs.ts` — `computeOpentypeGlyphPositions` path drawing (fallback CSS if font missing)
+- ✅ Bidi/RTL helpers (`bidi-text.ts`, `opentype-glyphs.ts`, `glyph-coverage.ts`)
+- ✅ `DesignerCanvas` / `CanvasElementLayer` — opentype font map wired to canvas draw
+- ✅ §19 **19-3**, **19-4** — `isInteractiveCoordinate` for numeric strings + percentage coords
+- ✅ Tests: `text-layout`, `text-anchor`, `bidi-text`, `rtl-text`, `glyph-coverage`, `load-opentype-fonts`, `stub-preview`
+
+**Note:** Primitive kind remains `text-stub` / `multiline-stub` (carries `drawLines`); rename optional later.
+
 ### Phase 3 — Fidelity (upgrade stubs → real tag preview)
 
 **Biggest user-visible gap after 2e.** Core renderer stubs become honest e-paper preview.
 
 | Area | Current (post-2d) | Phase 3 target |
 |------|-------------------|----------------|
-| Text | Canvas stub + `@font-face` load | opentype.js metrics: wrap, truncate, multiline `\n`, anchors |
+| Text | ✅ opentype layout + glyph draw (**3b**) | parse_colors segments (§17e) |
 | Icons | Box + MDI name | Full paths via `@mdi/js` |
 | QR | Decorative grid | Scannable via `qrcode` package |
 | Plot | Placeholder area | Axes, legends, sample/synthetic data, `span_gaps`, `smooth`, line styles; **19-5** nested plot property fields |
 | `parse_colors` | Not rendered | Parse `[red]…[/red]` markup in preview (ADR-004) |
 | Dither / accent | Flat RGB | Ordered dither (d=2), optional Floyd-Steinberg; red vs yellow accent toggle |
 | dlimg | Uploaded images draw; no resize_method | Full resize/rotate preview per spec |
-| Assets / mocks | In-memory map + global `localStorage` mocks | IndexedDB (Dexie): blobs, per-project mocks, history snapshots (ADR-003) |
+| Assets / mocks | ✅ IndexedDB + sync resolver hydrate (**3a**) | Global mock simplification optional in **4** |
 | Canvas interaction | Full re-render on drag | **19-1** drag overlay / memo; **19-2** pointer capture; **19-6** interaction tests |
-| Coordinates | Numeric only draggable | **19-3** numeric strings; **19-4** percentage drag |
+| Coordinates | ✅ numeric strings + `"N%"` drag (**3b**) | — |
 | Tests | 16 minimal fixtures + exhaustiveness sweep | Rich fixtures from spec; geometry/PNG hash tests |
 
 **Suggested Phase 3 chunks (one agent session each):**
 
-- **3a** — IndexedDB (`src/storage/`) + migrate Content Manager + mock states per project
-- **3b** — opentype text + multiline fidelity; **19-3**, **19-4** coordinate drag edge cases
+- **3a** — IndexedDB (`src/storage/`) ✅ **`9d58839`**
+- **3b** — opentype text + multiline ✅ (uncommitted)
 - **3c** — MDI icons + icon_sequence
 - **3d** — QR + plot preview; **19-5** plot nested property fields
 - **3e** — parse_colors + dither pipeline (Best-of-N candidate)
@@ -862,7 +892,7 @@ flowchart LR
 - HA automation snippet generator (`open_epaper_link.drawcustom` wrapper)
 - Side-by-side YAML diff from history
 
-**Recommended order:** Phase 3 (§17, include **3f** §19 follow-ups) → Phase 4 (§18, **19-7**–**19-11**) → push for GH Pages.
+**Recommended order:** commit **3b** (§11h) → **3c** (§17c) → §17d–§17f → Phase 4 (§18) → push for GH Pages.
 
 ---
 
@@ -872,12 +902,12 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 
 | Requirement | Status | Phase |
 |-------------|--------|-------|
-| All 16 draw types add/edit/render/export per spec | 🟡 Stubs render; full fidelity Phase 3 | 2e forms + 3 |
-| Percentage coordinates + anchors (Pillow set) | 🟡 Parsed; drag for `"N%"` → **19-4** Phase 3b | 2e + 3b |
+| All 16 draw types add/edit/render/export per spec | 🟡 Text/multiline real; other stubs Phase 3c–3e | 3b–3e |
+| Percentage coordinates + anchors (Pillow set) | ✅ Drag + resolve + opentype anchors (**3b**) | 3b |
 | All color aliases including hex, halftone shortcuts, accent | 🟡 Flat preview; dither Phase 3/4 | 3–4 |
 | Plot nested objects round-trip | ✅ YAML engine | — |
 | Template strings preserved verbatim in HA export | ✅ | — |
-| Local content map by exact YAML path (no embedding) | ✅ In-memory; IndexedDB Phase 3 | 2d / 3a |
+| Local content map by exact YAML path (no embedding) | ✅ IndexedDB + hydrate | 3a |
 | HA state simulator evaluates templates for preview | ✅ | 2d |
 | YAML editor: highlight, autocomplete, Jinja scaffolding, lint | ✅ | 2b |
 | Schema-driven property forms (all types) | ✅ | 2e |
@@ -973,7 +1003,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase 2 prompts archived in **§16** ✅. **Current work:** **§17** (Phase 3 fidelity, chunks §17a–§17f) → **§18** (Phase 4 polish).
+- Phase **3a** ✅ (`9d58839`). Phase **3b** ✅ (uncommitted). **Current work:** **§17c–§17f** → **§18**.
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1113,6 +1143,32 @@ Do not push unless I ask.
 
 ---
 
+## 11h. Commit Phase 3b prompt
+
+**Use now** — Phase 3b verified; work is uncommitted.
+
+```
+Read docs/PLAN.md §7 Phase 3b.
+
+Pre-flight: npm run lint && npm test && npm run build
+
+Commit Phase 3b work:
+- src/core/renderer/text-layout.ts, fonts.ts, opentype-glyphs.ts, bidi-text.ts, glyph-coverage.ts
+- src/core/renderer/text.ts, multiline.ts, text-metrics.ts, anchors.ts, element-defaults.ts
+- src/ui/lib/load-opentype-fonts.ts, font-load-outcome.ts, draw-canvas-stubs.ts
+- src/ui/components/CanvasElementLayer.tsx, DesignerCanvas.tsx
+- tests/core/renderer/text-layout.test.ts, text-anchor.test.ts, bidi-text.test.ts, rtl-text.test.ts
+- tests/core/renderer/glyph-coverage.test.ts, stub-preview.test.ts, renderer-defaults.test.ts
+- tests/ui/lib/load-opentype-fonts.test.ts, load-opentype-fonts-unsupported.test.ts
+- package.json, package-lock.json (opentype.js), docs/PLAN.md, README.md
+
+Message: "Phase 3b: opentype text layout and glyph preview"
+
+Do not push unless I ask. Next: docs/PLAN.md §17c
+```
+
+---
+
 ## 11c. Commit Phase 2 (partial) prompt ✅ (`84d2164`)
 
 Commit message used: `Phase 2a complete (YAML Editor)` — includes stabilization + UI shell + YamlEditor.
@@ -1240,9 +1296,9 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ---
 
-## 17. Phase 3 — fidelity prompts ⬜ next
+## 17. Phase 3 — fidelity prompts
 
-**When to use:** Phase 2 is complete (§7 progress tracker). Run **one Agent chat per subsection** (§17a → §17f). Order matters for dependencies.
+**§17a** ✅ (`9d58839`). **§17b** ✅ (uncommitted). **Next: §17c** (MDI icons). Remaining: §17d–§17f.
 
 **Plan cross-reference map:**
 
@@ -1269,95 +1325,23 @@ Do not commit unless I ask. End with: "Next prompt: docs/PLAN.md §17b" (or the 
 
 ---
 
-### §17a — IndexedDB storage (Phase 3a)
+### §17a — IndexedDB storage (Phase 3a) ✅ (`9d58839`)
 
-```
-Execute Phase 3a — IndexedDB persistence for assets and per-project mocks.
+Delivered — see §7 Phase 3a checklist.
 
-Read:
-- docs/PLAN.md §2 (local content map), §7 Phase 3a, §7.1
-- docs/adr/ADR-002-local-content-map.md, ADR-003-indexeddb-schema.md
-- src/core/assets/resolver.ts (current in-memory API — keep this interface stable for core)
+Key files: `src/storage/db.ts`, `assets.ts`, `mocks.ts`, `projectId.ts`; `hydrateContentMapFromStorage`; `tests/storage/`
 
-Goal:
-Replace in-memory-only asset blobs and global localStorage mock states with Dexie (IndexedDB) per ADR-003, without breaking HA-clean YAML export.
+<!-- prompt archived — phase complete -->
 
-Implement src/storage/ (Dexie):
-- assets store: key (exact YAML path) → { blob, mime, updatedAt }
-- mocks store: per active projectId → entity_id → mock value
-- projects store: stub or minimal snapshot shape for Phase 4 history (schema only OK if unused)
+### §17b — opentype text fidelity (Phase 3b) ✅ (uncommitted)
 
-Wire UI:
-- src/core/assets/resolver.ts — delegate to storage adapter (core stays sync where possible; async load in UI layer)
-- ContentManager.tsx — upload/clear persists to IndexedDB
-- mockStates.ts — read/write per project; migrate from global localStorage on first load
-- useProjectState.ts — projectId (generate UUID for now); reload assets/mocks on project switch
+Delivered — see §7 Phase 3b checklist.
 
-Rules:
-- YAML exported for HA: unchanged — no designer metadata, no blob embedding
-- Content map keys: exact strings from YAML (ADR-002)
-- TDD: tests/storage/ or tests/core/assets/ for adapter round-trip
+Key files: `text-layout.ts`, `fonts.ts`, `opentype-glyphs.ts`, `load-opentype-fonts.ts`, `draw-canvas-stubs.ts`
 
-Out of scope (later):
-- 20-project LRU UI (§18)
-- Share hash (§18)
-- opentype / renderer changes
+<!-- prompt archived — phase complete -->
 
-Acceptance:
-- Upload font/image → survives page reload
-- Mock states survive reload per project
-- npm run lint && npm test && npm run build
-
-Next: docs/PLAN.md §17b
-```
-
----
-
-### §17b — opentype text fidelity (Phase 3b)
-
-```
-Execute Phase 3b — real text and multiline rendering with opentype.js.
-
-Read:
-- docs/PLAN.md §7 Phase 3b, §8 (percentage coords, anchors)
-- docs/adr/ADR-007-hybrid-rendering.md
-- docs/spec/supported_types.md — text, multiline fields (anchor, max_width, truncate, parse_colors flag)
-- src/core/renderer/text.ts, multiline.ts, text-metrics.ts
-- src/ui/lib/load-font-faces.ts, draw-canvas-stubs.ts
-
-Goal:
-Replace text-stub / multiline-stub canvas placeholders with measured glyphs from opentype.js. Fonts from bundled public/fonts/ (ppb.ttf, rbm.ttf) and IndexedDB content map (§17a).
-
-Core (TDD first):
-- Add opentype.js dependency
-- src/core/renderer/text.ts — layout: size, anchor (use anchors.ts), max_width wrap, truncate
-- src/core/renderer/multiline.ts — delimiter, offset_y, spacing, line stack
-- Keep renderResult as canvas primitives OR documented geometry for UI draw path
-- Vitest: fixture YAML → expected width/height or line count (golden metrics, not necessarily PNG yet)
-
-UI:
-- draw-canvas-stubs.ts — use real metrics/path or delegate to core layout output
-- DesignerCanvas — font load cache; do not reload all fonts every pointermove
-
-§19 follow-ups (include in this session if not already fixed):
-- 19-3: isInteractiveCoordinate / isElementDraggable — treat numeric strings ("50") like numbers (align with src/core/renderer/coordinates.ts)
-- 19-4: allow drag for percentage coords ("50%") when value is not a template
-
-Out of scope:
-- parse_colors rendering (§17e)
-- dither (§17e)
-
-Acceptance:
-- Sample dashboard text uses real font metrics; wrap/truncate visible in preview
-- Bundled + uploaded fonts resolve
-- npm run lint && npm test && npm run build
-
-Next: docs/PLAN.md §17c
-```
-
----
-
-### §17c — MDI icons (Phase 3c)
+### §17c — MDI icons (Phase 3c) ⬜ next
 
 ```
 Execute Phase 3c — icon and icon_sequence with @mdi/js SVG paths.
@@ -1491,7 +1475,7 @@ Tasks:
 - 19-6: Unit tests — line endpoint drag, circle radius drag, bounds resize, keyboard nudge guard (no-op when nothing selected)
 - 19-13: moveElementInArray — guard when toIndex >= length
 
-Note: 19-3 and 19-4 belong in §17b; do not duplicate unless still open.
+Note: **19-3** and **19-4** delivered in §17b — do not duplicate.
 
 Acceptance:
 - Manual smoke: drag feels smooth on 10+ element payload

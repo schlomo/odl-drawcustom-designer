@@ -1,5 +1,6 @@
 import type { DrawElement } from '../schema/elements'
 import { mapColor } from './colors'
+import { effectiveColorName, effectiveString, effectiveStrokeWidth } from './element-defaults'
 import { resolveX, resolveY } from './coordinates'
 import type { RenderContext, RenderResult } from './types'
 
@@ -17,9 +18,9 @@ export function renderArc(element: ArcElement, ctx: RenderContext): RenderResult
       r: element.radius,
       startAngle: element.start_angle,
       endAngle: element.end_angle,
-      fill: mapColor(element.fill ?? 'none', colorOptions),
-      stroke: mapColor(element.outline ?? 'black', colorOptions) ?? undefined,
-      strokeWidth: element.width ?? 1,
+      fill: mapColor(effectiveColorName(element, 'fill'), colorOptions),
+      stroke: mapColor(effectiveString(element, 'outline', 'black'), colorOptions) ?? undefined,
+      strokeWidth: effectiveStrokeWidth(element, 'width', 1),
     },
   }
 }

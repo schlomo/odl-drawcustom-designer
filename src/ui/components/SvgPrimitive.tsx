@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
 import { iconSequenceBoxSize } from '../../core/renderer/anchors'
 import type { SvgPrimitive as SvgPrimitiveType } from '../../core/renderer/types'
+import { clampStrokeWidth, resolveSvgFontFamily } from '../lib/svg-font-family'
 
 interface SvgPrimitiveProps {
   primitive: SvgPrimitiveType
+  fontFamilies?: ReadonlyMap<string, string>
 }
 
 function arcPath(
@@ -25,7 +27,7 @@ function arcPath(
   return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y} Z`
 }
 
-export function SvgPrimitive({ primitive }: SvgPrimitiveProps) {
+export function SvgPrimitive({ primitive, fontFamilies = new Map() }: SvgPrimitiveProps) {
   switch (primitive.kind) {
     case 'line':
       return (
@@ -35,7 +37,7 @@ export function SvgPrimitive({ primitive }: SvgPrimitiveProps) {
           x2={primitive.x2}
           y2={primitive.y2}
           stroke={primitive.stroke}
-          strokeWidth={primitive.strokeWidth}
+          strokeWidth={clampStrokeWidth(primitive.strokeWidth)}
           strokeDasharray={
             primitive.dashed
               ? `${primitive.dashLength ?? 4} ${primitive.spaceLength ?? 4}`
@@ -52,7 +54,7 @@ export function SvgPrimitive({ primitive }: SvgPrimitiveProps) {
           height={primitive.height}
           fill={primitive.fill ?? 'none'}
           stroke={primitive.stroke}
-          strokeWidth={primitive.strokeWidth}
+          strokeWidth={clampStrokeWidth(primitive.strokeWidth)}
           rx={primitive.radius}
         />
       )
@@ -64,7 +66,7 @@ export function SvgPrimitive({ primitive }: SvgPrimitiveProps) {
           r={primitive.r}
           fill={primitive.fill ?? 'none'}
           stroke={primitive.stroke}
-          strokeWidth={primitive.strokeWidth}
+          strokeWidth={clampStrokeWidth(primitive.strokeWidth)}
         />
       )
     case 'ellipse':
@@ -76,7 +78,7 @@ export function SvgPrimitive({ primitive }: SvgPrimitiveProps) {
           ry={primitive.ry}
           fill={primitive.fill ?? 'none'}
           stroke={primitive.stroke}
-          strokeWidth={primitive.strokeWidth}
+          strokeWidth={clampStrokeWidth(primitive.strokeWidth)}
         />
       )
     case 'polygon': {
@@ -86,7 +88,7 @@ export function SvgPrimitive({ primitive }: SvgPrimitiveProps) {
           points={points}
           fill={primitive.fill ?? 'none'}
           stroke={primitive.stroke}
-          strokeWidth={primitive.strokeWidth}
+          strokeWidth={clampStrokeWidth(primitive.strokeWidth)}
         />
       )
     }
@@ -102,10 +104,12 @@ export function SvgPrimitive({ primitive }: SvgPrimitiveProps) {
           )}
           fill={primitive.fill ?? 'none'}
           stroke={primitive.stroke}
-          strokeWidth={primitive.strokeWidth}
+          strokeWidth={clampStrokeWidth(primitive.strokeWidth)}
         />
       )
-    case 'icon-stub':
+    case 'icon-stub': {
+      const label = primitive.value.replace(/^mdi:/, '')
+      const fontSize = Math.min(11, Math.max(8, primitive.size / 10))
       return (
         <g>
           <rect
@@ -113,7 +117,7 @@ export function SvgPrimitive({ primitive }: SvgPrimitiveProps) {
             y={primitive.y}
             width={primitive.size}
             height={primitive.size}
-            fill="none"
+            fill="#f8fafc"
             stroke={primitive.fill}
             strokeWidth={1}
             strokeDasharray="4 2"
@@ -123,13 +127,14 @@ export function SvgPrimitive({ primitive }: SvgPrimitiveProps) {
             y={primitive.y + primitive.size / 2}
             textAnchor="middle"
             dominantBaseline="middle"
-            fontSize={10}
+            fontSize={fontSize}
             fill={primitive.fill}
           >
-            {primitive.value}
+            {label.length > 14 ? `${label.slice(0, 12)}…` : label}
           </text>
         </g>
       )
+    }
     case 'icon-sequence-stub': {
       const sequenceBounds = iconSequenceBoxSize(
         primitive.size,
@@ -174,13 +179,15 @@ export function SvgPrimitive({ primitive }: SvgPrimitiveProps) {
               height={rect.height}
               fill={rect.fill ?? 'none'}
               stroke={rect.stroke}
-              strokeWidth={rect.strokeWidth}
+              strokeWidth={clampStrokeWidth(rect.strokeWidth)}
               rx={rect.radius}
             />
           ))}
         </g>
       )
-    case 'progress-bar-stub':
+    case 'progress-bar-stub': {
+      const progressLabel = `${Math.round(Math.min(100, Math.max(0, primitive.progress)))}%`
+      const percentageFontFamily = resolveSvgFontFamily(primitive.percentageFontKey, fontFamilies)
       return (
         <g>
           <rect
@@ -190,7 +197,7 @@ export function SvgPrimitive({ primitive }: SvgPrimitiveProps) {
             height={primitive.background.height}
             fill={primitive.background.fill ?? '#FFFFFF'}
             stroke={primitive.background.stroke}
-            strokeWidth={primitive.background.strokeWidth}
+            strokeWidth={clampStrokeWidth(primitive.background.strokeWidth)}
           />
           <rect
             x={primitive.fill.x}
@@ -199,10 +206,29 @@ export function SvgPrimitive({ primitive }: SvgPrimitiveProps) {
             height={primitive.fill.height}
             fill={primitive.fill.fill ?? '#000000'}
           />
+          {primitive.showPercentage ? (
+            <text
+              x={primitive.background.x + primitive.background.width / 2}
+              y={primitive.background.y + primitive.background.height / 2}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize={primitive.percentageFontSize ?? 12}
+              fontFamily={percentageFontFamily}
+              fill={primitive.percentageColor ?? '#000000'}
+            >
+              {progressLabel}
+            </text>
+          ) : null}
         </g>
       )
+    }
     case 'debug-grid-stub': {
       const lines: ReactNode[] = []
+      const labels: ReactNode[] = []
+      const labelFontSize = primitive.labelFontSize ?? 12
+      const labelFontFamily = resolveSvgFontFamily(primitive.labelFontKey, fontFamilies)
+      const labelStep = primitive.labelStep ?? 40
+
       for (let x = 0; x <= primitive.width; x += primitive.spacing) {
         lines.push(
           <line
@@ -220,6 +246,21 @@ export function SvgPrimitive({ primitive }: SvgPrimitiveProps) {
             }
           />,
         )
+        if (primitive.showLabels && x % labelStep === 0 && x !== 0) {
+          labels.push(
+            <text
+              key={`label-x-${x}`}
+              x={x + 2}
+              y={2}
+              dominantBaseline="hanging"
+              fontSize={labelFontSize}
+              fontFamily={labelFontFamily}
+              fill={primitive.labelColor ?? primitive.stroke}
+            >
+              {x}
+            </text>,
+          )
+        }
       }
       for (let y = 0; y <= primitive.height; y += primitive.spacing) {
         lines.push(
@@ -238,8 +279,43 @@ export function SvgPrimitive({ primitive }: SvgPrimitiveProps) {
             }
           />,
         )
+        if (primitive.showLabels && y % labelStep === 0 && y !== 0) {
+          labels.push(
+            <text
+              key={`label-y-${y}`}
+              x={2}
+              y={y}
+              dominantBaseline="middle"
+              fontSize={labelFontSize}
+              fontFamily={labelFontFamily}
+              fill={primitive.labelColor ?? primitive.stroke}
+            >
+              {y}
+            </text>,
+          )
+        }
       }
-      return <g>{lines}</g>
+      if (primitive.showLabels) {
+        labels.push(
+          <text
+            key="label-origin"
+            x={2}
+            y={2}
+            dominantBaseline="hanging"
+            fontSize={labelFontSize}
+            fontFamily={labelFontFamily}
+            fill={primitive.labelColor ?? primitive.stroke}
+          >
+            0
+          </text>,
+        )
+      }
+      return (
+        <g>
+          {lines}
+          {labels}
+        </g>
+      )
     }
     default: {
       const _exhaustive: never = primitive

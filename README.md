@@ -8,7 +8,11 @@ Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcus
 
 **Phase 2** — complete (YamlEditor, Content Manager, State Simulator, canvas interaction, schema-driven property forms).
 
-**Next:** Phase 3 fidelity (opentype text, MDI icons, QR, plot, parse_colors, dither, IndexedDB) → Phase 4 product polish (share, history, service options, export). Map: [`docs/PLAN.md`](docs/PLAN.md) §7.1 and §8.
+**Phase 3a** — IndexedDB (**committed** `9d58839`).
+
+**Phase 3b** — opentype text/multiline preview (**uncommitted**): wrap, truncate, anchors, glyph drawing.
+
+**Next:** commit §11h → Phase **3c** MDI icons (§17c). Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §17.
 
 ## Spec
 
@@ -30,7 +34,7 @@ Local dev serves at `/`. For subpath hosting, build with `VITE_BASE_PATH` (e.g. 
 
 - `src/core/` — pure TypeScript (no React); TDD with Vitest
 - `src/ui/` — React 19 shell
-- `src/storage/` — IndexedDB adapters (Phase 3)
+- `src/storage/` — Dexie IndexedDB (assets, mocks, projects) — Phase 3a ✅
 - `docs/adr/` — architecture decision records
 
 See ADR-001 and ADR-006 for core/UI separation.

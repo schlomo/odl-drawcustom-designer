@@ -3,11 +3,11 @@ import { serializeYamlPayload, type DrawElement } from '../../core'
 import { locateElementIndexAtPosition } from '../editor/locateElementInYaml'
 import {
   elementsSequenceEqual,
-  getYamlElementsParseIssues,
   shouldApplyExternalYamlSync,
-  summarizeYamlElementsParseIssues,
   tryParseYamlElements,
 } from '../editor/yamlElementsSync'
+import { getYamlStatusMessages } from '../lib/yaml-status-messages'
+import { StatusBanner } from './StatusBanner'
 import { YamlEditor } from '../editor/YamlEditor'
 import { createYamlScrollCommand, createEntityScrollCommand, mergeYamlScrollCommands } from '../editor/yamlScrollCommand'
 import {
@@ -82,11 +82,7 @@ export function YamlPanel({
     [couplingEnabled, entityScrollRequest, selectedIndex, selectionSource],
   )
 
-  const yamlParseIssueSummary = useMemo(() => {
-    return summarizeYamlElementsParseIssues(getYamlElementsParseIssues(yamlText))
-  }, [yamlText])
-
-  const yamlBlocksCanvasSync = yamlParseIssueSummary != null
+  const yamlStatusMessages = useMemo(() => getYamlStatusMessages(yamlText), [yamlText])
 
   const handleYamlChange = useCallback(
     (text: string) => {
@@ -142,19 +138,9 @@ export function YamlPanel({
           <YamlFontSizeControls fontSize={fontSize} onDecrease={decrease} onIncrease={increase} />
         </div>
       </div>
-      {yamlBlocksCanvasSync ? (
-        <div
-          className="shrink-0 border-b border-red-300 bg-red-50 px-4 py-2 text-xs dark:border-red-500/30 dark:bg-red-950/40"
-          role="status"
-        >
-          <p className="font-medium text-red-900 dark:text-red-200">YAML not applied to canvas</p>
-          <p className="mt-1 text-red-800 dark:text-red-100">{yamlParseIssueSummary}</p>
-          <p className={`mt-1 ${shell.muted}`}>
-            Fix the highlighted issue in the editor below (red underline). The canvas keeps the last
-            valid design until validation passes.
-          </p>
-        </div>
-      ) : null}
+      {yamlStatusMessages.map((message, index) => (
+        <StatusBanner key={`yaml-status-${index}`} message={message} />
+      ))}
       <div className="min-h-0 flex-1">
         <YamlEditor
           className="h-full min-h-0 [&_.cm-editor]:h-full [&_.cm-scroller]:min-h-0"

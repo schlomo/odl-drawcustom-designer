@@ -1,5 +1,6 @@
 import type { DrawElement } from '../schema/elements'
 import { mapColor } from './colors'
+import { effectiveColorName, effectiveString, effectiveStrokeWidth } from './element-defaults'
 import { resolveX, resolveY } from './coordinates'
 import type { RenderContext, RenderResult, SvgRectPrimitive } from './types'
 import { isVisible } from './visibility'
@@ -11,9 +12,9 @@ function buildPatternRects(
   ctx: RenderContext,
 ): SvgRectPrimitive[] {
   const colorOptions = { accentMode: ctx.accentMode }
-  const fill = mapColor(element.fill ?? null, colorOptions)
-  const stroke = mapColor(element.outline ?? 'black', colorOptions) ?? undefined
-  const strokeWidth = element.width ?? 1
+  const fill = mapColor(effectiveColorName(element, 'fill'), colorOptions)
+  const stroke = mapColor(effectiveString(element, 'outline', 'black'), colorOptions) ?? undefined
+  const strokeWidth = effectiveStrokeWidth(element, 'width', 1)
   const xStart = resolveX(element.x_start, ctx)
   const yStart = resolveY(element.y_start, ctx)
   const rects: SvgRectPrimitive[] = []

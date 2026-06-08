@@ -1,4 +1,9 @@
-import { hasTemplateSyntax, type DrawElement } from '../../core'
+import {
+  hasTemplateSyntax,
+  isNumericStringCoordinate,
+  isPercentageCoordinate,
+  type DrawElement,
+} from '../../core'
 import type { ElementBounds } from './primitive-bounds'
 
 export type ResizeHandle =
@@ -13,8 +18,6 @@ export type ResizeHandle =
   | 'line-start'
   | 'line-end'
 
-const PERCENT_COORD = /^\d+(\.\d+)?%$/
-
 export interface TranslateCanvasDefaults {
   width: number
   height: number
@@ -25,9 +28,20 @@ export function applyAxisDelta(
   value: number | string | undefined,
   delta: number,
   missingDefault?: number,
+  dimension?: number,
 ): number | string | undefined {
   if (isNumericCoordinate(value)) {
     return value + delta
+  }
+  if (typeof value === 'string') {
+    if (isPercentageCoordinate(value) && dimension !== undefined) {
+      const current = (dimension * Number.parseFloat(value)) / 100
+      return current + delta
+    }
+    if (isNumericStringCoordinate(value)) {
+      return Number.parseFloat(value) + delta
+    }
+    return value
   }
   if (value !== undefined) {
     return value
@@ -43,8 +57,9 @@ function spreadAxisDelta(
   value: number | string | undefined,
   delta: number,
   missingDefault?: number,
+  dimension?: number,
 ): Record<string, number | string> {
-  const next = applyAxisDelta(value, delta, missingDefault)
+  const next = applyAxisDelta(value, delta, missingDefault, dimension)
   return next !== undefined ? { [key]: next } : {}
 }
 
@@ -59,8 +74,11 @@ export function isInteractiveCoordinate(value: unknown): boolean {
   if (typeof value !== 'string') {
     return false
   }
-  if (hasTemplateSyntax(value) || PERCENT_COORD.test(value)) {
+  if (hasTemplateSyntax(value)) {
     return false
+  }
+  if (isPercentageCoordinate(value) || isNumericStringCoordinate(value)) {
+    return true
   }
   return false
 }
@@ -154,14 +172,14 @@ export function translateElement(
     case 'text':
       return {
         ...element,
-        ...spreadAxisDelta('x', element.x, dx),
-        ...spreadAxisDelta('y', element.y, dy, 0),
+        ...spreadAxisDelta('x', element.x, dx, undefined, canvas?.width),
+        ...spreadAxisDelta('y', element.y, dy, 0, canvas?.height),
       }
     case 'multiline':
       return {
         ...element,
-        ...spreadAxisDelta('x', element.x, dx),
-        ...spreadAxisDelta('y', element.y, dy, 0),
+        ...spreadAxisDelta('x', element.x, dx, undefined, canvas?.width),
+        ...spreadAxisDelta('y', element.y, dy, 0, canvas?.height),
         offset_y: element.offset_y + dy,
       }
     case 'line':

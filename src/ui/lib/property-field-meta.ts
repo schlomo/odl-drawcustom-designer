@@ -69,6 +69,43 @@ const NUMBER_PROPERTIES = new Set([
   'interval',
 ])
 
+/** Thickness, size, and spacing fields — must not be negative in the inspector. */
+export const NON_NEGATIVE_NUMBER_PROPERTIES = new Set([
+  'width',
+  'radius',
+  'dash_length',
+  'space_length',
+  'boxsize',
+  'border',
+  'label_step',
+  'label_font_size',
+  'stroke_width',
+  'size',
+  'spacing',
+  'offset_y',
+  'xsize',
+  'ysize',
+  'x_size',
+  'x_offset',
+  'y_size',
+  'y_offset',
+  'tick_width',
+  'tick_length',
+  'point_size',
+  'y_padding',
+  'max_width',
+])
+
+export function isNonNegativeNumberProperty(property: string): boolean {
+  return NON_NEGATIVE_NUMBER_PROPERTIES.has(property)
+}
+
+const CLAMPED_0_100_PROPERTIES = new Set(['progress'])
+
+export function isClampedPercentProperty(property: string): boolean {
+  return CLAMPED_0_100_PROPERTIES.has(property)
+}
+
 const JSON_PROPERTIES = new Set(['points', 'icons', 'ylegend', 'yaxis', 'xlegend', 'xaxis', 'corners'])
 
 /** plot `data` is edited as JSON; multiline `value` fields are separate. */

@@ -202,15 +202,19 @@ describe('drawCanvasStub dlimg preview', () => {
         y: 0,
         width: 40,
         height: 20,
+        anchorX: 0,
+        anchorY: 0,
         value: 'Hi',
+        drawLines: [{ text: 'Hi', visualText: 'Hi', x: 0, y: 16, width: 40, direction: 'ltr' }],
         color: '#000000',
         fontSize: 16,
-        font: 'ppb.ttf',
+        font: 'missing-preview.ttf',
       },
       new Map(),
-      new Map([['ppb.ttf', 'oepl-font-ppb-ttf']]),
+      new Map([['missing-preview.ttf', 'oepl-font-missing-preview-ttf']]),
     )
 
-    expect(ctx.font).toBe('16px oepl-font-ppb-ttf, sans-serif')
+    expect(ctx.fillText).toHaveBeenCalled()
+    expect(ctx.font).toBe('16px oepl-font-missing-preview-ttf, sans-serif')
   })
 })

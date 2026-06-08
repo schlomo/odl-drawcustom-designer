@@ -4,8 +4,8 @@ import {
   iconSequenceBoxSize,
   resolveAnchoredBox,
   resolveDirection,
-  resolveNumericSize,
 } from './anchors'
+import { effectiveFontSize, effectiveNumber, effectiveString } from './element-defaults'
 import { mapColor } from './colors'
 import { resolveX, resolveY } from './coordinates'
 import type { RenderContext, RenderResult } from './types'
@@ -22,12 +22,12 @@ export function renderIconSequence(
   }
 
   const colorOptions = { accentMode: ctx.accentMode }
-  const direction = resolveDirection(element.direction)
-  const size = resolveNumericSize(element.size)
-  const spacing = element.spacing ?? size
+  const direction = resolveDirection(effectiveString(element, 'direction', 'right'))
+  const size = effectiveFontSize(element, 'size', 20)
+  const spacing = effectiveNumber(element, 'spacing', size / 4, 0)
   const { width, height } = iconSequenceBoxSize(size, element.icons.length, spacing, direction)
   const anchored = resolveAnchoredBox(
-    element.anchor,
+    effectiveString(element, 'anchor', ICON_DEFAULT_ANCHOR),
     resolveX(element.x, ctx),
     resolveY(element.y, ctx),
     width,
@@ -45,7 +45,7 @@ export function renderIconSequence(
       icons: element.icons,
       direction,
       spacing,
-      fill: mapColor(element.fill ?? 'black', colorOptions) ?? '#000000',
+      fill: mapColor(effectiveString(element, 'fill', 'black'), colorOptions) ?? '#000000',
     },
   }
 }

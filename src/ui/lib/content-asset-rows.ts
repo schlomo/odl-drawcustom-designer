@@ -2,8 +2,8 @@ import type { AssetKind, AssetResolutionStatus, DrawElement } from '../../core'
 import {
   BUNDLED_FONT_KEYS,
   guessMimeFromAssetKey,
-  isFontMime,
   isImageMime,
+  isSupportedFontKey,
   listContentMapKeys,
   resolveAsset,
   scanPayloadForAssets,
@@ -24,11 +24,11 @@ function inferAssetKind(key: string, fromScan?: AssetKind): AssetKind {
     return fromScan
   }
 
-  const resolution = resolveAsset(key)
-  const mime = resolution.mime ?? guessMimeFromAssetKey(key)
-  if (isFontMime(mime)) {
+  if (isSupportedFontKey(key) || bundledFontKeys.has(key)) {
     return 'font'
   }
+
+  const mime = resolveAsset(key).mime ?? guessMimeFromAssetKey(key)
   if (isImageMime(mime)) {
     return 'image'
   }

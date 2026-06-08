@@ -107,6 +107,9 @@ export interface SvgProgressBarStubPrimitive {
   fill: SvgRectPrimitive
   progress: number
   showPercentage?: boolean
+  percentageColor?: string
+  percentageFontSize?: number
+  percentageFontKey?: string
 }
 
 export interface SvgDebugGridStubPrimitive {
@@ -118,6 +121,22 @@ export interface SvgDebugGridStubPrimitive {
   dashed?: boolean
   dashLength?: number
   spaceLength?: number
+  showLabels?: boolean
+  labelStep?: number
+  labelColor?: string
+  labelFontSize?: number
+  labelFontKey?: string
+}
+
+export interface TextDrawLine {
+  /** Logical string (YAML / glyph coverage). */
+  text: string
+  /** Visual order for drawing (Unicode bidi). */
+  visualText: string
+  x: number
+  y: number
+  width: number
+  direction: 'ltr' | 'rtl'
 }
 
 export interface CanvasTextStubPrimitive {
@@ -130,9 +149,11 @@ export interface CanvasTextStubPrimitive {
   anchorY: number
   anchor?: string
   value: string
+  drawLines: TextDrawLine[]
   color: string
   fontSize: number
   font?: string
+  lineSpacing?: number
 }
 
 export interface CanvasMultilineStubPrimitive {
@@ -142,6 +163,7 @@ export interface CanvasMultilineStubPrimitive {
   width: number
   height: number
   lines: string[]
+  drawLines: TextDrawLine[]
   color: string
   fontSize: number
   font?: string
