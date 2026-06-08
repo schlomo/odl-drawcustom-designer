@@ -8,6 +8,15 @@ const isVitest = Boolean(process.env.VITEST)
 export default defineConfig({
   plugins: [react(), ...(isVitest ? [] : [tailwindcss()])],
   base: process.env.VITE_BASE_PATH ?? '/',
+  build: {
+    rollupOptions: {
+      output: {
+        assetFileNames: 'assets/[name]-[hash][extname]',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+      },
+    },
+  },
   resolve: {
     dedupe: [
       '@codemirror/state',
