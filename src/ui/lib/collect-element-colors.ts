@@ -1,8 +1,5 @@
 import type { DrawElement } from '../../core'
-import {
-  getPlotNestedPropertyKeys,
-  getPropertyEffectiveValue,
-} from '../../core/schema/propertyMetadata'
+import { getPlotNestedPropertyKeys, getPropertyEffectiveValue } from '../../core'
 
 const COLOR_PROPERTY_KEYS = new Set([
   'fill',

@@ -1,5 +1,5 @@
 import type { DrawElement, TagColorMode } from '../../core'
-import { getColorPreviewClampInfo } from '../../core/renderer/preview-paint'
+import { getColorPreviewClampInfo } from '../../core'
 import type { PreviewDitherMode } from '../preferences/displayConfig'
 import { collectElementColorValues } from './collect-element-colors'
 import type { StatusMessage } from './status-messages'

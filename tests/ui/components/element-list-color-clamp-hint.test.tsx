@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { ElementList } from '../../../src/ui/components/ElementList'
 
 describe('ElementList color clamp hint', () => {
