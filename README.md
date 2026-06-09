@@ -30,7 +30,7 @@ Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcus
 
 **Phase 4d** — undo/redo 50-step history (**committed** `fc35ccd`).
 
-**Phase 4e** — canvas edge snap (§18e).
+**Phase 4e** — canvas edge snap (**committed** `f07f004`).
 
 **Next:** Phase **4f** — HA embed preparation (§18f). Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §18.
 

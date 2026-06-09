@@ -71,6 +71,9 @@ todos:
   - id: phase4-edge-snap
     content: "§18e: canvas edge snap (bottom/right priority over grid)"
     status: completed
+  - id: phase4e-commit
+    content: "Commit Phase 4e after verification (§11r)"
+    status: completed
   - id: phase4-ha-embed
     content: "§18f: HA panel mode, drawcustom load/save, live state preview"
     status: pending
@@ -754,12 +757,12 @@ flowchart LR
 | **4b** Export + share | ✅ Done | `0bac3b6` | 636 (97 files) | Zoom, PNG/YAML export, `#d=pako` share, missing-asset banner |
 | **4c** Multi-select | ✅ Done | `adb3988` | 661 (102 files) | Marquee, Shift+click, bulk drag/nudge/layer, align toolbar |
 | **4d** Undo/redo | ✅ Done | `fc35ccd` | 708 (118 files) | 50-step stack, drag coalesce, session-persisted history, toolbar chrome |
-| **4e** Edge snap | ✅ Done | — | 724 (119 files) | Canvas bounds snap when grid on; bottom/right priority (§18e) |
-| **4f–4i** Polish | ⬜ Pending | — | — | HA embed, service options, deploy (§18f–h, §18i) |
+| **4e** Edge snap | ✅ Done | `f07f004` | 724 (119 files) | `snapBoundsToCanvas`, drag/resize/nudge, border guides |
+| **4f** HA embed | ⬜ **Next** | — | — | Dual runtime scaffolding (§18f) |
 | **4j** ODL alignment | ⬜ Pending | — | — | Cross-cutting schema/renderer parity with OpenDisplay Language (§18j) |
 | **4k–4r** UX + brand | ⬜ Pending | — | — | Load Demo header button (§18k); demo visible refactor (**§18m**); rebrand (§7.5 / §18r) |
 
-**Current repo health:** `npm test` → **724 passed** (119 files) · `npm run lint` → **clean** · last commit `fc35ccd`
+**Current repo health:** `npm test` → **724 passed** (119 files) · `npm run lint` → **clean** · last commit `f07f004`
 
 **Next:** Phase **4f** — HA embed preparation (§18f).
 
@@ -989,7 +992,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **4i** | **Display config** | Drop inch-based tag presets. **Resolution** dropdown (common WxH quick-picks + Custom → W/H inputs). **Color mode** dropdown (BW, BWR, BWY; scaffold **6-color** palette in types/renderer). |
 | **4c** | **Multi-select** | ✅ Marquee, Shift+click, bulk drag/nudge/layer, align toolbar, shared property form (`adb3988`). |
 | **4d** | **Undo/redo** | ✅ 50-step stack, drag coalesce, session-persisted `editHistory`, toolbar chrome (`fc35ccd`). |
-| **4e** | **Edge snap** | When snap on: snap to canvas outer bounds in addition to grid; **higher priority** for bottom and right edges. |
+| **4e** | **Edge snap** | ✅ `snapBoundsToCanvas` + guides; drag, resize, multi-select nudge (`f07f004`). |
 | **4f** | **HA embed prep** | Dual runtime: standalone vs HA panel. Load/save `drawcustom` payload from automation editor (if feasible). Live HA states for preview when embedded; standalone keeps State Simulator + global mocks. ADR-010 candidate. |
 | **4g** | **Service options** | `background`, `rotate`, `dither`, `ttl`, `dry-run` UI — schema exists. |
 | **4h** | **Ship** | GH Pages deploy; optional single Playwright smoke (load + add element). |
@@ -1223,7 +1226,7 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 | Undo/redo (50 steps) | ✅ (**4d**) | 4 |
 | Last-session restore on load | ✅ (**4a**) | 4a |
 | Global assets + mocks (not per project) | ✅ (**4a**) | 4a |
-| Canvas edge snap (bottom/right priority) | ✅ **4e** | 4 |
+| Canvas edge snap (bottom/right priority) | ✅ (**4e**) | 4 |
 | Share link restores name + canvas + elements (not assets/mocks) | ✅ (**4b**) | 4 |
 | HA embed: load/save drawcustom + live states | ⬜ **4f** (prep) | 4 |
 | Service options UI (`background`, `rotate`, `dither`, …) | ⬜ Schema only | 4g |
@@ -1319,7 +1322,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **4a–4e** ✅ through `fc35ccd` + §18e. **Current work:** **§18f–i**.
+- Phase **4a–4e** ✅ through `f07f004`. **Current work:** **§18f** (HA embed) → **§18g–i**.
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1529,6 +1532,14 @@ Delivered 2026-06-09. Edit history, undo/redo, toolbar chrome (ADR-013), session
 
 ---
 
+## 11r. Commit Phase 4e prompt ✅ (`f07f004`)
+
+Delivered 2026-06-09. Canvas edge snap, border guides, nudge batch snap.
+
+<!-- prompt archived — phase complete -->
+
+---
+
 ## 11c. Commit Phase 2 (partial) prompt ✅ (`84d2164`)
 
 Commit message used: `Phase 2a complete (YAML Editor)` — includes stabilization + UI shell + YamlEditor.
@@ -1658,7 +1669,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **§18c** ✅ (`adb3988`). **§18d** ✅ (`fc35ccd`). **§18e** ✅ (canvas edge snap). **Next: §18f** (HA embed).
+**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **§18c** ✅ (`adb3988`). **§18d** ✅ (`fc35ccd`). **§18e** ✅ (`f07f004`). **Next: §18f** (HA embed).
 
 **Plan cross-reference map:**
 
@@ -1783,7 +1794,7 @@ Delivered — see §7 Phase 4d. Key files: `edit-history.ts`, `useProjectState.t
 
 <!-- prompt archived — phase complete -->
 
-### §18e — Canvas edge snap ✅
+### §18e — Canvas edge snap ✅ (`f07f004`)
 
 - `snapBoundsToCanvas`, `snapPointToCanvas` in `src/ui/lib/snap-to-grid.ts`
 - Wired: `DesignerCanvas` drag/resize; `nudgeElementsAtIndices` batch (union bounds for multi-select)
@@ -1792,21 +1803,29 @@ Delivered — see §7 Phase 4d. Key files: `edit-history.ts`, `useProjectState.t
 
 <!-- prompt archived — phase complete -->
 
-### §18f — HA embed preparation
+### §18f — HA embed preparation ⬜ **Next**
+
+Read **ADR-010** (`docs/adr/ADR-010-ha-embed-mode.md`).
 
 ```
 Execute Phase 4f — dual runtime for Home Assistant embedding.
 
-Read ADR-010 (draft) when added. Spec: HA frontend panel / iframe patterns.
+Runtime detection:
+- Standalone (default): current app + State Simulator + global mocks
+- Embedded: ?embed=1 or postMessage handshake from parent frame
 
-Goals (feasibility spike + scaffolding):
-- Detect runtime: standalone vs embedded (query param, postMessage handshake, or HA-provided context)
-- Embedded: receive drawcustom payload from parent (automation/script editor)
-- Embedded: push saved payload back to parent on Save
-- Embedded: fetch live entity states from HA for template preview (REST or websocket — document auth/CORS constraints)
-- Standalone: unchanged State Simulator + global mocks
+Embedded contract (document in ADR-010):
+- Parent → designer: INIT with drawcustom payload (elements, canvas, service)
+- Designer → parent: SAVE with HA-clean YAML / payload on explicit Save
+- Live states: spike REST/websocket from HA host; document CORS/auth limits
 
-Out of scope for first pass: full HA PR / custom panel registration — deliver message contract + dev mock parent.
+Deliverables:
+- src/ui/embed/ or src/embed/ — detectRuntime(), postMessage bridge, types
+- App.tsx branches: hide Share/header chrome when embedded if needed
+- Dev mock parent: public/embed-mock.html or tests/fixtures for handshake
+- Tests: message round-trip, standalone unchanged
+
+Out of scope: HA custom panel PR, production auth.
 
 Next: docs/PLAN.md §18g
 ```
