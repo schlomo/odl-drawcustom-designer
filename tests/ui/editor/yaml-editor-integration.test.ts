@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { CompletionContext } from '@codemirror/autocomplete'
+import { indentWithTab } from '@codemirror/commands'
 import { forceLinting } from '@codemirror/lint'
 import { EditorState, Transaction } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
@@ -178,6 +179,34 @@ describe('yaml editor first-block integration', () => {
       changes: { from: 0, to: view!.state.doc.length, insert: replacement },
     })
     expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('offers boolean value completions for visible', () => {
+    const doc = `- type: text
+  value: Hi
+  x: 0
+  visible: 
+`
+    mountEditor(doc)
+    const pos = doc.indexOf('visible: ') + 'visible: '.length
+    const context = new CompletionContext(view!.state, pos, true)
+    const result = yamlSchemaCompletionSource(context)
+
+    expect(result).not.toBeNull()
+    expect(result!.options.map((option) => option.label)).toEqual(['true', 'false', 'True', 'False'])
+  })
+
+  it('indents the current line when Tab is pressed', () => {
+    const doc = `- type: text
+value: Hi
+`
+    mountEditor(doc)
+    const valueLineStart = doc.indexOf('value')
+    view!.dispatch({ selection: { anchor: valueLineStart, head: valueLineStart } })
+    view!.focus()
+
+    expect(indentWithTab.run!(view!)).toBe(true)
+    expect(view!.state.doc.line(2).text).toBe('  value: Hi')
   })
 
   it('reports user-initiated document edits', () => {

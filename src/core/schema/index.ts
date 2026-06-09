@@ -1,5 +1,6 @@
 export {
   COLOR_ALIASES,
+  CROSS_CUTTING_ELEMENT_FIELDS,
   anchorSchema,
   boolSchema,
   boolTemplateSchema,
@@ -28,6 +29,7 @@ export {
 export { payloadSchema, projectPayloadSchema, type Payload, type ProjectPayload } from './payload'
 export {
   ENUMS,
+  BOOLEAN_PROPERTY_KEYS,
   PROPERTIES_BY_TYPE,
   getElementTypeCompletions,
   getEnumCompletions,

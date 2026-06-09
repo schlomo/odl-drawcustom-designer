@@ -1,0 +1,5 @@
+- type: qrcode
+  data: hidden
+  x: 0
+  y: 0
+  visible: false

@@ -29,6 +29,7 @@ const debugGridSchema = z
     label_color: colorSchema.optional(),
     label_font_size: z.number().optional(),
     font: fontSchema,
+    visible: visibleSchema,
   })
   .strict()
 
@@ -128,6 +129,7 @@ const polygonSchema = z
     fill: colorSchema.optional(),
     outline: colorSchema.optional(),
     width: z.number().optional(),
+    visible: visibleSchema,
   })
   .strict()
 
@@ -169,6 +171,7 @@ const arcSchema = z
     fill: colorSchema.optional(),
     outline: colorSchema.optional(),
     width: z.number().optional(),
+    visible: visibleSchema,
   })
   .strict()
 

@@ -88,7 +88,10 @@ todos:
     status: completed
   - id: phase4-odl-alignment
     content: "§18j: OpenDisplay Language alignment, cross-cutting fields (visible on all types), ADR-012"
-    status: pending
+    status: completed
+  - id: phase4j-commit
+    content: "Commit Phase 4j after verification (§11t)"
+    status: completed
   - id: phase4-load-demo
     content: "§18k: remove sidebar Load Example; single Load Demo in header"
     status: pending
@@ -97,6 +100,9 @@ todos:
     status: pending
   - id: phase4-demo-visible
     content: "§18m: refactor showcase demo — debug_grid visible:false; stop fill:none invisibility hack"
+    status: pending
+  - id: phase4m-commit
+    content: "Commit Phase 4m after verification (§11u)"
     status: pending
   - id: yaml-jinja-editor
     content: "CodeMirror 6 YAML panel: syntax highlighting (YAML + embedded Jinja), schema-driven autocomplete, lint diagnostics"
@@ -765,17 +771,17 @@ flowchart LR
 | **4d** Undo/redo | ✅ Done | `fc35ccd` | 708 (118 files) | 50-step stack, drag coalesce, session-persisted history, toolbar chrome |
 | **4e** Edge snap | ✅ Done | `f07f004` | 724 (119 files) | `snapBoundsToCanvas`, drag/resize/nudge, border guides |
 | **4i** Display config | ✅ Done | `c07d3f1` | 812 (131 files) | Resolution picker, TagColorMode, palette clamp/WYSIWYG, color-clamp hints |
-| **4j** ODL + `visible` | ⬜ **Next** | — | — | Cross-cutting fields, ADR-012, gap report (§18j) |
-| **4m** Demo overlay | ⬜ Pending | — | — | `debug_grid` `visible: false` (§18m) |
+| **4j** ODL + `visible` | ✅ Done | TBD | 831 (131 files) | ADR-012, odl-gap-report, `visible` all 16 types, CROSS_CUTTING_ELEMENT_FIELDS |
+| **4m** Demo overlay | ⬜ **Next** | — | — | `debug_grid` `visible: false` (§18m) |
 | **4k** Load Demo | ⬜ Pending | — | — | Header button; drop Load Example (§18k) |
 | **4r** Rebrand | ⬜ Pending | — | — | Owner decision §7.5 (§18r) |
 | **4h** Ship | ⬜ Pending | — | — | GH Pages + smoke (§18h) |
 | **4f** HA embed | ⏸ **Post-v1** | — | — | HA dev sync; ADR-010 draft (§18f) |
 | **4g** Service options | ⏸ **Post-v1** | — | — | Schema only until HA alignment (§18g) |
 
-**Current repo health:** `npm test` → **812 passed** (131 files) · `npm run lint` → **clean** · last commit `a3b3344`
+**Current repo health:** `npm test` → **831 passed** (131 files) · `npm run lint` → **clean** · last commit TBD (4j pending docs)
 
-**Next:** Phase **4j** — ODL alignment + `visible` on all types (§18j). **Post-v1:** **4f** HA embed + **4g** service options.
+**Next:** Phase **4m** — showcase demo overlay (§18m). **Post-v1:** **4f** HA embed + **4g** service options.
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -1007,7 +1013,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **4f** | **HA embed prep** | ⏸ **Post-v1** — dual runtime / panel iframe; load-save `drawcustom`; live HA states. **Blocked:** discuss contract with HA devs before coding (ADR-010 draft only). |
 | **4g** | **Service options** | ⏸ **Post-v1** — `background`, `rotate`, `dither`, `ttl`, `dry-run` UI; schema exists; defer until HA integration alignment. |
 | **4h** | **Ship** | GH Pages deploy; optional single Playwright smoke (load + add element). |
-| **4j** | **ODL alignment** | OpenDisplay Language + Basic Standard future-proofing: cross-cutting element fields (`visible` on all types), spec audit table, ADR-012, color-scheme enum maps to §18i. |
+| **4j** | **ODL alignment** | ✅ ADR-012, `docs/spec/odl-gap-report.md`, `visible` on all 16 types, `CROSS_CUTTING_ELEMENT_FIELDS`, 16 visibility fixtures. |
 | **4k** | **Load Demo UX** | Remove sidebar Load Example dropdown + `example-designs.ts` catalog; one **Load Demo** button in header loads curated showcase dashboard (confirm/replace if session dirty). **Prerequisite:** **4m** demo YAML fixed. |
 | **4m** | **Demo visible refactor** | Showcase: `debug_grid` → `visible: false` (designer overlay); arc keeps legitimate `fill: none` + outline — not an invisibility stand-in. Fix `fill_none` hint false positives if needed. |
 | **4r** | **Rebrand** | Product + repo naming per §7.5 (decision pending — lean **odl-designer**). UI title, README, GH Pages path optional. |
@@ -1122,20 +1128,13 @@ flowchart TB
 
 Rotation in announcement (0/90/180/270) aligns with existing canvas rotation control.
 
-**Cross-cutting element fields — known gaps (fix in §18j):**
+**Cross-cutting element fields — ✅ fixed in §18j:**
 
-ODL documents `visible` on most types; neither ODL nor our upstream spec table lists it for **`debug_grid`**, **`polygon`**, or **`arc`**, but other types treat it as a universal optional field. Our implementation is **inconsistent**:
+| Type | ODL `visible` doc | Our Zod | Renderer | Property / completions |
+|------|-------------------|---------|----------|------------------------|
+| all 16 types | partial upstream | ✅ | ✅ | ✅ |
 
-| Type | ODL `visible` doc | Our Zod schema | Renderer `isVisible` | Property form / completions |
-|------|-------------------|----------------|----------------------|----------------------------|
-| debug_grid | ❌ not listed | ❌ | ❌ | ❌ |
-| polygon | ❌ not listed | ❌ | ❌ | ❌ |
-| arc | ❌ not listed | ❌ | ❌ | ❌ |
-| other 13 types | ✅ | ✅ | ✅ | ✅ |
-
-**§18j decision:** Add `visible` (template-capable, same as other types) to **all 16** draw types — schema, renderer, hit-test/hidden hints, property panel, and completions — so designer behavior matches user expectation and ODL can adopt the field without a breaking editor change. Track upstream ODL WIP for when official docs add it to polygon/arc/debug_grid.
-
-**Showcase demo bug (fix in §18m, soon after §18j):** `sample-elements.ts` uses `fill: none` on the **arc** (outline-only pie slice — correct on-tag geometry). Our `hidden-on-tag` / hint layer treats **any** `fill: none` as “invisible on tag,” which is wrong when **outline/stroke still renders**. The demo should not rely on that hack: assign the **designer-only overlay** role to **`debug_grid` with `visible: false`** once schema supports it. The arc stays a normal visible outline arc.
+**Showcase demo bug (fix in §18m — next):** `sample-elements.ts` arc uses valid outline-only geometry; demo overlay should use **`debug_grid` with `visible: false`** (§18m).
 
 **Other ODL notes (no v1 blockers):**
 
@@ -1243,9 +1242,9 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 | Share link restores name + canvas + elements (not assets/mocks) | ✅ (**4b**) | 4 |
 | HA embed: load/save drawcustom + live states | ⏸ **post-v1** (4f) | — |
 | Service options UI (`background`, `rotate`, `dither`, …) | ⏸ **post-v1** (schema only) | — |
-| Cross-cutting ODL fields (`visible` on all 16 types) | ⬜ **4j** | 4 |
+| Cross-cutting ODL fields (`visible` on all 16 types) | ✅ (**4j**) | 4 |
 | Showcase demo uses `visible: false` for overlay (not `fill: none` hack) | ⬜ **4m** | 4 |
-| OpenDisplay Language schema parity audit | ⬜ **4j** | 4 |
+| OpenDisplay Language schema parity audit | ✅ (**4j**) | 4 |
 | Real QR, plot, icons, parse_colors in preview | ✅ (**3c**–**3e**) | 3 |
 | Core test suite passes in CI | ✅ lint + test in workflow | — |
 | Tests assert behavior not implementation (ADR-011) | ✅ (**3g**) | 3g |
@@ -1335,7 +1334,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **4a–4i** ✅ through `c07d3f1`. **Current work:** **§18j** → **§18m/k/r** → **§18h**. **§18f** + **§18g** post-v1 (HA dev sync).
+- Phase **4a–4j** ✅. **Current work:** **§18m** → **§18k/r** → **§18h**. **§18f** + **§18g** post-v1 (HA dev sync).
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1561,13 +1560,21 @@ Delivered 2026-06-09. Resolution + color mode, palette clamp/WYSIWYG, 812 tests 
 
 ---
 
-## 11t. Commit Phase 4j prompt ⬜
+## 11t. Commit Phase 4j prompt ✅ (see code commit)
+
+Delivered 2026-06-09. ADR-012, odl-gap-report, visible on all 16 types, 831 tests.
+
+<!-- prompt archived — phase complete -->
+
+---
+
+## 11u. Commit Phase 4m prompt ⬜
 
 ```
-Commit Phase 4j after owner verification.
+Commit Phase 4m after owner verification.
 
-- Code commit: ODL alignment, visible on all 16 types, ADR-012, gap report
-- Docs commit: PLAN §7 tracker + §18j ✅, README Next → §18m, repo health counts
+- Code commit: showcase demo visible:false overlay, hidden-on-tag hint fixes
+- Docs commit: PLAN §7 tracker + §18m ✅, README Next → §18k, repo health counts
 
 Do not push unless I ask.
 ```
@@ -1703,7 +1710,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **§18c** ✅ (`adb3988`). **§18d** ✅ (`fc35ccd`). **§18e** ✅ (`f07f004`). **§18i** ✅ (`c07d3f1`). **Next: §18j** (ODL + `visible`). **§18f** + **§18g** → post-v1.
+**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a–i** ✅ through `c07d3f1`. **§18j** ✅ (4j commit TBD). **Next: §18m** (demo overlay). **§18f** + **§18g** → post-v1.
 
 **Plan cross-reference map:**
 
@@ -1805,15 +1812,15 @@ Key files: `docs/testing.md`, `docs/adr/ADR-011-behavior-test-policy.md`, `docs/
 | Step | Phase | §18 | Blocker / note |
 |------|-------|-----|----------------|
 | ~~1~~ | ~~4i~~ | ~~§18i~~ | ✅ `c07d3f1` |
-| **2 — now** | 4j | §18j | ODL alignment; `visible` on all 16 types |
-| 3 | 4m | §18m | Showcase demo overlay fix (**after 4j**) |
+| ~~2~~ | ~~4j~~ | ~~§18j~~ | ✅ ADR-012 + visible all 16 |
+| **3 — now** | 4m | §18m | Showcase demo overlay fix |
 | 4 | 4k | §18k | Load Demo header button (**after 4m**) |
 | 5 | 4r | §18r | Rebrand — **owner confirms slug** (§7.5) |
 | 6 | 4h | §18h | GH Pages deploy + smoke |
 
 **Post-v1 (do not schedule before ship):** §18f HA embed · §18g service options UI — both blocked on HA dev / integration alignment.
 
-**Completed:** §18a → §18b → §18c → §18d → §18e → **§18i**.
+**Completed:** §18a → §18b → §18c → §18d → §18e → **§18i** → **§18j**.
 
 ### §18a — Storage reshape (Phase 4a) ✅ (`5ad7e6f`)
 
@@ -1923,77 +1930,55 @@ Key files: `src/core/display/`, `src/ui/data/resolution-picks.ts`, `Sidebar.tsx`
 
 <!-- prompt archived — phase complete -->
 
-### §18j — OpenDisplay Language alignment + cross-cutting fields ⬜ **Next**
+### §18j — OpenDisplay Language alignment + cross-cutting fields ✅
 
-Read **§7.4**, [ODL spec](https://opendisplay.org/protocol/open-display-language.html), [Basic Standard](https://opendisplay.org/protocol/basic-standard.html) (color schemes only), and `docs/spec/supported_types.md`.
+Delivered 2026-06-09:
 
-```
-Execute Phase 4j — future-proof language/schema parity with OpenDisplay Language.
+- `docs/adr/ADR-012-odl-drawcustom-strategy.md` — dual-spec strategy, colour_scheme mapping, extension rules
+- `docs/spec/odl-gap-report.md` — type × field parity audit
+- `CROSS_CUTTING_ELEMENT_FIELDS = ['visible']` in `src/core/schema/common.ts`
+- `visible` on debug_grid, polygon, arc — Zod, renderer (`isVisible`), completions, property panel
+- `tests/fixtures/elements/visibility/*.yaml` — one fixture per draw type; `visibility.test.ts` sweeps all 16
 
-Workspace: oepl-designer/ repo root. Follow .cursor/rules/ (no React in src/core/).
-Prerequisite: §18i ✅ (c07d3f1) — TagColorMode in src/core/display/palette.ts.
+Key files: `elements.ts`, `completions.ts`, `debug-grid.ts`, `polygon.ts`, `arc.ts`, `visibility.test.ts`
 
-## 1. ADR-012 — docs/adr/ADR-012-odl-drawcustom-strategy.md
-- Editor targets ODL element + service semantics; export stays HA drawcustom-compatible
-- Basic Standard colour_scheme ↔ TagColorMode (§7.4; include four/six/rgb from 4i)
-- Extension rules for new ODL fields; post-v1 wire-format export note
+<!-- prompt archived — phase complete -->
 
-## 2. Cross-cutting `visible` on ALL 16 types
-Gap: debug_grid, polygon, arc lack visible in Zod, renderer, completions, property UI.
+### §18m — Showcase demo: `visible: false` overlay (not `fill: none`) ⬜ **Next**
 
-- Zod: visibleSchema on debug_grid, polygon, arc in src/core/schema/elements.ts
-- Renderer: isVisible() guard in debug-grid.ts, polygon.ts, arc.ts
-- completions.ts PROPERTIES_BY_TYPE: add visible to those three types
-- Property panel: visible toggle for every type (getVisibleProperties)
-- Canvas: hidden-element hints + hit-test skip when visible false
-- Tests: tests/core/renderer/visibility.test.ts — sweep all DRAW_ELEMENT_TYPES
-
-## 3. Spec audit — docs/spec/odl-gap-report.md (or ADR-012 appendix)
-Table: draw type × ODL fields vs schema vs renderer vs property UI
-Flag deltas: multiline.parse_colors, icon color alias
-Note ODL WIP; no auto-sync supported_types.md until upstream stabilizes
-
-## 4. Optional (only if it reduces duplication cleanly)
-CROSS_CUTTING_ELEMENT_FIELDS = ['visible'] for schema/propertyMetadata
-
-## Out of scope
-- Basic Standard binary packet encoding
-- §18m demo refactor (next after this)
-- HA embed (4f) / service options UI (4g)
-
-## Acceptance
-- npm run lint && npm test && npm run build — all green
-- visibility.test.ts covers all 16 types
-
-Do not commit unless I ask. End with: "Next prompt: docs/PLAN.md §18m"
-```
-
-### §18m — Showcase demo: `visible: false` overlay (not `fill: none`)
-
-**Prerequisite:** §18j (`visible` on `debug_grid` at minimum).
-
-**Problem:** `src/ui/data/sample-elements.ts` showcase arc uses `fill: none` + `outline: black` as a **valid outline-only arc**. `hidden-on-tag.ts` / `hidden-element-hints.ts` treat any `fill: none` as tag-invisible, which is wrong when stroke still draws on the tag. The demo should not rely on that hack: assign the **designer-only overlay** to **`debug_grid` with `visible: false`**. The arc stays a normal visible outline arc.
+**Prerequisite:** §18j ✅ — `visible` on `debug_grid`.
 
 ```
 Execute Phase 4m — refactor showcase demo invisibility model.
 
-sample-elements.ts:
-- debug_grid: add visible: false (designer overlay; ghost hint when "Invisible" toggle on)
-- arc: keep fill: none + outline — normal arc geometry, NOT invisibility
+Workspace: oepl-designer/ repo root. Follow .cursor/rules/.
 
-hidden-on-tag / hints (minimal fix if still wrong after demo change):
-- Do NOT treat fill: none on arc/polygon/rectangle as tag-invisible when outline/stroke would still render
-- Keep fill: none → invisible semantics for icon / icon_sequence (spec: no fill on tag)
+## Problem
+sample-elements.ts showcase arc uses fill: none + outline (valid outline-only arc on tag).
+hidden-on-tag.ts / hidden-element-hints.ts treat ANY fill: none as tag-invisible — wrong when
+outline/stroke still renders. Demo should use debug_grid visible: false for designer overlay.
+
+## Changes
+
+### sample-elements.ts
+- debug_grid: add visible: false (designer overlay; ghost when "Invisible" toggle on)
+- arc: keep fill: none + outline — normal geometry, NOT invisibility stand-in
+
+### hidden-on-tag / hidden-element-hints (minimal if still wrong after demo change)
+- Do NOT treat fill: none on arc/polygon/rectangle as tag-invisible when outline/stroke renders
+- Keep fill: none → invisible for icon / icon_sequence (spec: no fill on tag)
 - Keep templated fill: none after preview (existing tests)
 
-Tests:
-- sample-elements: debug_grid has visible false; arc still renders outline on canvas
-- hidden-element-hints: arc with fill none + outline does NOT get fill_none ghost reason
-- bootstrap / showcase tests updated
+## Tests
+- sample-elements: debug_grid has visible: false; arc still renders outline on canvas
+- hidden-element-hints: arc fill none + outline does NOT get fill_none ghost reason
+- bootstrap / showcase tests updated if needed
 
-Do before §18k Load Demo so the one demo payload is correct.
+## Acceptance
+- npm run lint && npm test && npm run build — all green
+- Do before §18k Load Demo
 
-Next: docs/PLAN.md §18k
+Do not commit unless I ask. End with: "Next prompt: docs/PLAN.md §18k"
 ```
 
 ### §18k — Load Demo (replace Load Example)

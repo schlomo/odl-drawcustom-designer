@@ -1,0 +1,4 @@
+- type: plot
+  data:
+    - entity: sensor.temperature
+  visible: false

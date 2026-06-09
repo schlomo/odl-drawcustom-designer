@@ -3,6 +3,7 @@ import { effectiveBool, effectiveNumber, effectiveString, resolveShapePaintFallb
 import { DEFAULT_FONT_KEY } from './fonts'
 import { paintOptionsFromContext } from './preview-paint'
 import type { RenderContext, RenderResult } from './types'
+import { isVisible } from './visibility'
 
 type DebugGridElement = Extract<DrawElement, { type: 'debug_grid' }>
 
@@ -10,6 +11,10 @@ export function renderDebugGrid(
   element: DebugGridElement,
   ctx: RenderContext,
 ): RenderResult | null {
+  if (!isVisible(element.visible)) {
+    return null
+  }
+
   const paintOptions = paintOptionsFromContext(ctx)
 
   return {

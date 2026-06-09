@@ -60,6 +60,9 @@ export const boolTemplateSchema = z.union([boolSchema, jinjaTemplateStringSchema
 
 export const visibleSchema = boolTemplateSchema.optional()
 
+/** Cross-cutting fields on all 16 draw types (ADR-012). */
+export const CROSS_CUTTING_ELEMENT_FIELDS = ['visible'] as const
+
 export const fontSchema = z.string().optional()
 
 export const anchorSchema = z.string().optional()

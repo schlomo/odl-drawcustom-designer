@@ -3,10 +3,15 @@ import { effectiveStrokeWidth, resolveShapePaint } from './element-defaults'
 import { resolveX, resolveY } from './coordinates'
 import { paintOptionsFromContext } from './preview-paint'
 import type { RenderContext, RenderResult } from './types'
+import { isVisible } from './visibility'
 
 type ArcElement = Extract<DrawElement, { type: 'arc' }>
 
 export function renderArc(element: ArcElement, ctx: RenderContext): RenderResult | null {
+  if (!isVisible(element.visible)) {
+    return null
+  }
+
   const paintOptions = paintOptionsFromContext(ctx)
 
   return {

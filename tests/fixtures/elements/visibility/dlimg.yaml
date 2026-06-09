@@ -1,0 +1,7 @@
+- type: dlimg
+  url: https://example.com/image.png
+  x: 0
+  y: 0
+  xsize: 10
+  ysize: 10
+  visible: false

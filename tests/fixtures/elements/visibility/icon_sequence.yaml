@@ -1,0 +1,6 @@
+- type: icon_sequence
+  x: 0
+  y: 0
+  icons: [account]
+  size: 24
+  visible: false

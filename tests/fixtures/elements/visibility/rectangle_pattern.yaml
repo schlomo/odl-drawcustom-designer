@@ -1,0 +1,10 @@
+- type: rectangle_pattern
+  x_start: 0
+  x_size: 10
+  x_offset: 2
+  y_start: 0
+  y_size: 10
+  y_offset: 2
+  x_repeat: 1
+  y_repeat: 1
+  visible: false

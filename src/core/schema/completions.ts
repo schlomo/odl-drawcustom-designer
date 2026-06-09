@@ -1,6 +1,7 @@
 import {
   COLOR_ALIASES,
   CORNERS_OPTIONS,
+  CROSS_CUTTING_ELEMENT_FIELDS,
   DIRECTION_OPTIONS,
   GRID_STYLE_OPTIONS,
   LINE_STYLE_OPTIONS,
@@ -32,6 +33,7 @@ export const PROPERTIES_BY_TYPE: Record<(typeof DRAW_ELEMENT_TYPES)[number], rea
     'label_color',
     'label_font_size',
     'font',
+    ...CROSS_CUTTING_ELEMENT_FIELDS,
   ],
   text: [
     'value',
@@ -102,10 +104,20 @@ export const PROPERTIES_BY_TYPE: Record<(typeof DRAW_ELEMENT_TYPES)[number], rea
     'width',
     'visible',
   ],
-  polygon: ['points', 'fill', 'outline', 'width'],
+  polygon: ['points', 'fill', 'outline', 'width', ...CROSS_CUTTING_ELEMENT_FIELDS],
   circle: ['x', 'y', 'radius', 'fill', 'outline', 'width', 'visible'],
   ellipse: ['x_start', 'x_end', 'y_start', 'y_end', 'fill', 'outline', 'width', 'visible'],
-  arc: ['x', 'y', 'radius', 'start_angle', 'end_angle', 'fill', 'outline', 'width'],
+  arc: [
+    'x',
+    'y',
+    'radius',
+    'start_angle',
+    'end_angle',
+    'fill',
+    'outline',
+    'width',
+    ...CROSS_CUTTING_ELEMENT_FIELDS,
+  ],
   icon: ['value', 'x', 'y', 'size', 'fill', 'anchor', 'visible'],
   icon_sequence: ['x', 'y', 'icons', 'size', 'direction', 'spacing', 'fill', 'anchor', 'visible'],
   dlimg: ['url', 'x', 'y', 'xsize', 'ysize', 'resize_method', 'rotate', 'visible'],
@@ -175,7 +187,23 @@ export const ENUMS = {
   corners: CORNERS_OPTIONS,
   dither: ['0', '1', '2'] as const,
   dry_run: ['true', 'false', 'True', 'False'] as const,
+  boolean: ['true', 'false', 'True', 'False'] as const,
 } as const
+
+/** Element property keys that accept boolSchema / boolTemplateSchema values in YAML. */
+export const BOOLEAN_PROPERTY_KEYS = new Set([
+  'visible',
+  'dashed',
+  'parse_colors',
+  'truncate',
+  'show_percentage',
+  'show_labels',
+  'round_values',
+  'debug',
+  'smooth',
+  'show_points',
+  'snap_to_hours',
+])
 
 export function getElementTypeCompletions(): CompletionEntry[] {
   return DRAW_ELEMENT_TYPES.map((type) => ({

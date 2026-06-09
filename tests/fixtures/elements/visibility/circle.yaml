@@ -1,0 +1,5 @@
+- type: circle
+  x: 10
+  y: 10
+  radius: 5
+  visible: false

@@ -44,6 +44,7 @@ export {
   payloadSchema,
   serviceOptionsSchema,
   PROPERTIES_BY_TYPE,
+  BOOLEAN_PROPERTY_KEYS,
   ENUMS,
   getElementTypeCompletions,
   getPropertyCompletions,

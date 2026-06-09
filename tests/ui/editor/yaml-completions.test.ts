@@ -120,6 +120,18 @@ describe('resolveYamlCompletionContext', () => {
     })
   })
 
+  it('detects boolean enum completion for visible', () => {
+    expect(resolveYamlCompletionContext('  visible: ', 'text')).toEqual({
+      kind: 'enum',
+      enumName: 'boolean',
+    })
+    expect(resolveYamlCompletionContext('  visible: t', 'text')).toEqual({
+      kind: 'enum',
+      enumName: 'boolean',
+      prefix: 't',
+    })
+  })
+
   it('detects icon name completion on icon value', () => {
     expect(resolveYamlCompletionContext('  value: hom', 'icon')).toEqual({
       kind: 'icon-name',
@@ -186,6 +198,19 @@ describe('completionEntriesForContext', () => {
     expect(entries.some((e) => e.label === 'black')).toBe(true)
   })
 
+  it('returns true/false for boolean enum', () => {
+    const entries = completionEntriesForContext({ kind: 'enum', enumName: 'boolean' })
+    expect(entries.map((e) => e.label)).toEqual(['true', 'false', 'True', 'False'])
+  })
+
+  it('filters boolean enum values by prefix', () => {
+    const entries = completionEntriesForContext({ kind: 'enum', enumName: 'boolean', prefix: 'f' })
+    expect(entries.map((e) => e.label)).toEqual(['false'])
+    expect(completionEntriesForContext({ kind: 'enum', enumName: 'boolean', prefix: 'F' }).map((e) => e.label)).toEqual([
+      'False',
+    ])
+  })
+
   it('returns MDI icon names for icon-name context', () => {
     const entries = completionEntriesForContext({ kind: 'icon-name', prefix: 'home' })
     expect(entries.length).toBeGreaterThan(0)
@@ -234,5 +259,22 @@ describe('element type completion apply', () => {
       (option) => option.label === 'circle',
     )
     expect(typeof circle?.apply).toBe('function')
+  })
+
+  it('inserts colon and space when applying property key completions', () => {
+    const [value] = completionsFromContext({ kind: 'property', elementType: 'text' }).filter(
+      (option) => option.label === 'value',
+    )
+    expect(value?.apply).toBe('value: ')
+
+    const [visible] = completionsFromContext({ kind: 'property', elementType: 'text' }).filter(
+      (option) => option.label === 'visible',
+    )
+    expect(visible?.apply).toBe('visible: ')
+
+    const [type] = completionsFromContext({ kind: 'list-item-key' }).filter(
+      (option) => option.label === 'type',
+    )
+    expect(type?.apply).toBe('type: ')
   })
 })

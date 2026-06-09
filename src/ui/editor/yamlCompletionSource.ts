@@ -42,9 +42,7 @@ export function completionInsertFrom(
   }
 
   if (completionContext.kind === 'enum') {
-    const enumMatch = lineBefore.match(
-      /^(\s+(?:color|fill|outline|background|line_color|label_color|bgcolor|direction|resize_method):\s*"?)(\w*)$/,
-    )
+    const enumMatch = lineBefore.match(/^(\s+\w+:\s*"?)(\w*)$/)
     if (enumMatch) {
       return line.from + enumMatch[1]!.length
     }

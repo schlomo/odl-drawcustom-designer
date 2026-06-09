@@ -1,5 +1,6 @@
 import type { Completion } from '@codemirror/autocomplete'
 import {
+  BOOLEAN_PROPERTY_KEYS,
   DRAW_ELEMENT_TYPES,
   type CompletionEntry,
   getElementTypeCompletions,
@@ -16,7 +17,7 @@ export type YamlCompletionContext =
   | { kind: 'element-type'; prefix?: string }
   | { kind: 'list-item-key'; prefix?: string }
   | { kind: 'property'; elementType: (typeof DRAW_ELEMENT_TYPES)[number]; prefix?: string }
-  | { kind: 'enum'; enumName: 'color' | 'direction' | 'resize_method'; prefix?: string }
+  | { kind: 'enum'; enumName: 'color' | 'direction' | 'resize_method' | 'boolean'; prefix?: string }
   | { kind: 'icon-name'; prefix?: string }
 
 type YamlEnumName = Extract<YamlCompletionContext, { kind: 'enum' }>['enumName']
@@ -119,16 +120,20 @@ export function resolveYamlCompletionContext(
       : { kind: 'list-item-key', prefix }
   }
 
-  const enumMatch = lineBeforeCursor.match(
-    /^\s+(color|fill|outline|background|line_color|label_color|bgcolor|direction|resize_method):\s*"?(\w*)$/,
-  )
-  if (enumMatch) {
-    const enumName = PROPERTY_ENUM_KEYS[enumMatch[1] ?? '']
+  const propertyValueMatch = lineBeforeCursor.match(/^\s+(\w+):\s*"?(\w*)$/)
+  if (propertyValueMatch) {
+    const key = propertyValueMatch[1] ?? ''
+    const prefix = propertyValueMatch[2]
+    const enumName = PROPERTY_ENUM_KEYS[key]
     if (enumName) {
-      const prefix = enumMatch[2]
       return prefix === undefined || prefix.length === 0
         ? { kind: 'enum', enumName }
         : { kind: 'enum', enumName, prefix }
+    }
+    if (BOOLEAN_PROPERTY_KEYS.has(key)) {
+      return prefix === undefined || prefix.length === 0
+        ? { kind: 'enum', enumName: 'boolean' }
+        : { kind: 'enum', enumName: 'boolean', prefix }
     }
   }
 
@@ -253,8 +258,8 @@ function toCodemirrorCompletion(
     detail: entry.detail,
   }
 
-  if (entry.kind === 'property' && entry.label === 'type') {
-    completion.apply = 'type: '
+  if (entry.kind === 'property') {
+    completion.apply = `${entry.label}: `
   }
 
   if (context.kind === 'element-type' && entry.kind === 'type' && isDrawElementType(entry.label)) {

@@ -1,0 +1,7 @@
+- type: arc
+  x: 10
+  y: 10
+  radius: 5
+  start_angle: 0
+  end_angle: 90
+  visible: false

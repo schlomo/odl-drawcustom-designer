@@ -1,0 +1,5 @@
+- type: text
+  value: Hidden
+  x: 0
+  y: 0
+  visible: false

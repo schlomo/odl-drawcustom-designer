@@ -1,0 +1,6 @@
+- type: multiline
+  value: a|b
+  delimiter: '|'
+  x: 0
+  offset_y: 10
+  visible: false

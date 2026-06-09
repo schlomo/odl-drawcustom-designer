@@ -1,6 +1,6 @@
 import { closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete'
-import { defaultKeymap, historyKeymap } from '@codemirror/commands'
-import { foldKeymap } from '@codemirror/language'
+import { defaultKeymap, historyKeymap, indentWithTab } from '@codemirror/commands'
+import { foldKeymap, indentUnit } from '@codemirror/language'
 import { lintKeymap } from '@codemirror/lint'
 import { searchKeymap } from '@codemirror/search'
 import { Compartment, EditorState } from '@codemirror/state'
@@ -29,6 +29,7 @@ export const yamlThemeCompartment = new Compartment()
 
 export function yamlEditorKeymap() {
   return keymap.of([
+    indentWithTab,
     ...closeBracketsKeymap,
     ...defaultKeymap,
     ...searchKeymap,
@@ -64,6 +65,8 @@ export function createYamlEditorState(
   return EditorState.create({
     doc,
     extensions: [
+      indentUnit.of('  '),
+      EditorState.tabSize.of(2),
       jinjaBraceInputHandler(),
       ...basicSetup(YAML_EDITOR_BASIC_SETUP),
       yamlCloseBrackets(),
