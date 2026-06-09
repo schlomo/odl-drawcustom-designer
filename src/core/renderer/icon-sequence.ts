@@ -6,9 +6,10 @@ import {
   resolveAnchoredBox,
   resolveDirection,
 } from './anchors'
-import { effectiveFontSize, effectiveNumber, effectiveString, resolveIconFillColor } from './element-defaults'
+import { effectiveFontSize, effectiveNumber, effectiveString, resolveIconPaint } from './element-defaults'
 import { resolveX, resolveY } from './coordinates'
 import { resolveMdiPath } from './mdi-icons'
+import { paintOptionsFromContext } from './preview-paint'
 import type { RenderContext, RenderResult } from './types'
 import { isVisible } from './visibility'
 
@@ -22,7 +23,7 @@ export function renderIconSequence(
     return null
   }
 
-  const colorOptions = { accentMode: ctx.accentMode }
+  const paintOptions = paintOptionsFromContext(ctx)
   const direction = resolveDirection(effectiveString(element, 'direction', 'right'))
   const size = effectiveFontSize(element, 'size', 20)
   const spacing = effectiveNumber(element, 'spacing', size / 4, 0)
@@ -53,7 +54,7 @@ export function renderIconSequence(
       size,
       direction,
       spacing,
-      fill: resolveIconFillColor(element, 'fill', 'black', colorOptions),
+      fill: resolveIconPaint(element, 'fill', 'black', paintOptions),
       icons: element.icons.map((name, index) => ({
         name,
         path: resolveMdiPath(name),

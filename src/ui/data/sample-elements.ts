@@ -6,7 +6,7 @@ export const SAMPLE_CANVAS: DisplayConfig = {
   width: 800,
   height: 480,
   rotation: 0,
-  accentMode: 'red',
+  colorMode: 'bwr',
   previewDitherMode: 0,
 }
 

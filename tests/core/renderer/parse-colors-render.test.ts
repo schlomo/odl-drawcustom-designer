@@ -14,7 +14,7 @@ describe('parse_colors text rendering', () => {
     const element = elements[0]
     expect(element.type).toBe('text')
 
-    const result = renderText(element, { width: 400, height: 200, accentMode: 'red' })
+    const result = renderText(element, { width: 400, height: 200, colorMode: 'bwr' })
     expect(result?.layer).toBe('canvas')
 
     const primitive = result?.primitive as CanvasTextStubPrimitive
@@ -28,7 +28,7 @@ describe('parse_colors text rendering', () => {
   it('keeps accent segment names for yellow tag preview', () => {
     const yaml = readFileSync(join(fixtureRoot, 'parse-colors-text.yaml'), 'utf8')
     const elements = parseYamlPayload(yaml)
-    const result = renderText(elements[0], { width: 400, height: 200, accentMode: 'yellow' })
+    const result = renderText(elements[0], { width: 400, height: 200, colorMode: 'bwy' })
     const primitive = result?.primitive as CanvasTextStubPrimitive
     expect(primitive.drawLines[0]?.colorSegments?.[1]?.color).toBe('accent')
   })

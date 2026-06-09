@@ -1,7 +1,7 @@
 import type { DrawElement } from '../schema/elements'
-import { mapColor } from './colors'
-import { effectiveColorName, effectiveString, effectiveStrokeWidth } from './element-defaults'
+import { effectiveStrokeWidth, resolveShapePaint } from './element-defaults'
 import { resolveX, resolveY } from './coordinates'
+import { paintOptionsFromContext } from './preview-paint'
 import type { RenderContext, RenderResult } from './types'
 import { isVisible } from './visibility'
 
@@ -12,15 +12,15 @@ export function renderCircle(element: CircleElement, ctx: RenderContext): Render
     return null
   }
 
-  const colorOptions = { accentMode: ctx.accentMode }
+  const paintOptions = paintOptionsFromContext(ctx)
 
   const primitive = {
     kind: 'circle' as const,
     cx: resolveX(element.x, ctx),
     cy: resolveY(element.y, ctx),
     r: element.radius,
-    fill: mapColor(effectiveColorName(element, 'fill'), colorOptions),
-    stroke: mapColor(effectiveString(element, 'outline', 'black'), colorOptions) ?? undefined,
+    fill: resolveShapePaint(element, 'fill', paintOptions),
+    stroke: resolveShapePaint(element, 'outline', paintOptions, 'black') ?? undefined,
     strokeWidth: effectiveStrokeWidth(element, 'width', 1),
   }
 

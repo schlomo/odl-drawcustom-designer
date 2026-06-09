@@ -1,16 +1,21 @@
+import type { TagColorMode } from '../display/palette'
+
+export type { TagColorMode } from '../display/palette'
 export type AccentMode = 'red' | 'yellow'
 export type DitherMode = 0 | 1 | 2
 
 export interface RenderContext {
   width: number
   height: number
-  accentMode: AccentMode
+  colorMode: TagColorMode
   ditherMode?: DitherMode
   /** Designer canvas: show ghost overlays for elements hidden on the tag. Off for export. */
   showHiddenHints?: boolean
 }
 
 export interface ColorOptions {
+  colorMode?: TagColorMode
+  /** Legacy — prefer `colorMode`; red→bwr, yellow→bwy when colorMode omitted. */
   accentMode?: AccentMode
   ditherMode?: DitherMode
 }

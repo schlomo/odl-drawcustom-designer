@@ -205,6 +205,54 @@ export function formatCanvasPointerCoords(
   return `${refined.x}, ${refined.y}`
 }
 
-export function paperTransform(rotation: CanvasRotation, scale: number): string {
-  return `rotate(${rotation}deg) scale(${scale})`
+/** Map a canvas-space point to stage-local pixels (matches pointer hit-test inverse). */
+export function mapCanvasPointToStageLocal(
+  cx: number,
+  cy: number,
+  canvasWidth: number,
+  canvasHeight: number,
+  rotation: CanvasRotation,
+  scale: number,
+): { x: number; y: number } {
+  switch (rotation) {
+    case 0:
+      return { x: cx * scale, y: cy * scale }
+    case 90:
+      return { x: (canvasHeight - cy) * scale, y: cx * scale }
+    case 180:
+      return { x: (canvasWidth - cx) * scale, y: (canvasHeight - cy) * scale }
+    case 270:
+      return { x: cy * scale, y: (canvasWidth - cx) * scale }
+    default: {
+      const _exhaustive: never = rotation
+      return _exhaustive
+    }
+  }
+}
+
+/** CSS matrix for rotate+scale with top-left origin; keeps content inside the stage envelope. */
+export function paperTransform(
+  rotation: CanvasRotation,
+  scale: number,
+  canvasWidth: number,
+  canvasHeight: number,
+): string {
+  const w = canvasWidth
+  const h = canvasHeight
+  const s = scale
+
+  switch (rotation) {
+    case 0:
+      return `matrix(${s}, 0, 0, ${s}, 0, 0)`
+    case 90:
+      return `matrix(0, ${s}, ${-s}, 0, ${h * s}, 0)`
+    case 180:
+      return `matrix(${-s}, 0, 0, ${-s}, ${w * s}, ${h * s})`
+    case 270:
+      return `matrix(0, ${-s}, ${s}, 0, 0, ${w * s})`
+    default: {
+      const _exhaustive: never = rotation
+      return _exhaustive
+    }
+  }
 }

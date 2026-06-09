@@ -1,4 +1,10 @@
 import type { DrawElement, ServiceOptions } from '../core'
+import {
+  accentModeToColorMode,
+  colorModeToAccent,
+  isTagColorMode,
+  type TagColorMode,
+} from '../core/display/palette'
 import type { DisplayConfig } from '../ui/preferences/displayConfig'
 
 export const SHARE_PAYLOAD_VERSION = 1 as const
@@ -7,7 +13,9 @@ export interface ShareCanvas {
   width: number
   height: number
   rotation: 0 | 90 | 180 | 270
+  /** v1 share links — kept for backward compatibility. */
   accent: 'red' | 'yellow'
+  colorMode?: TagColorMode
 }
 
 export interface SharePayload {
@@ -33,7 +41,8 @@ export function buildSharePayload(input: ShareBuildInput): SharePayload {
       width: input.canvas.width,
       height: input.canvas.height,
       rotation: input.canvas.rotation,
-      accent: input.canvas.accentMode,
+      accent: colorModeToAccent(input.canvas.colorMode),
+      colorMode: input.canvas.colorMode,
     },
     elements: input.elements,
   }
@@ -54,11 +63,16 @@ export function shareCanvasToDisplayConfig(
   canvas: ShareCanvas,
   previewDitherMode: DisplayConfig['previewDitherMode'],
 ): DisplayConfig {
+  const colorMode =
+    canvas.colorMode != null && isTagColorMode(canvas.colorMode)
+      ? canvas.colorMode
+      : accentModeToColorMode(canvas.accent)
+
   return {
     width: canvas.width,
     height: canvas.height,
     rotation: canvas.rotation,
-    accentMode: canvas.accent,
+    colorMode,
     previewDitherMode,
   }
 }

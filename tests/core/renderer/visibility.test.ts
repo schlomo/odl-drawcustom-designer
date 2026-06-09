@@ -7,7 +7,7 @@ import { renderRectangle } from '../../../src/core/renderer/rectangle'
 import { renderText } from '../../../src/core/renderer/text'
 import type { RenderContext } from '../../../src/core/renderer/types'
 
-const context: RenderContext = { width: 400, height: 200, accentMode: 'red' }
+const context: RenderContext = { width: 400, height: 200, colorMode: 'bwr' }
 
 describe('renderer visibility', () => {
   it('treats unevaluated visible templates as visible until preview', () => {

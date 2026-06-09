@@ -7,7 +7,7 @@ import {
   type HaMockContext,
   type ServiceOptions,
 } from '../../core'
-import type { AccentMode, AssetKind, AssetUploadResult, RenderContext } from '../../core'
+import type { AssetKind, AssetUploadResult, RenderContext, TagColorMode } from '../../core'
 import { applyTemplateContextToPayload, scanPayloadForTemplates } from '../../core'
 import {
   persistAsset,
@@ -17,7 +17,6 @@ import {
 import type { AppBootstrap } from '../bootstrap/appBootstrap'
 import type { PersistedEditHistory, SessionEditSnapshot } from '../../storage'
 import { EXAMPLE_DESIGNS } from '../data/example-designs'
-import { DISPLAY_PRESETS, isCustomDisplayPreset } from '../data/display-presets'
 import { alignElementsInUnion, type ElementAlign } from '../lib/align-elements'
 import { applyElementUpdates, nudgeElementsAtIndices } from '../lib/batch-element-updates'
 import {
@@ -121,7 +120,7 @@ export interface CanvasConfig {
   width: number
   height: number
   rotation: CanvasRotation
-  accentMode: AccentMode
+  colorMode: TagColorMode
   previewDitherMode: PreviewDitherMode
 }
 
@@ -223,12 +222,6 @@ export function useProjectState(bootstrap: AppBootstrap) {
       const nextElements = structuredClone(snapshot.elements)
       elementsRef.current = nextElements
       setElements(nextElements)
-      const nextCanvas = { ...snapshot.canvas }
-      canvasRef.current = nextCanvas
-      setCanvas(nextCanvas)
-      const nextService = snapshot.service ? { ...snapshot.service } : undefined
-      serviceRef.current = nextService
-      setService(nextService)
       const nextSelection = clampSelectedIndices(snapshot.selectedIndices, snapshot.elements.length)
       selectedIndicesRef.current = nextSelection
       setSelectedIndices(nextSelection)
@@ -324,11 +317,11 @@ export function useProjectState(bootstrap: AppBootstrap) {
     () => ({
       width: canvas.width,
       height: canvas.height,
-      accentMode: canvas.accentMode,
+      colorMode: canvas.colorMode,
       ditherMode: canvas.previewDitherMode,
       showHiddenHints,
     }),
-    [canvas.width, canvas.height, canvas.accentMode, canvas.previewDitherMode, showHiddenHints],
+    [canvas.width, canvas.height, canvas.colorMode, canvas.previewDitherMode, showHiddenHints],
   )
 
   const previewElements = useMemo(
@@ -384,41 +377,32 @@ export function useProjectState(bootstrap: AppBootstrap) {
     [commitSelectedIndices, previewElements, renderContext],
   )
 
-  const applyPreset = useCallback(
-    (presetId: string) => {
-      const preset = DISPLAY_PRESETS.find((entry) => entry.id === presetId)
-      if (!preset) {
-        return
-      }
-      dispatchHistory(() => {
-        commitCanvas((current) => ({
-          ...current,
-          ...(isCustomDisplayPreset(preset) || preset.width == null || preset.height == null
-            ? {}
-            : { width: preset.width, height: preset.height }),
-          ...(preset.accentMode != null ? { accentMode: preset.accentMode } : {}),
-        }))
-      })
+  const applyResolution = useCallback(
+    (width: number, height: number) => {
+      commitCanvas((current) => ({ ...current, width, height }))
     },
-    [commitCanvas, dispatchHistory],
+    [commitCanvas],
+  )
+
+  const setColorMode = useCallback(
+    (colorMode: TagColorMode) => {
+      commitCanvas((current) => ({ ...current, colorMode }))
+    },
+    [commitCanvas],
   )
 
   const setCanvasSize = useCallback(
     (width: number, height: number) => {
-      dispatchHistory(() => {
-        commitCanvas((current) => ({ ...current, width, height }))
-      })
+      commitCanvas((current) => ({ ...current, width, height }))
     },
-    [commitCanvas, dispatchHistory],
+    [commitCanvas],
   )
 
   const setRotation = useCallback(
     (rotation: CanvasRotation) => {
-      dispatchHistory(() => {
-        commitCanvas((current) => ({ ...current, rotation }))
-      })
+      commitCanvas((current) => ({ ...current, rotation }))
     },
-    [commitCanvas, dispatchHistory],
+    [commitCanvas],
   )
 
   const setMockState = useCallback((entityId: string, value: string) => {
@@ -845,13 +829,11 @@ export function useProjectState(bootstrap: AppBootstrap) {
   )
 
   const togglePreviewDither = useCallback(() => {
-    dispatchHistory(() => {
-      commitCanvas((current) => ({
-        ...current,
-        previewDitherMode: current.previewDitherMode === 2 ? 0 : 2,
-      }))
-    })
-  }, [commitCanvas, dispatchHistory])
+    commitCanvas((current) => ({
+      ...current,
+      previewDitherMode: current.previewDitherMode === 2 ? 0 : 2,
+    }))
+  }, [commitCanvas])
 
   const toggleSnapGrid = useCallback(() => {
     setSnapGrid((current) => ({ ...current, enabled: !current.enabled }))
@@ -892,20 +874,11 @@ export function useProjectState(bootstrap: AppBootstrap) {
     [commitElements, dispatchHistory],
   )
 
-  const setServiceWithHistory = useCallback(
-    (next: ServiceOptions | undefined | ((current: ServiceOptions | undefined) => ServiceOptions | undefined)) => {
-      dispatchHistory(() => {
-        commitService(next)
-      })
-    },
-    [commitService, dispatchHistory],
-  )
-
   return {
     sessionName,
     setSessionName,
     service,
-    setService: setServiceWithHistory,
+    setService: commitService,
     elements,
     setElements: setElementsWithHistory,
     previewElements,
@@ -920,7 +893,8 @@ export function useProjectState(bootstrap: AppBootstrap) {
     applyYamlSelection,
     canvas,
     renderContext,
-    applyPreset,
+    applyResolution,
+    setColorMode,
     setCanvasSize,
     setRotation,
     mockContext,

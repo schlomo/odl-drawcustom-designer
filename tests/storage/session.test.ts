@@ -14,7 +14,7 @@ describe('session storage adapter', () => {
       width: 400,
       height: 300,
       rotation: 0 as const,
-      accentMode: 'red' as const,
+      colorMode: 'bwr' as const,
       previewDitherMode: 0 as const,
     }
 
@@ -51,7 +51,7 @@ describe('session storage adapter', () => {
         width: 400,
         height: 300,
         rotation: 90,
-        accentMode: 'yellow',
+        colorMode: 'bwy',
         previewDitherMode: 2,
       },
       service: { background: 'white', rotate: 0 },
@@ -65,7 +65,7 @@ describe('session storage adapter', () => {
       width: 400,
       height: 300,
       rotation: 90,
-      accentMode: 'yellow',
+      colorMode: 'bwy',
       previewDitherMode: 2,
     })
     expect(stored?.service).toEqual({ background: 'white', rotate: 0 })
@@ -83,7 +83,7 @@ describe('session storage adapter', () => {
     expect(
       parseSessionSnapshot({
         name: 'Ok',
-        canvas: { width: 100, height: 100, rotation: 0, accentMode: 'red' },
+        canvas: { width: 100, height: 100, rotation: 0, colorMode: 'bwr' },
         elements: [{ not: 'an element' }],
       }),
     ).toBeNull()
@@ -96,7 +96,7 @@ describe('session storage adapter', () => {
         width: 384,
         height: 184,
         rotation: 0,
-        accentMode: 'red',
+        colorMode: 'bwr',
         previewDitherMode: 0,
       },
       elements: [],
@@ -107,7 +107,7 @@ describe('session storage adapter', () => {
         width: 800,
         height: 480,
         rotation: 180,
-        accentMode: 'yellow',
+        colorMode: 'bwy',
         previewDitherMode: 0,
       },
       elements: [{ type: 'circle', x: 0, y: 0, radius: 10 }],
@@ -117,5 +117,27 @@ describe('session storage adapter', () => {
     expect(stored?.name).toBe('Second')
     expect(stored?.canvas.width).toBe(800)
     expect(stored?.elements).toHaveLength(1)
+  })
+
+  it('migrates legacy accentMode in stored sessions', () => {
+    const parsed = parseSessionSnapshot({
+      name: 'Legacy',
+      canvas: {
+        width: 296,
+        height: 128,
+        rotation: 0,
+        accentMode: 'yellow',
+        previewDitherMode: 2,
+      },
+      elements: [{ type: 'text', value: 'Hi', x: 0, y: 0 }],
+    })
+
+    expect(parsed?.canvas).toEqual({
+      width: 296,
+      height: 128,
+      rotation: 0,
+      colorMode: 'bwy',
+      previewDitherMode: 2,
+    })
   })
 })

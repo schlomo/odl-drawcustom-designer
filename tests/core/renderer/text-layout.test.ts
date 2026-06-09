@@ -6,7 +6,7 @@ import { layoutTextBlock, measureTextWidth, wrapTextLines } from '../../../src/c
 import type { RenderContext } from '../../../src/core/renderer/types'
 import { loadBundledTestFont } from './font-test-utils'
 
-const context: RenderContext = { width: 400, height: 200, accentMode: 'red' }
+const context: RenderContext = { width: 400, height: 200, colorMode: 'bwr' }
 
 describe('text layout (opentype.js)', () => {
   it('has bundled ppb.ttf registered from the test setup', () => {

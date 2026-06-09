@@ -1,7 +1,7 @@
 import type { DrawElement } from '../schema/elements'
 import { getPropertyEffectiveValue } from '../schema/propertyMetadata'
-import { mapColor } from './colors'
-import type { ColorOptions } from './types'
+import { resolvePreviewPaint, type PreviewPaintOptions } from './preview-paint'
+import type { ColorOptions, DitherMode } from './types'
 
 /** Spec default from propertyMetadata — matches YAML omit rules and the property panel. */
 export function effectiveProperty(element: DrawElement, property: string): unknown {
@@ -74,6 +74,35 @@ export function effectiveColorName(element: DrawElement, property: string): stri
   return typeof value === 'string' ? value : null
 }
 
+/** Shape fill/stroke/background — resolve YAML color then clamp to tag palette (WYSIWYG). */
+export function resolveShapePaint(
+  element: DrawElement,
+  property: string,
+  options: PreviewPaintOptions,
+  defaultColor?: string,
+): string | null {
+  const value = getPropertyEffectiveValue(element, property)
+  if (value === null || value === 'none') {
+    return null
+  }
+  const name = typeof value === 'string' ? value : defaultColor
+  if (name == null) {
+    return null
+  }
+  return resolvePreviewPaint(name, options)
+}
+
+/** Like {@link resolveShapePaint} but never returns null. */
+export function resolveShapePaintFallback(
+  element: DrawElement,
+  property: string,
+  options: PreviewPaintOptions,
+  defaultColor: string,
+  fallback = '#000000',
+): string {
+  return resolveShapePaint(element, property, options, defaultColor) ?? fallback
+}
+
 /** Icon / icon_sequence fill — spec default is black; explicit `none` means no fill on the tag. */
 export function resolveIconFillColor(
   element: DrawElement,
@@ -86,5 +115,15 @@ export function resolveIconFillColor(
     return 'none'
   }
   const name = typeof value === 'string' ? value : defaultColor
-  return mapColor(name, options) ?? '#000000'
+  return resolvePreviewPaint(name, options) ?? '#000000'
+}
+
+/** Like {@link resolveIconFillColor} — same unified preview paint path (supports halftone dither). */
+export function resolveIconPaint(
+  element: DrawElement,
+  property: string,
+  defaultColor: string,
+  options: ColorOptions & { ditherMode?: DitherMode },
+): string {
+  return resolveIconFillColor(element, property, defaultColor, options)
 }

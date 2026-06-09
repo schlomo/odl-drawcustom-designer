@@ -22,7 +22,7 @@ describe('share hash encode/decode', () => {
         width: 296,
         height: 128,
         rotation: 90,
-        accentMode: 'yellow',
+        colorMode: 'bwy',
         previewDitherMode: 2,
       },
       service: { background: 'white', dither: 2 },
@@ -45,7 +45,7 @@ describe('share hash encode/decode', () => {
         width: 384,
         height: 184,
         rotation: 0,
-        accentMode: 'red',
+        colorMode: 'bwr',
         previewDitherMode: 0,
       },
       elements: sampleElements,
@@ -54,7 +54,7 @@ describe('share hash encode/decode', () => {
     expect(payload).toEqual({
       v: 1,
       name: 'Untitled',
-      canvas: { width: 384, height: 184, rotation: 0, accent: 'red' },
+      canvas: { width: 384, height: 184, rotation: 0, accent: 'red', colorMode: 'bwr' },
       elements: sampleElements,
     })
     expect('assets' in payload).toBe(false)
@@ -69,7 +69,7 @@ describe('share hash encode/decode', () => {
         width: 100,
         height: 100,
         rotation: 0,
-        accentMode: 'red',
+        colorMode: 'bwr',
         previewDitherMode: 0,
       },
       service: { background: 'black', rotate: 180, dither: 0 },
@@ -86,7 +86,7 @@ describe('share hash encode/decode', () => {
         width: 100,
         height: 100,
         rotation: 0,
-        accentMode: 'red',
+        colorMode: 'bwr',
         previewDitherMode: 2,
       },
       elements: [],
@@ -107,7 +107,7 @@ describe('share hash encode/decode', () => {
         width: 100,
         height: 100,
         rotation: 0,
-        accentMode: 'red',
+        colorMode: 'bwr',
         previewDitherMode: 0,
       },
       elements: [],
@@ -181,7 +181,7 @@ describe('sharePayloadToBootstrap', () => {
         width: 200,
         height: 100,
         rotation: 270,
-        accentMode: 'yellow',
+        colorMode: 'bwy',
         previewDitherMode: 2,
       },
       service: { dither: 2 },
@@ -194,12 +194,41 @@ describe('sharePayloadToBootstrap', () => {
       width: 200,
       height: 100,
       rotation: 270,
-      accentMode: 'yellow',
+      colorMode: 'bwy',
       previewDitherMode: 2,
     })
     expect(bootstrap.service).toEqual({ dither: 2 })
     expect(bootstrap.elements).toEqual(sampleElements)
     expect(bootstrap.mockStates).toEqual({ demo: 'unknown' })
     expect(bootstrap.importSource).toBe('hash')
+  })
+
+  it('migrates legacy accent-only share links', () => {
+    const payload = {
+      v: 1 as const,
+      name: 'Legacy',
+      canvas: { width: 200, height: 100, rotation: 0, accent: 'yellow' as const },
+      elements: sampleElements,
+    }
+
+    const bootstrap = sharePayloadToBootstrap(payload, {})
+    expect(bootstrap.canvas.colorMode).toBe('bwy')
+  })
+
+  it('restores bw color mode from share payload', () => {
+    const payload = buildSharePayload({
+      name: 'Mono',
+      canvas: {
+        width: 200,
+        height: 200,
+        rotation: 0,
+        colorMode: 'bw',
+        previewDitherMode: 0,
+      },
+      elements: [],
+    })
+
+    const bootstrap = sharePayloadToBootstrap(payload, {})
+    expect(bootstrap.canvas.colorMode).toBe('bw')
   })
 })

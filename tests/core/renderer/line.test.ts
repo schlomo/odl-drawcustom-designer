@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { renderLine } from '../../../src/core/renderer/line'
 import type { RenderContext } from '../../../src/core/renderer/types'
 
-const context: RenderContext = { width: 400, height: 200, accentMode: 'red' }
+const context: RenderContext = { width: 400, height: 200, colorMode: 'bwr' }
 
 describe('renderLine', () => {
   it('resolves percentage coordinates', () => {

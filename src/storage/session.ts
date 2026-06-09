@@ -1,4 +1,5 @@
 import type { DrawElement, ServiceOptions } from '../core'
+import { isTagColorMode } from '../core/display/palette'
 import { db, ensureDbReady } from './db'
 import {
   SESSION_ROW_ID,
@@ -12,11 +13,23 @@ import {
 const SESSION_EDIT_HISTORY_MAX = 50
 
 const ROTATIONS = new Set<SessionCanvas['rotation']>([0, 90, 180, 270])
-const ACCENT_MODES = new Set<SessionCanvas['accentMode']>(['red', 'yellow'])
 const PREVIEW_DITHER_MODES = new Set<SessionCanvas['previewDitherMode']>([0, 2])
 
 function isDrawElement(value: unknown): value is DrawElement {
   return value != null && typeof value === 'object' && 'type' in value
+}
+
+function parseSessionColorMode(record: Record<string, unknown>): SessionCanvas['colorMode'] | null {
+  if (isTagColorMode(record.colorMode)) {
+    return record.colorMode
+  }
+  if (record.accentMode === 'red') {
+    return 'bwr'
+  }
+  if (record.accentMode === 'yellow') {
+    return 'bwy'
+  }
+  return null
 }
 
 function parseSessionCanvas(value: unknown): SessionCanvas | null {
@@ -24,7 +37,7 @@ function parseSessionCanvas(value: unknown): SessionCanvas | null {
     return null
   }
 
-  const record = value as Partial<SessionCanvas>
+  const record = value as Record<string, unknown>
   if (
     typeof record.width !== 'number' ||
     !Number.isFinite(record.width) ||
@@ -33,10 +46,13 @@ function parseSessionCanvas(value: unknown): SessionCanvas | null {
     !Number.isFinite(record.height) ||
     record.height < 1 ||
     typeof record.rotation !== 'number' ||
-    !ROTATIONS.has(record.rotation as SessionCanvas['rotation']) ||
-    typeof record.accentMode !== 'string' ||
-    !ACCENT_MODES.has(record.accentMode as SessionCanvas['accentMode'])
+    !ROTATIONS.has(record.rotation as SessionCanvas['rotation'])
   ) {
+    return null
+  }
+
+  const colorMode = parseSessionColorMode(record)
+  if (!colorMode) {
     return null
   }
 
@@ -50,7 +66,7 @@ function parseSessionCanvas(value: unknown): SessionCanvas | null {
     width: Math.round(record.width),
     height: Math.round(record.height),
     rotation: record.rotation as SessionCanvas['rotation'],
-    accentMode: record.accentMode as SessionCanvas['accentMode'],
+    colorMode,
     previewDitherMode,
   }
 }

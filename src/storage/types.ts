@@ -1,4 +1,5 @@
 import type { DrawElement, ServiceOptions } from '../core'
+import type { TagColorMode } from '../core/display/palette'
 
 /** IndexedDB row: exact YAML path → blob + mime (ADR-002, ADR-003). */
 export interface StoredAsset {
@@ -18,7 +19,7 @@ export interface SessionCanvas {
   width: number
   height: number
   rotation: 0 | 90 | 180 | 270
-  accentMode: 'red' | 'yellow'
+  colorMode: TagColorMode
   previewDitherMode: 0 | 2
 }
 

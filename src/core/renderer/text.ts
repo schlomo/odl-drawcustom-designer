@@ -1,7 +1,6 @@
 import type { DrawElement } from '../schema/elements'
-import { resolveAnchoredBox, TEXT_DEFAULT_ANCHOR } from './anchors'
 import { getDominantTextDirection, toVisualText } from './bidi-text'
-import { mapColor } from './colors'
+import { resolveAnchoredBox, TEXT_DEFAULT_ANCHOR } from './anchors'
 import { resolveCoordinate, resolveX, resolveY } from './coordinates'
 import { effectiveFontSize, effectiveNumber, effectiveString } from './element-defaults'
 import { DEFAULT_FONT_KEY, getFont } from './fonts'
@@ -19,11 +18,10 @@ export function renderText(element: TextElement, ctx: RenderContext): RenderResu
     return null
   }
 
-  const colorOptions = { accentMode: ctx.accentMode, ditherMode: ctx.ditherMode }
+  const defaultColor = effectiveString(element, 'color', 'black')
   const fontKey = effectiveString(element, 'font', DEFAULT_FONT_KEY)
   const fontSize = effectiveFontSize(element, 'size', 20)
   const font = getFont(fontKey)
-  const defaultColor = effectiveString(element, 'color', 'black')
   const parseColors = parseBool(element.parse_colors)
   const layoutText = parseColors ? stripColorMarkup(element.value) : element.value
   const maxWidth =
@@ -98,7 +96,7 @@ export function renderText(element: TextElement, ctx: RenderContext): RenderResu
     anchor,
     value: element.value,
     drawLines,
-    color: mapColor(defaultColor, colorOptions) ?? '#000000',
+    color: defaultColor,
     defaultColor,
     parseColors,
     fontSize,

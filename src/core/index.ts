@@ -15,6 +15,30 @@ export {
 export type { DrawElement } from './schema/elements'
 export type { ServiceOptions } from './schema/service'
 export {
+  colourSchemeToColorMode,
+  colorModeToAccent,
+  colorModeToColourScheme,
+  accentModeToColorMode,
+  colorOptionsFromContext,
+  isColourSchemeMode,
+  isTagColorMode,
+  migrateAccentModeToColorMode,
+  resolveAccentMode,
+  resolveColorMode,
+  FOUR_COLOR_PALETTE,
+  SIX_COLOR_PALETTE,
+  type ColourSchemeMode,
+  type ColourSchemeValue,
+  type TagColorMode,
+} from './display/palette'
+export {
+  clampHexToColorMode,
+  clampImageDataToColorMode,
+  clampRgbToColorMode,
+  imageDataUsesOnlyPaletteColors,
+  paletteColorsForMode,
+} from './display/palette-clamp'
+export {
   DRAW_ELEMENT_TYPES,
   drawElementSchema,
   payloadSchema,
@@ -95,10 +119,20 @@ export {
   isVisible,
 } from './renderer/visibility'
 export {
+  applyOrderedDitherBuffer,
+  finalizeTagImageData,
   mapColor,
   parseColorMarkup,
   stripColorMarkup,
   halftoneTileColors,
+  paintOptionsFromContext,
+  paintOptionsFromDrawColor,
+  renderHalftonePatternDefs,
+  resolvePreviewCanvasPaint,
+  resolvePreviewPaint,
+  resolvePreviewPaintFallback,
+  getColorPreviewClampInfo,
+  resolveSvgPaint,
   sampleOrderedDitherColor,
   shouldUseHalftonePattern,
   isHalftoneColorName,

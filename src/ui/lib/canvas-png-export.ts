@@ -1,5 +1,14 @@
 import type opentype from 'opentype.js'
-import { renderElement, type DrawElement, type DitherMode, type RenderContext } from '../../core'
+import {
+  finalizeTagImageData,
+  renderElement,
+  renderHalftonePatternDefs,
+  type DrawElement,
+  type DitherMode,
+  type RenderContext,
+} from '../../core'
+import type { CanvasRotation } from '../preferences/displayConfig'
+import { computeRotatedCanvasBounds } from './canvas-zoom'
 import { drawCanvasStub } from './draw-canvas-stubs'
 import { renderSvgPrimitiveMarkup } from './svg-primitive-markup'
 
@@ -8,10 +17,14 @@ export interface ExportCanvasSize {
   height: number
 }
 
-export function resolveExportCanvasSize(renderContext: Pick<RenderContext, 'width' | 'height'>): ExportCanvasSize {
+export function resolveExportCanvasSize(
+  renderContext: Pick<RenderContext, 'width' | 'height'>,
+  rotation: CanvasRotation = 0,
+): ExportCanvasSize {
+  const bounds = computeRotatedCanvasBounds(renderContext.width, renderContext.height, rotation)
   return {
-    width: renderContext.width,
-    height: renderContext.height,
+    width: bounds.width,
+    height: bounds.height,
   }
 }
 
@@ -35,6 +48,7 @@ export interface RenderPayloadToPngOptions {
   fontFamilies: ReadonlyMap<string, string>
   opentypeFonts: ReadonlyMap<string, opentype.Font>
   background?: string
+  rotation?: CanvasRotation
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -57,27 +71,90 @@ async function drawSvgMarkupToCanvas(
   ctx.drawImage(image, 0, 0, width, height)
 }
 
+function rotateRenderedCanvas(
+  source: HTMLCanvasElement,
+  rotation: CanvasRotation,
+): HTMLCanvasElement {
+  if (rotation === 0) {
+    return source
+  }
+
+  const bounds = computeRotatedCanvasBounds(source.width, source.height, rotation)
+  const dest = document.createElement('canvas')
+  dest.width = bounds.width
+  dest.height = bounds.height
+  const ctx = dest.getContext('2d')
+  if (!ctx) {
+    throw new Error('Canvas 2D context unavailable')
+  }
+
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, bounds.width, bounds.height)
+
+  switch (rotation) {
+    case 90:
+      ctx.setTransform(0, 1, -1, 0, source.height, 0)
+      break
+    case 180:
+      ctx.setTransform(-1, 0, 0, -1, source.width, source.height)
+      break
+    case 270:
+      ctx.setTransform(0, -1, 1, 0, 0, source.width)
+      break
+    default: {
+      const _exhaustive: never = rotation
+      return _exhaustive
+    }
+  }
+
+  ctx.drawImage(source, 0, 0)
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  return dest
+}
+
+function finalizeExportCanvas(
+  canvas: HTMLCanvasElement,
+  renderContext: RenderContext,
+): HTMLCanvasElement {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) {
+    throw new Error('Canvas 2D context unavailable')
+  }
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  finalizeTagImageData(imageData.data, canvas.width, canvas.height, {
+    colorMode: renderContext.colorMode,
+    ditherMode: renderContext.ditherMode,
+  })
+  ctx.putImageData(imageData, 0, 0)
+  return canvas
+}
+
 /** Rasterize the payload at native canvas dimensions (not CSS preview scale). */
 export async function renderPayloadToPngBlob(options: RenderPayloadToPngOptions): Promise<Blob> {
-  const { width, height } = resolveExportCanvasSize(options.renderContext)
+  const rotation = options.rotation ?? 0
+  const nativeWidth = options.renderContext.width
+  const nativeHeight = options.renderContext.height
   const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
+  canvas.width = nativeWidth
+  canvas.height = nativeHeight
   const ctx = canvas.getContext('2d')
   if (!ctx) {
     throw new Error('Canvas 2D context unavailable')
   }
 
   ctx.fillStyle = options.background ?? '#ffffff'
-  ctx.fillRect(0, 0, width, height)
+  ctx.fillRect(0, 0, nativeWidth, nativeHeight)
 
+  const renderContext = options.renderContext
   const drawContext = {
-    accentMode: options.renderContext.accentMode,
-    ditherMode: options.renderContext.ditherMode,
+    colorMode: renderContext.colorMode,
+    ditherMode: renderContext.ditherMode,
   }
+  const patternDefs = renderHalftonePatternDefs(drawContext)
 
   for (const element of options.elements) {
-    const result = renderElement(element, options.renderContext)
+    const result = renderElement(element, renderContext)
     if (!result) {
       continue
     }
@@ -94,12 +171,18 @@ export async function renderPayloadToPngBlob(options: RenderPayloadToPngOptions)
       continue
     }
 
-    const markup = renderSvgPrimitiveMarkup(result.primitive, options.fontFamilies)
-    await drawSvgMarkupToCanvas(ctx, markup, width, height)
+    const markup = renderSvgPrimitiveMarkup(result.primitive, options.fontFamilies, {
+      ...drawContext,
+      patternDefs,
+    })
+    await drawSvgMarkupToCanvas(ctx, markup, nativeWidth, nativeHeight)
   }
 
+  const rotated = rotateRenderedCanvas(canvas, rotation)
+  finalizeExportCanvas(rotated, renderContext)
+
   return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
+    rotated.toBlob((blob) => {
       if (blob) {
         resolve(blob)
       } else {
@@ -110,7 +193,12 @@ export async function renderPayloadToPngBlob(options: RenderPayloadToPngOptions)
 }
 
 /** Export from the live preview DOM when available (matches on-screen dither). */
-export async function exportPaperDomToPngBlob(paper: HTMLElement, width: number, height: number): Promise<Blob> {
+export async function exportPaperDomToPngBlob(
+  paper: HTMLElement,
+  width: number,
+  height: number,
+  renderContext?: Pick<RenderContext, 'colorMode' | 'ditherMode'>,
+): Promise<Blob> {
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
@@ -136,6 +224,15 @@ export async function exportPaperDomToPngBlob(paper: HTMLElement, width: number,
       const image = await loadImage(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(serialized)}`)
       ctx.drawImage(image, 0, 0, width, height)
     }
+  }
+
+  if (renderContext) {
+    finalizeExportCanvas(canvas, {
+      width,
+      height,
+      colorMode: renderContext.colorMode,
+      ditherMode: renderContext.ditherMode,
+    })
   }
 
   return new Promise((resolve, reject) => {

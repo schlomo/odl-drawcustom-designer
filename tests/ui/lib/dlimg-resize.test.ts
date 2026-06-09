@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { dlimgImageDrawParams } from '../../../src/ui/lib/dlimg-resize'
+import { describe, expect, it, vi } from 'vitest'
+import { dlimgImageDrawParams, drawDlimgToCanvas } from '../../../src/ui/lib/dlimg-resize'
 
 function mockImage(width: number, height: number) {
   return { naturalWidth: width, naturalHeight: height, width, height }
@@ -40,5 +40,58 @@ describe('dlimgImageDrawParams', () => {
     expect(params.dw).toBe(100)
     expect(params.dh).toBe(200)
     expect(params.clip).toBe(true)
+  })
+})
+
+describe('drawDlimgToCanvas color mode', () => {
+  it('clamps drawn pixels to the active tag palette', () => {
+    const dest = { x: 10, y: 20, width: 2, height: 1 }
+    const image = mockImage(2, 1) as HTMLImageElement
+    let clamped: Uint8ClampedArray | null = null
+
+    const ctx = {
+      drawImage: vi.fn(),
+      getImageData: () => ({
+        width: dest.width,
+        height: dest.height,
+        data: new Uint8ClampedArray([255, 0, 0, 255, 0, 255, 0, 255]),
+      }),
+      putImageData: (imageData: ImageData) => {
+        clamped = imageData.data
+      },
+    } as unknown as CanvasRenderingContext2D
+
+    drawDlimgToCanvas(ctx, image, dest, 'stretch', { colorMode: 'bw', ditherMode: 0 })
+
+    expect(ctx.drawImage).toHaveBeenCalled()
+    expect(clamped).toEqual(new Uint8ClampedArray([0, 0, 0, 255, 0, 0, 0, 255]))
+  })
+
+  it('Bayer-dithers clamped gray tones in BW preview when d=2', () => {
+    const dest = { x: 0, y: 0, width: 4, height: 1 }
+    const image = mockImage(4, 1) as HTMLImageElement
+    let processed: Uint8ClampedArray | null = null
+
+    const ctx = {
+      drawImage: vi.fn(),
+      getImageData: () => ({
+        width: dest.width,
+        height: dest.height,
+        data: new Uint8ClampedArray([128, 128, 128, 255, 128, 128, 128, 255, 128, 128, 128, 255, 128, 128, 128, 255]),
+      }),
+      putImageData: (imageData: ImageData) => {
+        processed = imageData.data
+      },
+    } as unknown as CanvasRenderingContext2D
+
+    drawDlimgToCanvas(ctx, image, dest, 'stretch', { colorMode: 'bw', ditherMode: 2 })
+
+    expect(processed).not.toBeNull()
+    const values = new Set<number>()
+    for (let index = 0; index < 4; index++) {
+      values.add(processed![index * 4])
+    }
+    expect(values.has(0)).toBe(true)
+    expect(values.has(255)).toBe(true)
   })
 })

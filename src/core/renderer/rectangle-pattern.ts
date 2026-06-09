@@ -1,7 +1,7 @@
 import type { DrawElement } from '../schema/elements'
-import { mapColor } from './colors'
-import { effectiveColorName, effectiveString, effectiveStrokeWidth } from './element-defaults'
+import { effectiveStrokeWidth, resolveShapePaint } from './element-defaults'
 import { resolveX, resolveY } from './coordinates'
+import { paintOptionsFromContext } from './preview-paint'
 import type { RenderContext, RenderResult, SvgRectPrimitive } from './types'
 import { isVisible } from './visibility'
 
@@ -11,9 +11,9 @@ function buildPatternRects(
   element: RectanglePatternElement,
   ctx: RenderContext,
 ): SvgRectPrimitive[] {
-  const colorOptions = { accentMode: ctx.accentMode }
-  const fill = mapColor(effectiveColorName(element, 'fill'), colorOptions)
-  const stroke = mapColor(effectiveString(element, 'outline', 'black'), colorOptions) ?? undefined
+  const paintOptions = paintOptionsFromContext(ctx)
+  const fill = resolveShapePaint(element, 'fill', paintOptions)
+  const stroke = resolveShapePaint(element, 'outline', paintOptions, 'black') ?? undefined
   const strokeWidth = effectiveStrokeWidth(element, 'width', 1)
   const xStart = resolveX(element.x_start, ctx)
   const yStart = resolveY(element.y_start, ctx)

@@ -21,7 +21,7 @@ describe('display config preferences', () => {
       width: 880,
       height: 528,
       rotation: 90,
-      accentMode: 'yellow',
+      colorMode: 'bwy',
       previewDitherMode: 2,
     })
 
@@ -29,15 +29,27 @@ describe('display config preferences', () => {
       width: 880,
       height: 528,
       rotation: 90,
-      accentMode: 'yellow',
+      colorMode: 'bwy',
       previewDitherMode: 2,
     })
   })
 
+  it('migrates legacy accentMode values', () => {
+    expect(
+      parseDisplayConfig({ width: 100, height: 100, rotation: 0, accentMode: 'yellow' }),
+    ).toEqual({
+      width: 100,
+      height: 100,
+      rotation: 0,
+      colorMode: 'bwy',
+      previewDitherMode: 0,
+    })
+  })
+
   it('rejects invalid stored values', () => {
-    expect(parseDisplayConfig({ width: 0, height: 100, rotation: 0, accentMode: 'red' })).toBeNull()
-    expect(parseDisplayConfig({ width: 100, height: 100, rotation: 45, accentMode: 'red' })).toBeNull()
-    expect(parseDisplayConfig({ width: 100, height: 100, rotation: 0, accentMode: 'blue' })).toBeNull()
+    expect(parseDisplayConfig({ width: 0, height: 100, rotation: 0, colorMode: 'bwr' })).toBeNull()
+    expect(parseDisplayConfig({ width: 100, height: 100, rotation: 45, colorMode: 'bwr' })).toBeNull()
+    expect(parseDisplayConfig({ width: 100, height: 100, rotation: 0, colorMode: 'blue' })).toBeNull()
   })
 
   it('falls back to defaults for corrupt JSON', () => {

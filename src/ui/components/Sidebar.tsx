@@ -1,16 +1,25 @@
-import { useState } from 'react'
-import type { AssetKind, AssetUploadResult, DrawElement } from '../../core'
+import { useMemo, useState } from 'react'
+import type { AssetKind, AssetUploadResult, DrawElement, TagColorMode } from '../../core'
 import type { HaMockContext } from '../../core'
 import { EXAMPLE_DESIGNS } from '../data/example-designs'
+import {
+  applyResolutionSelectValue,
+  CUSTOM_RESOLUTION_VALUE,
+  resolutionDropdownValue,
+  resolutionSelectValue,
+  shouldShowCustomResolutionInputs,
+} from '../data/resolution-picks'
 import type { CanvasConfig, CanvasRotation, SelectElementOptions } from '../hooks/useProjectState'
 import { useResizablePanelWidth } from '../hooks/useResizablePanelWidth'
+import { getColorClampStatusMessage } from '../lib/color-clamp-status-messages'
 import { SIDEBAR_WIDTH_STORAGE_KEY } from '../preferences/keys'
 import { shell } from '../styles/shell'
 import { ContentManager } from './ContentManager'
 import { ElementList } from './ElementList'
 import type { PanelListScope } from './PanelScopeToggle'
+import { ResolutionSelect } from './ResolutionSelect'
 import { StateSimulator } from './StateSimulator'
-import { DISPLAY_PRESETS, findPresetForCanvas } from '../data/display-presets'
+import { StatusHint } from './StatusHint'
 
 type SidebarTab = 'elements' | 'simulator' | 'content'
 
@@ -22,8 +31,9 @@ interface SidebarProps {
   mockContext: HaMockContext
   assetRevision: number
   onSelectElement: (index: number, options?: SelectElementOptions) => void
-  onApplyPreset: (presetId: string) => void
+  onApplyResolution: (width: number, height: number) => void
   onCanvasSizeChange: (width: number, height: number) => void
+  onColorModeChange: (colorMode: TagColorMode) => void
   onRotationChange: (rotation: CanvasRotation) => void
   onSetMockState: (entityId: string, value: string) => void
   onAddMockEntity: (entityId: string, value: string) => void
@@ -40,6 +50,15 @@ interface SidebarProps {
 }
 
 const ROTATION_OPTIONS: CanvasRotation[] = [0, 90, 180, 270]
+
+const COLOR_MODE_OPTIONS: Array<{ value: TagColorMode; label: string }> = [
+  { value: 'bw', label: 'BW' },
+  { value: 'bwr', label: 'BWR (red accent)' },
+  { value: 'bwy', label: 'BWY (yellow accent)' },
+  { value: 'four', label: '4-color (BWRY)' },
+  { value: 'six', label: '6-color' },
+  { value: 'rgb', label: 'RGB (preview)' },
+]
 
 const TAB_LABEL: Record<SidebarTab, string> = {
   elements: 'Elements',
@@ -59,8 +78,9 @@ export function Sidebar({
   mockContext,
   assetRevision,
   onSelectElement,
-  onApplyPreset,
+  onApplyResolution,
   onCanvasSizeChange,
+  onColorModeChange,
   onRotationChange,
   onSetMockState,
   onAddMockEntity,
@@ -73,6 +93,9 @@ export function Sidebar({
 }: SidebarProps) {
   const [tab, setTab] = useState<SidebarTab>('elements')
   const [panelScope, setPanelScope] = useState<PanelListScope>('current')
+  const [resolutionEditingCustom, setResolutionEditingCustom] = useState(
+    () => resolutionSelectValue(canvas.width, canvas.height) === CUSTOM_RESOLUTION_VALUE,
+  )
   const { width, startResize } = useResizablePanelWidth({
     storageKey: SIDEBAR_WIDTH_STORAGE_KEY,
     defaultWidth: DEFAULT_SIDEBAR_WIDTH,
@@ -80,8 +103,25 @@ export function Sidebar({
     maxWidth: MAX_SIDEBAR_WIDTH,
     edge: 'left',
   })
-  const matchingPreset = findPresetForCanvas(canvas.width, canvas.height, canvas.accentMode)
-  const presetValue = matchingPreset.id
+  const resolutionValue = resolutionDropdownValue(
+    canvas.width,
+    canvas.height,
+    resolutionEditingCustom,
+  )
+  const showCustomResolutionInputs = shouldShowCustomResolutionInputs(
+    canvas.width,
+    canvas.height,
+    resolutionEditingCustom,
+  )
+  const colorClampMessage = useMemo(
+    () =>
+      getColorClampStatusMessage(
+        previewElements,
+        canvas.colorMode,
+        canvas.previewDitherMode,
+      ),
+    [previewElements, canvas.colorMode, canvas.previewDitherMode],
+  )
 
   return (
     <aside
@@ -122,45 +162,68 @@ export function Sidebar({
       <section className={`shrink-0 border-b ${shell.panelBorder} p-3 pr-5`}>
         <h2 className={shell.heading}>Display config</h2>
         <label className={`mt-2 block text-xs ${shell.muted}`}>
-          Tag preset
+          Resolution
+          <ResolutionSelect
+            value={resolutionValue}
+            canvasWidth={canvas.width}
+            canvasHeight={canvas.height}
+            onSelectValue={(nextValue) => {
+              applyResolutionSelectValue(nextValue, {
+                setEditingCustom: setResolutionEditingCustom,
+                onApplyResolution,
+              })
+            }}
+          />
+        </label>
+        {showCustomResolutionInputs ? (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <label className={`text-xs ${shell.muted}`}>
+              W
+              <input
+                type="number"
+                min={1}
+                className={`mt-1 w-full ${shell.input}`}
+                value={canvas.width}
+                onChange={(event) =>
+                  onCanvasSizeChange(Number(event.target.value), canvas.height)
+                }
+              />
+            </label>
+            <label className={`text-xs ${shell.muted}`}>
+              H
+              <input
+                type="number"
+                min={1}
+                className={`mt-1 w-full ${shell.input}`}
+                value={canvas.height}
+                onChange={(event) =>
+                  onCanvasSizeChange(canvas.width, Number(event.target.value))
+                }
+              />
+            </label>
+          </div>
+        ) : null}
+        <label className={`mt-2 block text-xs ${shell.muted}`}>
+          Color mode
           <select
             className={`mt-1 w-full ${shell.input}`}
-            value={presetValue}
-            onChange={(event) => onApplyPreset(event.target.value)}
+            value={canvas.colorMode}
+            onChange={(event) => onColorModeChange(event.target.value as TagColorMode)}
           >
-            {DISPLAY_PRESETS.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.label}
+            {COLOR_MODE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>
         </label>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <label className={`text-xs ${shell.muted}`}>
-            W
-            <input
-              type="number"
-              min={1}
-              className={`mt-1 w-full ${shell.input}`}
-              value={canvas.width}
-              onChange={(event) =>
-                onCanvasSizeChange(Number(event.target.value), canvas.height)
-              }
-            />
-          </label>
-          <label className={`text-xs ${shell.muted}`}>
-            H
-            <input
-              type="number"
-              min={1}
-              className={`mt-1 w-full ${shell.input}`}
-              value={canvas.height}
-              onChange={(event) =>
-                onCanvasSizeChange(canvas.width, Number(event.target.value))
-              }
-            />
-          </label>
-        </div>
+        {colorClampMessage ? <StatusHint message={colorClampMessage} /> : null}
+        {canvas.colorMode === 'six' ? (
+          <p className={`mt-1 text-[10px] ${shell.muted}`}>Preview limited — 6-color palette is scaffold only.</p>
+        ) : null}
+        {canvas.colorMode === 'rgb' ? (
+          <p className={`mt-1 text-[10px] ${shell.muted}`}>Preview only — tag export uses palette colors, not full RGB.</p>
+        ) : null}
         <div className="mt-2 flex gap-1">
           {ROTATION_OPTIONS.map((value) => (
             <button
@@ -206,6 +269,8 @@ export function Sidebar({
               <ElementList
                 previewElements={previewElements}
                 selectedIndices={selectedIndices}
+                colorMode={canvas.colorMode}
+                previewDitherMode={canvas.previewDitherMode}
                 onSelectElement={onSelectElement}
                 onReorderElement={onReorderElement}
               />

@@ -23,12 +23,6 @@ export function snapshotsEqual(left: EditSnapshot, right: EditSnapshot): boolean
   return (
     left.selectedIndices.length === right.selectedIndices.length &&
     left.selectedIndices.every((index, offset) => index === right.selectedIndices[offset]) &&
-    left.canvas.width === right.canvas.width &&
-    left.canvas.height === right.canvas.height &&
-    left.canvas.rotation === right.canvas.rotation &&
-    left.canvas.accentMode === right.canvas.accentMode &&
-    left.canvas.previewDitherMode === right.canvas.previewDitherMode &&
-    JSON.stringify(left.service) === JSON.stringify(right.service) &&
     JSON.stringify(left.elements) === JSON.stringify(right.elements)
   )
 }

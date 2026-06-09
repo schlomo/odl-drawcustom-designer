@@ -6,7 +6,7 @@ import { renderPlot } from '../../../src/core/renderer/plot'
 import { parseYamlPayload } from '../../../src/core/yaml'
 import type { RenderContext } from '../../../src/core/renderer/types'
 
-const context: RenderContext = { width: 400, height: 200, accentMode: 'red' }
+const context: RenderContext = { width: 400, height: 200, colorMode: 'bwr' }
 const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), '../../fixtures/spec')
 
 describe('renderPlot', () => {
@@ -23,7 +23,7 @@ describe('renderPlot', () => {
       kind: 'plot',
       series: expect.arrayContaining([
         expect.objectContaining({
-          color: '#FF0000',
+          color: 'red',
           points: expect.any(Array),
         }),
       ]),
@@ -109,7 +109,7 @@ describe('renderPlot', () => {
     const result = renderPlot(plot as Extract<typeof plot, { type: 'plot' }>, {
       width: 300,
       height: 184,
-      accentMode: 'red',
+      colorMode: 'bwr',
     })
 
     const primitive = result?.primitive

@@ -134,7 +134,7 @@ describe('applyTemplateContextToPayload', () => {
     const rendered = renderIcon(preview[0] as Extract<DrawElement, { type: 'icon' }>, {
       width: 800,
       height: 480,
-      accentMode: 'yellow',
+      colorMode: 'bwy',
     })
 
     expect(rendered?.primitive).toMatchObject({

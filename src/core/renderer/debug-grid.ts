@@ -1,7 +1,7 @@
 import type { DrawElement } from '../schema/elements'
-import { effectiveBool, effectiveNumber, effectiveString } from './element-defaults'
+import { effectiveBool, effectiveNumber, effectiveString, resolveShapePaintFallback } from './element-defaults'
 import { DEFAULT_FONT_KEY } from './fonts'
-import { mapColor } from './colors'
+import { paintOptionsFromContext } from './preview-paint'
 import type { RenderContext, RenderResult } from './types'
 
 type DebugGridElement = Extract<DrawElement, { type: 'debug_grid' }>
@@ -10,7 +10,7 @@ export function renderDebugGrid(
   element: DebugGridElement,
   ctx: RenderContext,
 ): RenderResult | null {
-  const colorOptions = { accentMode: ctx.accentMode }
+  const paintOptions = paintOptionsFromContext(ctx)
 
   return {
     layer: 'svg',
@@ -19,7 +19,7 @@ export function renderDebugGrid(
       width: ctx.width,
       height: ctx.height,
       spacing: effectiveNumber(element, 'spacing', 20, 1),
-      stroke: mapColor(effectiveString(element, 'line_color', 'black'), colorOptions) ?? '#000000',
+      stroke: resolveShapePaintFallback(element, 'line_color', paintOptions, 'black'),
       ...(effectiveBool(element, 'dashed')
         ? {
             dashed: true,
@@ -31,8 +31,7 @@ export function renderDebugGrid(
         ? {
             showLabels: true,
             labelStep: effectiveNumber(element, 'label_step', 40, 1),
-            labelColor:
-              mapColor(effectiveString(element, 'label_color', 'black'), colorOptions) ?? '#000000',
+            labelColor: resolveShapePaintFallback(element, 'label_color', paintOptions, 'black'),
             labelFontSize: effectiveNumber(element, 'label_font_size', 12, 1),
             labelFontKey: effectiveString(element, 'font', DEFAULT_FONT_KEY),
           }

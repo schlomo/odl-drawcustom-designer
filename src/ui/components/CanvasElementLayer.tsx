@@ -1,4 +1,4 @@
-import type { AccentMode, DitherMode } from '../../core'
+import type { DitherMode, TagColorMode } from '../../core'
 import type opentype from 'opentype.js'
 import { memo, useEffect, useRef } from 'react'
 import type { CanvasPrimitive } from '../../core'
@@ -8,7 +8,7 @@ interface CanvasElementLayerProps {
   primitive: CanvasPrimitive
   width: number
   height: number
-  accentMode: AccentMode
+  colorMode: TagColorMode
   ditherMode?: DitherMode
   assetImages: ReadonlyMap<string, HTMLImageElement>
   fontFamilies: ReadonlyMap<string, string>
@@ -20,7 +20,7 @@ export const CanvasElementLayer = memo(function CanvasElementLayer({
   primitive,
   width,
   height,
-  accentMode,
+  colorMode,
   ditherMode,
   assetImages,
   fontFamilies,
@@ -39,10 +39,10 @@ export const CanvasElementLayer = memo(function CanvasElementLayer({
     }
     ctx.clearRect(0, 0, width, height)
     drawCanvasStub(ctx, primitive, assetImages, fontFamilies, opentypeFonts, {
-      accentMode,
+      colorMode,
       ditherMode,
     })
-  }, [accentMode, assetImages, ditherMode, fontFamilies, height, opentypeFonts, primitive, width])
+  }, [colorMode, assetImages, ditherMode, fontFamilies, height, opentypeFonts, primitive, width])
 
   return (
     <canvas

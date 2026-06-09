@@ -1,7 +1,7 @@
 import type { DrawElement } from '../schema/elements'
-import { mapColor } from './colors'
+import { effectiveBool, effectiveNumber, effectiveStrokeWidth, resolveShapePaintFallback } from './element-defaults'
 import { resolveX, resolveY } from './coordinates'
-import { effectiveBool, effectiveNumber, effectiveString, effectiveStrokeWidth } from './element-defaults'
+import { paintOptionsFromContext } from './preview-paint'
 import type { RenderContext, RenderResult } from './types'
 import { isVisible } from './visibility'
 
@@ -12,8 +12,8 @@ export function renderLine(element: LineElement, ctx: RenderContext): RenderResu
     return null
   }
 
-  const colorOptions = { accentMode: ctx.accentMode }
-  const stroke = mapColor(effectiveString(element, 'fill', 'black'), colorOptions) ?? '#000000'
+  const paintOptions = paintOptionsFromContext(ctx)
+  const stroke = resolveShapePaintFallback(element, 'fill', paintOptions, 'black')
 
   const primitive = {
     kind: 'line' as const,

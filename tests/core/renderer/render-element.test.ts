@@ -7,7 +7,7 @@ import { parseYamlPayload } from '../../../src/core/yaml'
 import type { RenderContext } from '../../../src/core/renderer/types'
 
 const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), '../../fixtures/spec')
-const context: RenderContext = { width: 400, height: 200, accentMode: 'red' }
+const context: RenderContext = { width: 400, height: 200, colorMode: 'bwr' }
 
 const fixtureFiles = readdirSync(fixtureDir)
   .filter((name) => name.endsWith('.yaml'))

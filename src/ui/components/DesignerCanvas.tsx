@@ -64,7 +64,7 @@ import {
   refineCanvasPointerPoint,
   type ViewportSize,
 } from '../lib/canvas-zoom'
-import { exportPaperDomToPngBlob } from '../lib/canvas-png-export'
+import { renderPayloadToPngBlob } from '../lib/canvas-png-export'
 import {
   buildPngDownloadFilename,
   copyBlobToClipboard,
@@ -1123,12 +1123,25 @@ export function DesignerCanvas({
   }, [renderContext.height, renderContext.width, snapGrid.enabled, snapGrid.size])
 
   const exportPreviewPng = useCallback(async () => {
-    const paper = containerRef.current?.querySelector<HTMLElement>('[data-canvas-paper]')
-    if (!paper) {
-      return null
-    }
-    return exportPaperDomToPngBlob(paper, renderContext.width, renderContext.height)
-  }, [renderContext.height, renderContext.width])
+    return renderPayloadToPngBlob({
+      elements: baseElements,
+      renderContext: {
+        ...renderContext,
+        showHiddenHints: false,
+      },
+      rotation,
+      assetImages: displayAssetImages,
+      fontFamilies,
+      opentypeFonts,
+    })
+  }, [
+    baseElements,
+    displayAssetImages,
+    fontFamilies,
+    opentypeFonts,
+    renderContext,
+    rotation,
+  ])
 
   const handleCopyPng = useCallback(async () => {
     try {
@@ -1263,7 +1276,12 @@ export function DesignerCanvas({
                 {
                   width: renderContext.width,
                   height: renderContext.height,
-                  transform: paperTransform(rotation, effectiveScale),
+                  transform: paperTransform(
+                    rotation,
+                    effectiveScale,
+                    renderContext.width,
+                    renderContext.height,
+                  ),
                   transformOrigin: 'top left',
                 } satisfies CSSProperties
               }

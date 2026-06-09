@@ -42,7 +42,7 @@ function unknownIconFallback(
         y={y}
         width={size}
         height={size}
-        fill="#f8fafc"
+        fill="#FFFFFF"
         stroke={fill}
         strokeWidth={1}
         strokeDasharray="4 2"

@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react'
 import type opentype from 'opentype.js'
-import { renderElement, type DrawElement, type RenderContext } from '../../core'
+import { renderElement, renderHalftonePatternDefs, type DrawElement, type RenderContext } from '../../core'
 import { collectFontKeysFromElements } from '../lib/load-font-faces'
 import { fontLayoutTokenForKeys } from '../lib/font-layout-token'
 import { resolveHiddenElementHint } from '../lib/hidden-element-hints'
@@ -42,6 +42,14 @@ export const CanvasElementSlot = memo(function CanvasElementSlot({
     () => resolveHiddenElementHint(element, result, renderContext),
     [element, result, renderContext],
   )
+  const halftonePatternDefs = useMemo(
+    () =>
+      renderHalftonePatternDefs({
+        colorMode: renderContext.colorMode,
+        ditherMode: renderContext.ditherMode,
+      }),
+    [renderContext.colorMode, renderContext.ditherMode],
+  )
 
   if (!result && !hiddenHint) {
     return null
@@ -58,6 +66,9 @@ export const CanvasElementSlot = memo(function CanvasElementSlot({
           className="h-full w-full"
           aria-hidden
         >
+          {halftonePatternDefs ? (
+            <defs dangerouslySetInnerHTML={{ __html: halftonePatternDefs }} />
+          ) : null}
           <SvgPrimitive primitive={result.primitive} fontFamilies={fontFamilies} />
         </svg>
       ) : result ? (
@@ -65,7 +76,7 @@ export const CanvasElementSlot = memo(function CanvasElementSlot({
           primitive={result.primitive}
           width={renderContext.width}
           height={renderContext.height}
-          accentMode={renderContext.accentMode}
+          colorMode={renderContext.colorMode}
           ditherMode={renderContext.ditherMode}
           assetImages={assetImages}
           fontFamilies={fontFamilies}

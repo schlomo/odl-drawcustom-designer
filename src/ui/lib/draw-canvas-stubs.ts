@@ -4,22 +4,21 @@ import {
   DEFAULT_FONT_KEY,
   getCanvasTextDrawStyle,
   getFont,
-  halftoneTileColors,
-  mapColor,
-  shouldUseHalftonePattern,
-  type AccentMode,
+  paintOptionsFromDrawColor,
+  resolvePreviewCanvasPaint,
   type CanvasPlotPrimitive,
   type CanvasPrimitive,
-  type DitherMode,
   type PlotSeriesPrimitive,
   type TextDrawLine,
+  type TagColorMode,
+  type DitherMode,
 } from '../../core'
 import { drawDlimgToCanvas } from './dlimg-resize'
 import { getCachedOpentypeFont } from './load-opentype-fonts'
 import { resolveCanvasFontFamily } from './load-font-faces'
 
 export interface CanvasDrawColorContext {
-  accentMode: AccentMode
+  colorMode: TagColorMode
   ditherMode?: DitherMode
 }
 
@@ -31,40 +30,12 @@ function resolveDrawFont(
   return opentypeFonts.get(key) ?? getCachedOpentypeFont(key) ?? getFont(key)
 }
 
-function createHalftonePattern(
-  ctx: CanvasRenderingContext2D,
-  colorName: string,
-  drawColor: CanvasDrawColorContext,
-): CanvasPattern | string {
-  const tileSize = 4
-  const tile = document.createElement('canvas')
-  tile.width = tileSize
-  tile.height = tileSize
-  const tileCtx = tile.getContext('2d')
-  if (!tileCtx) {
-    return mapColor(colorName, drawColor) ?? colorName
-  }
-
-  const colors = halftoneTileColors(colorName, drawColor.accentMode, tileSize)
-  for (let y = 0; y < tileSize; y++) {
-    for (let x = 0; x < tileSize; x++) {
-      tileCtx.fillStyle = colors[y * tileSize + x] ?? '#000000'
-      tileCtx.fillRect(x, y, 1, 1)
-    }
-  }
-
-  return ctx.createPattern(tile, 'repeat') ?? mapColor(colorName, drawColor) ?? colorName
-}
-
 function resolveCanvasFill(
   ctx: CanvasRenderingContext2D,
   colorName: string,
   drawColor: CanvasDrawColorContext,
 ): string | CanvasPattern {
-  if (shouldUseHalftonePattern(colorName, drawColor.ditherMode)) {
-    return createHalftonePattern(ctx, colorName, drawColor)
-  }
-  return mapColor(colorName, drawColor) ?? colorName
+  return resolvePreviewCanvasPaint(ctx, colorName, paintOptionsFromDrawColor(drawColor))
 }
 
 function drawOpentypeLine(
@@ -210,12 +181,15 @@ function drawPlotPrimitive(
   ctx: CanvasRenderingContext2D,
   primitive: CanvasPlotPrimitive,
   fontFamilies: ReadonlyMap<string, string>,
+  drawColor: CanvasDrawColorContext,
 ): void {
+  const paintOptions = paintOptionsFromDrawColor(drawColor)
+
   ctx.fillStyle = '#FFFFFF'
   ctx.fillRect(primitive.x, primitive.y, primitive.width, primitive.height)
 
   for (const line of primitive.gridLines) {
-    ctx.strokeStyle = line.color
+    ctx.strokeStyle = resolvePreviewCanvasPaint(ctx, line.color, paintOptions) as string
     ctx.lineWidth = 1
     applyPlotLineDash(ctx, line.style)
     ctx.beginPath()
@@ -226,7 +200,7 @@ function drawPlotPrimitive(
   ctx.setLineDash([])
 
   for (const axis of [primitive.axes.y, primitive.axes.x]) {
-    ctx.strokeStyle = axis.color
+    ctx.strokeStyle = resolvePreviewCanvasPaint(ctx, axis.color, paintOptions) as string
     ctx.lineWidth = axis.lineWidth
     ctx.beginPath()
     ctx.moveTo(axis.x1, axis.y1)
@@ -235,7 +209,7 @@ function drawPlotPrimitive(
   }
 
   for (const tick of [...primitive.yAxisTicks, ...primitive.xAxisTicks]) {
-    ctx.strokeStyle = tick.color
+    ctx.strokeStyle = resolvePreviewCanvasPaint(ctx, tick.color, paintOptions) as string
     ctx.lineWidth = tick.lineWidth
     ctx.beginPath()
     ctx.moveTo(tick.x1, tick.y1)
@@ -246,25 +220,25 @@ function drawPlotPrimitive(
   const legendFontFamily = resolveCanvasFontFamily(primitive.legendFont, fontFamilies)
   ctx.textBaseline = 'middle'
   for (const label of primitive.yLegendLabels) {
-    ctx.fillStyle = label.color
+    ctx.fillStyle = resolvePreviewCanvasPaint(ctx, label.color, paintOptions) as string
     ctx.textAlign = 'right'
     ctx.font = `${label.fontSize}px ${legendFontFamily}, sans-serif`
     ctx.fillText(label.text, label.x + 20, label.y)
   }
   for (const label of primitive.xLegendLabels) {
-    ctx.fillStyle = label.color
+    ctx.fillStyle = resolvePreviewCanvasPaint(ctx, label.color, paintOptions) as string
     ctx.textAlign = 'left'
     ctx.font = `${label.fontSize}px ${legendFontFamily}, sans-serif`
     ctx.fillText(label.text, label.x, label.y)
   }
 
   for (const series of primitive.series) {
-    ctx.strokeStyle = series.color
+    ctx.strokeStyle = resolvePreviewCanvasPaint(ctx, series.color, paintOptions) as string
     ctx.lineWidth = series.lineWidth
     drawPlotSeriesLine(ctx, series)
 
     if (series.showPoints) {
-      ctx.fillStyle = series.pointColor
+      ctx.fillStyle = resolvePreviewCanvasPaint(ctx, series.pointColor, paintOptions) as string
       for (const [x, y] of series.points) {
         ctx.beginPath()
         ctx.arc(x, y, series.pointSize / 2, 0, Math.PI * 2)
@@ -288,7 +262,7 @@ export function drawCanvasStub(
   assetImages: ReadonlyMap<string, HTMLImageElement> = new Map(),
   fontFamilies: ReadonlyMap<string, string> = new Map(),
   opentypeFonts: ReadonlyMap<string, opentype.Font> = new Map(),
-  drawColor: CanvasDrawColorContext = { accentMode: 'red', ditherMode: 0 },
+  drawColor: CanvasDrawColorContext = { colorMode: 'bwr', ditherMode: 0 },
 ): void {
   switch (primitive.kind) {
     case 'text-stub': {
@@ -355,6 +329,7 @@ export function drawCanvasStub(
             height: primitive.height,
           },
           primitive.resizeMethod as 'stretch' | 'crop' | 'cover' | 'contain' | undefined,
+          { colorMode: drawColor.colorMode, ditherMode: drawColor.ditherMode },
         )
         break
       }
@@ -375,9 +350,10 @@ export function drawCanvasStub(
     case 'qrcode': {
       const { boxsize, border, modules, moduleData } = primitive
       const renderedSize = (modules + border * 2) * boxsize
-      ctx.fillStyle = primitive.bgcolor
+      const paintOptions = paintOptionsFromDrawColor(drawColor)
+      ctx.fillStyle = resolvePreviewCanvasPaint(ctx, primitive.bgcolor, paintOptions) as string
       ctx.fillRect(primitive.x, primitive.y, renderedSize, renderedSize)
-      ctx.fillStyle = primitive.color
+      ctx.fillStyle = resolvePreviewCanvasPaint(ctx, primitive.color, paintOptions) as string
       for (let row = 0; row < modules; row++) {
         for (let col = 0; col < modules; col++) {
           if (moduleData[row * modules + col]) {
@@ -393,7 +369,7 @@ export function drawCanvasStub(
       break
     }
     case 'plot': {
-      drawPlotPrimitive(ctx, primitive, fontFamilies)
+      drawPlotPrimitive(ctx, primitive, fontFamilies, drawColor)
       break
     }
     default: {

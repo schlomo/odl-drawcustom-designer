@@ -1,9 +1,9 @@
 import type { DrawElement } from '../schema/elements'
 import { resolveDirection } from './anchors'
-import { mapColor } from './colors'
 import { resolveBounds } from './bounds'
-import { effectiveBool, effectiveProgress, effectiveString, effectiveStrokeWidth } from './element-defaults'
+import { effectiveBool, effectiveProgress, effectiveString, effectiveStrokeWidth, resolveShapePaint, resolveShapePaintFallback } from './element-defaults'
 import { DEFAULT_FONT_KEY } from './fonts'
+import { paintOptionsFromContext } from './preview-paint'
 import type { RenderContext, RenderResult, SvgRectPrimitive } from './types'
 import { isVisible } from './visibility'
 
@@ -70,12 +70,12 @@ export function renderProgressBar(
     return null
   }
 
-  const colorOptions = { accentMode: ctx.accentMode }
+  const paintOptions = paintOptionsFromContext(ctx)
   const bounds = resolveBounds(element.x_start, element.x_end, element.y_start, element.y_end, ctx)
   const direction = resolveDirection(effectiveString(element, 'direction', 'right'))
-  const backgroundFill = mapColor(effectiveString(element, 'background', 'white'), colorOptions)
-  const progressFill = mapColor(effectiveString(element, 'fill', 'red'), colorOptions)
-  const stroke = mapColor(effectiveString(element, 'outline', 'black'), colorOptions) ?? undefined
+  const backgroundFill = resolveShapePaint(element, 'background', paintOptions, 'white')
+  const progressFill = resolveShapePaint(element, 'fill', paintOptions, 'red')
+  const stroke = resolveShapePaint(element, 'outline', paintOptions, 'black') ?? undefined
   const strokeWidth = effectiveStrokeWidth(element, 'width', 1)
 
   const background: SvgRectPrimitive = {
@@ -98,8 +98,12 @@ export function renderProgressBar(
       ...(effectiveBool(element, 'show_percentage')
         ? {
             showPercentage: true,
-            percentageColor:
-              mapColor(effectiveString(element, 'outline', 'black'), colorOptions) ?? '#000000',
+            percentageColor: resolveShapePaintFallback(
+              element,
+              'outline',
+              paintOptions,
+              'black',
+            ),
             percentageFontSize: Math.max(8, Math.round(bounds.height * 0.55)),
             percentageFontKey: effectiveString(element, 'font', DEFAULT_FONT_KEY),
           }

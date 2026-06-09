@@ -17,6 +17,10 @@
   --shell-success-bg: #16a34a;
   --shell-success-border: #15803d;
   --shell-success-fg: #ffffff;
+  --shell-warning-bg: #fffbeb;
+  --shell-warning-border: #fcd34d;
+  --shell-warning-hover: #fef3c7;
+  --shell-warning-fg: #92400e;
 }
 
 .dark {
@@ -32,6 +36,10 @@
   --shell-danger: #fecaca;
   --shell-danger-border: #f87171;
   --shell-danger-hover: rgb(248 113 113 / 0.22);
+  --shell-warning-bg: rgb(146 64 14 / 0.35);
+  --shell-warning-border: rgb(245 158 11 / 0.45);
+  --shell-warning-hover: rgb(146 64 14 / 0.5);
+  --shell-warning-fg: #fde68a;
 }
 
 body {

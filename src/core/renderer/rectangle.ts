@@ -1,7 +1,7 @@
 import type { DrawElement } from '../schema/elements'
-import { mapColor } from './colors'
-import { effectiveColorName, effectiveString, effectiveStrokeWidth } from './element-defaults'
+import { effectiveStrokeWidth, resolveShapePaint } from './element-defaults'
 import { resolveX, resolveY } from './coordinates'
+import { paintOptionsFromContext } from './preview-paint'
 import type { RenderContext, RenderResult } from './types'
 import { isVisible } from './visibility'
 
@@ -15,7 +15,7 @@ export function renderRectangle(
     return null
   }
 
-  const colorOptions = { accentMode: ctx.accentMode }
+  const paintOptions = paintOptionsFromContext(ctx)
   const x1 = resolveX(element.x_start, ctx)
   const x2 = resolveX(element.x_end, ctx)
   const y1 = resolveY(element.y_start, ctx)
@@ -27,8 +27,8 @@ export function renderRectangle(
     y: Math.min(y1, y2),
     width: Math.abs(x2 - x1),
     height: Math.abs(y2 - y1),
-    fill: mapColor(effectiveColorName(element, 'fill'), colorOptions),
-    stroke: mapColor(effectiveString(element, 'outline', 'black'), colorOptions) ?? undefined,
+    fill: resolveShapePaint(element, 'fill', paintOptions),
+    stroke: resolveShapePaint(element, 'outline', paintOptions, 'black') ?? undefined,
     strokeWidth: effectiveStrokeWidth(element, 'width', 1),
     ...(element.radius != null ? { radius: element.radius } : {}),
   }

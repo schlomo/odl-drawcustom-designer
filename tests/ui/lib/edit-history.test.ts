@@ -14,7 +14,7 @@ function snapshot(overrides: Partial<EditSnapshot> = {}): EditSnapshot {
       width: 400,
       height: 300,
       rotation: 0,
-      accentMode: 'red',
+      colorMode: 'bwr',
       previewDitherMode: 0,
     },
     service: undefined,
@@ -152,5 +152,20 @@ describe('snapshotsEqual', () => {
     })
     expect(snapshotsEqual(left, right)).toBe(false)
     expect(snapshotsEqual(left, cloneEditSnapshot(left))).toBe(true)
+  })
+
+  it('ignores display config and service differences', () => {
+    const left = snapshot()
+    const right = snapshot({
+      canvas: {
+        width: 296,
+        height: 128,
+        rotation: 270,
+        colorMode: 'bwy',
+        previewDitherMode: 2,
+      },
+      service: { background: 'black', dither: 2 },
+    })
+    expect(snapshotsEqual(left, right)).toBe(true)
   })
 })

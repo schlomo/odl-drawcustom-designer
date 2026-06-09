@@ -3,7 +3,7 @@ import { renderDebugGrid } from '../../../src/core/renderer/debug-grid'
 import { renderProgressBar } from '../../../src/core/renderer/progress-bar'
 import type { RenderContext } from '../../../src/core/renderer/types'
 
-const context: RenderContext = { width: 400, height: 200, accentMode: 'red' }
+const context: RenderContext = { width: 400, height: 200, colorMode: 'bwr' }
 
 describe('progress bar preview', () => {
   const base = {

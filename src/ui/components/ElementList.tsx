@@ -1,11 +1,14 @@
-import { useCallback, useRef, useState, type DragEvent, type MouseEvent } from 'react'
-import type { DrawElement } from '../../core'
+import { useCallback, useMemo, useRef, useState, type DragEvent, type MouseEvent } from 'react'
+import type { DrawElement, TagColorMode } from '../../core'
 import { layerPanelDisplayOrder } from '../lib/draw-order'
 import {
   elementListDragIndices,
   normalizeElementListDropIndex,
 } from '../lib/element-list-drag'
+import { elementHasColorClampLoss } from '../lib/color-clamp-status-messages'
 import { elementListRowMeta } from '../lib/element-list-row'
+import { statusRowClassName } from '../lib/status-styles'
+import type { PreviewDitherMode } from '../preferences/displayConfig'
 import { mdiDragVertical } from '@mdi/js'
 import { MdiIcon } from './MdiIcon'
 import { ElementListThumbnail } from './ElementListThumbnail'
@@ -16,6 +19,8 @@ interface ElementListProps {
   /** Template-evaluated elements for row labels and thumbnails. */
   previewElements: DrawElement[]
   selectedIndices: number[]
+  colorMode: TagColorMode
+  previewDitherMode?: PreviewDitherMode
   onSelectElement: (index: number, options?: SelectElementOptions) => void
   onReorderElement: (
     fromIndex: number,
@@ -27,6 +32,8 @@ interface ElementListProps {
 export function ElementList({
   previewElements,
   selectedIndices,
+  colorMode,
+  previewDitherMode = 0,
   onSelectElement,
   onReorderElement,
 }: ElementListProps) {
@@ -85,6 +92,16 @@ export function ElementList({
     [onSelectElement],
   )
 
+  const clampedElements = useMemo(() => {
+    const clamped = new Set<number>()
+    previewElements.forEach((element, index) => {
+      if (elementHasColorClampLoss(element, colorMode, previewDitherMode)) {
+        clamped.add(index)
+      }
+    })
+    return clamped
+  }, [previewElements, colorMode, previewDitherMode])
+
   return (
     <ul className="space-y-1 overflow-y-auto">
       {previewElements.length === 0 ? (
@@ -94,6 +111,7 @@ export function ElementList({
           const selected = selectedIndices.includes(index)
           const draggingBlock = dragIndex != null ? movingIndices : []
           const row = elementListRowMeta(element)
+          const colorClamped = clampedElements.has(index)
           const dropActive =
             dropIndex === index &&
             dragIndex != null &&
@@ -113,7 +131,9 @@ export function ElementList({
               className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm ${
                 selected
                   ? 'bg-[var(--shell-accent)] text-white'
-                  : 'bg-[var(--shell-surface-2)] text-[var(--shell-text)] hover:bg-[var(--shell-hover)]'
+                  : colorClamped
+                    ? statusRowClassName('warning')
+                    : 'bg-[var(--shell-surface-2)] text-[var(--shell-text)] hover:bg-[var(--shell-hover)]'
               } ${draggingBlock.includes(index) ? 'opacity-50' : ''}`}
               onClick={(event) => handleRowClick(event, index)}
             >

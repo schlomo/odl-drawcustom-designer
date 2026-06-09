@@ -1,6 +1,5 @@
 import type { DrawElement } from '../schema/elements'
 import { resolveBounds } from './bounds'
-import { mapColor } from './colors'
 import {
   effectiveBool,
   effectiveFontSize,
@@ -53,15 +52,13 @@ function effectiveAxisNumber(
   return fallback
 }
 
-function effectiveAxisColor(
+function effectiveAxisColorName(
   axis: PlotAxis | undefined,
   key: string,
   fallback: string,
-  ctx: RenderContext,
 ): string {
   const value = readNestedRecord(axis, key)
-  const colorName = typeof value === 'string' ? value : fallback
-  return mapColor(colorName, { accentMode: ctx.accentMode }) ?? '#000000'
+  return typeof value === 'string' ? value : fallback
 }
 
 function resolveGridDivisions(grid: unknown): number {
@@ -124,7 +121,6 @@ function buildSeries(
   chartHeight: number,
   low: number,
   high: number,
-  ctx: RenderContext,
 ): PlotSeriesPrimitive[] {
   const pointCount = Math.max(8, Math.min(DEFAULT_POINT_COUNT, Math.round(chartWidth / 8)))
 
@@ -142,14 +138,14 @@ function buildSeries(
 
     return {
       entity: line.entity,
-      color: mapColor(line.color ?? 'black', { accentMode: ctx.accentMode }) ?? '#000000',
+      color: line.color ?? 'black',
       lineWidth: Math.max(1, line.width ?? 1),
       points,
       smooth: line.smooth === true,
       lineStyle: line.line_style === 'step' ? 'step' : 'linear',
       showPoints: line.show_points === true,
       pointSize: Math.max(1, line.point_size ?? 3),
-      pointColor: mapColor(line.point_color ?? 'black', { accentMode: ctx.accentMode }) ?? '#000000',
+      pointColor: line.point_color ?? 'black',
     }
   })
 }
@@ -326,14 +322,14 @@ export function renderPlot(element: PlotElement, ctx: RenderContext): RenderResu
   const yLegendFontSize = legendFontSize(element.ylegend, element)
   const xLegendFontSize = legendFontSize(element.xlegend, element)
 
-  const yAxisColor = effectiveAxisColor(element.yaxis, 'color', 'black', ctx)
-  const xAxisColor = effectiveAxisColor(element.xaxis, 'color', 'black', ctx)
+  const yAxisColor = effectiveAxisColorName(element.yaxis, 'color', 'black')
+  const xAxisColor = effectiveAxisColorName(element.xaxis, 'color', 'black')
   const yAxisWidth = effectiveAxisNumber(element.yaxis, 'width', 1, 0)
   const xAxisWidth = effectiveAxisNumber(element.xaxis, 'width', 1, 0)
   const yGridDivisions = resolveGridDivisions(readNestedRecord(element.yaxis, 'grid'))
   const xGridDivisions = resolveGridDivisions(readNestedRecord(element.xaxis, 'grid'))
-  const yGridColor = effectiveAxisColor(element.yaxis, 'grid_color', 'black', ctx)
-  const xGridColor = effectiveAxisColor(element.xaxis, 'grid_color', 'black', ctx)
+  const yGridColor = effectiveAxisColorName(element.yaxis, 'grid_color', 'black')
+  const xGridColor = effectiveAxisColorName(element.xaxis, 'grid_color', 'black')
   const yGridStyle =
     typeof element.yaxis?.grid_style === 'string' ? element.yaxis.grid_style : 'dotted'
   const xGridStyle =
@@ -381,10 +377,8 @@ export function renderPlot(element: PlotElement, ctx: RenderContext): RenderResu
     ),
   ]
 
-  const yLegendColor =
-    mapColor(element.ylegend?.color ?? 'black', { accentMode: ctx.accentMode }) ?? '#000000'
-  const xLegendColor =
-    mapColor(element.xlegend?.color ?? 'black', { accentMode: ctx.accentMode }) ?? '#000000'
+  const yLegendColor = element.ylegend?.color ?? 'black'
+  const xLegendColor = element.xlegend?.color ?? 'black'
 
   const yLegendLabels = buildYLegendLabels(
     low,
@@ -427,7 +421,7 @@ export function renderPlot(element: PlotElement, ctx: RenderContext): RenderResu
     effectiveAxisNumber(element.xaxis, 'tick_length', 4, 1),
   )
 
-  const series = buildSeries(element, chartX, chartY, chartWidth, chartHeight, low, high, ctx)
+  const series = buildSeries(element, chartX, chartY, chartWidth, chartHeight, low, high)
 
   return {
     layer: 'canvas',

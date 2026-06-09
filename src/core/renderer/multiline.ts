@@ -1,6 +1,5 @@
 import type { DrawElement } from '../schema/elements'
 import { getDominantTextDirection, toVisualText } from './bidi-text'
-import { mapColor } from './colors'
 import { resolveX, resolveY } from './coordinates'
 import { effectiveFontSize, effectiveNumber, effectiveString } from './element-defaults'
 import { DEFAULT_FONT_KEY, getFont } from './fonts'
@@ -21,7 +20,6 @@ export function renderMultiline(
     return null
   }
 
-  const colorOptions = { accentMode: ctx.accentMode, ditherMode: ctx.ditherMode }
   const fontKey = effectiveString(element, 'font', DEFAULT_FONT_KEY)
   const fontSize = effectiveFontSize(element, 'size', 20)
   const lineSpacing = effectiveNumber(element, 'spacing', 0)
@@ -73,7 +71,7 @@ export function renderMultiline(
     height,
     lines: lineTexts,
     drawLines,
-    color: mapColor(defaultColor, colorOptions) ?? '#000000',
+    color: defaultColor,
     defaultColor,
     parseColors,
     fontSize,

@@ -6,7 +6,7 @@ import { renderText } from '../../../src/core/renderer/text'
 import { getCanvasTextDrawStyle } from '../../../src/core/renderer/text-anchor-draw'
 import type { RenderContext } from '../../../src/core/renderer/types'
 import { getPrimitiveBounds } from '../../../src/ui/lib/primitive-bounds'
-const context: RenderContext = { width: 880, height: 528, accentMode: 'red' }
+const context: RenderContext = { width: 880, height: 528, colorMode: 'bwr' }
 
 describe('anchor rendering', () => {
   it('offsets text bounds for mm anchor', () => {

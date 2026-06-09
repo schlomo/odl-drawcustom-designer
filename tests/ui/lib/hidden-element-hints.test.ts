@@ -9,7 +9,7 @@ import {
 const context = {
   width: 800,
   height: 480,
-  accentMode: 'yellow' as const,
+  colorMode: 'bwy' as const,
   showHiddenHints: true,
 }
 

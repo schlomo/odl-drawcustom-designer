@@ -92,8 +92,22 @@ export { effectiveNumber, effectiveProperty, effectiveString } from './element-d
 export { getDominantTextDirection, toVisualText } from './bidi-text'
 export { mapColor } from './colors'
 export {
+  halftonePatternId,
+  paintOptionsFromContext,
+  paintOptionsFromDrawColor,
+  renderHalftonePatternDefs,
+  resolvePreviewCanvasPaint,
+  resolvePreviewPaint,
+  resolvePreviewPaintFallback,
+  getColorPreviewClampInfo,
+  resolvePreviewPaint as resolveSvgPaint,
+  type PreviewDrawColorContext,
+  type PreviewPaintOptions,
+} from './preview-paint'
+export {
   applyOrderedDitherBuffer,
   halftoneTileColors,
+  finalizeTagImageData,
   isHalftoneColorName,
   resolveHalftonePair,
   resolvePreviewColor,

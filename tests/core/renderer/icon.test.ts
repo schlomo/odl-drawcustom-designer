@@ -3,7 +3,7 @@ import { renderIcon } from '../../../src/core/renderer/icon'
 import { resolveMdiPath } from '../../../src/core/renderer/mdi-icons'
 import type { RenderContext } from '../../../src/core/renderer/types'
 
-const context: RenderContext = { width: 400, height: 200, accentMode: 'red' }
+const context: RenderContext = { width: 400, height: 200, colorMode: 'bwr' }
 
 describe('renderIcon', () => {
   it('emits a real MDI path for a known icon name', () => {

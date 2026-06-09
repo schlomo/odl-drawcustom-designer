@@ -1,3 +1,6 @@
+import type { TagColorMode, DitherMode } from '../../core'
+import { finalizeTagImageData } from '../../core'
+
 export type DlimgResizeMethod = 'stretch' | 'crop' | 'cover' | 'contain'
 
 export interface DlimgDrawRect {
@@ -81,11 +84,35 @@ export function dlimgImageDrawParams(
   }
 }
 
+export interface DlimgDrawOptions {
+  colorMode?: TagColorMode
+  ditherMode?: DitherMode
+}
+
+function postProcessDrawnRegion(
+  ctx: CanvasRenderingContext2D,
+  dest: DlimgDrawRect,
+  options: DlimgDrawOptions,
+): void {
+  if (options.colorMode == null || options.colorMode === 'rgb') {
+    return
+  }
+
+  const { x, y, width, height } = dest
+  const imageData = ctx.getImageData(x, y, width, height)
+  finalizeTagImageData(imageData.data, width, height, {
+    colorMode: options.colorMode,
+    ditherMode: options.ditherMode,
+  })
+  ctx.putImageData(imageData, x, y)
+}
+
 export function drawDlimgToCanvas(
   ctx: CanvasRenderingContext2D,
   image: HTMLImageElement,
   dest: DlimgDrawRect,
   resizeMethod: DlimgResizeMethod | undefined,
+  options: DlimgDrawOptions = {},
 ): void {
   const params = dlimgImageDrawParams(image, dest, resizeMethod)
 
@@ -96,8 +123,11 @@ export function drawDlimgToCanvas(
     ctx.clip()
     ctx.drawImage(image, params.sx, params.sy, params.sw, params.sh, params.dx, params.dy, params.dw, params.dh)
     ctx.restore()
-    return
+  } else {
+    ctx.drawImage(image, params.sx, params.sy, params.sw, params.sh, params.dx, params.dy, params.dw, params.dh)
   }
 
-  ctx.drawImage(image, params.sx, params.sy, params.sw, params.sh, params.dx, params.dy, params.dw, params.dh)
+  if (options.colorMode != null) {
+    postProcessDrawnRegion(ctx, dest, options)
+  }
 }

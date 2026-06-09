@@ -3,7 +3,7 @@ import { createQrModuleGrid, qrRenderedSize } from '../../../src/core/renderer/q
 import { renderQrcode } from '../../../src/core/renderer/qrcode'
 import type { RenderContext } from '../../../src/core/renderer/types'
 
-const context: RenderContext = { width: 400, height: 200, accentMode: 'red' }
+const context: RenderContext = { width: 400, height: 200, colorMode: 'bwr' }
 
 describe('createQrModuleGrid', () => {
   it('produces a stable module count for the same data string', () => {
@@ -45,8 +45,8 @@ describe('renderQrcode', () => {
       border: 2,
       modules: expect.any(Number),
       moduleData: expect.any(Array),
-      color: '#000000',
-      bgcolor: '#FFFFFF',
+      color: 'black',
+      bgcolor: 'white',
     })
 
     const primitive = result!.primitive

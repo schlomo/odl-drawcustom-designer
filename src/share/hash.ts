@@ -1,5 +1,6 @@
 import { deflate, inflate } from 'pako'
 import type { HaMockContext } from '../core'
+import { isTagColorMode } from '../core/display/palette'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import {
   buildSharePayload,
@@ -43,10 +44,6 @@ function isRotation(value: unknown): value is SharePayload['canvas']['rotation']
   return value === 0 || value === 90 || value === 180 || value === 270
 }
 
-function isAccent(value: unknown): value is SharePayload['canvas']['accent'] {
-  return value === 'red' || value === 'yellow'
-}
-
 function parseSharePayload(value: unknown): SharePayload | null {
   if (value == null || typeof value !== 'object') {
     return null
@@ -69,6 +66,8 @@ function parseSharePayload(value: unknown): SharePayload | null {
   }
 
   const canvasRecord = canvas as Partial<SharePayload['canvas']>
+  const hasAccent = canvasRecord.accent === 'red' || canvasRecord.accent === 'yellow'
+  const hasColorMode = isTagColorMode(canvasRecord.colorMode)
   if (
     typeof canvasRecord.width !== 'number' ||
     !Number.isFinite(canvasRecord.width) ||
@@ -77,10 +76,12 @@ function parseSharePayload(value: unknown): SharePayload | null {
     !Number.isFinite(canvasRecord.height) ||
     canvasRecord.height < 1 ||
     !isRotation(canvasRecord.rotation) ||
-    !isAccent(canvasRecord.accent)
+    (!hasAccent && !hasColorMode)
   ) {
     return null
   }
+
+  const accent = hasAccent ? canvasRecord.accent! : canvasRecord.colorMode === 'bwy' ? 'yellow' : 'red'
 
   return {
     v: SHARE_PAYLOAD_VERSION,
@@ -89,7 +90,8 @@ function parseSharePayload(value: unknown): SharePayload | null {
       width: Math.round(canvasRecord.width),
       height: Math.round(canvasRecord.height),
       rotation: canvasRecord.rotation,
-      accent: canvasRecord.accent,
+      accent,
+      ...(hasColorMode ? { colorMode: canvasRecord.colorMode } : {}),
     },
     ...(record.service != null ? { service: record.service } : {}),
     elements: record.elements,

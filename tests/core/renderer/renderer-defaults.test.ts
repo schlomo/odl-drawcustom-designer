@@ -8,7 +8,7 @@ import { measureTextWidth } from '../../../src/core/renderer/text-layout'
 import type { RenderContext } from '../../../src/core/renderer/types'
 import { loadBundledTestFont } from './font-test-utils'
 
-const context: RenderContext = { width: 400, height: 200, accentMode: 'red' }
+const context: RenderContext = { width: 400, height: 200, colorMode: 'bwr' }
 
 describe('renderer uses propertyMetadata defaults', () => {
   it('renders text at spec default size 20 when size is omitted from yaml', () => {

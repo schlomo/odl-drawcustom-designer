@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { renderIconSequence } from '../../../src/core/renderer/icon-sequence'
 import type { RenderContext } from '../../../src/core/renderer/types'
 
-const context: RenderContext = { width: 400, height: 200, accentMode: 'red' }
+const context: RenderContext = { width: 400, height: 200, colorMode: 'bwr' }
 
 describe('renderIconSequence', () => {
   it('emits one positioned icon per icons array entry', () => {

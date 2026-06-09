@@ -14,7 +14,7 @@ function bootstrapWithText() {
         width: 400,
         height: 300,
         rotation: 0,
-        accentMode: 'red',
+        colorMode: 'bwr',
         previewDitherMode: 0,
       },
       elements: [{ type: 'text', value: 'Hello', x: 10, y: 10 }],
@@ -73,7 +73,7 @@ describe('useProjectState history integration', () => {
               width: 400,
               height: 300,
               rotation: 0,
-              accentMode: 'red',
+              colorMode: 'bwr',
               previewDitherMode: 0,
             },
             elements: [
@@ -124,7 +124,7 @@ describe('useProjectState history integration', () => {
               width: 400,
               height: 300,
               rotation: 0,
-              accentMode: 'red',
+              colorMode: 'bwr',
               previewDitherMode: 0,
             },
             elements: [{ type: 'text', value: 'Current', x: 0, y: 0 }],
@@ -136,7 +136,7 @@ describe('useProjectState history integration', () => {
                     width: 400,
                     height: 300,
                     rotation: 0,
-                    accentMode: 'red',
+                    colorMode: 'bwr',
                     previewDitherMode: 0,
                   },
                   selectedIndices: [],
@@ -192,7 +192,7 @@ describe('useProjectState history integration', () => {
               width: 400,
               height: 300,
               rotation: 0,
-              accentMode: 'red',
+              colorMode: 'bwr',
               previewDitherMode: 0,
             },
             elements: [
@@ -240,7 +240,7 @@ describe('useProjectState history integration', () => {
           width: 400,
           height: 300,
           rotation: 0,
-          accentMode: 'red',
+          colorMode: 'bwr',
           previewDitherMode: 0,
         },
         elements: [
@@ -296,5 +296,64 @@ describe('useProjectState history integration', () => {
     })
 
     expect(result.current.elements[0]).toMatchObject({ x: beforeX, y: 10 })
+  })
+
+  it('does not record display config changes in undo history', () => {
+    const { result } = renderHook(() => useProjectState(bootstrapWithText()))
+
+    act(() => {
+      result.current.applyResolution(296, 128)
+      result.current.setColorMode('bwy')
+      result.current.setRotation(90)
+      result.current.togglePreviewDither()
+    })
+
+    expect(result.current.canvas).toMatchObject({
+      width: 296,
+      height: 128,
+      colorMode: 'bwy',
+      rotation: 90,
+      previewDitherMode: 2,
+    })
+    expect(result.current.canUndo).toBe(false)
+
+    act(() => {
+      result.current.addElement('rectangle')
+    })
+    expect(result.current.canUndo).toBe(true)
+
+    act(() => {
+      result.current.undo()
+    })
+
+    expect(result.current.elements).toHaveLength(1)
+    expect(result.current.canvas).toMatchObject({
+      width: 296,
+      height: 128,
+      colorMode: 'bwy',
+      rotation: 90,
+      previewDitherMode: 2,
+    })
+  })
+
+  it('does not revert display config when undoing YAML edits made earlier', () => {
+    const { result } = renderHook(() => useProjectState(bootstrapWithText()))
+
+    act(() => {
+      result.current.addElement('rectangle')
+    })
+
+    act(() => {
+      result.current.setColorMode('bwy')
+      result.current.togglePreviewDither()
+    })
+
+    act(() => {
+      result.current.undo()
+    })
+
+    expect(result.current.elements).toHaveLength(1)
+    expect(result.current.canvas.colorMode).toBe('bwy')
+    expect(result.current.canvas.previewDitherMode).toBe(2)
   })
 })

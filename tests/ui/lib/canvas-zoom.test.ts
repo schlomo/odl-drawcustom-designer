@@ -10,6 +10,8 @@ import {
   computeFitScale,
   computeRotatedCanvasBounds,
   formatCanvasPointerCoords,
+  mapCanvasPointToStageLocal,
+  paperTransform,
   refineCanvasPointerPoint,
 } from '../../../src/ui/lib/canvas-zoom'
 
@@ -157,6 +159,85 @@ describe('canvas pointer refinement', () => {
   it('formats stable integer coordinates for the overlay', () => {
     expect(formatCanvasPointerCoords({ x: 799.7, y: 240.2 }, 800, 480)).toBe('800, 240')
     expect(formatCanvasPointerCoords({ x: 800.3, y: 480.4 }, 800, 480)).toBe('800, 480')
+  })
+})
+
+describe('canvas paper transform', () => {
+  const canvasWidth = 800
+  const canvasHeight = 480
+  const scale = 1
+
+  it('maps canvas corners into the rotated stage envelope', () => {
+    for (const rotation of [0, 90, 180, 270] as const) {
+      const bounds = computeRotatedCanvasBounds(canvasWidth, canvasHeight, rotation)
+      const corners: Array<[number, number]> = [
+        [0, 0],
+        [canvasWidth, 0],
+        [0, canvasHeight],
+        [canvasWidth, canvasHeight],
+      ]
+
+      for (const [cx, cy] of corners) {
+        const stage = mapCanvasPointToStageLocal(
+          cx,
+          cy,
+          canvasWidth,
+          canvasHeight,
+          rotation,
+          scale,
+        )
+        expect(stage.x).toBeGreaterThanOrEqual(-0.01)
+        expect(stage.y).toBeGreaterThanOrEqual(-0.01)
+        expect(stage.x).toBeLessThanOrEqual(bounds.width * scale + 0.01)
+        expect(stage.y).toBeLessThanOrEqual(bounds.height * scale + 0.01)
+      }
+    }
+  })
+
+  it('round-trips pointer mapping through clientPointToCanvasCoords at 90°', () => {
+    const rotation: CanvasRotation = 90
+    const bounds = computeRotatedCanvasBounds(canvasWidth, canvasHeight, rotation)
+    const stageRect = {
+      left: 0,
+      top: 0,
+      width: bounds.width,
+      height: bounds.height,
+    } as DOMRect
+
+    for (const [cx, cy] of [
+      [0, canvasHeight],
+      [canvasWidth, 0],
+      [canvasWidth, canvasHeight],
+      [0, 0],
+    ] as const) {
+      const stage = mapCanvasPointToStageLocal(
+        cx,
+        cy,
+        canvasWidth,
+        canvasHeight,
+        rotation,
+        scale,
+      )
+      const roundTrip = clientPointToCanvasCoords(
+        stageRect.left + stage.x,
+        stageRect.top + stage.y,
+        stageRect,
+        canvasWidth,
+        canvasHeight,
+        rotation,
+      )
+      expect(roundTrip.x).toBeCloseTo(cx, 5)
+      expect(roundTrip.y).toBeCloseTo(cy, 5)
+    }
+  })
+
+  it('uses a translate+matrix transform that keeps rotated content on-screen', () => {
+    expect(paperTransform(90, 1, canvasWidth, canvasHeight)).toBe(
+      'matrix(0, 1, -1, 0, 480, 0)',
+    )
+    expect(paperTransform(180, 2, canvasWidth, canvasHeight)).toBe(
+      'matrix(-2, 0, 0, -2, 1600, 960)',
+    )
   })
 })
 

@@ -183,6 +183,12 @@ describe('drawCanvasStub dlimg preview', () => {
       strokeRect: vi.fn(),
       fillText: vi.fn(),
       setLineDash: vi.fn(),
+      getImageData: () => ({
+        width: 64,
+        height: 48,
+        data: new Uint8ClampedArray(64 * 48 * 4),
+      }),
+      putImageData: vi.fn(),
     } as unknown as CanvasRenderingContext2D
 
     const image = new Image()

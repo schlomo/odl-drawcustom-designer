@@ -1,7 +1,8 @@
-import { buildArcPiePath, type SvgPrimitive } from '../../core'
+import { buildArcPiePath, type SvgPrimitive, type TagColorMode, type DitherMode } from '../../core'
 import { clampStrokeWidth, resolveSvgFontFamily } from './svg-font-family'
 
 const MDI_VIEWBOX_SIZE = 24
+const UNKNOWN_ICON_BACKGROUND = '#FFFFFF'
 
 function escapeXml(value: string): string {
   return value
@@ -29,12 +30,30 @@ function unknownIconMarkup(
 ): string {
   const fontSize = Math.min(11, Math.max(8, size / 10))
   const text = label.length > 14 ? `${label.slice(0, 12)}…` : label
-  return `<g><rect x="${x}" y="${y}" width="${size}" height="${size}" fill="#f8fafc" stroke="${escapeXml(fill)}" stroke-width="1" stroke-dasharray="4 2"/><text x="${x + size / 2}" y="${y + size / 2}" text-anchor="middle" dominant-baseline="middle" font-size="${fontSize}" fill="${escapeXml(fill)}">${escapeXml(text)}</text></g>`
+  return `<g><rect x="${x}" y="${y}" width="${size}" height="${size}" fill="${UNKNOWN_ICON_BACKGROUND}" stroke="${escapeXml(fill)}" stroke-width="1" stroke-dasharray="4 2"/><text x="${x + size / 2}" y="${y + size / 2}" text-anchor="middle" dominant-baseline="middle" font-size="${fontSize}" fill="${escapeXml(fill)}">${escapeXml(text)}</text></g>`
+}
+
+export interface SvgPrimitiveMarkupOptions {
+  colorMode?: TagColorMode
+  ditherMode?: DitherMode
+  patternDefs?: string
 }
 
 export function renderSvgPrimitiveMarkup(
   primitive: SvgPrimitive,
   fontFamilies: ReadonlyMap<string, string> = new Map(),
+  options: SvgPrimitiveMarkupOptions = {},
+): string {
+  const markup = renderSvgPrimitiveBody(primitive, fontFamilies)
+  if (!options.patternDefs) {
+    return markup
+  }
+  return `<defs>${options.patternDefs}</defs>${markup}`
+}
+
+function renderSvgPrimitiveBody(
+  primitive: SvgPrimitive,
+  fontFamilies: ReadonlyMap<string, string>,
 ): string {
   switch (primitive.kind) {
     case 'line':

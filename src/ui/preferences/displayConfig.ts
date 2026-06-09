@@ -1,5 +1,6 @@
-import type { AccentMode } from '../../core'
-import { DEFAULT_PRESET_ID, DISPLAY_PRESETS } from '../data/display-presets'
+import type { TagColorMode } from '../../core'
+import { isTagColorMode } from '../../core'
+import { DEFAULT_RESOLUTION } from '../data/resolution-picks'
 import { DISPLAY_CONFIG_STORAGE_KEY } from './keys'
 
 export type CanvasRotation = 0 | 90 | 180 | 270
@@ -9,21 +10,18 @@ export interface DisplayConfig {
   width: number
   height: number
   rotation: CanvasRotation
-  accentMode: AccentMode
+  colorMode: TagColorMode
   previewDitherMode: PreviewDitherMode
 }
 
 const ROTATIONS = new Set<CanvasRotation>([0, 90, 180, 270])
-const ACCENT_MODES = new Set<AccentMode>(['red', 'yellow'])
 const PREVIEW_DITHER_MODES = new Set<PreviewDitherMode>([0, 2])
 
-const defaultPreset = DISPLAY_PRESETS.find((preset) => preset.id === DEFAULT_PRESET_ID)!
-
 export const DEFAULT_DISPLAY_CONFIG: DisplayConfig = {
-  width: defaultPreset.width ?? 384,
-  height: defaultPreset.height ?? 184,
+  width: DEFAULT_RESOLUTION.width,
+  height: DEFAULT_RESOLUTION.height,
   rotation: 0,
-  accentMode: 'red',
+  colorMode: 'bwr',
   previewDitherMode: 0,
 }
 
@@ -31,12 +29,21 @@ function isRotation(value: unknown): value is CanvasRotation {
   return typeof value === 'number' && ROTATIONS.has(value as CanvasRotation)
 }
 
-function isAccentMode(value: unknown): value is AccentMode {
-  return typeof value === 'string' && ACCENT_MODES.has(value as AccentMode)
-}
-
 function isPreviewDitherMode(value: unknown): value is PreviewDitherMode {
   return typeof value === 'number' && PREVIEW_DITHER_MODES.has(value as PreviewDitherMode)
+}
+
+function parseColorMode(record: Record<string, unknown>): TagColorMode | null {
+  if (isTagColorMode(record.colorMode)) {
+    return record.colorMode
+  }
+  if (record.accentMode === 'red') {
+    return 'bwr'
+  }
+  if (record.accentMode === 'yellow') {
+    return 'bwy'
+  }
+  return null
 }
 
 export function parseDisplayConfig(value: unknown): DisplayConfig | null {
@@ -44,7 +51,7 @@ export function parseDisplayConfig(value: unknown): DisplayConfig | null {
     return null
   }
 
-  const record = value as Partial<DisplayConfig>
+  const record = value as Record<string, unknown>
   const width = record.width
   const height = record.height
 
@@ -57,7 +64,9 @@ export function parseDisplayConfig(value: unknown): DisplayConfig | null {
   if (!isRotation(record.rotation)) {
     return null
   }
-  if (!isAccentMode(record.accentMode)) {
+
+  const colorMode = parseColorMode(record)
+  if (!colorMode) {
     return null
   }
 
@@ -69,7 +78,7 @@ export function parseDisplayConfig(value: unknown): DisplayConfig | null {
     width: Math.round(width),
     height: Math.round(height),
     rotation: record.rotation,
-    accentMode: record.accentMode,
+    colorMode,
     previewDitherMode,
   }
 }
