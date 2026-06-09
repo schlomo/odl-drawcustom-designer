@@ -78,7 +78,15 @@ import { type ElementBounds } from '../lib/primitive-bounds'
 import { unionBounds, type ElementAlign } from '../lib/align-elements'
 import { isElementCanvasSelectable, resolveElementHitBounds } from '../lib/hidden-element-hints'
 import { normalizeMarqueeRect } from '../lib/marquee-selection'
-import { snapMoveDelta, snapToGrid } from '../lib/snap-to-grid'
+import {
+  canvasEdgeSnapGuides,
+  canvasPointSnapGuides,
+  canvasSnapGuideLines,
+  snapBoundsToCanvas,
+  snapMoveDelta,
+  snapPointToCanvas,
+  type CanvasSnapEdge,
+} from '../lib/snap-to-grid'
 import type { SnapGridPrefs } from '../preferences/snapGrid'
 import {
   readCanvasZoomMode,
@@ -159,11 +167,19 @@ const HANDLE_SIZE = HANDLE_VISUAL_SIZE
 const HANDLE_FILL_INTERACTIVE = '#3b82f6'
 const HANDLE_FILL_DISABLED = '#ef4444'
 
-function applySnap(point: { x: number; y: number }, snapGrid: SnapGridPrefs): { x: number; y: number } {
-  return {
-    x: snapToGrid(point.x, snapGrid.size, snapGrid.enabled),
-    y: snapToGrid(point.y, snapGrid.size, snapGrid.enabled),
-  }
+function applySnap(
+  point: { x: number; y: number },
+  snapGrid: SnapGridPrefs,
+  canvas: { width: number; height: number },
+): { x: number; y: number } {
+  return snapPointToCanvas(
+    point.x,
+    point.y,
+    canvas.width,
+    canvas.height,
+    snapGrid.size,
+    snapGrid.enabled,
+  )
 }
 
 export function DesignerCanvas({
@@ -237,6 +253,7 @@ export function DesignerCanvas({
   const marqueeRectRef = useRef<ElementBounds | null>(null)
   const marqueeSessionRef = useRef<MarqueeSession | null>(null)
   const [dragOverlays, setDragOverlays] = useState<DragOverlay[]>([])
+  const [canvasSnapGuides, setCanvasSnapGuides] = useState<CanvasSnapEdge[]>([])
   /** Preview stack frozen at drag start so live YAML/property updates do not re-render every layer. */
   const [frozenElements, setFrozenElements] = useState<DrawElement[] | null>(null)
 
@@ -547,6 +564,7 @@ export function DesignerCanvas({
     dragSessionRef.current = null
     setDragSession(null)
     setDragOverlays([])
+    setCanvasSnapGuides([])
     onDragActiveChange?.(false)
     onEndEditCoalesce?.()
   }, [onDragActiveChange, onEndEditCoalesce, releaseCapturedPointer])
@@ -675,16 +693,39 @@ export function DesignerCanvas({
         }
         const rawDx = point.x - session.startCanvas.x
         const rawDy = point.y - session.startCanvas.y
+        const canvas = { width: renderContext.width, height: renderContext.height }
+        const snapBounds =
+          session.starts.length === 1
+            ? primary.startBounds
+            : unionBounds(session.starts.map((start) => start.startBounds))
+        if (!snapBounds) {
+          return
+        }
+        const rawTarget = {
+          x: snapBounds.x + rawDx,
+          y: snapBounds.y + rawDy,
+          width: snapBounds.width,
+          height: snapBounds.height,
+        }
+        setCanvasSnapGuides(
+          canvasEdgeSnapGuides(
+            rawTarget,
+            canvas.width,
+            canvas.height,
+            snapGrid.size,
+            snapGrid.enabled,
+          ),
+        )
         const { dx, dy } = snapMoveDelta(
-          primary.startBounds,
+          snapBounds,
           rawDx,
           rawDy,
           snapGrid.size,
           snapGrid.enabled,
+          canvas,
         )
         if (dx !== 0 || dy !== 0) {
           if (session.starts.length === 1) {
-            const canvas = { width: renderContext.width, height: renderContext.height }
             updateDragVisual(
               primary.index,
               translateElement(primary.startDisplayElement, dx, dy, canvas),
@@ -710,7 +751,20 @@ export function DesignerCanvas({
 
       if (supportsLineEndpointResize(element, handle) && (handle === 'line-start' || handle === 'line-end')) {
         const endpoint = handle === 'line-start' ? 'start' : 'end'
-        const snapped = applySnap(point, snapGrid)
+        const snapped = applySnap(point, snapGrid, {
+          width: renderContext.width,
+          height: renderContext.height,
+        })
+        setCanvasSnapGuides(
+          canvasPointSnapGuides(
+            snapped.x,
+            snapped.y,
+            renderContext.width,
+            renderContext.height,
+            snapGrid.size,
+            snapGrid.enabled,
+          ),
+        )
         if (displayElement.type === 'line' && element.type === 'line') {
           updateDragVisual(
             primary.index,
@@ -721,8 +775,22 @@ export function DesignerCanvas({
         return
       }
 
-      const pointerX = point.x
-      const pointerY = point.y
+      const snappedPointer = applySnap(point, snapGrid, {
+        width: renderContext.width,
+        height: renderContext.height,
+      })
+      const pointerX = snappedPointer.x
+      const pointerY = snappedPointer.y
+      setCanvasSnapGuides(
+        canvasPointSnapGuides(
+          pointerX,
+          pointerY,
+          renderContext.width,
+          renderContext.height,
+          snapGrid.size,
+          snapGrid.enabled,
+        ),
+      )
 
       if (supportsSeSizeResize(element)) {
         updateDragVisual(
@@ -734,7 +802,24 @@ export function DesignerCanvas({
       }
 
       if (supportsBoxResize(element)) {
-        const nextBounds = resizeBoundsWithHandle(primary.startBounds, handle, pointerX, pointerY)
+        const rawBounds = resizeBoundsWithHandle(primary.startBounds, handle, pointerX, pointerY)
+        const nextBounds = snapBoundsToCanvas(
+          rawBounds,
+          renderContext.width,
+          renderContext.height,
+          snapGrid.size,
+          snapGrid.enabled,
+          { preserveSize: false },
+        )
+        setCanvasSnapGuides(
+          canvasEdgeSnapGuides(
+            rawBounds,
+            renderContext.width,
+            renderContext.height,
+            snapGrid.size,
+            snapGrid.enabled,
+          ),
+        )
         updateDragVisual(
           primary.index,
           applyBoundsResize(displayElement, nextBounds),
@@ -1016,6 +1101,13 @@ export function DesignerCanvas({
   const canMoveSelectionUp = selectedIndices.some((index) => index < elementCount - 1)
   const canMoveSelectionDown = selectedIndices.some((index) => index > 0)
 
+  const canvasSnapGuideOverlay = useMemo(() => {
+    if (!snapGrid.enabled || canvasSnapGuides.length === 0) {
+      return null
+    }
+    return canvasSnapGuideLines(canvasSnapGuides, renderContext.width, renderContext.height)
+  }, [canvasSnapGuides, renderContext.height, renderContext.width, snapGrid.enabled])
+
   const gridLines = useMemo(() => {
     if (!snapGrid.enabled) {
       return null
@@ -1282,6 +1374,28 @@ export function DesignerCanvas({
                 strokeDasharray="4 2"
               />
             ) : null}
+            {canvasSnapGuideOverlay?.map((line) => (
+              <g key={`canvas-snap-${line.edge}`}>
+                <line
+                  x1={line.x1}
+                  y1={line.y1}
+                  x2={line.x2}
+                  y2={line.y2}
+                  stroke="#ffffff"
+                  strokeWidth={5}
+                  strokeOpacity={0.95}
+                />
+                <line
+                  x1={line.x1}
+                  y1={line.y1}
+                  x2={line.x2}
+                  y2={line.y2}
+                  stroke="#e11d48"
+                  strokeWidth={2.5}
+                  strokeDasharray="8 4"
+                />
+              </g>
+            ))}
           </svg>
             </div>
           </div>

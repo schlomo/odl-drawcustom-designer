@@ -27,7 +27,7 @@ import {
   type AddElementResult,
 } from '../lib/add-element-guards'
 import { createElementFromTemplate } from '../lib/create-element-from-template'
-import { isElementDraggable, moveElementInArray, translateElement } from '../lib/element-geometry'
+import { moveElementInArray } from '../lib/element-geometry'
 import { reorderSelectionBlock } from '../lib/reorder-selection'
 import { isElementCanvasSelectable, resolveElementHitBounds } from '../lib/hidden-element-hints'
 import { boundsFullyEnclosedInRect } from '../lib/marquee-selection'
@@ -648,24 +648,19 @@ export function useProjectState(bootstrap: AppBootstrap) {
   const nudgeElement = useCallback(
     (index: number, dx: number, dy: number) => {
       dispatchHistory(() => {
-        commitElements((current) => {
-          if (index < 0 || index >= current.length) {
-            return current
-          }
-          const element = current[index]
-          if (!isElementDraggable(element)) {
-            return current
-          }
-          const next = [...current]
-          next[index] = translateElement(element, dx, dy, {
-            width: canvasRef.current.width,
-            height: canvasRef.current.height,
-          })
-          return next
-        })
+        commitElements((current) =>
+          nudgeElementsAtIndices(current, [index], dx, dy, {
+            canvas: {
+              width: canvasRef.current.width,
+              height: canvasRef.current.height,
+            },
+            snapGrid,
+            resolveBounds: (element) => resolveElementHitBounds(element, renderContext),
+          }),
+        )
       })
     },
-    [commitElements, dispatchHistory],
+    [commitElements, dispatchHistory, renderContext, snapGrid],
   )
 
   const nudgeSelectedElements = useCallback(
@@ -673,13 +668,17 @@ export function useProjectState(bootstrap: AppBootstrap) {
       dispatchHistory(() => {
         commitElements((current) =>
           nudgeElementsAtIndices(current, selectedIndicesRef.current, dx, dy, {
-            width: canvasRef.current.width,
-            height: canvasRef.current.height,
+            canvas: {
+              width: canvasRef.current.width,
+              height: canvasRef.current.height,
+            },
+            snapGrid,
+            resolveBounds: (element) => resolveElementHitBounds(element, renderContext),
           }),
         )
       })
     },
-    [commitElements, dispatchHistory],
+    [commitElements, dispatchHistory, renderContext, snapGrid],
   )
 
   const applyLayerMove = useCallback(

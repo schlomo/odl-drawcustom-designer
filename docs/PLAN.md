@@ -70,7 +70,7 @@ todos:
     status: completed
   - id: phase4-edge-snap
     content: "§18e: canvas edge snap (bottom/right priority over grid)"
-    status: pending
+    status: completed
   - id: phase4-ha-embed
     content: "§18f: HA panel mode, drawcustom load/save, live state preview"
     status: pending
@@ -754,14 +754,14 @@ flowchart LR
 | **4b** Export + share | ✅ Done | `0bac3b6` | 636 (97 files) | Zoom, PNG/YAML export, `#d=pako` share, missing-asset banner |
 | **4c** Multi-select | ✅ Done | `adb3988` | 661 (102 files) | Marquee, Shift+click, bulk drag/nudge/layer, align toolbar |
 | **4d** Undo/redo | ✅ Done | `fc35ccd` | 708 (118 files) | 50-step stack, drag coalesce, session-persisted history, toolbar chrome |
-| **4e** Edge snap | ⬜ **Next** | — | — | Snap to canvas bounds when grid on (§18e) |
+| **4e** Edge snap | ✅ Done | — | 724 (119 files) | Canvas bounds snap when grid on; bottom/right priority (§18e) |
 | **4f–4i** Polish | ⬜ Pending | — | — | HA embed, service options, deploy (§18f–h, §18i) |
 | **4j** ODL alignment | ⬜ Pending | — | — | Cross-cutting schema/renderer parity with OpenDisplay Language (§18j) |
 | **4k–4r** UX + brand | ⬜ Pending | — | — | Load Demo header button (§18k); demo visible refactor (**§18m**); rebrand (§7.5 / §18r) |
 
-**Current repo health:** `npm test` → **708 passed** (118 files) · `npm run lint` → **clean** · last commit `fc35ccd`
+**Current repo health:** `npm test` → **724 passed** (119 files) · `npm run lint` → **clean** · last commit `fc35ccd`
 
-**Next:** Phase **4e** — canvas edge snap (§18e).
+**Next:** Phase **4f** — HA embed preparation (§18f).
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -1223,7 +1223,7 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 | Undo/redo (50 steps) | ✅ (**4d**) | 4 |
 | Last-session restore on load | ✅ (**4a**) | 4a |
 | Global assets + mocks (not per project) | ✅ (**4a**) | 4a |
-| Canvas edge snap (bottom/right priority) | ⬜ **4e** | 4 |
+| Canvas edge snap (bottom/right priority) | ✅ **4e** | 4 |
 | Share link restores name + canvas + elements (not assets/mocks) | ✅ (**4b**) | 4 |
 | HA embed: load/save drawcustom + live states | ⬜ **4f** (prep) | 4 |
 | Service options UI (`background`, `rotate`, `dither`, …) | ⬜ Schema only | 4g |
@@ -1319,7 +1319,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **4a–4d** ✅ through `fc35ccd`. **Current work:** **§18e** (edge snap) → **§18f–i**.
+- Phase **4a–4e** ✅ through `fc35ccd` + §18e. **Current work:** **§18f–i**.
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1658,7 +1658,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **§18c** ✅ (`adb3988`). **§18d** ✅ (`fc35ccd`). **Next: §18e** (edge snap).
+**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **§18c** ✅ (`adb3988`). **§18d** ✅ (`fc35ccd`). **§18e** ✅ (canvas edge snap). **Next: §18f** (HA embed).
 
 **Plan cross-reference map:**
 
@@ -1777,24 +1777,20 @@ Delivered — see §7 Phase 4c. Key files: `align-elements.ts`, `marquee-selecti
 
 <!-- prompt archived — phase complete -->
 
-### §18d — Undo/redo (50 steps) ✅
+### §18d — Undo/redo (50 steps) ✅ (`fc35ccd`)
 
-Delivered — see §7 Phase 4d. Key files: `edit-history.ts`, `useProjectState.ts`, `DesignerCanvas.tsx`, `selection-remap.ts` (`clampSelectedIndices`).
+Delivered — see §7 Phase 4d. Key files: `edit-history.ts`, `useProjectState.ts`, `undo-keyboard.ts`, `CanvasHeaderToolbar.tsx`, ADR-003 session `editHistory` fields.
 
 <!-- prompt archived — phase complete -->
 
-### §18e — Canvas edge snap ⬜ **Next**
+### §18e — Canvas edge snap ✅
 
-```
-Execute Phase 4e — snap to canvas bounds.
+- `snapBoundsToCanvas`, `snapPointToCanvas` in `src/ui/lib/snap-to-grid.ts`
+- Wired: `DesignerCanvas` drag/resize; `nudgeElementsAtIndices` batch (union bounds for multi-select)
+- Drag-time border guide overlays (rose dashed lines)
+- Tests: `tests/ui/lib/canvas-edge-snap.test.ts`
 
-When snap is on (existing grid toggle):
-- Snap element edges to canvas outer border (0 and width/height)
-- Higher priority for bottom and right edge snap vs grid
-- Unit tests in snap-to-grid.ts or element-geometry
-
-Next: docs/PLAN.md §18f
-```
+<!-- prompt archived — phase complete -->
 
 ### §18f — HA embed preparation
 

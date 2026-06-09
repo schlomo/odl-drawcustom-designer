@@ -15,7 +15,6 @@ import { ThemeToggle } from './components/ThemeToggle'
 import { YamlPanel } from './components/YamlPanel'
 import { remapSelectedIndex } from './editor/yamlElementsSync'
 import { collectKnownFontKeys } from './lib/known-font-keys'
-import { nudgeWhenSelected } from './lib/canvas-keyboard'
 import { copyTextToClipboard } from './lib/export-download'
 import { toolbarGroupRow, toolbarGroupsRow } from './lib/export-action-feedback'
 import { getMissingAssetMessages } from './lib/missing-asset-messages'
@@ -84,7 +83,7 @@ export function App({ bootstrap }: AppProps) {
     addElement,
     clearElements,
     loadExample,
-    nudgeElement,
+    nudgeSelectedElements,
     selectAllInRect,
     bringSelectionToFront,
     sendSelectionToBack,
@@ -213,9 +212,12 @@ export function App({ bootstrap }: AppProps) {
 
   const handleNudgeSelected = useCallback(
     (dx: number, dy: number) => {
-      nudgeWhenSelected(selectedIndices, nudgeElement, dx, dy)
+      if (selectedIndices.length === 0) {
+        return
+      }
+      nudgeSelectedElements(dx, dy)
     },
-    [nudgeElement, selectedIndices],
+    [nudgeSelectedElements, selectedIndices.length],
   )
 
   const handlePropertyChange = useCallback(
