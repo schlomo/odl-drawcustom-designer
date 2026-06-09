@@ -32,7 +32,7 @@ Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcus
 
 **Phase 4e** — canvas edge snap (**committed** `f07f004`).
 
-**Next:** Phase **4f** — HA embed preparation (§18f). Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §18.
+**Next:** Phase **4g** — service options (§18g). HA embed (**4f**) deferred post-v1 pending HA dev discussion. Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §18.
 
 ## Spec
 

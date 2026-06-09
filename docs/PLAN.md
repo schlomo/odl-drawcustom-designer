@@ -1,6 +1,6 @@
 ---
 name: OEPL YAML Designer
-overview: OpenEPaperLink drawcustom YAML designer — spec-complete core, global IndexedDB assets/mocks, last-session restore, hash share, multi-select editing, HA embed path, GH Pages + optional HA panel.
+overview: OpenEPaperLink drawcustom YAML designer — spec-complete core, global IndexedDB assets/mocks, last-session restore, hash share, multi-select editing, GH Pages v1; HA embed post-v1 (ADR-010 after HA dev sync).
 todos:
   - id: scaffold
     content: "Create oepl-designer repo: Vite+React 19+TS, Tailwind, ESLint core/ui boundary, GH Actions Pages deploy"
@@ -42,7 +42,7 @@ todos:
     content: "Hash share (#d=pako) + last-session restore — no multi-project library (§18b)"
     status: pending
   - id: polish
-    content: "PNG/YAML export bars, undo/redo 50, multi-select, edge snap, HA embed prep (§18)"
+    content: "PNG/YAML export bars, undo/redo 50, multi-select, edge snap, service options, ship (§18g–h); HA embed post-v1"
     status: pending
   - id: phase4-storage
     content: "§18a: global assets+mocks, single session blob, Dexie v3 (no migration)"
@@ -75,7 +75,10 @@ todos:
     content: "Commit Phase 4e after verification (§11r)"
     status: completed
   - id: phase4-ha-embed
-    content: "§18f: HA panel mode, drawcustom load/save, live state preview"
+    content: "§18f: HA panel embed — post-v1; blocked on HA dev discussion (ADR-010)"
+    status: cancelled
+  - id: phase4-service-options
+    content: "§18g: service options panel (background, rotate, dither, ttl, dry-run)"
     status: pending
   - id: phase4-display-zoom
     content: "§18i: resolution + color mode dropdowns; canvas zoom 50/100/200/fit (§18b)"
@@ -466,7 +469,7 @@ Prioritized for a “really nice” designer:
 13. Snap to canvas outer edges when snap on (bottom/right edge priority over grid).
 14. Alignment tools for multi-selection (left/center/right, top/middle/bottom).
 15. Schema-driven property forms with inline docs linking to spec anchors.
-16. **HA embed mode** — run inside HA as design editor; load/save `drawcustom` from automations; live entity states for preview (§7.2).
+16. ~~**HA embed mode**~~ — **post-v1** (§18f); discuss contract with HA devs before implementation (ADR-010 draft).
 
 **Cut or deferred (simplify v1)** — see §7.2 simplifications table.
 
@@ -758,13 +761,14 @@ flowchart LR
 | **4c** Multi-select | ✅ Done | `adb3988` | 661 (102 files) | Marquee, Shift+click, bulk drag/nudge/layer, align toolbar |
 | **4d** Undo/redo | ✅ Done | `fc35ccd` | 708 (118 files) | 50-step stack, drag coalesce, session-persisted history, toolbar chrome |
 | **4e** Edge snap | ✅ Done | `f07f004` | 724 (119 files) | `snapBoundsToCanvas`, drag/resize/nudge, border guides |
-| **4f** HA embed | ⬜ **Next** | — | — | Dual runtime scaffolding (§18f) |
-| **4j** ODL alignment | ⬜ Pending | — | — | Cross-cutting schema/renderer parity with OpenDisplay Language (§18j) |
-| **4k–4r** UX + brand | ⬜ Pending | — | — | Load Demo header button (§18k); demo visible refactor (**§18m**); rebrand (§7.5 / §18r) |
+| **4g** Service options | ⬜ **Next** | — | — | `background`, `rotate`, `dither`, `ttl`, `dry-run` UI (§18g) |
+| **4i** Display config | ⬜ Pending | — | — | Resolution + color mode dropdowns (§18i) |
+| **4j–4r** Polish + ship | ⬜ Pending | — | — | ODL (§18j), demo (§18m/k), rebrand (§18r), deploy (§18h) |
+| **4f** HA embed | ⏸ **Post-v1** | — | — | Deferred until HA dev sync; ADR-010 stays draft (§18f) |
 
 **Current repo health:** `npm test` → **724 passed** (119 files) · `npm run lint` → **clean** · last commit `f07f004`
 
-**Next:** Phase **4f** — HA embed preparation (§18f).
+**Next:** Phase **4g** — service options panel (§18g). HA embed (**4f**) **post-v1** — coordinate with HA devs first.
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -983,7 +987,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 
 ### Phase 4 — Product polish + v1 ship criteria (revised 2026-06)
 
-**Closes the product loop** — export, session restore, editing power, HA embed path. Required for §8 v1.
+**Closes the product loop** — export, session restore, editing power, service options, display config, ship. HA embed is **post-v1** (owner sync with HA devs before implementation).
 
 | Chunk | Feature | Notes |
 |-------|---------|--------|
@@ -993,7 +997,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **4c** | **Multi-select** | ✅ Marquee, Shift+click, bulk drag/nudge/layer, align toolbar, shared property form (`adb3988`). |
 | **4d** | **Undo/redo** | ✅ 50-step stack, drag coalesce, session-persisted `editHistory`, toolbar chrome (`fc35ccd`). |
 | **4e** | **Edge snap** | ✅ `snapBoundsToCanvas` + guides; drag, resize, multi-select nudge (`f07f004`). |
-| **4f** | **HA embed prep** | Dual runtime: standalone vs HA panel. Load/save `drawcustom` payload from automation editor (if feasible). Live HA states for preview when embedded; standalone keeps State Simulator + global mocks. ADR-010 candidate. |
+| **4f** | **HA embed prep** | ⏸ **Post-v1** — dual runtime / panel iframe; load-save `drawcustom`; live HA states. **Blocked:** discuss contract with HA devs before coding (ADR-010 draft only). |
 | **4g** | **Service options** | `background`, `rotate`, `dither`, `ttl`, `dry-run` UI — schema exists. |
 | **4h** | **Ship** | GH Pages deploy; optional single Playwright smoke (load + add element). |
 | **4j** | **ODL alignment** | OpenDisplay Language + Basic Standard future-proofing: cross-cutting element fields (`visible` on all types), spec audit table, ADR-012, color-scheme enum maps to §18i. |
@@ -1001,7 +1005,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **4m** | **Demo visible refactor** | Showcase: `debug_grid` → `visible: false` (designer overlay); arc keeps legitimate `fill: none` + outline — not an invisibility stand-in. Fix `fill_none` hint false positives if needed. |
 | **4r** | **Rebrand** | Product + repo naming per §7.5 (decision pending — lean **odl-designer**). UI title, README, GH Pages path optional. |
 
-**Explicitly cut from v1** (see §7.2): 20-project library, inch-based tag preset list, asset bundle zip, PWA, validation summary panel, history diff, element copy/paste, free pan/continuous zoom, layer hide/lock/duplicate panel, Floyd-Steinberg dither, property-form test suite (19-7/19-8).
+**Explicitly cut from v1** (see §7.2): 20-project library, inch-based tag preset list, asset bundle zip, PWA, validation summary panel, history diff, element copy/paste, free pan/continuous zoom, layer hide/lock/duplicate panel, Floyd-Steinberg dither, property-form test suite (19-7/19-8), **HA embed (4f)**.
 
 ### 7.2 Simplifications (2026-06 plan revision)
 
@@ -1023,31 +1027,32 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | Plot CSV / sample data editor | **Defer** | Renderer synthetic data + YAML `data` field enough |
 | Floyd-Steinberg dither (d=1) | **Defer** | Ordered d=2 only for v1 |
 | Property form tests + JSON blur UX (19-7/19-8) | **Defer post-v1** | Not blocking ship |
-| HA automation snippet generator | **Replace** | HA embed load/save is the real integration |
+| HA automation snippet generator | **Replace (post-v1)** | HA embed load/save after HA dev agreement — not v1 |
 | Multi-select + alignment | **Promote to v1** | Was post-v1; now **4c** |
 | Canvas edge snap | **Promote to v1** | Was post-v1; now **4e** |
 | PNG + YAML toolbar export | **Promote to v1** | **4b** |
 | Load Example dropdown (17 designs) | **Cut** | One **Load Demo** in header (**4k**); per-type samples were dev fixtures, not a product feature |
 | Product rebrand (`oepl-designer` → …) | **Decide in 4r** | See §7.5 — lean **odl-designer** |
+| HA embed / panel iframe (4f) | **Defer post-v1** | Owner to align with HA devs on message contract before implementation; ADR-010 remains draft |
 
-**Runtime modes (4f):**
+**Runtime modes (4f — post-v1):** Standalone v1 ships with State Simulator + global mocks. Embedded HA editor deferred until contract agreed with HA maintainers.
 
 ```mermaid
 flowchart TB
-  subgraph standalone [Standalone GH Pages]
+  subgraph standalone [Standalone GH Pages — v1]
     LS[Last session IDB]
     GM[Global mocks + assets]
     Hash["#d= share hash"]
     Sim[State Simulator UI]
   end
-  subgraph embedded [HA embedded editor]
+  subgraph embedded [HA embedded editor — post-v1]
     Auto[Automation drawcustom block]
     HAStates[Live HA entity states]
     PostMsg[postMessage / panel API]
   end
   Core[Shared core renderer + YAML engine]
   standalone --> Core
-  embedded --> Core
+  embedded -.->|after HA dev sync| Core
   Auto --> PostMsg
   HAStates --> Core
   Sim --> GM
@@ -1228,7 +1233,7 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 | Global assets + mocks (not per project) | ✅ (**4a**) | 4a |
 | Canvas edge snap (bottom/right priority) | ✅ (**4e**) | 4 |
 | Share link restores name + canvas + elements (not assets/mocks) | ✅ (**4b**) | 4 |
-| HA embed: load/save drawcustom + live states | ⬜ **4f** (prep) | 4 |
+| HA embed: load/save drawcustom + live states | ⏸ **post-v1** (4f) | — |
 | Service options UI (`background`, `rotate`, `dither`, …) | ⬜ Schema only | 4g |
 | Cross-cutting ODL fields (`visible` on all 16 types) | ⬜ **4j** | 4 |
 | Showcase demo uses `visible: false` for overlay (not `fill: none` hack) | ⬜ **4m** | 4 |
@@ -1322,7 +1327,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **4a–4e** ✅ through `f07f004`. **Current work:** **§18f** (HA embed) → **§18g–i**.
+- Phase **4a–4e** ✅ through `f07f004`. **Current work:** **§18g** (service options) → **§18i** → **§18j** → **§18m/k/r** → **§18h**. **§18f** post-v1.
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1669,7 +1674,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **§18c** ✅ (`adb3988`). **§18d** ✅ (`fc35ccd`). **§18e** ✅ (`f07f004`). **Next: §18f** (HA embed).
+**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **§18c** ✅ (`adb3988`). **§18d** ✅ (`fc35ccd`). **§18e** ✅ (`f07f004`). **Next: §18g** (service options). **§18f** HA embed → post-v1 (HA dev discussion).
 
 **Plan cross-reference map:**
 
@@ -1766,7 +1771,7 @@ Key files: `docs/testing.md`, `docs/adr/ADR-011-behavior-test-policy.md`, `docs/
 
 **Revised 2026-06.** One agent session per subsection. Read §7.2 simplifications first — do not implement cut features. **Prerequisite:** §17g ✅; **§18a** ✅ (`5ad7e6f`).
 
-**Order:** §18a → §18b → §18c → §18d → §18e → §18f → §18g → §18i → **§18j** → **§18m** → **§18k** → **§18r** → §18h (§18i ∥ §18b after §18a; **§18m immediately after §18j**; §18k after §18m)
+**Order:** §18a → §18b → §18c → §18d → §18e → §18g → §18i → **§18j** → **§18m** → **§18k** → **§18r** → §18h (§18i ∥ §18b after §18a; **§18m** after **§18j**; **§18f** post-v1 after ship)
 
 ### §18a — Storage reshape (Phase 4a) ✅ (`5ad7e6f`)
 
@@ -1803,40 +1808,43 @@ Delivered — see §7 Phase 4d. Key files: `edit-history.ts`, `useProjectState.t
 
 <!-- prompt archived — phase complete -->
 
-### §18f — HA embed preparation ⬜ **Next**
+### §18f — HA embed preparation ⏸ **Post-v1**
 
-Read **ADR-010** (`docs/adr/ADR-010-ha-embed-mode.md`).
+**Deferred 2026-06** — implement only after owner discusses embed contract with Home Assistant / OpenEPaperLink maintainers. **ADR-010** stays draft; do not build iframe/postMessage bridge until requirements are agreed.
 
 ```
-Execute Phase 4f — dual runtime for Home Assistant embedding.
+Execute Phase 4f (post-v1) — dual runtime for Home Assistant embedding.
+
+Prerequisite: HA dev alignment on INIT/SAVE message contract and auth model.
+
+Read ADR-010 (docs/adr/ADR-010-ha-embed-mode.md) — update with agreed contract before coding.
 
 Runtime detection:
 - Standalone (default): current app + State Simulator + global mocks
 - Embedded: ?embed=1 or postMessage handshake from parent frame
 
-Embedded contract (document in ADR-010):
+Embedded contract (finalize with HA devs):
 - Parent → designer: INIT with drawcustom payload (elements, canvas, service)
 - Designer → parent: SAVE with HA-clean YAML / payload on explicit Save
-- Live states: spike REST/websocket from HA host; document CORS/auth limits
+- Live states: REST/websocket from HA host; document CORS/auth limits
 
 Deliverables:
-- src/ui/embed/ or src/embed/ — detectRuntime(), postMessage bridge, types
-- App.tsx branches: hide Share/header chrome when embedded if needed
-- Dev mock parent: public/embed-mock.html or tests/fixtures for handshake
-- Tests: message round-trip, standalone unchanged
+- src/ui/embed/ — detectRuntime(), postMessage bridge, types
+- Dev mock parent + tests
 
-Out of scope: HA custom panel PR, production auth.
+Out of scope until post-v1: HA custom panel PR, production auth.
 
-Next: docs/PLAN.md §18g
+Next (v1 path): docs/PLAN.md §18g
 ```
 
-### §18g — Service options panel
+### §18g — Service options panel ⬜ **Next**
 
 ```
 Execute Phase 4g — service options UI.
 
 - Panel or header section for background, rotate, dither, ttl, dry-run
-- Round-trip to YAML service block; schema already in core
+- Round-trip to YAML service block; schema already in core (`src/core/schema/service.ts`)
+- Persist in session snapshot + share hash payload
 
 Next: docs/PLAN.md §18i
 ```

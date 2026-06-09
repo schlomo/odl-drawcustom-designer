@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (implementation Phase 4f — detection and HA API wiring TBD)
+Accepted as direction — **implementation deferred post-v1** (2026-06). Do not code embed bridge until owner aligns with HA / OpenEPaperLink maintainers on the message contract below.
 
 ## Context
 
