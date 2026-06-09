@@ -1,6 +1,6 @@
 ---
 name: OEPL YAML Designer
-overview: OpenEPaperLink drawcustom YAML designer — spec-complete core, global IndexedDB assets/mocks, last-session restore, hash share, multi-select editing, GH Pages v1; HA embed post-v1 (ADR-010 after HA dev sync).
+overview: OpenEPaperLink drawcustom YAML designer — spec-complete core, global IndexedDB assets/mocks, last-session restore, hash share, multi-select editing, GH Pages v1; HA embed + service-options UI post-v1 (HA dev sync first).
 todos:
   - id: scaffold
     content: "Create oepl-designer repo: Vite+React 19+TS, Tailwind, ESLint core/ui boundary, GH Actions Pages deploy"
@@ -42,7 +42,7 @@ todos:
     content: "Hash share (#d=pako) + last-session restore — no multi-project library (§18b)"
     status: pending
   - id: polish
-    content: "PNG/YAML export bars, undo/redo 50, multi-select, edge snap, service options, ship (§18g–h); HA embed post-v1"
+    content: "PNG/YAML export bars, undo/redo 50, multi-select, edge snap, display config, ship (§18i–h); HA embed + service options post-v1"
     status: pending
   - id: phase4-storage
     content: "§18a: global assets+mocks, single session blob, Dexie v3 (no migration)"
@@ -78,10 +78,13 @@ todos:
     content: "§18f: HA panel embed — post-v1; blocked on HA dev discussion (ADR-010)"
     status: cancelled
   - id: phase4-service-options
-    content: "§18g: service options panel (background, rotate, dither, ttl, dry-run)"
-    status: pending
+    content: "§18g: service options panel — post-v1; align with HA integration (schema exists)"
+    status: cancelled
   - id: phase4-display-zoom
-    content: "§18i: resolution + color mode dropdowns; canvas zoom 50/100/200/fit (§18b)"
+    content: "§18i: resolution + color mode dropdowns (replaces inch tag presets)"
+    status: pending
+  - id: phase4i-commit
+    content: "Commit Phase 4i after verification (§11s)"
     status: pending
   - id: phase4-odl-alignment
     content: "§18j: OpenDisplay Language alignment, cross-cutting fields (visible on all types), ADR-012"
@@ -269,7 +272,7 @@ flowchart LR
 
 | Spec feature                                                        | Existing tool                                     |
 | ------------------------------------------------------------------- | ------------------------------------------------- |
-| Service options: `background`, `rotate`, `dither`, `ttl`, `dry-run` | Not modeled                                       |
+| Service options: `background`, `rotate`, `dither`, `ttl`, `dry-run` | Schema ✅; UI **post-v1 (4g)** — edit in YAML for now |
 | Halftone / dithered color preview                                   | Flat RGB approximations only                      |
 | Hex colors (`#RGB`, `#RRGGBB`)                                      | Parsed; limited UI                                |
 | `parse_colors` inline markup                                        | ✅ Rendered on text/multiline (**3e**)            |
@@ -454,7 +457,7 @@ Prioritized for a “really nice” designer:
 
 1. **Color mode dropdown** — BW / BWR / BWY / 6-color (scaffold); maps `accent`/`half_accent` correctly (replaces separate accent toggle + inch presets).
 2. **Dither preview modes** — ordered (d=2) and optional Floyd-Steinberg (d=1) on export/preview toggle so halftone colors look like the tag.
-3. **Service options panel** — `background`, `rotate`, `dither` with note that rotate in service vs visual canvas rotation are distinct (keep existing tool’s helpful note).
+3. ~~**Service options panel**~~ — **post-v1** (§18g); same HA-integration alignment as embed — schema exists, UI deferred.
 4. **Undo/redo** — 50-step stack for element + property + multi-select batch edits.
 5. **Multi-select** — marquee/drag select, bulk move, raise/lower, align H/V (replaces separate layer-panel scope for v1).
 6. ~~Template playground~~ → **HA State Simulator** (see §2) — first-class panel, not optional polish.
@@ -761,14 +764,18 @@ flowchart LR
 | **4c** Multi-select | ✅ Done | `adb3988` | 661 (102 files) | Marquee, Shift+click, bulk drag/nudge/layer, align toolbar |
 | **4d** Undo/redo | ✅ Done | `fc35ccd` | 708 (118 files) | 50-step stack, drag coalesce, session-persisted history, toolbar chrome |
 | **4e** Edge snap | ✅ Done | `f07f004` | 724 (119 files) | `snapBoundsToCanvas`, drag/resize/nudge, border guides |
-| **4g** Service options | ⬜ **Next** | — | — | `background`, `rotate`, `dither`, `ttl`, `dry-run` UI (§18g) |
-| **4i** Display config | ⬜ Pending | — | — | Resolution + color mode dropdowns (§18i) |
-| **4j–4r** Polish + ship | ⬜ Pending | — | — | ODL (§18j), demo (§18m/k), rebrand (§18r), deploy (§18h) |
-| **4f** HA embed | ⏸ **Post-v1** | — | — | Deferred until HA dev sync; ADR-010 stays draft (§18f) |
+| **4i** Display config | ⬜ **Next** | — | — | Resolution + color mode dropdowns (§18i) |
+| **4j** ODL + `visible` | ⬜ Pending | — | — | Cross-cutting fields, ADR-012, gap report (§18j) |
+| **4m** Demo overlay | ⬜ Pending | — | — | `debug_grid` `visible: false` (§18m) |
+| **4k** Load Demo | ⬜ Pending | — | — | Header button; drop Load Example (§18k) |
+| **4r** Rebrand | ⬜ Pending | — | — | Owner decision §7.5 (§18r) |
+| **4h** Ship | ⬜ Pending | — | — | GH Pages + smoke (§18h) |
+| **4f** HA embed | ⏸ **Post-v1** | — | — | HA dev sync; ADR-010 draft (§18f) |
+| **4g** Service options | ⏸ **Post-v1** | — | — | Schema only until HA alignment (§18g) |
 
-**Current repo health:** `npm test` → **724 passed** (119 files) · `npm run lint` → **clean** · last commit `f07f004`
+**Current repo health:** `npm test` → **724 passed** (119 files) · `npm run lint` → **clean** · last commit `69d69c9`
 
-**Next:** Phase **4g** — service options panel (§18g). HA embed (**4f**) **post-v1** — coordinate with HA devs first.
+**Next:** Phase **4i** — display config (§18i). **4f** HA embed + **4g** service options **post-v1** — coordinate with HA devs first.
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -987,7 +994,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 
 ### Phase 4 — Product polish + v1 ship criteria (revised 2026-06)
 
-**Closes the product loop** — export, session restore, editing power, service options, display config, ship. HA embed is **post-v1** (owner sync with HA devs before implementation).
+**Closes the product loop** — export, session restore, editing power, display config, ship. HA embed + service options UI are **post-v1** (owner sync with HA devs before implementation).
 
 | Chunk | Feature | Notes |
 |-------|---------|--------|
@@ -998,14 +1005,14 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **4d** | **Undo/redo** | ✅ 50-step stack, drag coalesce, session-persisted `editHistory`, toolbar chrome (`fc35ccd`). |
 | **4e** | **Edge snap** | ✅ `snapBoundsToCanvas` + guides; drag, resize, multi-select nudge (`f07f004`). |
 | **4f** | **HA embed prep** | ⏸ **Post-v1** — dual runtime / panel iframe; load-save `drawcustom`; live HA states. **Blocked:** discuss contract with HA devs before coding (ADR-010 draft only). |
-| **4g** | **Service options** | `background`, `rotate`, `dither`, `ttl`, `dry-run` UI — schema exists. |
+| **4g** | **Service options** | ⏸ **Post-v1** — `background`, `rotate`, `dither`, `ttl`, `dry-run` UI; schema exists; defer until HA integration alignment. |
 | **4h** | **Ship** | GH Pages deploy; optional single Playwright smoke (load + add element). |
 | **4j** | **ODL alignment** | OpenDisplay Language + Basic Standard future-proofing: cross-cutting element fields (`visible` on all types), spec audit table, ADR-012, color-scheme enum maps to §18i. |
 | **4k** | **Load Demo UX** | Remove sidebar Load Example dropdown + `example-designs.ts` catalog; one **Load Demo** button in header loads curated showcase dashboard (confirm/replace if session dirty). **Prerequisite:** **4m** demo YAML fixed. |
 | **4m** | **Demo visible refactor** | Showcase: `debug_grid` → `visible: false` (designer overlay); arc keeps legitimate `fill: none` + outline — not an invisibility stand-in. Fix `fill_none` hint false positives if needed. |
 | **4r** | **Rebrand** | Product + repo naming per §7.5 (decision pending — lean **odl-designer**). UI title, README, GH Pages path optional. |
 
-**Explicitly cut from v1** (see §7.2): 20-project library, inch-based tag preset list, asset bundle zip, PWA, validation summary panel, history diff, element copy/paste, free pan/continuous zoom, layer hide/lock/duplicate panel, Floyd-Steinberg dither, property-form test suite (19-7/19-8), **HA embed (4f)**.
+**Explicitly cut from v1** (see §7.2): 20-project library, inch-based tag preset list, asset bundle zip, PWA, validation summary panel, history diff, element copy/paste, free pan/continuous zoom, layer hide/lock/duplicate panel, Floyd-Steinberg dither, property-form test suite (19-7/19-8), **HA embed (4f)**, **service options UI (4g)**.
 
 ### 7.2 Simplifications (2026-06 plan revision)
 
@@ -1034,8 +1041,9 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | Load Example dropdown (17 designs) | **Cut** | One **Load Demo** in header (**4k**); per-type samples were dev fixtures, not a product feature |
 | Product rebrand (`oepl-designer` → …) | **Decide in 4r** | See §7.5 — lean **odl-designer** |
 | HA embed / panel iframe (4f) | **Defer post-v1** | Owner to align with HA devs on message contract before implementation; ADR-010 remains draft |
+| Service options UI (4g) | **Defer post-v1** | Same HA-integration alignment as 4f; Zod schema + YAML edit path exists today |
 
-**Runtime modes (4f — post-v1):** Standalone v1 ships with State Simulator + global mocks. Embedded HA editor deferred until contract agreed with HA maintainers.
+**Runtime modes (4f — post-v1):** Standalone v1 ships with State Simulator + global mocks. Embedded HA editor + service-options panel deferred until contract agreed with HA maintainers.
 
 ```mermaid
 flowchart TB
@@ -1095,7 +1103,7 @@ flowchart TB
 | Layer | ODL / drawcustom (YAML) | Basic Standard (binary) | Our editor today |
 |-------|-------------------------|-------------------------|------------------|
 | **Payload** | Ordered list of 16 draw types | Raw encoded pixels in packet 0x82 | ✅ Same 16 types in Zod + renderer |
-| **Service options** | `background`, `rotate`, `dither`, `ttl`, `dry-run` | N/A (server poll interval, refresh type) | Schema ✅; UI **4g** |
+| **Service options** | `background`, `rotate`, `dither`, `ttl`, `dry-run` | N/A (server poll interval, refresh type) | Schema ✅; UI **post-v1 (4g)** |
 | **Colors in YAML** | Named + halftone + accent + hex | `colour_scheme` enum 0x00–0x04 on announcement | Preview accent + d=2 ✅; mode dropdown **4i** |
 | **Templates** | Jinja when used with HA | N/A | ✅ Nunjucks preview (ADR-004) |
 | **Share / session** | N/A | N/A | Hash + session **4b** / **4a** ✅ |
@@ -1234,7 +1242,7 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 | Canvas edge snap (bottom/right priority) | ✅ (**4e**) | 4 |
 | Share link restores name + canvas + elements (not assets/mocks) | ✅ (**4b**) | 4 |
 | HA embed: load/save drawcustom + live states | ⏸ **post-v1** (4f) | — |
-| Service options UI (`background`, `rotate`, `dither`, …) | ⬜ Schema only | 4g |
+| Service options UI (`background`, `rotate`, `dither`, …) | ⏸ **post-v1** (schema only) | — |
 | Cross-cutting ODL fields (`visible` on all 16 types) | ⬜ **4j** | 4 |
 | Showcase demo uses `visible: false` for overlay (not `fill: none` hack) | ⬜ **4m** | 4 |
 | OpenDisplay Language schema parity audit | ⬜ **4j** | 4 |
@@ -1327,7 +1335,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **4a–4e** ✅ through `f07f004`. **Current work:** **§18g** (service options) → **§18i** → **§18j** → **§18m/k/r** → **§18h**. **§18f** post-v1.
+- Phase **4a–4e** ✅ through `f07f004`. **Current work:** **§18i** → **§18j** → **§18m/k/r** → **§18h**. **§18f** + **§18g** post-v1 (HA dev sync).
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1545,6 +1553,19 @@ Delivered 2026-06-09. Canvas edge snap, border guides, nudge batch snap.
 
 ---
 
+## 11s. Commit Phase 4i prompt ⬜
+
+```
+Commit Phase 4i after owner verification.
+
+- Code commit: display config (resolution + color mode), remove inch presets
+- Docs commit: PLAN §7 tracker + §18i ✅, README Next → §18j, repo health counts
+
+Do not push unless I ask.
+```
+
+---
+
 ## 11c. Commit Phase 2 (partial) prompt ✅ (`84d2164`)
 
 Commit message used: `Phase 2a complete (YAML Editor)` — includes stabilization + UI shell + YamlEditor.
@@ -1674,7 +1695,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **§18c** ✅ (`adb3988`). **§18d** ✅ (`fc35ccd`). **§18e** ✅ (`f07f004`). **Next: §18g** (service options). **§18f** HA embed → post-v1 (HA dev discussion).
+**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **§18c** ✅ (`adb3988`). **§18d** ✅ (`fc35ccd`). **§18e** ✅ (`f07f004`). **Next: §18i** (display config). **§18f** HA embed + **§18g** service options → post-v1 (HA dev discussion).
 
 **Plan cross-reference map:**
 
@@ -1769,9 +1790,22 @@ Key files: `docs/testing.md`, `docs/adr/ADR-011-behavior-test-policy.md`, `docs/
 
 ## 18. Phase 4 — product polish prompts ⬜ after Phase 4a
 
-**Revised 2026-06.** One agent session per subsection. Read §7.2 simplifications first — do not implement cut features. **Prerequisite:** §17g ✅; **§18a** ✅ (`5ad7e6f`).
+**Revised 2026-06.** One agent session per subsection. Read §7.2 simplifications first — do not implement cut features. **Prerequisite:** §17g ✅; **§18a–e** ✅ through `f07f004`.
 
-**Order:** §18a → §18b → §18c → §18d → §18e → §18g → §18i → **§18j** → **§18m** → **§18k** → **§18r** → §18h (§18i ∥ §18b after §18a; **§18m** after **§18j**; **§18f** post-v1 after ship)
+### v1 execution queue (owner-approved 2026-06)
+
+| Step | Phase | §18 | Blocker / note |
+|------|-------|-----|----------------|
+| **1 — now** | 4i | §18i | Resolution + color mode; drop inch presets |
+| 2 | 4j | §18j | ODL alignment; `visible` on all 16 types |
+| 3 | 4m | §18m | Showcase demo overlay fix (**after 4j**) |
+| 4 | 4k | §18k | Load Demo header button (**after 4m**) |
+| 5 | 4r | §18r | Rebrand — **owner confirms slug** (§7.5) |
+| 6 | 4h | §18h | GH Pages deploy + smoke |
+
+**Post-v1 (do not schedule before ship):** §18f HA embed · §18g service options UI — both blocked on HA dev / integration alignment.
+
+**Completed:** §18a → §18b → §18c → §18d → §18e.
 
 ### §18a — Storage reshape (Phase 4a) ✅ (`5ad7e6f`)
 
@@ -1834,19 +1868,23 @@ Deliverables:
 
 Out of scope until post-v1: HA custom panel PR, production auth.
 
-Next (v1 path): docs/PLAN.md §18g
+Next (v1 path): docs/PLAN.md §18i
 ```
 
-### §18g — Service options panel ⬜ **Next**
+### §18g — Service options panel ⏸ **Post-v1**
+
+**Deferred 2026-06** — same rationale as §18f: align with Home Assistant / OpenEPaperLink integration before building UI. Zod schema + session/share persistence already exist (`src/core/schema/service.ts`); users can edit the service block in YAML until panel ships.
 
 ```
-Execute Phase 4g — service options UI.
+Execute Phase 4g (post-v1) — service options UI.
+
+Prerequisite: owner confirms field set + UX with HA integration maintainers.
 
 - Panel or header section for background, rotate, dither, ttl, dry-run
-- Round-trip to YAML service block; schema already in core (`src/core/schema/service.ts`)
+- Round-trip to YAML service block; schema already in core
 - Persist in session snapshot + share hash payload
 
-Next: docs/PLAN.md §18i
+Next: docs/PLAN.md §18i (v1 path continues without this chunk)
 ```
 
 ### §18h — Deploy + smoke
@@ -1863,25 +1901,69 @@ Prerequisite: §18j ODL alignment complete (§8 parity rows for cross-cutting fi
 Do not push unless I ask.
 ```
 
-### §18i — Display config simplify + 6-color scaffold
+### §18i — Display config simplify + 6-color scaffold ⬜ **Next**
 
 ```
-Execute Phase 4i — resolution + color mode per docs/PLAN.md §7.3.
+Execute Phase 4i — resolution + color mode per docs/PLAN.md §7.3 and §7.4.
 
-Sidebar (replace Tag preset block):
-- Resolution dropdown: WxH quick-picks per §7.3 starter list + Custom → W/H inputs
-- Color mode dropdown: BW, BWR, BWY, 6-color (6-color may show "preview limited" until palette spec lands)
+Workspace: oepl-designer/ repo root. Follow .cursor/rules/ (no React in src/core/).
+Read: §7.3 (resolution quick-picks, color modes), §7.4 (colour_scheme table), ADR-006.
 
-Core:
-- TagColorMode type; palette.ts with 4-color + 6-color scaffold
-- mapColor / dither respect active color mode
-- Basic Standard colour_scheme enum mapping per §7.4
-- Remove display-presets.ts inch catalog; update displayConfig persistence + session payload
-- Tests: display-config parse; color mode switches accent mapping
+## Problem
+Sidebar "Tag preset" uses ~34 inch-based labels (display-presets.ts). Same physical tag can be
+multiple WxH values; color (BWR/BWY) is conflated with resolution. Replace with two independent controls.
 
-Out of scope: exact 6-color hardware palette until spec vendored — scaffold enum + renderer hook only.
+## UI (Sidebar.tsx — Display config section)
+1. **Resolution** dropdown:
+   - Options: WxH quick-picks from §7.3 (labels exactly "W×H", no inch text), plus **Custom** last
+   - Quick-pick list: 152×152, 200×200, 212×104, 250×122, 296×128, 296×152, 296×160, 360×184,
+     384×168, 384×184, 400×300, 600×448, 640×384, 640×960, 800×480, 880×528, 960×672, 168×384
+   - Selecting a quick-pick sets canvas width/height (undoable via existing history)
+   - **Custom**: show W/H number inputs (always visible or only when Custom selected — pick cleaner UX)
+   - Default resolution: 384×184 (current default preset)
 
-Next: docs/PLAN.md §18j
+2. **Color mode** dropdown: BW · BWR (red accent) · BWY (yellow accent) · 6-color
+   - 6-color: show muted "preview limited" hint in sidebar (scaffold only)
+   - Replaces implicit accent from old BWR/BWY preset pairs
+
+3. Keep rotation 0/90/180/270 buttons unchanged.
+
+4. Remove: Tag preset `<select>`, DISPLAY_PRESETS inch catalog, applyPreset(presetId) flow.
+
+## Core / data model
+- Add TagColorMode in src/core/ (`bw` | `bwr` | `bwy` | `six`)
+- Add src/core/display/palette.ts (or renderer/palette.ts): 4-color palettes + 6-color scaffold
+- Add colour_scheme enum helpers per §7.4 (0x00→bw, 0x01→bwr, 0x02→bwy, 0x03→4-color, 0x04→six)
+- DisplayConfig / SessionCanvas: prefer `colorMode: TagColorMode` over bare `accentMode`
+  - Migrate parse paths: legacy `accentMode` red→bwr, yellow→bwy; share hash `accent` field backward-compat
+- RenderContext: pass colorMode; derive accent for mapColor/dither:
+  - BW: accent/half_accent/red/yellow preview as black/gray (monochrome tag)
+  - BWR/BWY: current behavior via accent mapping
+  - six: scaffold hook; unknown colors map gracefully
+- Update mapColor + dither.ts (halftone pairs) to respect colorMode
+
+## Files (expected touch)
+- DELETE or replace: src/ui/data/display-presets.ts → resolution quick-picks module
+- src/ui/preferences/displayConfig.ts, src/storage/session.ts, src/storage/types.ts
+- src/ui/hooks/useProjectState.ts (applyResolution, setColorMode; remove applyPreset)
+- src/ui/components/Sidebar.tsx, src/ui/App.tsx
+- src/share/types.ts + hash parse (optional colorMode on share; keep accent for v1 links)
+- src/core/renderer/colors.ts, dither.ts, types.ts; core barrel export
+- tests: display-config.test.ts, resolution-picks.test.ts, colors.test.ts (BW mode), session migration
+
+## Acceptance
+- npm run lint && npm test && npm run build — all green
+- No inch strings in sidebar resolution UI
+- Session restore + share hash round-trip canvas size + color mode
+- Undo/redo captures resolution/color changes
+- Test count increases; no regression in existing renderer tests
+
+## Out of scope
+- Exact 6-color hardware palette (placeholder only)
+- Service options panel (4g post-v1)
+- HA embed (4f post-v1)
+
+Do not commit unless I ask. End with: "Next prompt: docs/PLAN.md §18j"
 ```
 
 ### §18j — OpenDisplay Language alignment + cross-cutting fields
