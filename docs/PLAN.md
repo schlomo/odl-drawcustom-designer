@@ -67,6 +67,9 @@ todos:
     status: completed
   - id: phase4d-commit
     content: "Commit Phase 4d after verification (§11q)"
+    status: completed
+  - id: phase4-edge-snap
+    content: "§18e: canvas edge snap (bottom/right priority over grid)"
     status: pending
   - id: phase4-ha-embed
     content: "§18f: HA panel mode, drawcustom load/save, live state preview"
@@ -750,12 +753,13 @@ flowchart LR
 | **4a** Storage reshape | ✅ Done | `5ad7e6f` | 593 (91 files) | Dexie v3, global mocks, `session` row, `appBootstrap`, auto-save |
 | **4b** Export + share | ✅ Done | `0bac3b6` | 636 (97 files) | Zoom, PNG/YAML export, `#d=pako` share, missing-asset banner |
 | **4c** Multi-select | ✅ Done | `adb3988` | 661 (102 files) | Marquee, Shift+click, bulk drag/nudge/layer, align toolbar |
-| **4d** Undo/redo | ✅ Done | — | 672 (105 files) | 50-step snapshot stack, drag coalesce, canvas toolbar |
-| **4e–4i** Polish | ⬜ **Next** | — | — | Edge snap, HA embed, deploy (§18e–h, §18i) |
+| **4d** Undo/redo | ✅ Done | `fc35ccd` | 708 (118 files) | 50-step stack, drag coalesce, session-persisted history, toolbar chrome |
+| **4e** Edge snap | ⬜ **Next** | — | — | Snap to canvas bounds when grid on (§18e) |
+| **4f–4i** Polish | ⬜ Pending | — | — | HA embed, service options, deploy (§18f–h, §18i) |
 | **4j** ODL alignment | ⬜ Pending | — | — | Cross-cutting schema/renderer parity with OpenDisplay Language (§18j) |
 | **4k–4r** UX + brand | ⬜ Pending | — | — | Load Demo header button (§18k); demo visible refactor (**§18m**); rebrand (§7.5 / §18r) |
 
-**Current repo health:** `npm test` → **672 passed** (105 files) · `npm run lint` → **clean** · last commit `adb3988`
+**Current repo health:** `npm test` → **708 passed** (118 files) · `npm run lint` → **clean** · last commit `fc35ccd`
 
 **Next:** Phase **4e** — canvas edge snap (§18e).
 
@@ -984,7 +988,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **4b** | **Canvas + YAML bars** | ✅ Zoom **200/100/Fit/50**, PNG copy/download, YAML copy/download, header **Share** `#d=pako`, hash bootstrap, missing-asset banner (`0bac3b6`). |
 | **4i** | **Display config** | Drop inch-based tag presets. **Resolution** dropdown (common WxH quick-picks + Custom → W/H inputs). **Color mode** dropdown (BW, BWR, BWY; scaffold **6-color** palette in types/renderer). |
 | **4c** | **Multi-select** | ✅ Marquee, Shift+click, bulk drag/nudge/layer, align toolbar, shared property form (`adb3988`). |
-| **4d** | **Undo/redo** | **50 steps**; batch mutations for multi-select; **19-9** `useProjectState` refactor paired with history stack. |
+| **4d** | **Undo/redo** | ✅ 50-step stack, drag coalesce, session-persisted `editHistory`, toolbar chrome (`fc35ccd`). |
 | **4e** | **Edge snap** | When snap on: snap to canvas outer bounds in addition to grid; **higher priority** for bottom and right edges. |
 | **4f** | **HA embed prep** | Dual runtime: standalone vs HA panel. Load/save `drawcustom` payload from automation editor (if feasible). Live HA states for preview when embedded; standalone keeps State Simulator + global mocks. ADR-010 candidate. |
 | **4g** | **Service options** | `background`, `rotate`, `dither`, `ttl`, `dry-run` UI — schema exists. |
@@ -1216,7 +1220,7 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 | Canvas PNG copy + download | ✅ (**4b**) | 4 |
 | Resolution + color mode (not inch presets) | ⬜ **4i** | 4 |
 | YAML copy + download (toolbar) | ✅ (**4b**) | 4 |
-| Undo/redo (50 steps) | ⬜ **4d** | 4 |
+| Undo/redo (50 steps) | ✅ (**4d**) | 4 |
 | Last-session restore on load | ✅ (**4a**) | 4a |
 | Global assets + mocks (not per project) | ✅ (**4a**) | 4a |
 | Canvas edge snap (bottom/right priority) | ⬜ **4e** | 4 |
@@ -1315,7 +1319,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **3a–3g** ✅ through `e8ff378`. Phase **4a–4d** ✅ through `adb3988` + working tree. **Current work:** **§18e** (edge snap) → **§18f–i**.
+- Phase **4a–4d** ✅ through `fc35ccd`. **Current work:** **§18e** (edge snap) → **§18f–i**.
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1517,31 +1521,11 @@ Delivered 2026-06-08. Multi-select, marquee, align, bulk layer ops, toolbar poli
 
 ---
 
-## 11q. Commit Phase 4d prompt
+## 11q. Commit Phase 4d prompt ✅ (`fc35ccd`)
 
-```
-Read docs/PLAN.md §7 Phase 4d and §18d.
+Delivered 2026-06-09. Edit history, undo/redo, toolbar chrome (ADR-013), session persistence.
 
-Pre-flight (all must pass):
-  npm run lint && npm test && npm run build
-
-Commit Phase 4d work:
-- src/ui/lib/edit-history.ts, undo-keyboard.ts
-- src/ui/hooks/useProjectState.ts — dispatchHistory, undo/redo, drag coalesce
-- src/ui/components/DesignerCanvas.tsx — Undo/Redo toolbar, pointer-up coalesce hooks
-- src/ui/components/ExportIconButton.tsx — disabled prop
-- src/ui/lib/selection-remap.ts — clampSelectedIndices
-- src/ui/lib/mdi-tool-icons.ts — undo/redo icons
-- tests/ui/lib/edit-history.test.ts, undo-keyboard.test.ts
-- tests/ui/hooks/use-project-state-history.test.ts
-- docs/PLAN.md, README.md
-
-Message: "Phase 4d: 50-step undo/redo with drag coalesce"
-
-Update README — Phase 4d complete; next Phase 4e per §18e.
-
-Do not push unless I ask.
-```
+<!-- prompt archived — phase complete -->
 
 ---
 
@@ -1674,7 +1658,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **§18c** ✅ (`adb3988`). **§18d** ✅ (undo/redo). **Next: §18e** (edge snap).
+**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **§18c** ✅ (`adb3988`). **§18d** ✅ (`fc35ccd`). **Next: §18e** (edge snap).
 
 **Plan cross-reference map:**
 
