@@ -34,7 +34,7 @@ Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcus
 
 **Phase 4i** — display config + WYSIWYG palette clamp (**committed** `c07d3f1`).
 
-**Phase 4j** — ODL alignment + `visible` on all 16 types (**committed** — see git log).
+**Phase 4j** — ODL alignment + `visible` on all 16 types (**committed** `c3f7474`).
 
 **Next:** Phase **4m** — showcase demo overlay (§18m). **v1 queue:** 4m → 4k → 4r → 4h. **Post-v1:** HA embed (**4f**) + service options (**4g**). Map: [`docs/PLAN.md`](docs/PLAN.md) §18.
 

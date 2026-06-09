@@ -771,7 +771,7 @@ flowchart LR
 | **4d** Undo/redo | ✅ Done | `fc35ccd` | 708 (118 files) | 50-step stack, drag coalesce, session-persisted history, toolbar chrome |
 | **4e** Edge snap | ✅ Done | `f07f004` | 724 (119 files) | `snapBoundsToCanvas`, drag/resize/nudge, border guides |
 | **4i** Display config | ✅ Done | `c07d3f1` | 812 (131 files) | Resolution picker, TagColorMode, palette clamp/WYSIWYG, color-clamp hints |
-| **4j** ODL + `visible` | ✅ Done | TBD | 831 (131 files) | ADR-012, odl-gap-report, `visible` all 16 types, CROSS_CUTTING_ELEMENT_FIELDS |
+| **4j** ODL + `visible` | ✅ Done | `c3f7474` | 831 (131 files) | ADR-012, odl-gap-report, `visible` all 16 types, CROSS_CUTTING_ELEMENT_FIELDS |
 | **4m** Demo overlay | ⬜ **Next** | — | — | `debug_grid` `visible: false` (§18m) |
 | **4k** Load Demo | ⬜ Pending | — | — | Header button; drop Load Example (§18k) |
 | **4r** Rebrand | ⬜ Pending | — | — | Owner decision §7.5 (§18r) |
@@ -779,7 +779,7 @@ flowchart LR
 | **4f** HA embed | ⏸ **Post-v1** | — | — | HA dev sync; ADR-010 draft (§18f) |
 | **4g** Service options | ⏸ **Post-v1** | — | — | Schema only until HA alignment (§18g) |
 
-**Current repo health:** `npm test` → **831 passed** (131 files) · `npm run lint` → **clean** · last commit TBD (4j pending docs)
+**Current repo health:** `npm test` → **831 passed** (131 files) · `npm run lint` → **clean** · last commit `c3f7474`
 
 **Next:** Phase **4m** — showcase demo overlay (§18m). **Post-v1:** **4f** HA embed + **4g** service options.
 
