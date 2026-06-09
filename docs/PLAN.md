@@ -773,7 +773,7 @@ flowchart LR
 | **4f** HA embed | ⏸ **Post-v1** | — | — | HA dev sync; ADR-010 draft (§18f) |
 | **4g** Service options | ⏸ **Post-v1** | — | — | Schema only until HA alignment (§18g) |
 
-**Current repo health:** `npm test` → **812 passed** (131 files) · `npm run lint` → **clean** · last commit `c07d3f1`
+**Current repo health:** `npm test` → **812 passed** (131 files) · `npm run lint` → **clean** · last commit `a3b3344`
 
 **Next:** Phase **4j** — ODL alignment + `visible` on all types (§18j). **Post-v1:** **4f** HA embed + **4g** service options.
 
