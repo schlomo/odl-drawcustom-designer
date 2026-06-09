@@ -5,7 +5,12 @@ import {
   parseShareHashFromLocation,
   sharePayloadToBootstrap,
 } from '../../share'
-import { hydrateContentMapFromStorage, readSessionFromDb, type SessionSnapshot } from '../../storage'
+import {
+  hydrateContentMapFromStorage,
+  readSessionFromDb,
+  type PersistedEditHistory,
+  type SessionSnapshot,
+} from '../../storage'
 import { SAMPLE_CANVAS, SAMPLE_ELEMENTS } from '../data/sample-elements'
 import type { DisplayConfig } from '../preferences/displayConfig'
 import { DEFAULT_MOCK_STATES, readMockStates } from '../preferences/mockStates'
@@ -20,6 +25,8 @@ export interface AppBootstrap {
   service: ServiceOptions | undefined
   mockStates: HaMockContext['states']
   importSource: BootstrapImportSource
+  /** Restored only for `importSource: 'session'`; cleared for hash/default loads. */
+  editHistory?: PersistedEditHistory
 }
 
 /** Saved sessions with no elements fall back to the built-in sample dashboard. */
@@ -54,6 +61,7 @@ export function buildAppBootstrap(
     service: session?.service,
     mockStates,
     importSource,
+    editHistory: importSource === 'session' ? session?.editHistory : undefined,
   }
 }
 

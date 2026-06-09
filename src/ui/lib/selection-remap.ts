@@ -49,3 +49,10 @@ export function indicesAfterBringToFront(
 export function indicesAfterSendToBack(selectedIndices: number[]): number[] {
   return selectedIndices.map((_, offset) => offset)
 }
+
+/** Keep only indices that still point at elements after a restore or delete. */
+export function clampSelectedIndices(indices: number[], elementCount: number): number[] {
+  return [...new Set(indices.filter((index) => index >= 0 && index < elementCount))].sort(
+    (left, right) => left - right,
+  )
+}

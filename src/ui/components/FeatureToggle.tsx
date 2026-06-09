@@ -1,27 +1,50 @@
-import type { ReactNode } from 'react'
-import { shell } from '../styles/shell'
+import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { toggleButtonClassName } from '../lib/toolbar-button'
+import { collapsedToolbarTooltip } from '../lib/toolbar-tooltip'
+import { ToolbarTooltip } from './ToolbarTooltip'
 
-interface FeatureToggleProps {
+interface FeatureToggleProps
+  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'onClick' | 'title'> {
   enabled: boolean
   onToggle: () => void
-  title: string
+  /** Human-readable control name — always used as tooltip when icon-only. */
+  textLabel: string
+  /** Optional longer tooltip when the text label is visible. */
+  detailedTitle?: string
+  /** When false, `title` is `textLabel` (icon-only collapse). */
+  showTextLabel?: boolean
   children: ReactNode
 }
 
-export function FeatureToggle({ enabled, onToggle, title, children }: FeatureToggleProps) {
-  return (
+export function FeatureToggle({
+  enabled,
+  onToggle,
+  textLabel,
+  detailedTitle,
+  showTextLabel = true,
+  children,
+  className = '',
+  ...rest
+}: FeatureToggleProps) {
+  const tooltip = collapsedToolbarTooltip(textLabel, showTextLabel, detailedTitle)
+
+  const button = (
     <button
       type="button"
-      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors ${
-        enabled
-          ? 'border-[var(--shell-accent)] bg-[var(--shell-accent)] text-white shadow-inner ring-1 ring-inset ring-black/15'
-          : `${shell.button} opacity-80`
-      }`}
+      className={toggleButtonClassName(enabled, className)}
       onClick={onToggle}
       aria-pressed={enabled}
-      title={title}
+      aria-label={textLabel}
+      title={tooltip}
+      {...rest}
     >
       {children}
     </button>
   )
+
+  if (!showTextLabel) {
+    return <ToolbarTooltip label={textLabel}>{button}</ToolbarTooltip>
+  }
+
+  return button
 }

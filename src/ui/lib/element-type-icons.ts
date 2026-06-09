@@ -30,7 +30,7 @@ export interface ElementTypeIconEntry {
  * Icon + compact label map for the Add Element toolbar.
  */
 export const ELEMENT_TYPE_ICONS: Record<DrawElement['type'], ElementTypeIconEntry> = {
-  debug_grid: { path: mdiViewGridPlus, shortLabel: 'Grid' },
+  debug_grid: { path: mdiViewGridPlus, shortLabel: 'Debug Grid' },
   text: { path: mdiFormatText, shortLabel: 'Text' },
   multiline: { path: mdiFormatTextbox, shortLabel: 'Multi' },
   line: { path: mdiVectorLine, shortLabel: 'Line' },

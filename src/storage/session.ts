@@ -2,9 +2,14 @@ import type { DrawElement, ServiceOptions } from '../core'
 import { db, ensureDbReady } from './db'
 import {
   SESSION_ROW_ID,
+  type PersistedEditHistory,
   type SessionCanvas,
+  type SessionEditSnapshot,
   type SessionSnapshot,
 } from './types'
+
+/** Matches {@link EDIT_HISTORY_MAX} in `src/ui/lib/edit-history.ts`. */
+const SESSION_EDIT_HISTORY_MAX = 50
 
 const ROTATIONS = new Set<SessionCanvas['rotation']>([0, 90, 180, 270])
 const ACCENT_MODES = new Set<SessionCanvas['accentMode']>(['red', 'yellow'])
@@ -50,6 +55,87 @@ function parseSessionCanvas(value: unknown): SessionCanvas | null {
   }
 }
 
+function parseSelectedIndices(value: unknown): number[] | null {
+  if (!Array.isArray(value)) {
+    return null
+  }
+  if (
+    !value.every(
+      (entry) => typeof entry === 'number' && Number.isInteger(entry) && entry >= 0,
+    )
+  ) {
+    return null
+  }
+  return value
+}
+
+function parseEditSnapshot(value: unknown): SessionEditSnapshot | null {
+  if (value == null || typeof value !== 'object') {
+    return null
+  }
+
+  const record = value as Partial<SessionEditSnapshot>
+  const canvas = parseSessionCanvas(record.canvas)
+  if (!canvas) {
+    return null
+  }
+  if (!Array.isArray(record.elements) || !record.elements.every(isDrawElement)) {
+    return null
+  }
+  const selectedIndices = parseSelectedIndices(record.selectedIndices)
+  if (!selectedIndices) {
+    return null
+  }
+
+  return {
+    elements: record.elements,
+    canvas,
+    service: record.service as ServiceOptions | undefined,
+    selectedIndices,
+  }
+}
+
+function trimEditHistoryStack(stack: SessionEditSnapshot[]): SessionEditSnapshot[] {
+  if (stack.length <= SESSION_EDIT_HISTORY_MAX) {
+    return stack
+  }
+  return stack.slice(stack.length - SESSION_EDIT_HISTORY_MAX)
+}
+
+export function parsePersistedEditHistory(value: unknown): PersistedEditHistory | null {
+  if (value == null || typeof value !== 'object') {
+    return null
+  }
+
+  const record = value as Partial<PersistedEditHistory>
+  if (!Array.isArray(record.undoStack) || !Array.isArray(record.redoStack)) {
+    return null
+  }
+
+  const undoStack: SessionEditSnapshot[] = []
+  for (const entry of record.undoStack) {
+    const parsed = parseEditSnapshot(entry)
+    if (!parsed) {
+      return null
+    }
+    undoStack.push(parsed)
+  }
+
+  const redoStack: SessionEditSnapshot[] = []
+  for (const entry of record.redoStack) {
+    const parsed = parseEditSnapshot(entry)
+    if (!parsed) {
+      return null
+    }
+    redoStack.push(parsed)
+  }
+
+  return {
+    undoStack: trimEditHistoryStack(undoStack),
+    redoStack: trimEditHistoryStack(redoStack),
+  }
+}
+
 export function parseSessionSnapshot(value: unknown): SessionSnapshot | null {
   if (value == null || typeof value !== 'object') {
     return null
@@ -74,12 +160,16 @@ export function parseSessionSnapshot(value: unknown): SessionSnapshot | null {
       ? record.updatedAt
       : Date.now()
 
+  const editHistory =
+    record.editHistory == null ? undefined : parsePersistedEditHistory(record.editHistory) ?? undefined
+
   return {
     id: SESSION_ROW_ID,
     name: record.name,
     canvas,
     service: record.service as ServiceOptions | undefined,
     elements: record.elements,
+    editHistory,
     updatedAt,
   }
 }
@@ -98,6 +188,7 @@ export interface SessionWritePayload {
   canvas: SessionCanvas
   service?: ServiceOptions
   elements: DrawElement[]
+  editHistory?: PersistedEditHistory
 }
 
 export async function writeSessionToDb(payload: SessionWritePayload): Promise<void> {

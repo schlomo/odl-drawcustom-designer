@@ -4,7 +4,7 @@ import { TOOL_ICONS } from '../lib/mdi-tool-icons'
 import {
   floatingToolbarShell,
   toolbarDivider,
-  toolbarGroup,
+  toolbarGroupRow,
 } from '../lib/export-action-feedback'
 import { IconButton } from './IconButton'
 import { shell } from '../styles/shell'
@@ -55,58 +55,60 @@ export function CanvasSelectionToolbar({
       role="toolbar"
       aria-label="Multi-selection tools"
     >
-      <span className={`px-2 text-xs ${shell.muted}`}>{selectionCount} selected</span>
+      <span className={`shrink-0 px-2 text-xs whitespace-nowrap ${shell.muted}`}>
+        {selectionCount} selected
+      </span>
       <span className={toolbarDivider} aria-hidden />
-      <div className={toolbarGroup} role="group" aria-label="Align horizontally">
+      <div className={toolbarGroupRow} role="group" aria-label="Align horizontally">
         {HORIZONTAL_ALIGNS.map(({ align, icon, title }) => (
           <IconButton
             key={align}
             compact
             iconPath={TOOL_ICONS[icon]}
-            title={title}
+            tooltip={title}
             onClick={() => onAlign(align, boundsByIndex)}
           />
         ))}
       </div>
       <span className={toolbarDivider} aria-hidden />
-      <div className={toolbarGroup} role="group" aria-label="Align vertically">
+      <div className={toolbarGroupRow} role="group" aria-label="Align vertically">
         {VERTICAL_ALIGNS.map(({ align, icon, title }) => (
           <IconButton
             key={align}
             compact
             iconPath={TOOL_ICONS[icon]}
-            title={title}
+            tooltip={title}
             onClick={() => onAlign(align, boundsByIndex)}
           />
         ))}
       </div>
       <span className={toolbarDivider} aria-hidden />
-      <div className={toolbarGroup} role="group" aria-label="Layer order">
+      <div className={toolbarGroupRow} role="group" aria-label="Layer order">
         <IconButton
           compact
           iconPath={TOOL_ICONS.bringToFront}
-          title="Bring to front"
+          tooltip="Bring to front"
           disabled={!canMoveUp}
           onClick={onBringToFront}
         />
         <IconButton
           compact
           iconPath={TOOL_ICONS.sendToBack}
-          title="Send to back"
+          tooltip="Send to back"
           disabled={!canMoveDown}
           onClick={onSendToBack}
         />
         <IconButton
           compact
           iconPath={TOOL_ICONS.layerUp}
-          title="Move layer up"
+          tooltip="Move layer up"
           disabled={!canMoveUp}
           onClick={onMoveUp}
         />
         <IconButton
           compact
           iconPath={TOOL_ICONS.layerDown}
-          title="Move layer down"
+          tooltip="Move layer down"
           disabled={!canMoveDown}
           onClick={onMoveDown}
         />

@@ -1,7 +1,6 @@
 import { themeIconPath } from '../lib/mdi-tool-icons'
 import { themeModeLabel, type ThemeMode } from '../preferences/theme'
 import { IconButton } from './IconButton'
-import { shell } from '../styles/shell'
 
 interface ThemeToggleProps {
   mode: ThemeMode
@@ -14,11 +13,13 @@ export function ThemeToggle({ mode, resolvedTheme, onCycle }: ThemeToggleProps) 
     mode === 'system' ? `Using ${resolvedTheme} from system` : `Using ${resolvedTheme} theme`
   const label = `Theme: ${themeModeLabel(mode)}. ${detail}. Click to change.`
 
+  const textLabel = themeModeLabel(mode)
+
   return (
     <IconButton
       iconPath={themeIconPath(mode)}
-      compact
-      className={shell.button}
+      label={textLabel}
+      tooltip={textLabel}
       onClick={onCycle}
       title={label}
       aria-label={label}

@@ -28,7 +28,9 @@ Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcus
 
 **Phase 4c** — multi-select, marquee, align (**committed** `adb3988`).
 
-**Next:** Phase **4d** — undo/redo (§18d). Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §18.
+**Phase 4d** — undo/redo 50-step history (§18d).
+
+**Next:** Phase **4e** — canvas edge snap (§18e). Map: [`docs/PLAN.md`](docs/PLAN.md) §7 and §18.
 
 ## Spec
 

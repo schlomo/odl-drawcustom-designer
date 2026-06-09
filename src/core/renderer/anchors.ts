@@ -221,14 +221,6 @@ export function oppositeResizeHandleForAnchor(
   return 'sw'
 }
 
-/** @deprecated Use oppositeResizeHandleForAnchor */
-export function oppositeResizeCornerForAnchor(
-  anchor: string | undefined,
-  defaultAnchor: string,
-): OppositeResizeHandle {
-  return oppositeResizeHandleForAnchor(anchor, defaultAnchor)
-}
-
 /** Whether a layout at `size` still fits under the pointer for opposite-handle resize. */
 export function oppositeHandleResizeFitsPointer(
   handle: OppositeResizeHandle,
@@ -297,57 +289,4 @@ export function seSizeFromOppositeHandlePointer(
     }
   }
   return Math.max(minSize, lo)
-}
-
-/** @deprecated Use seSizeFromOppositeHandlePointer */
-export function seSizeFromOppositeCornerPointer(
-  anchor: string | undefined,
-  anchorX: number,
-  anchorY: number,
-  pointerX: number,
-  pointerY: number,
-  defaultAnchor: string,
-  layoutForSize: (size: number) => LayoutSize,
-  handle: OppositeResizeHandle = oppositeResizeHandleForAnchor(anchor, defaultAnchor),
-  minSize = 1,
-  maxSize = 2048,
-): number {
-  return seSizeFromOppositeHandlePointer(
-    anchor,
-    anchorX,
-    anchorY,
-    pointerX,
-    pointerY,
-    defaultAnchor,
-    layoutForSize,
-    handle,
-    minSize,
-    maxSize,
-  )
-}
-
-/** @deprecated Use seSizeFromOppositeHandlePointer */
-export function seSizeFromFixedAnchorPointer(
-  anchor: string | undefined,
-  anchorX: number,
-  anchorY: number,
-  pointerX: number,
-  pointerY: number,
-  defaultAnchor: string,
-  layoutForSize: (size: number) => LayoutSize,
-  minSize = 1,
-  maxSize = 2048,
-): number {
-  return seSizeFromOppositeHandlePointer(
-    anchor,
-    anchorX,
-    anchorY,
-    pointerX,
-    pointerY,
-    defaultAnchor,
-    layoutForSize,
-    oppositeResizeHandleForAnchor(anchor, defaultAnchor),
-    minSize,
-    maxSize,
-  )
 }

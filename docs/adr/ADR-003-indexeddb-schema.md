@@ -16,7 +16,7 @@ Use **Dexie** (IndexedDB wrapper) with these logical stores:
 |-------|----------|
 | `assets` | Global: `key` (exact YAML path) → `{ blob, mime, updatedAt }` |
 | `mocks` | Global: `entityId` → mock value for template preview (one map per browser, like assets) |
-| `session` | Single row `current` → `{ name, canvas, service, elements, updatedAt }` — last open design |
+| `session` | Single row `current` → `{ name, canvas, service, elements, editHistory?, updatedAt }` — last open design plus undo/redo stacks (50 steps max) |
 
 `localStorage` holds UI prefs only (theme, snap, panel widths).
 
@@ -27,7 +27,7 @@ Use **Dexie** (IndexedDB wrapper) with these logical stores:
 - `src/storage/db.ts` — Dexie v2 stores: `assets`, `mocks` (`entityId` key), `session` (`id` key)
 - `src/storage/session.ts` — read/write single `current` row
 - `src/storage/mocks.ts` — global entity map (no `projectId`)
-- `src/ui/hooks/useProjectState.ts` — debounced auto-save for session + mocks; hydrate on app load
+- `src/ui/hooks/useProjectState.ts` — debounced auto-save for session (including `editHistory`) + mocks; hydrate on app load; clear history on hash/example/clear-all loads
 
 **Removed (Phase 3a, superseded in 4a):**
 

@@ -289,12 +289,6 @@ export interface CanvasPlotPrimitive {
   debug?: boolean
 }
 
-/** @deprecated Use CanvasQrcodePrimitive */
-export type CanvasQrcodeStubPrimitive = CanvasQrcodePrimitive
-
-/** @deprecated Use CanvasPlotPrimitive */
-export type CanvasPlotStubPrimitive = CanvasPlotPrimitive
-
 export type SvgPrimitive =
   | SvgLinePrimitive
   | SvgRectPrimitive

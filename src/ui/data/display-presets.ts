@@ -58,11 +58,6 @@ export const DISPLAY_PRESETS: DisplayPreset[] = [
 
 export const DEFAULT_PRESET_ID = '2.9-184'
 
-/** @deprecated Use {@link findPresetForCanvas} so BWR/BWY pairs resolve correctly. */
-export function findPresetByDimensions(width: number, height: number): DisplayPreset | undefined {
-  return findPresetForCanvas(width, height, 'red')
-}
-
 function customPresetForAccent(accentMode: AccentMode): DisplayPreset {
   return accentMode === 'yellow'
     ? DISPLAY_PRESETS.find((preset) => preset.id === CUSTOM_BWY_PRESET_ID)!

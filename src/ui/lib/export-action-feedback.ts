@@ -23,9 +23,10 @@ export function getExportActionButtonClassName(
   }
 }
 
-/** Toolbar layout: grouped controls with spacing between groups. */
-export const toolbarGroups = 'flex flex-wrap items-center justify-end gap-x-4 gap-y-2'
-export const toolbarGroup = 'flex flex-wrap items-center gap-1'
+/** Single-row toolbar chrome — labels collapse to icons when narrow (ADR-013). */
+export const toolbarGroupsRow =
+  'flex min-w-0 max-w-full flex-nowrap items-center gap-x-2 overflow-visible'
+export const toolbarGroupRow = 'flex shrink-0 flex-nowrap items-center gap-1'
 export const toolbarDivider = 'mx-0.5 h-4 w-px shrink-0 bg-[var(--shell-border)]'
 export const floatingToolbarShell =
-  'pointer-events-auto flex items-center gap-1 rounded-lg border border-[var(--shell-border)] bg-[var(--shell-surface)]/95 px-1 py-0.5 shadow-md backdrop-blur-sm'
+  'pointer-events-auto flex max-w-[90%] flex-nowrap items-center gap-1 overflow-visible rounded-lg border border-[var(--shell-border)] bg-[var(--shell-surface)]/95 px-1 py-0.5 shadow-md backdrop-blur-sm'

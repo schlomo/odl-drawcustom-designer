@@ -17,7 +17,7 @@ import { remapSelectedIndex } from './editor/yamlElementsSync'
 import { collectKnownFontKeys } from './lib/known-font-keys'
 import { nudgeWhenSelected } from './lib/canvas-keyboard'
 import { copyTextToClipboard } from './lib/export-download'
-import { toolbarGroup, toolbarGroups } from './lib/export-action-feedback'
+import { toolbarGroupRow, toolbarGroupsRow } from './lib/export-action-feedback'
 import { getMissingAssetMessages } from './lib/missing-asset-messages'
 import type { StatusMessage } from './lib/status-messages'
 import { useExportActionFeedback } from './hooks/useExportActionFeedback'
@@ -26,6 +26,7 @@ import { useElementSize } from './hooks/useElementSize'
 import { useThemePreference } from './hooks/useThemePreference'
 import { useYamlSelectionCoupling } from './hooks/useYamlSelectionCoupling'
 import { ExportIconButton } from './components/ExportIconButton'
+import { TextButton } from './components/TextButton'
 import { shell } from './styles/shell'
 import type { DrawElement } from '../core'
 import type { AddElementResult } from './hooks/useProjectState'
@@ -67,6 +68,7 @@ export function App({ bootstrap }: AppProps) {
     setRotation,
     setElements,
     mockContext,
+    previewMockContext,
     setMockState,
     addMockEntity,
     removeMockEntity,
@@ -95,6 +97,12 @@ export function App({ bootstrap }: AppProps) {
     showHiddenHints,
     toggleShowHiddenHints,
     togglePreviewDither,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    beginEditCoalesce,
+    endEditCoalesce,
   } = useProjectState(bootstrap)
 
   const elementsRef = useRef(elements)
@@ -264,19 +272,25 @@ export function App({ bootstrap }: AppProps) {
       <header className={`${shell.header} flex items-center justify-between gap-4`}>
         <div>
           <h1 className="text-lg font-semibold tracking-tight">OpenEPaperLink HA YAML Designer</h1>
-          <p className={`text-xs ${shell.muted}`}>Phase 4b — export bars and hash share</p>
+          <p className={`text-xs ${shell.muted}`}>Phase 4d — undo/redo history</p>
         </div>
-        <div className={toolbarGroups}>
-          <div className={toolbarGroup} role="group" aria-label="Copy share link">
+        <div className={toolbarGroupsRow}>
+          <div className={toolbarGroupRow} role="group" aria-label="Session">
+            <TextButton variant="destructive" onClick={clearElements}>
+              Clear all
+            </TextButton>
+          </div>
+          <div className={toolbarGroupRow} role="group" aria-label="Copy share link">
             <ExportIconButton
               actionId="share-link"
               feedback={getFeedback('share-link')}
               iconPath={toolIconPath('share')}
+              tooltip="Copy share link"
               label="Copy share link"
               onClick={() => void handleShare()}
             />
           </div>
-          <div className={toolbarGroup} role="group" aria-label="Appearance">
+          <div className={toolbarGroupRow} role="group" aria-label="Appearance">
             <ThemeToggle mode={mode} resolvedTheme={resolvedTheme} onCycle={cycleMode} />
           </div>
         </div>
@@ -343,11 +357,16 @@ export function App({ bootstrap }: AppProps) {
               elementCount={elements.length}
               onDeleteSelected={handleDeleteSelected}
               onNudgeSelected={handleNudgeSelected}
-              onClearAll={clearElements}
               onToggleSnap={toggleSnapGrid}
               previewDitherMode={canvas.previewDitherMode}
               onTogglePreviewDither={togglePreviewDither}
               onDragActiveChange={setCanvasDragging}
+              onBeginEditCoalesce={beginEditCoalesce}
+              onEndEditCoalesce={endEditCoalesce}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              onUndo={undo}
+              onRedo={redo}
             />
           </div>
           <YamlPanel
@@ -356,7 +375,7 @@ export function App({ bootstrap }: AppProps) {
             elements={elements}
             sessionName={sessionName}
             extraEntityIds={extraEntityIds}
-            mockContext={mockContext}
+            mockContext={previewMockContext}
             onElementsChange={handleYamlElementsChange}
             onSelectElement={selectElement}
             onStatusMessagesChange={setYamlStatusMessages}

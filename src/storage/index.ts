@@ -10,6 +10,7 @@ export {
 } from './assets'
 export { readMocksFromDb, writeMocksToDb, flushMockWrites } from './mocks'
 export {
+  parsePersistedEditHistory,
   parseSessionSnapshot,
   readSessionFromDb,
   writeSessionToDb,
@@ -19,5 +20,12 @@ export {
   LEGACY_MOCK_STATES_STORAGE_KEY,
   MOCK_STATES_MIGRATED_KEY,
 } from './keys'
-export type { SessionCanvas, SessionSnapshot, StoredAsset, StoredMock } from './types'
+export type {
+  PersistedEditHistory,
+  SessionCanvas,
+  SessionEditSnapshot,
+  SessionSnapshot,
+  StoredAsset,
+  StoredMock,
+} from './types'
 export { SESSION_ROW_ID } from './types'

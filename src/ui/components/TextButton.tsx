@@ -1,0 +1,13 @@
+import type { ButtonHTMLAttributes } from 'react'
+import { shell } from '../styles/shell'
+
+type TextButtonVariant = 'default' | 'destructive'
+
+interface TextButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: TextButtonVariant
+}
+
+export function TextButton({ variant = 'default', className = '', ...rest }: TextButtonProps) {
+  const surface = variant === 'destructive' ? shell.buttonDestructive : shell.button
+  return <button type="button" className={`${surface} ${className}`.trim()} {...rest} />
+}

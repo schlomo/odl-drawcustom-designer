@@ -22,6 +22,20 @@ export interface SessionCanvas {
   previewDitherMode: 0 | 2
 }
 
+/** One undo/redo history entry — mirrors the in-memory edit snapshot. */
+export interface SessionEditSnapshot {
+  elements: DrawElement[]
+  canvas: SessionCanvas
+  service?: ServiceOptions
+  selectedIndices: number[]
+}
+
+/** Persisted undo/redo stacks (max 50 entries each at save time). */
+export interface PersistedEditHistory {
+  undoStack: SessionEditSnapshot[]
+  redoStack: SessionEditSnapshot[]
+}
+
 /** Single last-edited design row in IndexedDB (ADR-003). */
 export interface SessionSnapshot {
   id: typeof SESSION_ROW_ID
@@ -29,6 +43,7 @@ export interface SessionSnapshot {
   canvas: SessionCanvas
   service?: ServiceOptions
   elements: DrawElement[]
+  editHistory?: PersistedEditHistory
   updatedAt: number
 }
 

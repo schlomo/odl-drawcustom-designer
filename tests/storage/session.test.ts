@@ -8,6 +8,38 @@ import {
 } from '../../src/storage'
 
 describe('session storage adapter', () => {
+  it('round-trips undo/redo stacks with the session row', async () => {
+    const elements: DrawElement[] = [{ type: 'text', value: 'Hello', x: 10, y: 20 }]
+    const canvas = {
+      width: 400,
+      height: 300,
+      rotation: 0 as const,
+      accentMode: 'red' as const,
+      previewDitherMode: 0 as const,
+    }
+
+    await writeSessionToDb({
+      name: 'History session',
+      canvas,
+      elements: [{ type: 'text', value: 'After', x: 0, y: 0 }],
+      editHistory: {
+        undoStack: [
+          {
+            elements,
+            canvas,
+            selectedIndices: [0],
+          },
+        ],
+        redoStack: [],
+      },
+    })
+
+    const stored = await readSessionFromDb()
+    expect(stored?.editHistory?.undoStack).toHaveLength(1)
+    expect(stored?.editHistory?.undoStack[0]?.elements).toEqual(elements)
+    expect(stored?.editHistory?.redoStack).toEqual([])
+  })
+
   it('round-trips the last session through IndexedDB', async () => {
     const elements: DrawElement[] = [
       { type: 'text', value: 'Hello', x: 10, y: 20 },

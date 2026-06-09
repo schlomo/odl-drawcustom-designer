@@ -64,6 +64,9 @@ todos:
     status: completed
   - id: phase4-undo
     content: "§18d: undo/redo 50 steps + useProjectState history (19-9)"
+    status: completed
+  - id: phase4d-commit
+    content: "Commit Phase 4d after verification (§11q)"
     status: pending
   - id: phase4-ha-embed
     content: "§18f: HA panel mode, drawcustom load/save, live state preview"
@@ -747,14 +750,14 @@ flowchart LR
 | **4a** Storage reshape | ✅ Done | `5ad7e6f` | 593 (91 files) | Dexie v3, global mocks, `session` row, `appBootstrap`, auto-save |
 | **4b** Export + share | ✅ Done | `0bac3b6` | 636 (97 files) | Zoom, PNG/YAML export, `#d=pako` share, missing-asset banner |
 | **4c** Multi-select | ✅ Done | `adb3988` | 661 (102 files) | Marquee, Shift+click, bulk drag/nudge/layer, align toolbar |
-| **4d** Undo/redo | ⬜ **Next** | — | — | 50-step history stack (§18d) |
-| **4e–4i** Polish | ⬜ Pending | — | — | Edge snap, HA embed, deploy (§18e–h, §18i) |
+| **4d** Undo/redo | ✅ Done | — | 672 (105 files) | 50-step snapshot stack, drag coalesce, canvas toolbar |
+| **4e–4i** Polish | ⬜ **Next** | — | — | Edge snap, HA embed, deploy (§18e–h, §18i) |
 | **4j** ODL alignment | ⬜ Pending | — | — | Cross-cutting schema/renderer parity with OpenDisplay Language (§18j) |
 | **4k–4r** UX + brand | ⬜ Pending | — | — | Load Demo header button (§18k); demo visible refactor (**§18m**); rebrand (§7.5 / §18r) |
 
-**Current repo health:** `npm test` → **661 passed** (102 files) · `npm run lint` → **clean** · last commit `adb3988`
+**Current repo health:** `npm test` → **672 passed** (105 files) · `npm run lint` → **clean** · last commit `adb3988`
 
-**Next:** Phase **4d** — undo/redo (§18d).
+**Next:** Phase **4e** — canvas edge snap (§18e).
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -846,7 +849,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **19-6** | Canvas interaction unit tests — line endpoints, circle radius, bounds resize, nudge guard | **3f** ✅ | `tests/ui/lib/canvas-interaction.test.ts` |
 | **19-7** | Property form tests — JSON blur/revert, enum↔template toggle, font/image upload paths | **post-v1** | `ElementPropertyForm.tsx`, Testing Library |
 | **19-8** | JSON property field invalid-on-blur UX (inline error or revert to last valid) | **post-v1** | `ElementPropertyForm.tsx` |
-| **19-9** | Refactor `useProjectState` — batch selection remap with element mutations (`useReducer` or paired updates); **partial:** `applyLayerMove` + ADR-009 selection-stability rules | **4d** ✅ target | `useProjectState.ts` — pair with undo/redo |
+| **19-9** | Refactor `useProjectState` — batch selection remap with element mutations; `dispatchHistory` + undo/redo stack | **4d** ✅ | `useProjectState.ts`, `edit-history.ts` |
 | **19-10** | Element copy/paste (Ctrl+C/V, +10px offset) | **post-v1** | `DesignerCanvas.tsx`, `useProjectState.ts` |
 | **19-11** | Free pan + continuous zoom (SVG viewBox) — fixed 50/100/200/Fit is **4b**, not this | **post-v1** | `DesignerCanvas.tsx` |
 | **19-12a** | **Polygon vertex editor** — canvas handles per point, add/remove vertices; today `points` is JSON textarea only | **post-v1** | `DesignerCanvas.tsx`, `element-geometry.ts`, `ElementPropertyForm.tsx` |
@@ -1312,7 +1315,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **3a–3g** ✅ through `e8ff378`. Phase **4a–4c** ✅ through `adb3988`. **Current work:** **§18d** (undo/redo) → **§18e–i**.
+- Phase **3a–3g** ✅ through `e8ff378`. Phase **4a–4d** ✅ through `adb3988` + working tree. **Current work:** **§18e** (edge snap) → **§18f–i**.
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1514,6 +1517,34 @@ Delivered 2026-06-08. Multi-select, marquee, align, bulk layer ops, toolbar poli
 
 ---
 
+## 11q. Commit Phase 4d prompt
+
+```
+Read docs/PLAN.md §7 Phase 4d and §18d.
+
+Pre-flight (all must pass):
+  npm run lint && npm test && npm run build
+
+Commit Phase 4d work:
+- src/ui/lib/edit-history.ts, undo-keyboard.ts
+- src/ui/hooks/useProjectState.ts — dispatchHistory, undo/redo, drag coalesce
+- src/ui/components/DesignerCanvas.tsx — Undo/Redo toolbar, pointer-up coalesce hooks
+- src/ui/components/ExportIconButton.tsx — disabled prop
+- src/ui/lib/selection-remap.ts — clampSelectedIndices
+- src/ui/lib/mdi-tool-icons.ts — undo/redo icons
+- tests/ui/lib/edit-history.test.ts, undo-keyboard.test.ts
+- tests/ui/hooks/use-project-state-history.test.ts
+- docs/PLAN.md, README.md
+
+Message: "Phase 4d: 50-step undo/redo with drag coalesce"
+
+Update README — Phase 4d complete; next Phase 4e per §18e.
+
+Do not push unless I ask.
+```
+
+---
+
 ## 11c. Commit Phase 2 (partial) prompt ✅ (`84d2164`)
 
 Commit message used: `Phase 2a complete (YAML Editor)` — includes stabilization + UI shell + YamlEditor.
@@ -1643,7 +1674,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **§18c** ✅ (`adb3988`). **Next: §18d** (undo/redo).
+**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **§18c** ✅ (`adb3988`). **§18d** ✅ (undo/redo). **Next: §18e** (edge snap).
 
 **Plan cross-reference map:**
 
@@ -1762,37 +1793,13 @@ Delivered — see §7 Phase 4c. Key files: `align-elements.ts`, `marquee-selecti
 
 <!-- prompt archived — phase complete -->
 
-### §18d — Undo/redo (50 steps) ⬜ **Next**
+### §18d — Undo/redo (50 steps) ✅
 
-Read `docs/testing.md` (ADR-011). Multi-select batch ops live in `useProjectState.ts` + `batch-element-updates.ts`.
+Delivered — see §7 Phase 4d. Key files: `edit-history.ts`, `useProjectState.ts`, `DesignerCanvas.tsx`, `selection-remap.ts` (`clampSelectedIndices`).
 
-```
-Execute Phase 4d — 50-step undo/redo history stack.
+<!-- prompt archived — phase complete -->
 
-Core:
-- src/ui/history/ or src/ui/lib/edit-history.ts — snapshot or patch stack (max 50)
-- Capture: elements + canvas service-relevant fields + selectedIndices after each mutation
-- Debounce/coalesce rapid drags into one undo step (pointer up boundary)
-
-useProjectState.ts (19-9):
-- Route mutations through dispatchHistory(action) wrapper
-- undo() / redo() restore snapshot; remap selection indices via selection-remap.ts
-- Keyboard: Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z or Ctrl+Y redo (App or DesignerCanvas)
-
-UI:
-- Header or canvas bar: Undo / Redo buttons (disabled when stack empty)
-- Optional: history depth indicator for dev
-
-Tests:
-- tests/ui/lib/edit-history.test.ts — push/pop/limit/coalesce
-- integration: add → undo → redo; multi-select align → undo
-
-Do not push unless I ask. After green: docs/PLAN.md §11q commit prompt.
-
-Next: docs/PLAN.md §18e
-```
-
-### §18e — Canvas edge snap
+### §18e — Canvas edge snap ⬜ **Next**
 
 ```
 Execute Phase 4e — snap to canvas bounds.

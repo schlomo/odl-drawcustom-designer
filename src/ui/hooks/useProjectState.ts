@@ -15,6 +15,7 @@ import {
   writeSessionToDb,
 } from '../../storage'
 import type { AppBootstrap } from '../bootstrap/appBootstrap'
+import type { PersistedEditHistory, SessionEditSnapshot } from '../../storage'
 import { EXAMPLE_DESIGNS } from '../data/example-designs'
 import { DISPLAY_PRESETS, isCustomDisplayPreset } from '../data/display-presets'
 import { alignElementsInUnion, type ElementAlign } from '../lib/align-elements'
@@ -32,6 +33,13 @@ import { isElementCanvasSelectable, resolveElementHitBounds } from '../lib/hidde
 import { boundsFullyEnclosedInRect } from '../lib/marquee-selection'
 import type { ElementBounds } from '../lib/primitive-bounds'
 import {
+  cloneEditSnapshot,
+  EditHistory,
+  snapshotsEqual,
+  type EditSnapshot,
+} from '../lib/edit-history'
+import {
+  clampSelectedIndices,
   indicesAfterBringToFront,
   indicesAfterSendToBack,
   remapIndicesAfterMove,
@@ -48,6 +56,7 @@ import {
   readShowHiddenHintsPrefs,
   writeShowHiddenHintsPrefs,
 } from '../preferences/hiddenHints'
+import { useTemplatePreviewClock } from './useTemplatePreviewClock'
 
 export type { AddElementResult } from '../lib/add-element-guards'
 export type { CanvasRotation } from '../preferences/displayConfig'
@@ -69,6 +78,43 @@ function normalizeSelectOptions(
 
 function sortIndices(indices: number[]): number[] {
   return [...indices].sort((left, right) => left - right)
+}
+
+function sessionSnapshotToEdit(snapshot: SessionEditSnapshot): EditSnapshot {
+  return {
+    elements: snapshot.elements,
+    canvas: { ...snapshot.canvas },
+    service: snapshot.service,
+    selectedIndices: [...snapshot.selectedIndices],
+  }
+}
+
+function editSnapshotToSession(snapshot: EditSnapshot): SessionEditSnapshot {
+  return {
+    elements: snapshot.elements,
+    canvas: { ...snapshot.canvas },
+    service: snapshot.service,
+    selectedIndices: [...snapshot.selectedIndices],
+  }
+}
+
+function createEditHistory(editHistory?: PersistedEditHistory): EditHistory {
+  const history = new EditHistory()
+  if (editHistory) {
+    history.loadStacks({
+      undoStack: editHistory.undoStack.map(sessionSnapshotToEdit),
+      redoStack: editHistory.redoStack.map(sessionSnapshotToEdit),
+    })
+  }
+  return history
+}
+
+function snapshotEditHistory(history: EditHistory): PersistedEditHistory {
+  const stacks = history.exportStacks()
+  return {
+    undoStack: stacks.undoStack.map(editSnapshotToSession),
+    redoStack: stacks.redoStack.map(editSnapshotToSession),
+  }
 }
 
 export interface CanvasConfig {
@@ -106,10 +152,129 @@ export function useProjectState(bootstrap: AppBootstrap) {
   const [snapGrid, setSnapGrid] = useState<SnapGridPrefs>(() => readSnapGridPrefs())
   const [showHiddenHints, setShowHiddenHints] = useState(() => readShowHiddenHintsPrefs().enabled)
   const mockStatesRef = useRef(mockStates)
+  const elementsRef = useRef(elements)
+  const canvasRef = useRef(canvas)
+  const serviceRef = useRef(service)
+  const selectedIndicesRef = useRef(selectedIndices)
+  const [editHistory] = useState(() => createEditHistory(bootstrap.editHistory))
+  const historyRef = useRef(editHistory)
+  const [historyUi, setHistoryUi] = useState(() => ({
+    canUndo: editHistory.canUndo,
+    canRedo: editHistory.canRedo,
+    undoDepth: editHistory.undoDepth,
+  }))
 
   useEffect(() => {
     mockStatesRef.current = mockStates
   }, [mockStates])
+
+  const commitElements = useCallback((value: DrawElement[] | ((current: DrawElement[]) => DrawElement[])) => {
+    const next = typeof value === 'function' ? value(elementsRef.current) : value
+    elementsRef.current = next
+    setElements(next)
+  }, [])
+
+  const commitCanvas = useCallback((value: CanvasConfig | ((current: CanvasConfig) => CanvasConfig)) => {
+    const next = typeof value === 'function' ? value(canvasRef.current) : value
+    canvasRef.current = next
+    setCanvas(next)
+  }, [])
+
+  const commitService = useCallback(
+    (value: ServiceOptions | undefined | ((current: ServiceOptions | undefined) => ServiceOptions | undefined)) => {
+      const next = typeof value === 'function' ? value(serviceRef.current) : value
+      serviceRef.current = next
+      setService(next)
+    },
+    [],
+  )
+
+  const commitSelectedIndices = useCallback((value: number[] | ((current: number[]) => number[])) => {
+    const next = typeof value === 'function' ? value(selectedIndicesRef.current) : value
+    selectedIndicesRef.current = next
+    setSelectedIndices(next)
+  }, [])
+
+  const syncHistoryUi = useCallback(() => {
+    const history = historyRef.current!
+    setHistoryUi({
+      canUndo: history.canUndo,
+      canRedo: history.canRedo,
+      undoDepth: history.undoDepth,
+    })
+  }, [])
+
+  const resetEditHistory = useCallback(() => {
+    historyRef.current!.clear()
+    syncHistoryUi()
+  }, [syncHistoryUi])
+
+  const captureSnapshot = useCallback((): EditSnapshot => {
+    return cloneEditSnapshot({
+      elements: elementsRef.current,
+      canvas: canvasRef.current,
+      service: serviceRef.current,
+      selectedIndices: selectedIndicesRef.current,
+    })
+  }, [])
+
+  const restoreSnapshot = useCallback(
+    (snapshot: EditSnapshot) => {
+      const nextElements = structuredClone(snapshot.elements)
+      elementsRef.current = nextElements
+      setElements(nextElements)
+      const nextCanvas = { ...snapshot.canvas }
+      canvasRef.current = nextCanvas
+      setCanvas(nextCanvas)
+      const nextService = snapshot.service ? { ...snapshot.service } : undefined
+      serviceRef.current = nextService
+      setService(nextService)
+      const nextSelection = clampSelectedIndices(snapshot.selectedIndices, snapshot.elements.length)
+      selectedIndicesRef.current = nextSelection
+      setSelectedIndices(nextSelection)
+      setSelectionSource('ui')
+    },
+    [],
+  )
+
+  const dispatchHistory = useCallback(
+    (mutate: () => void) => {
+      const before = captureSnapshot()
+      mutate()
+      const after = captureSnapshot()
+      if (snapshotsEqual(before, after)) {
+        return
+      }
+      historyRef.current!.recordBefore(before)
+      syncHistoryUi()
+    },
+    [captureSnapshot, syncHistoryUi],
+  )
+
+  const beginEditCoalesce = useCallback(() => {
+    historyRef.current!.beginCoalesce(captureSnapshot())
+  }, [captureSnapshot])
+
+  const endEditCoalesce = useCallback(() => {
+    historyRef.current!.endCoalesce(captureSnapshot())
+    syncHistoryUi()
+  }, [captureSnapshot, syncHistoryUi])
+
+  const undo = useCallback(() => {
+    const restored = historyRef.current!.undo(captureSnapshot())
+    if (restored) {
+      restoreSnapshot(restored)
+      syncHistoryUi()
+    }
+  }, [captureSnapshot, restoreSnapshot, syncHistoryUi])
+
+  const redo = useCallback(() => {
+    const restored = historyRef.current!.redo(captureSnapshot())
+    if (restored) {
+      restoreSnapshot(restored)
+      syncHistoryUi()
+    }
+  }, [captureSnapshot, restoreSnapshot, syncHistoryUi])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -127,12 +292,13 @@ export function useProjectState(bootstrap: AppBootstrap) {
         canvas,
         service,
         elements,
+        editHistory: snapshotEditHistory(historyRef.current!),
       })
     }, 250)
     return () => {
       window.clearTimeout(timer)
     }
-  }, [canvas, elements, service, sessionName])
+  }, [canvas, elements, historyUi, service, sessionName])
 
   useEffect(() => {
     writeSnapGridPrefs(snapGrid)
@@ -142,9 +308,16 @@ export function useProjectState(bootstrap: AppBootstrap) {
     writeShowHiddenHintsPrefs({ enabled: showHiddenHints })
   }, [showHiddenHints])
 
+  const previewNow = useTemplatePreviewClock()
+
   const mockContext = useMemo(
     () => buildEffectiveMockContext(elements, mockStates),
     [elements, mockStates],
+  )
+
+  const previewMockContext = useMemo(
+    (): HaMockContext => ({ ...mockContext, now: previewNow }),
+    [mockContext, previewNow],
   )
 
   const renderContext: RenderContext = useMemo(
@@ -159,8 +332,8 @@ export function useProjectState(bootstrap: AppBootstrap) {
   )
 
   const previewElements = useMemo(
-    () => applyTemplateContextToPayload(elements, mockContext),
-    [elements, mockContext],
+    () => applyTemplateContextToPayload(elements, previewMockContext),
+    [elements, previewMockContext],
   )
 
   const extraEntityIds = useMemo(() => Object.keys(mockContext.states).sort(), [mockContext.states])
@@ -171,11 +344,11 @@ export function useProjectState(bootstrap: AppBootstrap) {
     const { additive = false, source = 'ui' } = normalizeSelectOptions(options)
     setSelectionSource(source)
     if (index == null) {
-      setSelectedIndices([])
+      commitSelectedIndices([])
       return
     }
     if (additive) {
-      setSelectedIndices((current) => {
+      commitSelectedIndices((current) => {
         if (current.includes(index)) {
           const next = current.filter((entry) => entry !== index)
           return next.length > 0 ? next : []
@@ -184,13 +357,13 @@ export function useProjectState(bootstrap: AppBootstrap) {
       })
       return
     }
-    setSelectedIndices([index])
-  }, [])
+    commitSelectedIndices([index])
+  }, [commitSelectedIndices])
 
   const clearSelection = useCallback(() => {
     setSelectionSource('ui')
-    setSelectedIndices([])
-  }, [])
+    commitSelectedIndices([])
+  }, [commitSelectedIndices])
 
   const selectAllInRect = useCallback(
     (bounds: ElementBounds, additive = false) => {
@@ -203,35 +376,50 @@ export function useProjectState(bootstrap: AppBootstrap) {
       })
       setSelectionSource('ui')
       if (additive) {
-        setSelectedIndices((current) => sortIndices([...new Set([...current, ...enclosed])]))
+        commitSelectedIndices((current) => sortIndices([...new Set([...current, ...enclosed])]))
         return
       }
-      setSelectedIndices(sortIndices(enclosed))
+      commitSelectedIndices(sortIndices(enclosed))
     },
-    [previewElements, renderContext],
+    [commitSelectedIndices, previewElements, renderContext],
   )
 
-  const applyPreset = useCallback((presetId: string) => {
-    const preset = DISPLAY_PRESETS.find((entry) => entry.id === presetId)
-    if (!preset) {
-      return
-    }
-    setCanvas((current) => ({
-      ...current,
-      ...(isCustomDisplayPreset(preset) || preset.width == null || preset.height == null
-        ? {}
-        : { width: preset.width, height: preset.height }),
-      ...(preset.accentMode != null ? { accentMode: preset.accentMode } : {}),
-    }))
-  }, [])
+  const applyPreset = useCallback(
+    (presetId: string) => {
+      const preset = DISPLAY_PRESETS.find((entry) => entry.id === presetId)
+      if (!preset) {
+        return
+      }
+      dispatchHistory(() => {
+        commitCanvas((current) => ({
+          ...current,
+          ...(isCustomDisplayPreset(preset) || preset.width == null || preset.height == null
+            ? {}
+            : { width: preset.width, height: preset.height }),
+          ...(preset.accentMode != null ? { accentMode: preset.accentMode } : {}),
+        }))
+      })
+    },
+    [commitCanvas, dispatchHistory],
+  )
 
-  const setCanvasSize = useCallback((width: number, height: number) => {
-    setCanvas((current) => ({ ...current, width, height }))
-  }, [])
+  const setCanvasSize = useCallback(
+    (width: number, height: number) => {
+      dispatchHistory(() => {
+        commitCanvas((current) => ({ ...current, width, height }))
+      })
+    },
+    [commitCanvas, dispatchHistory],
+  )
 
-  const setRotation = useCallback((rotation: CanvasRotation) => {
-    setCanvas((current) => ({ ...current, rotation }))
-  }, [])
+  const setRotation = useCallback(
+    (rotation: CanvasRotation) => {
+      dispatchHistory(() => {
+        commitCanvas((current) => ({ ...current, rotation }))
+      })
+    },
+    [commitCanvas, dispatchHistory],
+  )
 
   const setMockState = useCallback((entityId: string, value: string) => {
     setMockStates((current) => ({
@@ -296,94 +484,130 @@ export function useProjectState(bootstrap: AppBootstrap) {
     setAssetRevision((revision) => revision + 1)
   }, [])
 
-  const updateElementsBatch = useCallback((updates: ReadonlyMap<number, DrawElement>) => {
-    setElements((current) => applyElementUpdates(current, updates))
-  }, [])
-
-  const updateElement = useCallback((index: number, nextElement: DrawElement) => {
-    setElements((current) => {
-      if (index < 0 || index >= current.length) {
-        return current
+  const updateElementsBatch = useCallback(
+    (updates: ReadonlyMap<number, DrawElement>) => {
+      if (!historyRef.current!.isCoalescing()) {
+        dispatchHistory(() => {
+          commitElements((current) => applyElementUpdates(current, updates))
+        })
+        return
       }
-      const next = [...current]
-      next[index] = nextElement
-      return next
-    })
-  }, [])
+      commitElements((current) => applyElementUpdates(current, updates))
+    },
+    [commitElements, dispatchHistory],
+  )
 
-  const updateElementProperty = useCallback(
-    (index: number, key: string, value: unknown) => {
-      setElements((current) => {
+  const updateElement = useCallback(
+    (index: number, nextElement: DrawElement) => {
+      if (!historyRef.current!.isCoalescing()) {
+        dispatchHistory(() => {
+          commitElements((current) => {
+            if (index < 0 || index >= current.length) {
+              return current
+            }
+            const next = [...current]
+            next[index] = nextElement
+            return next
+          })
+        })
+        return
+      }
+      commitElements((current) => {
         if (index < 0 || index >= current.length) {
           return current
         }
-        const element = current[index]
         const next = [...current]
-        if (element.type === 'plot') {
-          next[index] = applyPlotPropertyUpdate(element, key, value)
-          return next
-        }
-        if (value === undefined) {
-          const nextElement = { ...element } as Record<string, unknown>
-          delete nextElement[key]
-          next[index] = nextElement as DrawElement
-        } else {
-          next[index] = { ...element, [key]: value } as DrawElement
-        }
+        next[index] = nextElement
         return next
       })
     },
-    [],
+    [commitElements, dispatchHistory],
+  )
+
+  const updateElementProperty = useCallback(
+    (index: number, key: string, value: unknown) => {
+      dispatchHistory(() => {
+        commitElements((current) => {
+          if (index < 0 || index >= current.length) {
+            return current
+          }
+          const element = current[index]
+          const next = [...current]
+          if (element.type === 'plot') {
+            next[index] = applyPlotPropertyUpdate(element, key, value)
+            return next
+          }
+          if (value === undefined) {
+            const nextElement = { ...element } as Record<string, unknown>
+            delete nextElement[key]
+            next[index] = nextElement as DrawElement
+          } else {
+            next[index] = { ...element, [key]: value } as DrawElement
+          }
+          return next
+        })
+      })
+    },
+    [commitElements, dispatchHistory],
   )
 
   const updateSelectedProperty = useCallback(
     (key: string, value: unknown) => {
-      setElements((current) => {
-        let next = current
-        for (const index of selectedIndices) {
-          if (index < 0 || index >= next.length) {
-            continue
+      dispatchHistory(() => {
+        commitElements((current) => {
+          let next = current
+          for (const index of selectedIndicesRef.current) {
+            if (index < 0 || index >= next.length) {
+              continue
+            }
+            const element = next[index]!
+            const updated = [...next]
+            if (element.type === 'plot') {
+              updated[index] = applyPlotPropertyUpdate(element, key, value)
+            } else if (value === undefined) {
+              const nextElement = { ...element } as Record<string, unknown>
+              delete nextElement[key]
+              updated[index] = nextElement as DrawElement
+            } else {
+              updated[index] = { ...element, [key]: value } as DrawElement
+            }
+            next = updated
           }
-          const element = next[index]!
-          const updated = [...next]
-          if (element.type === 'plot') {
-            updated[index] = applyPlotPropertyUpdate(element, key, value)
-          } else if (value === undefined) {
-            const nextElement = { ...element } as Record<string, unknown>
-            delete nextElement[key]
-            updated[index] = nextElement as DrawElement
-          } else {
-            updated[index] = { ...element, [key]: value } as DrawElement
-          }
-          next = updated
-        }
-        return next
+          return next
+        })
       })
     },
-    [selectedIndices],
+    [commitElements, dispatchHistory],
   )
 
-  const deleteElement = useCallback((index: number) => {
-    setElements((current) => {
-      if (index < 0 || index >= current.length) {
-        return current
-      }
-      return current.filter((_, i) => i !== index)
-    })
-    setSelectedIndices((current) =>
-      current
-        .filter((entry) => entry !== index)
-        .map((entry) => (entry > index ? entry - 1 : entry)),
-    )
-  }, [])
+  const deleteElement = useCallback(
+    (index: number) => {
+      dispatchHistory(() => {
+        commitElements((current) => {
+          if (index < 0 || index >= current.length) {
+            return current
+          }
+          return current.filter((_, i) => i !== index)
+        })
+        commitSelectedIndices((current) =>
+          current
+            .filter((entry) => entry !== index)
+            .map((entry) => (entry > index ? entry - 1 : entry)),
+        )
+      })
+    },
+    [commitElements, commitSelectedIndices, dispatchHistory],
+  )
 
   const deleteSelectedElements = useCallback(() => {
-    setElements((current) => {
-      const toDelete = new Set(selectedIndices)
-      return current.filter((_, index) => !toDelete.has(index))
+    dispatchHistory(() => {
+      commitElements((current) => {
+        const toDelete = new Set(selectedIndicesRef.current)
+        return current.filter((_, index) => !toDelete.has(index))
+      })
+      commitSelectedIndices([])
     })
-    setSelectedIndices([])
-  }, [selectedIndices])
+  }, [commitElements, commitSelectedIndices, dispatchHistory])
 
   const addElement = useCallback(
     (type: DrawElement['type']): AddElementResult => {
@@ -392,59 +616,70 @@ export function useProjectState(bootstrap: AppBootstrap) {
       }
       const element = createElementFromTemplate(type)
       const { nextElements, index } = elementsWithAddedElement(elements, element)
-      setSelectedIndices([index])
-      setSelectionSource('ui')
-      setElements(nextElements)
+      dispatchHistory(() => {
+        commitSelectedIndices([index])
+        setSelectionSource('ui')
+        commitElements(nextElements)
+      })
       return { ok: true, index }
     },
-    [elements],
+    [commitElements, commitSelectedIndices, dispatchHistory, elements],
   )
 
   const clearElements = useCallback(() => {
-    setElements([])
-    setSelectedIndices([])
-  }, [])
+    resetEditHistory()
+    commitElements([])
+    commitSelectedIndices([])
+  }, [commitElements, commitSelectedIndices, resetEditHistory])
 
-  const loadExample = useCallback((exampleId: string) => {
-    const example = EXAMPLE_DESIGNS.find((entry) => entry.id === exampleId)
-    if (!example) {
-      return
-    }
-    setElements(example.elements.map((element) => ({ ...element })))
-    setSelectedIndices([])
-  }, [])
+  const loadExample = useCallback(
+    (exampleId: string) => {
+      const example = EXAMPLE_DESIGNS.find((entry) => entry.id === exampleId)
+      if (!example) {
+        return
+      }
+      resetEditHistory()
+      commitElements(example.elements.map((element) => ({ ...element })))
+      commitSelectedIndices([])
+    },
+    [commitElements, commitSelectedIndices, resetEditHistory],
+  )
 
   const nudgeElement = useCallback(
     (index: number, dx: number, dy: number) => {
-      setElements((current) => {
-        if (index < 0 || index >= current.length) {
-          return current
-        }
-        const element = current[index]
-        if (!isElementDraggable(element)) {
-          return current
-        }
-        const next = [...current]
-        next[index] = translateElement(element, dx, dy, {
-          width: canvas.width,
-          height: canvas.height,
+      dispatchHistory(() => {
+        commitElements((current) => {
+          if (index < 0 || index >= current.length) {
+            return current
+          }
+          const element = current[index]
+          if (!isElementDraggable(element)) {
+            return current
+          }
+          const next = [...current]
+          next[index] = translateElement(element, dx, dy, {
+            width: canvasRef.current.width,
+            height: canvasRef.current.height,
+          })
+          return next
         })
-        return next
       })
     },
-    [canvas.height, canvas.width],
+    [commitElements, dispatchHistory],
   )
 
   const nudgeSelectedElements = useCallback(
     (dx: number, dy: number) => {
-      setElements((current) =>
-        nudgeElementsAtIndices(current, selectedIndices, dx, dy, {
-          width: canvas.width,
-          height: canvas.height,
-        }),
-      )
+      dispatchHistory(() => {
+        commitElements((current) =>
+          nudgeElementsAtIndices(current, selectedIndicesRef.current, dx, dy, {
+            width: canvasRef.current.width,
+            height: canvasRef.current.height,
+          }),
+        )
+      })
     },
-    [canvas.height, canvas.width, selectedIndices],
+    [commitElements, dispatchHistory],
   )
 
   const applyLayerMove = useCallback(
@@ -455,11 +690,13 @@ export function useProjectState(bootstrap: AppBootstrap) {
       if (toIndex < 0 || toIndex >= elements.length) {
         return
       }
-      setSelectedIndices((selected) => remapIndicesAfterMove(selected, fromIndex, toIndex))
-      setSelectionSource('ui')
-      setElements((current) => moveElementInArray(current, fromIndex, toIndex))
+      dispatchHistory(() => {
+        commitSelectedIndices((selected) => remapIndicesAfterMove(selected, fromIndex, toIndex))
+        setSelectionSource('ui')
+        commitElements((current) => moveElementInArray(current, fromIndex, toIndex))
+      })
     },
-    [elements.length],
+    [commitElements, commitSelectedIndices, dispatchHistory, elements.length],
   )
 
   const moveSelectionLayer = useCallback(
@@ -472,21 +709,23 @@ export function useProjectState(bootstrap: AppBootstrap) {
           ? [...selectedIndices].sort((left, right) => right - left)
           : [...selectedIndices].sort((left, right) => left - right)
 
-      let nextElements = elements
-      let nextIndices = [...selectedIndices]
-      for (const index of sorted) {
-        const partner = direction === 'up' ? index + 1 : index - 1
-        if (partner < 0 || partner >= nextElements.length) {
-          continue
+      dispatchHistory(() => {
+        let nextElements = elementsRef.current
+        let nextIndices = [...selectedIndicesRef.current]
+        for (const index of sorted) {
+          const partner = direction === 'up' ? index + 1 : index - 1
+          if (partner < 0 || partner >= nextElements.length) {
+            continue
+          }
+          nextElements = moveElementInArray(nextElements, index, partner)
+          nextIndices = remapIndicesAfterMove(nextIndices, index, partner)
         }
-        nextElements = moveElementInArray(nextElements, index, partner)
-        nextIndices = remapIndicesAfterMove(nextIndices, index, partner)
-      }
-      setElements(nextElements)
-      setSelectedIndices(nextIndices)
-      setSelectionSource('ui')
+        commitElements(nextElements)
+        commitSelectedIndices(nextIndices)
+        setSelectionSource('ui')
+      })
     },
-    [elements, selectedIndices],
+    [commitElements, commitSelectedIndices, dispatchHistory, selectedIndices],
   )
 
   const bringSelectionToFront = useCallback(() => {
@@ -494,44 +733,50 @@ export function useProjectState(bootstrap: AppBootstrap) {
       return
     }
     const selected = new Set(selectedIndices)
-    setElements((current) => {
-      const kept = current.filter((_, index) => !selected.has(index))
-      const picked = sortIndices(selectedIndices).map((index) => current[index]!)
-      return [...kept, ...picked]
+    dispatchHistory(() => {
+      commitElements((current) => {
+        const kept = current.filter((_, index) => !selected.has(index))
+        const picked = sortIndices(selectedIndicesRef.current).map((index) => current[index]!)
+        return [...kept, ...picked]
+      })
+      commitSelectedIndices(indicesAfterBringToFront(selectedIndicesRef.current, elementsRef.current.length))
+      setSelectionSource('ui')
     })
-    setSelectedIndices(indicesAfterBringToFront(selectedIndices, elements.length))
-    setSelectionSource('ui')
-  }, [elements.length, selectedIndices])
+  }, [commitElements, commitSelectedIndices, dispatchHistory, selectedIndices])
 
   const sendSelectionToBack = useCallback(() => {
     if (selectedIndices.length === 0) {
       return
     }
     const selected = new Set(selectedIndices)
-    setElements((current) => {
-      const kept = current.filter((_, index) => !selected.has(index))
-      const picked = sortIndices(selectedIndices).map((index) => current[index]!)
-      return [...picked, ...kept]
+    dispatchHistory(() => {
+      commitElements((current) => {
+        const kept = current.filter((_, index) => !selected.has(index))
+        const picked = sortIndices(selectedIndicesRef.current).map((index) => current[index]!)
+        return [...picked, ...kept]
+      })
+      commitSelectedIndices(indicesAfterSendToBack(selectedIndicesRef.current))
+      setSelectionSource('ui')
     })
-    setSelectedIndices(indicesAfterSendToBack(selectedIndices))
-    setSelectionSource('ui')
-  }, [selectedIndices])
+  }, [commitElements, commitSelectedIndices, dispatchHistory, selectedIndices])
 
   const reorderSelection = useCallback(
     (indices: readonly number[], dropIndex: number) => {
       if (indices.length === 0) {
         return
       }
-      const { elements: next, indices: nextIndices } = reorderSelectionBlock(
-        elements,
-        [...indices],
-        dropIndex,
-      )
-      setElements(next)
-      setSelectedIndices(nextIndices)
-      setSelectionSource('ui')
+      dispatchHistory(() => {
+        const { elements: next, indices: nextIndices } = reorderSelectionBlock(
+          elementsRef.current,
+          [...indices],
+          dropIndex,
+        )
+        commitElements(next)
+        commitSelectedIndices(nextIndices)
+        setSelectionSource('ui')
+      })
     },
-    [elements],
+    [commitElements, commitSelectedIndices, dispatchHistory],
   )
 
   const moveElementLayer = useCallback(
@@ -588,22 +833,26 @@ export function useProjectState(bootstrap: AppBootstrap) {
       if (selectedIndices.length < 2) {
         return
       }
-      setElements((current) =>
-        alignElementsInUnion(current, selectedIndices, boundsByIndex, align, {
-          width: canvas.width,
-          height: canvas.height,
-        }),
-      )
+      dispatchHistory(() => {
+        commitElements((current) =>
+          alignElementsInUnion(current, selectedIndicesRef.current, boundsByIndex, align, {
+            width: canvasRef.current.width,
+            height: canvasRef.current.height,
+          }),
+        )
+      })
     },
-    [canvas.height, canvas.width, selectedIndices],
+    [commitElements, dispatchHistory, selectedIndices],
   )
 
   const togglePreviewDither = useCallback(() => {
-    setCanvas((current) => ({
-      ...current,
-      previewDitherMode: current.previewDitherMode === 2 ? 0 : 2,
-    }))
-  }, [])
+    dispatchHistory(() => {
+      commitCanvas((current) => ({
+        ...current,
+        previewDitherMode: current.previewDitherMode === 2 ? 0 : 2,
+      }))
+    })
+  }, [commitCanvas, dispatchHistory])
 
   const toggleSnapGrid = useCallback(() => {
     setSnapGrid((current) => ({ ...current, enabled: !current.enabled }))
@@ -617,10 +866,13 @@ export function useProjectState(bootstrap: AppBootstrap) {
     setSnapGrid((current) => ({ ...current, size: Math.max(1, size) }))
   }, [])
 
-  const applyYamlSelection = useCallback((indices: number[]) => {
-    setSelectionSource('yaml')
-    setSelectedIndices(sortIndices(indices))
-  }, [])
+  const applyYamlSelection = useCallback(
+    (indices: number[]) => {
+      setSelectionSource('yaml')
+      commitSelectedIndices(sortIndices(indices))
+    },
+    [commitSelectedIndices],
+  )
 
   const selectedElements = useMemo(
     () =>
@@ -632,13 +884,31 @@ export function useProjectState(bootstrap: AppBootstrap) {
 
   const selectedElement = selectedIndex != null ? (elements[selectedIndex] ?? null) : null
 
+  const setElementsWithHistory = useCallback(
+    (next: DrawElement[] | ((current: DrawElement[]) => DrawElement[])) => {
+      dispatchHistory(() => {
+        commitElements(next)
+      })
+    },
+    [commitElements, dispatchHistory],
+  )
+
+  const setServiceWithHistory = useCallback(
+    (next: ServiceOptions | undefined | ((current: ServiceOptions | undefined) => ServiceOptions | undefined)) => {
+      dispatchHistory(() => {
+        commitService(next)
+      })
+    },
+    [commitService, dispatchHistory],
+  )
+
   return {
     sessionName,
     setSessionName,
     service,
-    setService,
+    setService: setServiceWithHistory,
     elements,
-    setElements,
+    setElements: setElementsWithHistory,
     previewElements,
     selectedIndices,
     selectedIndex,
@@ -655,6 +925,7 @@ export function useProjectState(bootstrap: AppBootstrap) {
     setCanvasSize,
     setRotation,
     mockContext,
+    previewMockContext,
     setMockState,
     addMockEntity,
     removeMockEntity,
@@ -689,5 +960,12 @@ export function useProjectState(bootstrap: AppBootstrap) {
     toggleShowHiddenHints,
     setSnapGridSize,
     togglePreviewDither,
+    undo,
+    redo,
+    canUndo: historyUi.canUndo,
+    canRedo: historyUi.canRedo,
+    historyUndoDepth: historyUi.undoDepth,
+    beginEditCoalesce,
+    endEditCoalesce,
   }
 }

@@ -6,9 +6,6 @@ import {
   writeMocksToDb,
 } from '../../storage'
 
-/** @deprecated Use LEGACY_MOCK_STATES_STORAGE_KEY from storage — kept for existing tests. */
-export { LEGACY_MOCK_STATES_STORAGE_KEY as MOCK_STATES_STORAGE_KEY } from '../../storage/keys'
-
 export const DEFAULT_MOCK_STATES: HaMockContext['states'] = {
   'sensor.temperature': '21.5',
   'binary_sensor.door': 'off',

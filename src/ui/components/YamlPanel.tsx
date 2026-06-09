@@ -20,19 +20,18 @@ import { useYamlTemplatePreview } from '../hooks/useYamlTemplatePreview'
 import type { ResolvedTheme } from '../preferences/theme'
 import type { StatusMessage } from '../lib/status-messages'
 import { shell } from '../styles/shell'
-import { YamlCouplingToggle } from './YamlCouplingToggle'
-import { YamlFontSizeControls } from './YamlFontSizeControls'
-import { YamlTemplatePreviewToggle } from './YamlTemplatePreviewToggle'
+import { YamlHeaderToolbar } from './YamlHeaderToolbar'
 import {
   buildYamlDownloadFilename,
   copyTextToClipboard,
   createYamlDownloadBlob,
   triggerBlobDownload,
 } from '../lib/export-download'
-import { toolbarGroup, toolbarGroups } from '../lib/export-action-feedback'
+import { YAML_TOOLBAR_ITEM_SELECTOR } from '../lib/yaml-toolbar-layout'
+import { toolbarHeaderSlotWidth } from '../lib/toolbar-header-slot'
 import { useExportActionFeedback } from '../hooks/useExportActionFeedback'
-import { ExportIconButton } from './ExportIconButton'
-import { TOOL_ICONS } from '../lib/mdi-tool-icons'
+import { useElementSize } from '../hooks/useElementSize'
+import { useToolbarLabels } from '../hooks/useToolbarLabels'
 
 const MIN_YAML_PANEL_HEIGHT = 120
 
@@ -78,6 +77,19 @@ export function YamlPanel({
   const { couplingEnabled, toggleCoupling } = useYamlSelectionCoupling()
   const { templatePreviewEnabled, toggleTemplatePreview } = useYamlTemplatePreview()
   const { flashSuccess, flashError, getFeedback } = useExportActionFeedback()
+  const headerRef = useRef<HTMLDivElement>(null)
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  const measureRef = useRef<HTMLDivElement>(null)
+  const headerSize = useElementSize(headerRef)
+  const titleSize = useElementSize(titleRef)
+  const toolbarSlotWidth = toolbarHeaderSlotWidth(headerSize.width, titleSize.width)
+  const { toolbarRef: yamlToolbarRef, showLabels: showYamlLabels } = useToolbarLabels(
+    YAML_TOOLBAR_ITEM_SELECTOR,
+    {
+      fitWidth: toolbarSlotWidth,
+      measureRef,
+    },
+  )
   const { height: panelHeight, startResize } = useResizablePanelHeight({
     storageKey: 'oepl-yaml-panel-height',
     defaultHeight: 220,
@@ -136,6 +148,20 @@ export function YamlPanel({
     flashSuccess('download-yaml')
   }, [flashSuccess, sessionName, yamlText])
 
+  const toolbarProps = {
+    showLabels: showYamlLabels,
+    getFeedback,
+    onCopyYaml: () => void handleCopyYaml(),
+    onDownloadYaml: handleDownloadYaml,
+    templatePreviewEnabled,
+    onToggleTemplatePreview: toggleTemplatePreview,
+    couplingEnabled,
+    onToggleCoupling: toggleCoupling,
+    fontSize,
+    onDecreaseFontSize: decrease,
+    onIncreaseFontSize: increase,
+  }
+
   const handleYamlChange = useCallback(
     (text: string) => {
       setYamlText(text)
@@ -182,30 +208,21 @@ export function YamlPanel({
         <div className="h-0.5 w-12 rounded-full bg-[var(--shell-muted)] group-hover:bg-[var(--shell-text)]" />
       </div>
       <div
-        className={`flex shrink-0 items-center justify-between gap-3 border-b ${shell.panelBorder} px-4 py-2`}
+        ref={headerRef}
+        className={`relative flex shrink-0 items-center justify-between gap-2 border-b ${shell.panelBorder} px-4 py-2`}
       >
-        <h2 className={shell.heading}>YAML</h2>
-        <div className={toolbarGroups}>
-          <div className={toolbarGroup} role="group" aria-label="YAML export">
-            <ExportIconButton
-              actionId="copy-yaml"
-              feedback={getFeedback('copy-yaml')}
-              iconPath={TOOL_ICONS.copy}
-              label="Copy YAML"
-              onClick={() => void handleCopyYaml()}
-            />
-            <ExportIconButton
-              actionId="download-yaml"
-              feedback={getFeedback('download-yaml')}
-              iconPath={TOOL_ICONS.download}
-              label="Download YAML"
-              onClick={handleDownloadYaml}
-            />
-          </div>
-          <div className={toolbarGroup} role="group" aria-label="YAML editor options">
-            <YamlTemplatePreviewToggle enabled={templatePreviewEnabled} onToggle={toggleTemplatePreview} />
-            <YamlCouplingToggle enabled={couplingEnabled} onToggle={toggleCoupling} />
-            <YamlFontSizeControls fontSize={fontSize} onDecrease={decrease} onIncrease={increase} />
+        <h2 ref={titleRef} className={`${shell.heading} shrink-0`}>
+          YAML
+        </h2>
+        <div ref={yamlToolbarRef} className="shrink-0">
+          <YamlHeaderToolbar {...toolbarProps} />
+        </div>
+        <div
+          aria-hidden
+          className="pointer-events-none invisible fixed top-0 -left-[10000px] h-0 overflow-hidden"
+        >
+          <div ref={measureRef} className="w-max whitespace-nowrap">
+            <YamlHeaderToolbar {...toolbarProps} measureOnly />
           </div>
         </div>
       </div>

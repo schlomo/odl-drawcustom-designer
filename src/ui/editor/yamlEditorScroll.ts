@@ -119,9 +119,6 @@ export function dispatchPreservingEditorViewState(
   restoreScrollPosition(view, scrollTop, scrollLeft)
 }
 
-/** @deprecated Use {@link dispatchPreservingEditorViewState}. */
-export const dispatchPreservingEditorScroll = dispatchPreservingEditorViewState
-
 export function scrollLinkedElementIntoView(position: number) {
   return EditorView.scrollIntoView(position, { y: 'center', yMargin: 24 })
 }

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react'
 import { renderElement, type DrawElement, type RenderContext } from '../../core'
 import { CanvasElementSlot } from './CanvasElementSlot'
 import {
@@ -44,6 +51,7 @@ import {
   shouldPreferMoveOverResize,
 } from '../lib/canvas-resize-handles'
 import { shouldHandleCanvasKeyboard } from '../lib/canvas-keyboard'
+import { isRedoShortcut, isUndoShortcut } from '../lib/undo-keyboard'
 import {
   CANVAS_VIEWPORT_PADDING_PX,
   clientPointToCanvasCoords,
@@ -62,7 +70,10 @@ import {
   copyBlobToClipboard,
   triggerBlobDownload,
 } from '../lib/export-download'
-import { toolbarGroup, toolbarGroups } from '../lib/export-action-feedback'
+import { CANVAS_TOOLBAR_ITEM_SELECTOR } from '../lib/canvas-toolbar-layout'
+import { toolbarHeaderSlotWidth } from '../lib/toolbar-header-slot'
+import { useToolbarLabels } from '../hooks/useToolbarLabels'
+import { useElementSize } from '../hooks/useElementSize'
 import { type ElementBounds } from '../lib/primitive-bounds'
 import { unionBounds, type ElementAlign } from '../lib/align-elements'
 import { isElementCanvasSelectable, resolveElementHitBounds } from '../lib/hidden-element-hints'
@@ -77,9 +88,7 @@ import {
 import type { CanvasRotation, SelectElementOptions } from '../hooks/useProjectState'
 import { useExportActionFeedback } from '../hooks/useExportActionFeedback'
 import { CanvasSelectionToolbar } from './CanvasSelectionToolbar'
-import { ExportIconButton } from './ExportIconButton'
-import { FeatureToggle } from './FeatureToggle'
-import { TOOL_ICONS } from '../lib/mdi-tool-icons'
+import { CanvasHeaderToolbar } from './CanvasHeaderToolbar'
 import { shell } from '../styles/shell'
 
 interface DesignerCanvasProps {
@@ -107,11 +116,16 @@ interface DesignerCanvasProps {
   elementCount: number
   onDeleteSelected: () => void
   onNudgeSelected: (dx: number, dy: number) => void
-  onClearAll: () => void
   onToggleSnap: () => void
   previewDitherMode: 0 | 2
   onTogglePreviewDither: () => void
   onDragActiveChange?: (active: boolean) => void
+  onBeginEditCoalesce?: () => void
+  onEndEditCoalesce?: () => void
+  canUndo?: boolean
+  canRedo?: boolean
+  onUndo?: () => void
+  onRedo?: () => void
 }
 
 interface DragOverlay {
@@ -152,13 +166,6 @@ function applySnap(point: { x: number; y: number }, snapGrid: SnapGridPrefs): { 
   }
 }
 
-const ZOOM_MODES: { mode: CanvasZoomMode; label: string }[] = [
-  { mode: '200', label: '200%' },
-  { mode: '100', label: '100%' },
-  { mode: 'fit', label: 'Fit' },
-  { mode: '50', label: '50%' },
-]
-
 export function DesignerCanvas({
   elements,
   editElements,
@@ -183,11 +190,16 @@ export function DesignerCanvas({
   elementCount,
   onDeleteSelected,
   onNudgeSelected,
-  onClearAll,
   onToggleSnap,
   previewDitherMode,
   onTogglePreviewDither,
   onDragActiveChange,
+  onBeginEditCoalesce,
+  onEndEditCoalesce,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
 }: DesignerCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const dragSessionRef = useRef<DragSession | null>(null)
@@ -198,6 +210,19 @@ export function DesignerCanvas({
   const [scrollportSize, setScrollportSize] = useState({ width: 0, height: 0 })
   const [zoomMode, setZoomMode] = useState<CanvasZoomMode>(() => readCanvasZoomMode())
   const { flashSuccess, flashError, getFeedback } = useExportActionFeedback()
+  const headerRef = useRef<HTMLDivElement>(null)
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  const measureRef = useRef<HTMLDivElement>(null)
+  const headerSize = useElementSize(headerRef)
+  const titleSize = useElementSize(titleRef)
+  const toolbarSlotWidth = toolbarHeaderSlotWidth(headerSize.width, titleSize.width)
+  const { toolbarRef: canvasToolbarRef, showLabels: showCanvasLabels } = useToolbarLabels(
+    CANVAS_TOOLBAR_ITEM_SELECTOR,
+    {
+      fitWidth: toolbarSlotWidth,
+      measureRef,
+    },
+  )
   const [assetImages, setAssetImages] = useState<Map<string, HTMLImageElement>>(() => new Map())
   const [fontFamilies, setFontFamilies] = useState<Map<string, string>>(() => new Map())
   const [opentypeFonts, setOpentypeFonts] = useState<Map<string, import('opentype.js').Font>>(
@@ -523,7 +548,8 @@ export function DesignerCanvas({
     setDragSession(null)
     setDragOverlays([])
     onDragActiveChange?.(false)
-  }, [onDragActiveChange, releaseCapturedPointer])
+    onEndEditCoalesce?.()
+  }, [onDragActiveChange, onEndEditCoalesce, releaseCapturedPointer])
 
   const updateBulkMoveVisual = useCallback(
     (
@@ -576,12 +602,13 @@ export function DesignerCanvas({
 
   const beginDragSession = useCallback(
     (session: DragSession) => {
+      onBeginEditCoalesce?.()
       setFrozenElements(elements)
       dragSessionRef.current = session
       setDragSession(session)
       onDragActiveChange?.(true)
     },
-    [elements, onDragActiveChange],
+    [elements, onBeginEditCoalesce, onDragActiveChange],
   )
 
   const handlePointerMove = useCallback(
@@ -916,7 +943,22 @@ export function DesignerCanvas({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (selectedIndices.length === 0 || !shouldHandleCanvasKeyboard(event)) {
+      if (!shouldHandleCanvasKeyboard(event)) {
+        return
+      }
+
+      if (isUndoShortcut(event)) {
+        event.preventDefault()
+        onUndo?.()
+        return
+      }
+      if (isRedoShortcut(event)) {
+        event.preventDefault()
+        onRedo?.()
+        return
+      }
+
+      if (selectedIndices.length === 0) {
         return
       }
 
@@ -951,7 +993,15 @@ export function DesignerCanvas({
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onDeleteSelected, onNudgeSelected, selectedIndices, snapGrid.enabled, snapGrid.size])
+  }, [
+    onDeleteSelected,
+    onNudgeSelected,
+    onRedo,
+    onUndo,
+    selectedIndices,
+    snapGrid.enabled,
+    snapGrid.size,
+  ])
 
   const overlayIndices = useMemo(
     () => new Set(dragOverlays.map((entry) => entry.index)),
@@ -1018,83 +1068,46 @@ export function DesignerCanvas({
     }
   }, [exportPreviewPng, flashError, flashSuccess, sessionName])
 
+  const toolbarProps = {
+    showLabels: showCanvasLabels,
+    zoomMode,
+    onZoomModeChange: setZoomMode,
+    getFeedback,
+    onCopyPng: () => void handleCopyPng(),
+    onDownloadPng: () => void handleDownloadPng(),
+    canUndo,
+    canRedo,
+    onUndo: () => onUndo?.(),
+    onRedo: () => onRedo?.(),
+    showHiddenHints,
+    onToggleShowHiddenHints,
+    snapGrid,
+    onToggleSnap,
+    previewDitherMode,
+    onTogglePreviewDither,
+  }
+
   return (
     <section
       className={`flex min-h-0 flex-1 flex-col ${shell.panel}`}
       aria-label="E-paper canvas"
     >
-      <div className={`flex items-center justify-between border-b ${shell.panelBorder} px-4 py-2`}>
-        <h2 className={`${shell.heading} flex items-baseline gap-2`}>
-          <span>Canvas</span>
-          <span className="font-mono normal-case tracking-normal text-[var(--shell-muted)]">
-            {renderContext.width}×{renderContext.height}
-          </span>
+      <div
+        ref={headerRef}
+        className={`relative flex min-w-0 items-center justify-between gap-2 overflow-visible border-b ${shell.panelBorder} px-4 py-2`}
+      >
+        <h2 ref={titleRef} className={`${shell.heading} shrink-0`}>
+          Canvas
         </h2>
-        <div className={toolbarGroups}>
-          <div className={toolbarGroup} role="group" aria-label="Canvas zoom">
-            {ZOOM_MODES.map(({ mode, label }) => {
-              const active = zoomMode === mode
-              return (
-                <button
-                  key={mode}
-                  type="button"
-                  className={
-                    active
-                      ? 'rounded-md border border-[var(--shell-accent)] bg-[var(--shell-accent)] px-2 py-1 text-xs text-white shadow-inner ring-1 ring-inset ring-black/15'
-                      : `${shell.button} opacity-80`
-                  }
-                  onClick={() => setZoomMode(mode)}
-                  aria-pressed={active}
-                  aria-current={active ? 'true' : undefined}
-                >
-                  {label}
-                </button>
-              )
-            })}
-          </div>
-          <div className={toolbarGroup} role="group" aria-label="Canvas export">
-            <ExportIconButton
-              actionId="copy-png"
-              feedback={getFeedback('copy-png')}
-              iconPath={TOOL_ICONS.copy}
-              label="Copy PNG"
-              onClick={() => void handleCopyPng()}
-            />
-            <ExportIconButton
-              actionId="download-png"
-              feedback={getFeedback('download-png')}
-              iconPath={TOOL_ICONS.download}
-              label="Download PNG"
-              onClick={() => void handleDownloadPng()}
-            />
-          </div>
-          <div className={toolbarGroup} role="group" aria-label="Canvas view options">
-            <FeatureToggle
-              enabled={showHiddenHints}
-              onToggle={onToggleShowHiddenHints}
-              title="Show designer overlays for elements invisible on the tag (visible: false, fill: none)"
-            >
-              <span>Invisible</span>
-            </FeatureToggle>
-            <FeatureToggle
-              enabled={snapGrid.enabled}
-              onToggle={onToggleSnap}
-              title="Snap moved and resized elements to the grid"
-            >
-              <span>Snap</span>
-            </FeatureToggle>
-            <button
-              type="button"
-              className={`${shell.button} ${previewDitherMode === 2 ? 'border-[var(--shell-accent)] text-[var(--shell-accent)]' : ''}`}
-              onClick={onTogglePreviewDither}
-            >
-              Dither {previewDitherMode === 2 ? 'd=2' : 'flat'}
-            </button>
-          </div>
-          <div className={toolbarGroup} role="group" aria-label="Canvas actions">
-            <button type="button" className={shell.buttonDestructive} onClick={onClearAll}>
-              Clear all
-            </button>
+        <div ref={canvasToolbarRef} className="shrink-0">
+          <CanvasHeaderToolbar {...toolbarProps} />
+        </div>
+        <div
+          aria-hidden
+          className="pointer-events-none invisible fixed top-0 -left-[10000px] h-0 overflow-hidden"
+        >
+          <div ref={measureRef} className="w-max whitespace-nowrap">
+            <CanvasHeaderToolbar {...toolbarProps} measureOnly canUndo canRedo />
           </div>
         </div>
       </div>
