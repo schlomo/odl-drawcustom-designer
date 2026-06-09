@@ -82,10 +82,10 @@ todos:
     status: cancelled
   - id: phase4-display-zoom
     content: "§18i: resolution + color mode dropdowns (replaces inch tag presets)"
-    status: pending
+    status: completed
   - id: phase4i-commit
     content: "Commit Phase 4i after verification (§11s)"
-    status: pending
+    status: completed
   - id: phase4-odl-alignment
     content: "§18j: OpenDisplay Language alignment, cross-cutting fields (visible on all types), ADR-012"
     status: pending
@@ -764,8 +764,8 @@ flowchart LR
 | **4c** Multi-select | ✅ Done | `adb3988` | 661 (102 files) | Marquee, Shift+click, bulk drag/nudge/layer, align toolbar |
 | **4d** Undo/redo | ✅ Done | `fc35ccd` | 708 (118 files) | 50-step stack, drag coalesce, session-persisted history, toolbar chrome |
 | **4e** Edge snap | ✅ Done | `f07f004` | 724 (119 files) | `snapBoundsToCanvas`, drag/resize/nudge, border guides |
-| **4i** Display config | ⬜ **Next** | — | — | Resolution + color mode dropdowns (§18i) |
-| **4j** ODL + `visible` | ⬜ Pending | — | — | Cross-cutting fields, ADR-012, gap report (§18j) |
+| **4i** Display config | ✅ Done | `c07d3f1` | 812 (131 files) | Resolution picker, TagColorMode, palette clamp/WYSIWYG, color-clamp hints |
+| **4j** ODL + `visible` | ⬜ **Next** | — | — | Cross-cutting fields, ADR-012, gap report (§18j) |
 | **4m** Demo overlay | ⬜ Pending | — | — | `debug_grid` `visible: false` (§18m) |
 | **4k** Load Demo | ⬜ Pending | — | — | Header button; drop Load Example (§18k) |
 | **4r** Rebrand | ⬜ Pending | — | — | Owner decision §7.5 (§18r) |
@@ -773,9 +773,9 @@ flowchart LR
 | **4f** HA embed | ⏸ **Post-v1** | — | — | HA dev sync; ADR-010 draft (§18f) |
 | **4g** Service options | ⏸ **Post-v1** | — | — | Schema only until HA alignment (§18g) |
 
-**Current repo health:** `npm test` → **724 passed** (119 files) · `npm run lint` → **clean** · last commit `69d69c9`
+**Current repo health:** `npm test` → **812 passed** (131 files) · `npm run lint` → **clean** · last commit `c07d3f1`
 
-**Next:** Phase **4i** — display config (§18i). **4f** HA embed + **4g** service options **post-v1** — coordinate with HA devs first.
+**Next:** Phase **4j** — ODL alignment + `visible` on all types (§18j). **Post-v1:** **4f** HA embed + **4g** service options.
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -930,7 +930,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 - ✅ `draw-canvas-stubs.ts` — multi-color glyph draw + dithered fill paths
 - ✅ `previewDitherMode` on canvas (flat vs d=2 toggle in `DesignerCanvas`)
 - ✅ Fixture `parse-colors-text.yaml`; tests: `parse-colors`, `parse-colors-render`, `dither`
-- **Note:** `palette.ts` / 6-color scaffold deferred to **§18i**; accent via existing `accentMode`
+- ✅ `TagColorMode` + `palette.ts` / palette-clamp / preview-paint (**4i** `c07d3f1`); session `colorMode` replaces inch presets + bare `accentMode`
 
 ### Phase 3f — Canvas interaction polish (§17f) ✅ (`1b629ff`)
 
@@ -955,7 +955,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | QR | ✅ scannable module grid (**3d**) | — |
 | Plot | ✅ axes, legends, series (**3d**) | parse_colors in plot labels optional post-v1 |
 | `parse_colors` | ✅ text/multiline canvas (**3e**) | — |
-| Dither / color mode | ✅ flat vs d=2 toggle (**3e**) | Color mode dropdown + 6-color scaffold (**4i**) |
+| Dither / color mode | ✅ flat vs d=2 toggle (**3e**) + color mode dropdown + WYSIWYG clamp (**4i**) | — |
 | dlimg | Uploaded images draw; no resize_method | Full resize/rotate preview per spec |
 | Assets / mocks | ✅ global assets + mocks + session (**4a**) | — |
 | Canvas interaction | ✅ drag overlay + tests (**3f**) | — |
@@ -1000,7 +1000,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 |-------|---------|--------|
 | **4a** | **Storage reshape** | ✅ Dexie **v3**: global `assets`, global `mocks`, single `session` row. Dropped `projects` + per-`projectId` mocks. `ensureDbReady` wipe-on-upgrade. |
 | **4b** | **Canvas + YAML bars** | ✅ Zoom **200/100/Fit/50**, PNG copy/download, YAML copy/download, header **Share** `#d=pako`, hash bootstrap, missing-asset banner (`0bac3b6`). |
-| **4i** | **Display config** | Drop inch-based tag presets. **Resolution** dropdown (common WxH quick-picks + Custom → W/H inputs). **Color mode** dropdown (BW, BWR, BWY; scaffold **6-color** palette in types/renderer). |
+| **4i** | **Display config** | ✅ Resolution dropdown (`resolution-picks.ts`), color mode (BW/BWR/BWY/4-color/6-color/RGB preview), WYSIWYG palette clamp, export rotation (`c07d3f1`). |
 | **4c** | **Multi-select** | ✅ Marquee, Shift+click, bulk drag/nudge/layer, align toolbar, shared property form (`adb3988`). |
 | **4d** | **Undo/redo** | ✅ 50-step stack, drag coalesce, session-persisted `editHistory`, toolbar chrome (`fc35ccd`). |
 | **4e** | **Edge snap** | ✅ `snapBoundsToCanvas` + guides; drag, resize, multi-select nudge (`f07f004`). |
@@ -1104,7 +1104,7 @@ flowchart TB
 |-------|-------------------------|-------------------------|------------------|
 | **Payload** | Ordered list of 16 draw types | Raw encoded pixels in packet 0x82 | ✅ Same 16 types in Zod + renderer |
 | **Service options** | `background`, `rotate`, `dither`, `ttl`, `dry-run` | N/A (server poll interval, refresh type) | Schema ✅; UI **post-v1 (4g)** |
-| **Colors in YAML** | Named + halftone + accent + hex | `colour_scheme` enum 0x00–0x04 on announcement | Preview accent + d=2 ✅; mode dropdown **4i** |
+| **Colors in YAML** | Named + halftone + accent + hex | `colour_scheme` enum 0x00–0x04 on announcement | Preview + mode dropdown ✅ (**4i**) |
 | **Templates** | Jinja when used with HA | N/A | ✅ Nunjucks preview (ADR-004) |
 | **Share / session** | N/A | N/A | Hash + session **4b** / **4a** ✅ |
 
@@ -1220,7 +1220,7 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 |-------------|--------|-------|
 | All 16 draw types add/edit/render/export per spec | 🟡 dlimg stub only; rest real (**3b**–**3e**) | 3b–3e |
 | Percentage coordinates + anchors (Pillow set) | ✅ Drag + resolve + opentype anchors (**3b**) | 3b |
-| All color aliases including hex, halftone shortcuts, accent | 🟡 Dither d=2 ✅ (**3e**); color mode dropdown **4i** | 3e–4i |
+| All color aliases including hex, halftone shortcuts, accent | ✅ Dither d=2 (**3e**) + color mode + palette clamp (**4i**) | — |
 | Plot nested objects round-trip | ✅ YAML engine | — |
 | Template strings preserved verbatim in HA export | ✅ | — |
 | Local content map by exact YAML path (no embedding) | ✅ IndexedDB + hydrate | 3a |
@@ -1234,7 +1234,7 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 | Multi-select, bulk move, align H/V | ✅ (**4c**) | 4 |
 | Canvas zoom 200/100/Fit/50 | ✅ (**4b**) | 4 |
 | Canvas PNG copy + download | ✅ (**4b**) | 4 |
-| Resolution + color mode (not inch presets) | ⬜ **4i** | 4 |
+| Resolution + color mode (not inch presets) | ✅ (**4i**) | 4 |
 | YAML copy + download (toolbar) | ✅ (**4b**) | 4 |
 | Undo/redo (50 steps) | ✅ (**4d**) | 4 |
 | Last-session restore on load | ✅ (**4a**) | 4a |
@@ -1335,7 +1335,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **4a–4e** ✅ through `f07f004`. **Current work:** **§18i** → **§18j** → **§18m/k/r** → **§18h**. **§18f** + **§18g** post-v1 (HA dev sync).
+- Phase **4a–4i** ✅ through `c07d3f1`. **Current work:** **§18j** → **§18m/k/r** → **§18h**. **§18f** + **§18g** post-v1 (HA dev sync).
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1553,13 +1553,21 @@ Delivered 2026-06-09. Canvas edge snap, border guides, nudge batch snap.
 
 ---
 
-## 11s. Commit Phase 4i prompt ⬜
+## 11s. Commit Phase 4i prompt ✅ (`c07d3f1`)
+
+Delivered 2026-06-09. Resolution + color mode, palette clamp/WYSIWYG, 812 tests (131 files).
+
+<!-- prompt archived — phase complete -->
+
+---
+
+## 11t. Commit Phase 4j prompt ⬜
 
 ```
-Commit Phase 4i after owner verification.
+Commit Phase 4j after owner verification.
 
-- Code commit: display config (resolution + color mode), remove inch presets
-- Docs commit: PLAN §7 tracker + §18i ✅, README Next → §18j, repo health counts
+- Code commit: ODL alignment, visible on all 16 types, ADR-012, gap report
+- Docs commit: PLAN §7 tracker + §18j ✅, README Next → §18m, repo health counts
 
 Do not push unless I ask.
 ```
@@ -1695,7 +1703,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **§18c** ✅ (`adb3988`). **§18d** ✅ (`fc35ccd`). **§18e** ✅ (`f07f004`). **Next: §18i** (display config). **§18f** HA embed + **§18g** service options → post-v1 (HA dev discussion).
+**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a** ✅ (`5ad7e6f`). **§18b** ✅ (`0bac3b6`). **§18c** ✅ (`adb3988`). **§18d** ✅ (`fc35ccd`). **§18e** ✅ (`f07f004`). **§18i** ✅ (`c07d3f1`). **Next: §18j** (ODL + `visible`). **§18f** + **§18g** → post-v1.
 
 **Plan cross-reference map:**
 
@@ -1790,14 +1798,14 @@ Key files: `docs/testing.md`, `docs/adr/ADR-011-behavior-test-policy.md`, `docs/
 
 ## 18. Phase 4 — product polish prompts ⬜ after Phase 4a
 
-**Revised 2026-06.** One agent session per subsection. Read §7.2 simplifications first — do not implement cut features. **Prerequisite:** §17g ✅; **§18a–e** ✅ through `f07f004`.
+**Revised 2026-06.** One agent session per subsection. Read §7.2 simplifications first — do not implement cut features. **Prerequisite:** §17g ✅; **§18a–i** ✅ through `c07d3f1`.
 
 ### v1 execution queue (owner-approved 2026-06)
 
 | Step | Phase | §18 | Blocker / note |
 |------|-------|-----|----------------|
-| **1 — now** | 4i | §18i | Resolution + color mode; drop inch presets |
-| 2 | 4j | §18j | ODL alignment; `visible` on all 16 types |
+| ~~1~~ | ~~4i~~ | ~~§18i~~ | ✅ `c07d3f1` |
+| **2 — now** | 4j | §18j | ODL alignment; `visible` on all 16 types |
 | 3 | 4m | §18m | Showcase demo overlay fix (**after 4j**) |
 | 4 | 4k | §18k | Load Demo header button (**after 4m**) |
 | 5 | 4r | §18r | Rebrand — **owner confirms slug** (§7.5) |
@@ -1805,7 +1813,7 @@ Key files: `docs/testing.md`, `docs/adr/ADR-011-behavior-test-policy.md`, `docs/
 
 **Post-v1 (do not schedule before ship):** §18f HA embed · §18g service options UI — both blocked on HA dev / integration alignment.
 
-**Completed:** §18a → §18b → §18c → §18d → §18e.
+**Completed:** §18a → §18b → §18c → §18d → §18e → **§18i**.
 
 ### §18a — Storage reshape (Phase 4a) ✅ (`5ad7e6f`)
 
@@ -1868,7 +1876,7 @@ Deliverables:
 
 Out of scope until post-v1: HA custom panel PR, production auth.
 
-Next (v1 path): docs/PLAN.md §18i
+Next (v1 path): docs/PLAN.md §18j
 ```
 
 ### §18g — Service options panel ⏸ **Post-v1**
@@ -1884,7 +1892,7 @@ Prerequisite: owner confirms field set + UX with HA integration maintainers.
 - Round-trip to YAML service block; schema already in core
 - Persist in session snapshot + share hash payload
 
-Next: docs/PLAN.md §18i (v1 path continues without this chunk)
+Next: docs/PLAN.md §18j (v1 path continues without this chunk)
 ```
 
 ### §18h — Deploy + smoke
@@ -1901,107 +1909,63 @@ Prerequisite: §18j ODL alignment complete (§8 parity rows for cross-cutting fi
 Do not push unless I ask.
 ```
 
-### §18i — Display config simplify + 6-color scaffold ⬜ **Next**
+### §18i — Display config simplify + 6-color scaffold ✅ (`c07d3f1`)
 
-```
-Execute Phase 4i — resolution + color mode per docs/PLAN.md §7.3 and §7.4.
+Delivered 2026-06-09:
 
-Workspace: oepl-designer/ repo root. Follow .cursor/rules/ (no React in src/core/).
-Read: §7.3 (resolution quick-picks, color modes), §7.4 (colour_scheme table), ADR-006.
+- Removed `display-presets.ts` inch catalog → `resolution-picks.ts` + `ResolutionSelect.tsx`
+- `TagColorMode` (`bw` | `bwr` | `bwy` | `four` | `six` | `rgb`); session/share migrate legacy `accentMode`
+- `palette.ts`, `palette-clamp.ts`, `preview-paint.ts` — WYSIWYG tag colors on canvas, SVG, PNG export
+- Sidebar color-clamp hints; element list warnings for unsupported named colors
+- Bonus: canvas rotation in export, element-only undo history coalesce, halftone preview patterns
 
-## Problem
-Sidebar "Tag preset" uses ~34 inch-based labels (display-presets.ts). Same physical tag can be
-multiple WxH values; color (BWR/BWY) is conflated with resolution. Replace with two independent controls.
+Key files: `src/core/display/`, `src/ui/data/resolution-picks.ts`, `Sidebar.tsx`, `displayConfig.ts`, `session.ts`
 
-## UI (Sidebar.tsx — Display config section)
-1. **Resolution** dropdown:
-   - Options: WxH quick-picks from §7.3 (labels exactly "W×H", no inch text), plus **Custom** last
-   - Quick-pick list: 152×152, 200×200, 212×104, 250×122, 296×128, 296×152, 296×160, 360×184,
-     384×168, 384×184, 400×300, 600×448, 640×384, 640×960, 800×480, 880×528, 960×672, 168×384
-   - Selecting a quick-pick sets canvas width/height (undoable via existing history)
-   - **Custom**: show W/H number inputs (always visible or only when Custom selected — pick cleaner UX)
-   - Default resolution: 384×184 (current default preset)
+<!-- prompt archived — phase complete -->
 
-2. **Color mode** dropdown: BW · BWR (red accent) · BWY (yellow accent) · 6-color
-   - 6-color: show muted "preview limited" hint in sidebar (scaffold only)
-   - Replaces implicit accent from old BWR/BWY preset pairs
-
-3. Keep rotation 0/90/180/270 buttons unchanged.
-
-4. Remove: Tag preset `<select>`, DISPLAY_PRESETS inch catalog, applyPreset(presetId) flow.
-
-## Core / data model
-- Add TagColorMode in src/core/ (`bw` | `bwr` | `bwy` | `six`)
-- Add src/core/display/palette.ts (or renderer/palette.ts): 4-color palettes + 6-color scaffold
-- Add colour_scheme enum helpers per §7.4 (0x00→bw, 0x01→bwr, 0x02→bwy, 0x03→4-color, 0x04→six)
-- DisplayConfig / SessionCanvas: prefer `colorMode: TagColorMode` over bare `accentMode`
-  - Migrate parse paths: legacy `accentMode` red→bwr, yellow→bwy; share hash `accent` field backward-compat
-- RenderContext: pass colorMode; derive accent for mapColor/dither:
-  - BW: accent/half_accent/red/yellow preview as black/gray (monochrome tag)
-  - BWR/BWY: current behavior via accent mapping
-  - six: scaffold hook; unknown colors map gracefully
-- Update mapColor + dither.ts (halftone pairs) to respect colorMode
-
-## Files (expected touch)
-- DELETE or replace: src/ui/data/display-presets.ts → resolution quick-picks module
-- src/ui/preferences/displayConfig.ts, src/storage/session.ts, src/storage/types.ts
-- src/ui/hooks/useProjectState.ts (applyResolution, setColorMode; remove applyPreset)
-- src/ui/components/Sidebar.tsx, src/ui/App.tsx
-- src/share/types.ts + hash parse (optional colorMode on share; keep accent for v1 links)
-- src/core/renderer/colors.ts, dither.ts, types.ts; core barrel export
-- tests: display-config.test.ts, resolution-picks.test.ts, colors.test.ts (BW mode), session migration
-
-## Acceptance
-- npm run lint && npm test && npm run build — all green
-- No inch strings in sidebar resolution UI
-- Session restore + share hash round-trip canvas size + color mode
-- Undo/redo captures resolution/color changes
-- Test count increases; no regression in existing renderer tests
-
-## Out of scope
-- Exact 6-color hardware palette (placeholder only)
-- Service options panel (4g post-v1)
-- HA embed (4f post-v1)
-
-Do not commit unless I ask. End with: "Next prompt: docs/PLAN.md §18j"
-```
-
-### §18j — OpenDisplay Language alignment + cross-cutting fields
+### §18j — OpenDisplay Language alignment + cross-cutting fields ⬜ **Next**
 
 Read **§7.4**, [ODL spec](https://opendisplay.org/protocol/open-display-language.html), [Basic Standard](https://opendisplay.org/protocol/basic-standard.html) (color schemes only), and `docs/spec/supported_types.md`.
 
 ```
 Execute Phase 4j — future-proof language/schema parity with OpenDisplay Language.
 
-Deliverables:
+Workspace: oepl-designer/ repo root. Follow .cursor/rules/ (no React in src/core/).
+Prerequisite: §18i ✅ (c07d3f1) — TagColorMode in src/core/display/palette.ts.
 
-1. ADR-012 — ODL vs drawcustom strategy:
-   - Editor targets ODL element + service semantics; export remains HA drawcustom-compatible
-   - Basic Standard colour_scheme ↔ TagColorMode mapping (reference §7.4 table)
-   - Extension rules for new ODL fields; post-v1 wire-format export note
+## 1. ADR-012 — docs/adr/ADR-012-odl-drawcustom-strategy.md
+- Editor targets ODL element + service semantics; export stays HA drawcustom-compatible
+- Basic Standard colour_scheme ↔ TagColorMode (§7.4; include four/six/rgb from 4i)
+- Extension rules for new ODL fields; post-v1 wire-format export note
 
-2. Cross-cutting `visible` on ALL 16 types:
-   - Zod: add visibleSchema to debug_grid, polygon, arc in elements.ts
-   - Renderer: isVisible() guard in debug-grid.ts, polygon.ts, arc.ts
-   - completions.ts PROPERTIES_BY_TYPE: add visible to debug_grid, polygon, arc
-   - Property panel: visible toggle appears for every element type (getVisibleProperties)
-   - Canvas: hidden-element hints + hit-test skip when visible false
-   - Tests: visibility.test.ts sweep all DRAW_ELEMENT_TYPES; fixture YAML per type
+## 2. Cross-cutting `visible` on ALL 16 types
+Gap: debug_grid, polygon, arc lack visible in Zod, renderer, completions, property UI.
 
-3. Spec audit artifact — docs/spec/odl-gap-report.md (or section in ADR-012):
-   - Table: each draw type × documented ODL fields vs our schema vs renderer vs property UI
-   - Flag intentional deltas (multiline.parse_colors, icon color alias)
-   - Note ODL WIP status; no auto-sync of supported_types.md until upstream stabilizes
+- Zod: visibleSchema on debug_grid, polygon, arc in src/core/schema/elements.ts
+- Renderer: isVisible() guard in debug-grid.ts, polygon.ts, arc.ts
+- completions.ts PROPERTIES_BY_TYPE: add visible to those three types
+- Property panel: visible toggle for every type (getVisibleProperties)
+- Canvas: hidden-element hints + hit-test skip when visible false
+- Tests: tests/core/renderer/visibility.test.ts — sweep all DRAW_ELEMENT_TYPES
 
-4. Optional small core helper:
-   - CROSS_CUTTING_ELEMENT_FIELDS = ['visible'] — single list used by schema generator
-     or propertyMetadata to prevent future drift (only if it reduces duplication cleanly)
+## 3. Spec audit — docs/spec/odl-gap-report.md (or ADR-012 appendix)
+Table: draw type × ODL fields vs schema vs renderer vs property UI
+Flag deltas: multiline.parse_colors, icon color alias
+Note ODL WIP; no auto-sync supported_types.md until upstream stabilizes
 
-Out of scope: encode canvas to Basic Standard binary packets; ODL rebrand in UI strings only if trivial.
+## 4. Optional (only if it reduces duplication cleanly)
+CROSS_CUTTING_ELEMENT_FIELDS = ['visible'] for schema/propertyMetadata
 
-Pre-flight: npm run lint && npm test && npm run build
+## Out of scope
+- Basic Standard binary packet encoding
+- §18m demo refactor (next after this)
+- HA embed (4f) / service options UI (4g)
 
-Next: docs/PLAN.md §18m
+## Acceptance
+- npm run lint && npm test && npm run build — all green
+- visibility.test.ts covers all 16 types
+
+Do not commit unless I ask. End with: "Next prompt: docs/PLAN.md §18m"
 ```
 
 ### §18m — Showcase demo: `visible: false` overlay (not `fill: none`)
