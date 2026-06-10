@@ -106,10 +106,10 @@ todos:
     status: completed
   - id: phase4-universal-templates
     content: "§18n: universal property templating — schema + property UI + canvas lock (one session)"
-    status: pending
+    status: completed
   - id: phase4n-commit
     content: "Commit Phase 4n after verification (§11v)"
-    status: pending
+    status: completed
   - id: yaml-jinja-editor
     content: "CodeMirror 6 YAML panel: syntax highlighting (YAML + embedded Jinja), schema-driven autocomplete, lint diagnostics"
     status: completed
@@ -780,16 +780,16 @@ flowchart LR
 | **4i** Display config | ✅ Done | `c07d3f1` | 812 (131 files) | Resolution picker, TagColorMode, palette clamp/WYSIWYG, color-clamp hints |
 | **4j** ODL + `visible` | ✅ Done | `c3f7474` | 831 (131 files) | ADR-012, odl-gap-report, `visible` all 16 types, CROSS_CUTTING_ELEMENT_FIELDS |
 | **4m** Demo invisibility | ✅ Done | `87ac782` | 856 (132 files) | fill:none+stroke fix; demo `visible: false` text; YAML sync debounce (bonus) |
-| **4n** Universal templates | ⬜ **Next** | — | — | All property fields: scalar↔template UI; JSON whole-field templates; canvas lock (§18n) |
-| **4k** Load Demo | ⬜ Pending | — | — | Header button; drop Load Example (**after 4n**) (§18k) |
+| **4n** Universal templates | ✅ Done | `fce5a17` | 919 (140 files) | ADR-013, propertyEditorMeta, template fields, geometry lock, preview clock |
+| **4k** Load Demo | ⬜ **Next** | — | — | Header button; drop Load Example (§18k) |
 | **4r** Rebrand | ⬜ Pending | — | — | Owner decision §7.5 (§18r) |
 | **4h** Ship | ⬜ Pending | — | — | GH Pages + smoke (§18h) |
 | **4f** HA embed | ⏸ **Post-v1** | — | — | HA dev sync; ADR-010 draft (§18f) |
 | **4g** Service options | ⏸ **Post-v1** | — | — | Schema only until HA alignment (§18g) |
 
-**Current repo health:** `npm test` → **856 passed** (132 files) · `npm run lint` → **clean** · last commit `87ac782`
+**Current repo health:** `npm test` → **919 passed** (140 files) · `npm run lint` → **clean** · last commit `fce5a17`
 
-**Next:** Phase **4n** — universal property templating (§18n). **Post-v1:** **4f** HA embed + **4g** service options.
+**Next:** Phase **4k** — Load Demo header button (§18k). **Post-v1:** **4f** HA embed + **4g** service options.
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -879,7 +879,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **19-4** | Percentage coord drag (`"50%"`) when position is not templated | **3b** ✅ | `element-geometry.ts`, `canvas-interaction.test.ts` |
 | **19-5** | Plot nested sub-object property fields (e.g. `yaxis.smooth`) beyond top-level JSON blobs | **3d** ✅ | `ElementPropertyForm.tsx`, `propertyMetadata.ts` |
 | **19-6** | Canvas interaction unit tests — line endpoints, circle radius, bounds resize, nudge guard | **3f** ✅ | `tests/ui/lib/canvas-interaction.test.ts` |
-| **19-7** | Property form tests — scalar↔template toggle, JSON/template mode, font/image paths | **4n** ✅ scope | `ElementPropertyForm.tsx`, Testing Library |
+| **19-7** | Property form tests — scalar↔template toggle, JSON/template mode, font/image paths | ✅ (**4n**) | `property-fields/` |
 | **19-8** | JSON property field invalid-on-blur UX (inline error or revert to last valid) | **post-v1** | `ElementPropertyForm.tsx` |
 | **19-9** | Refactor `useProjectState` — batch selection remap with element mutations; `dispatchHistory` + undo/redo stack | **4d** ✅ | `useProjectState.ts`, `edit-history.ts` |
 | **19-10** | Element copy/paste (Ctrl+C/V, +10px offset) | **post-v1** | `DesignerCanvas.tsx`, `useProjectState.ts` |
@@ -1022,7 +1022,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **4g** | **Service options** | ⏸ **Post-v1** — `background`, `rotate`, `dither`, `ttl`, `dry-run` UI; schema exists; defer until HA integration alignment. |
 | **4h** | **Ship** | GH Pages deploy; optional single Playwright smoke (load + add element). |
 | **4j** | **ODL alignment** | ✅ ADR-012, `docs/spec/odl-gap-report.md`, `visible` on all 16 types, `CROSS_CUTTING_ELEMENT_FIELDS`, 16 visibility fixtures. |
-| **4n** | **Universal templating** | All element properties accept literal or Jinja template in schema + property panel; JSON fields (`points`, `icons`, plot `data`) as plain JSON **or** whole-field template string; canvas locks drag/resize/nudge on templated geometry. ADR-013. **One agent session.** |
+| **4n** | **Universal templating** | ✅ ADR-013, `propertyEditorMeta.ts`, template property fields, geometry locks, JSON whole-field templates, preview clock (`fce5a17`). |
 | **4k** | **Load Demo UX** | Remove sidebar Load Example dropdown + `example-designs.ts` catalog; one **Load Demo** button in header loads curated showcase dashboard (confirm/replace if session dirty). **Prerequisite:** **4m** + **4n**. |
 | **4m** | **Demo invisibility** | ✅ `isHiddenOnTag` stroke fix; demo invisible text; YAML sync debounce (`87ac782`). |
 | **4r** | **Rebrand** | Product + repo naming per §7.5 (decision pending — lean **odl-designer**). UI title, README, GH Pages path optional. |
@@ -1269,7 +1269,7 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 | Cross-cutting ODL fields (`visible` on all 16 types) | ✅ (**4j**) | 4 |
 | Showcase demo: `visible: false` text demonstrates invisibility (not fill:none false positive) | ✅ (**4m**) | 4 |
 | Hidden-on-tag: fill:none + outline/stroke shapes still visible on tag | ✅ (**4m**) | 4 |
-| Universal property templating (scalar + JSON whole-field; canvas lock) | ⬜ **4n** | 4 |
+| Universal property templating (scalar + JSON whole-field; canvas lock) | ✅ (**4n**) | 4 |
 | OpenDisplay Language schema parity audit | ✅ (**4j**) | 4 |
 | Real QR, plot, icons, parse_colors in preview | ✅ (**3c**–**3e**) | 3 |
 | Core test suite passes in CI | ✅ lint + test in workflow | — |
@@ -1360,7 +1360,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **4a–4j** ✅; **4m** ✅ (`87ac782`). **Current work:** **§18n** → **§18k/r** → **§18h**. **§18f** + **§18g** post-v1 (HA dev sync).
+- Phase **4a–4n** ✅ through `fce5a17`. **Current work:** **§18k** → **§18r** → **§18h**. **§18f** + **§18g** post-v1 (HA dev sync).
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1602,13 +1602,21 @@ Delivered 2026-06-10. fill:none+stroke hint fix, invisible demo text, YAML sync 
 
 ---
 
-## 11v. Commit Phase 4n prompt ⬜
+## 11v. Commit Phase 4n prompt ✅ (`fce5a17`)
+
+Delivered 2026-06-10. ADR-013, universal template fields, geometry locks, 919 tests.
+
+<!-- prompt archived — phase complete -->
+
+---
+
+## 11w. Commit Phase 4k prompt ⬜
 
 ```
-Commit Phase 4n after owner verification (single code commit expected).
+Commit Phase 4k after owner verification.
 
-- Code commit: universal templating — ADR-013, schema, property UI, canvas lock
-- Docs commit: PLAN §7 tracker + §18n ✅, README Next → §18k, repo health counts
+- Code commit: Load Demo header button; remove Load Example sidebar
+- Docs commit: PLAN §7 tracker + §18k ✅, README Next → §18r, repo health counts
 
 Do not push unless I ask.
 ```
@@ -1744,7 +1752,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a–i** ✅ through `c07d3f1`. **§18j** ✅ (`c3f7474`). **§18m** ✅ (`87ac782`). **Next: §18n** (universal templating). **§18f** + **§18g** → post-v1.
+**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a–i** ✅ through `c07d3f1`. **§18m** ✅ (`87ac782`). **§18n** ✅ (`fce5a17`). **Next: §18k** (Load Demo). **§18f** + **§18g** → post-v1.
 
 **Plan cross-reference map:**
 
@@ -1848,14 +1856,14 @@ Key files: `docs/testing.md`, `docs/adr/ADR-011-behavior-test-policy.md`, `docs/
 | ~~1~~ | ~~4i~~ | ~~§18i~~ | ✅ `c07d3f1` |
 | ~~2~~ | ~~4j~~ | ~~§18j~~ | ✅ ADR-012 + visible all 16 |
 | ~~3~~ | ~~4m~~ | ~~§18m~~ | ✅ `87ac782` |
-| **4 — now** | 4n | §18n | Universal property templating (**one session**) |
-| 5 | 4k | §18k | Load Demo header (**after 4m + 4n**) |
+| ~~4~~ | ~~4n~~ | ~~§18n~~ | ✅ `fce5a17` |
+| **5 — now** | 4k | §18k | Load Demo header button |
 | 6 | 4r | §18r | Rebrand — **owner confirms slug** (§7.5) |
 | 7 | 4h | §18h | GH Pages deploy + smoke |
 
 **Post-v1 (do not schedule before ship):** §18f HA embed · §18g service options UI — both blocked on HA dev / integration alignment.
 
-**Completed:** §18a → §18b → §18c → §18d → §18e → **§18i** → **§18j** → **§18m**.
+**Completed:** §18a → §18b → §18c → §18d → §18e → **§18i** → **§18j** → **§18m** → **§18n**.
 
 ### §18a — Storage reshape (Phase 4a) ✅ (`5ad7e6f`)
 
@@ -1991,86 +1999,22 @@ Key files: `hidden-on-tag.ts`, `hidden-element-hints.ts`, `sample-elements.ts`
 
 <!-- prompt archived — phase complete -->
 
-### §18n — Universal property templating ⬜ **Next**
+### §18n — Universal property templating ✅ (`fce5a17`)
 
-**Owner decision (2026-06):** Required before v1 ship. **One agent session** → one git commit.
+Delivered 2026-06-10 (one session):
 
-HA can run Jinja on YAML literals before parsing — so **any** field may arrive as a template string. The designer must **accept, preserve, and edit** templates without destroying them. Preview remains best-effort when values are templated.
+- `docs/adr/ADR-013-universal-property-templating.md`
+- `src/core/schema/propertyEditorMeta.ts` — `PropertyEditorShape`, geometry lock helpers
+- Template-capable Zod on all element properties; `jsonOrTemplateSchema` for points/icons/data
+- `src/ui/components/property-fields/` — Scalar/Boolean/Enum/Json OrTemplateField
+- `elementGeometryLocked` — drag/resize/nudge blocked on templated geometry
+- Bonus: preview clock for `now()`, YAML lag fix after template blur
 
-**JSON fields (`points`, `icons`, plot `data`):** support **either** parsed JSON **or** a single template string that HA evaluates to JSON at runtime — not per-coordinate templates in v1.
+Key files: `propertyEditorMeta.ts`, `elements.ts`, `property-fields/*`, `element-geometry.ts`
 
-```
-Execute Phase 4n — universal property templating (ONE session, ONE commit).
+<!-- prompt archived — phase complete -->
 
-Workspace: oepl-designer/ repo root. Follow .cursor/rules/ (no React in src/core/).
-Read: ADR-004 (templates), ADR-011 (behavior tests), docs/PLAN.md §7.6.
-
-Prerequisites: §18j ✅ (visible templates work today — extend pattern everywhere).
-
-## Philosophy
-- Do NOT implement per-element-type template hacks in ElementPropertyForm.
-- Central metadata drives schema, property editor mode, YAML round-trip, and canvas lock.
-- TDD: core tests first, then UI tests (subsumes deferred 19-7/19-8).
-
-## 1. Core — ADR-013 + schema (`src/core/schema/`)
-Create docs/adr/ADR-013-universal-property-templating.md:
-- HA YAML-level Jinja may template any literal; designer preserves verbatim strings
-- Property value shapes: scalar | template-string | json | json-or-template-string
-- Preview limits when templated (document; no new evaluator scope)
-
-Add helpers in src/core/schema/ (or propertyMetadata.ts):
-- `PropertyEditorShape` — number | boolean | enum | string | coordinate | json | color | font | icon
-- `isTemplateStoredValue(value)` — uses hasTemplateSyntax (existing)
-- `resolveEditorMode(value, shape)` → 'scalar' | 'template'
-- `jsonOrTemplateSchema(innerZodSchema)` — union of parsed JSON + jinjaTemplateStringSchema
-- `numericTemplateSchema`, `boolTemplateSchema`, `coordinateTemplateSchema` — apply to ALL numeric/bool/coord fields in elements.ts (audit every property on all 16 types)
-- JSON fields: `points`, `icons`, plot `data` → jsonOrTemplateSchema (whole field is template OR structured JSON)
-
-Tests:
-- tests/core/schema/template-capable-schema.test.ts — every visible property accepts template string where shape allows
-- YAML round-trip fixtures: element with templated x, progress, points, icons, data — no corruption
-- validatePayload accepts templated numerics/bools/JSON blobs
-
-## 2. Core — canvas geometry lock (`src/core/` or `src/ui/lib/`)
-Central `isPropertyTemplated(element, property)` / `elementGeometryLocked(element)`:
-- Any geometry-affecting property with template stored value → lock drag, resize, nudge, align for that element (or axis)
-- Reuse/extend existing guards in element-geometry.ts, nudgeElement, DesignerCanvas
-- Tests: templated x blocks drag; literal x allows drag; mixed multi-select behavior documented
-
-## 3. UI — unified property editor (`src/ui/`)
-Refactor ElementPropertyForm → dispatch on PropertyEditorShape from core metadata (not hardcoded NUMBER_PROPERTIES sets in property-field-meta.ts).
-
-Generic controls (new src/ui/components/property-fields/ or lib):
-- **ScalarOrTemplateField** — number input ↔ monospace textarea; "Template…" entry; auto-switch to template mode when value has Jinja; revert to scalar when user clears template syntax
-- **BooleanOrTemplateField** — checkbox ↔ textarea + Template option
-- **EnumOrTemplateField** — generalize existing color/enum pattern (dropdown + Template…)
-- **JsonOrTemplateField** — JSON textarea ↔ template textarea; toggle "JSON" | "Template"; template mode stores string on element, JSON mode stores array/object
-- Strings/fonts/icons/images — already partly template-aware; align with central mode resolver
-
-Remove duplication: property-field-meta.ts hardcoded BOOLEAN_PROPERTIES/NUMBER_PROPERTIES become derived from core metadata or thin wrappers.
-
-Tests (19-7/19-8 scope):
-- tests/ui/components/property-template-fields.test.tsx — number↔template, enum↔template, json↔template toggles
-- Editing templated field does not coerce to number / strip braces
-
-## 4. YAML editor / normalizePropertyValueForStorage
-- normalizePropertyValueForStorage must NOT parse template strings into numbers/booleans/JSON
-- CodeMirror/YAML export already preserve strings — verify no regression
-
-## Out of scope
-- Expanding Nunjucks evaluator (ADR-004 subset unchanged)
-- Per-point / per-icon template editing inside JSON arrays
-- HA embed, service options UI
-
-## Acceptance
-- npm run lint && npm test && npm run build — all green
-- All 16 types: paste YAML with templates on numeric + JSON fields → validates, panel shows template mode, canvas locked
-- Single git commit for entire phase
-
-Do not commit unless I ask. End with: "Next prompt: docs/PLAN.md §18k"
-```
-
-### §18k — Load Demo (replace Load Example)
+### §18k — Load Demo (replace Load Example) ⬜ **Next**
 
 ```
 Execute Phase 4k — simplify onboarding to one demo.
