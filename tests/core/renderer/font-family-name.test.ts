@@ -3,7 +3,7 @@ import { fontFamilyNameForKey } from '../../../src/core/renderer/font-family-nam
 
 describe('fontFamilyNameForKey', () => {
   it('builds stable css family names from yaml keys', () => {
-    expect(fontFamilyNameForKey('ppb.ttf')).toBe('oepl-font-ppb-ttf')
-    expect(fontFamilyNameForKey('Times New Roman.ttf')).toBe('oepl-font-Times-New-Roman-ttf')
+    expect(fontFamilyNameForKey('ppb.ttf')).toBe('drawcustom-font-ppb-ttf')
+    expect(fontFamilyNameForKey('Times New Roman.ttf')).toBe('drawcustom-font-Times-New-Roman-ttf')
   })
 })

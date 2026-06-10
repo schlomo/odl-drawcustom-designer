@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { AssetKind, AssetUploadResult, DrawElement, TagColorMode } from '../../core'
 import type { HaMockContext } from '../../core'
-import { EXAMPLE_DESIGNS } from '../data/example-designs'
 import {
   applyResolutionSelectValue,
   CUSTOM_RESOLUTION_VALUE,
@@ -40,7 +39,6 @@ interface SidebarProps {
   onRemoveMockEntity: (entityId: string) => void
   onUploadAsset: (key: string, kind: AssetKind, file: File) => Promise<AssetUploadResult>
   onClearAsset: (key: string) => void
-  onLoadExample: (exampleId: string) => void
   onReorderElement: (
     fromIndex: number,
     toIndex: number,
@@ -87,7 +85,6 @@ export function Sidebar({
   onRemoveMockEntity,
   onUploadAsset,
   onClearAsset,
-  onLoadExample,
   onReorderElement,
   onFocusSimulatorEntity,
 }: SidebarProps) {
@@ -135,30 +132,6 @@ export function Sidebar({
         className="absolute inset-y-0 right-0 z-10 w-1.5 cursor-ew-resize hover:bg-[var(--shell-hover)]"
         onMouseDown={startResize}
       />
-      <section className={`shrink-0 border-b ${shell.panelBorder} p-3 pr-5`}>
-        <h2 className={shell.heading}>Load example</h2>
-        <select
-          className={`mt-2 w-full ${shell.input}`}
-          defaultValue=""
-          onChange={(event) => {
-            const value = event.target.value
-            if (value) {
-              onLoadExample(value)
-              event.target.value = ''
-            }
-          }}
-        >
-          <option value="" disabled>
-            Choose a design…
-          </option>
-          {EXAMPLE_DESIGNS.map((example) => (
-            <option key={example.id} value={example.id}>
-              {example.label}
-            </option>
-          ))}
-        </select>
-      </section>
-
       <section className={`shrink-0 border-b ${shell.panelBorder} p-3 pr-5`}>
         <h2 className={shell.heading}>Display config</h2>
         <label className={`mt-2 block text-xs ${shell.muted}`}>

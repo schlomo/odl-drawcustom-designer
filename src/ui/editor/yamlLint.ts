@@ -1,6 +1,7 @@
 import { linter, type Diagnostic } from '@codemirror/lint'
 import type { EditorView } from '@codemirror/view'
 import { parseYamlPayload, validatePayload } from '../../core'
+import { YAML_LINT_SOURCE } from '../../core'
 import { locateParseErrorInYaml, locateZodIssueInYaml } from './yamlIssueRanges'
 
 export interface YamlLintDiagnostic {
@@ -51,7 +52,7 @@ function diagnosticsFromSource(doc: string): Diagnostic[] {
     to: diagnostic.to,
     severity: diagnostic.severity,
     message: diagnostic.message,
-    source: 'oepl-designer',
+    source: YAML_LINT_SOURCE,
   }))
 }
 

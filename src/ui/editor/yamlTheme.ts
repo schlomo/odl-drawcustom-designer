@@ -6,76 +6,122 @@ import type { ResolvedTheme } from '../preferences/theme'
 const MONO =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace'
 
-const darkHighlight = HighlightStyle.define([
-  { tag: tags.keyword, color: '#93c5fd' },
-  { tag: tags.controlKeyword, color: '#93c5fd' },
-  { tag: tags.operatorKeyword, color: '#cbd5e1' },
-  { tag: tags.definitionKeyword, color: '#c4b5fd' },
-  { tag: tags.modifier, color: '#a5b4fc' },
-  { tag: tags.string, color: '#fde68a' },
-  { tag: tags.special(tags.string), color: '#fde68a' },
-  { tag: tags.number, color: '#fcd34d' },
-  { tag: tags.bool, color: '#f9a8d4' },
-  { tag: tags.null, color: '#f9a8d4' },
-  { tag: tags.comment, color: '#94a3b8' },
-  { tag: tags.propertyName, color: '#c4b5fd' },
-  { tag: tags.definition(tags.propertyName), color: '#c4b5fd' },
-  { tag: tags.variableName, color: '#7dd3fc' },
-  { tag: tags.definition(tags.variableName), color: '#7dd3fc' },
-  { tag: tags.special(tags.variableName), color: '#7dd3fc' },
-  { tag: tags.function(tags.variableName), color: '#6ee7b7' },
-  { tag: tags.standard(tags.variableName), color: '#a7f3d0' },
-  { tag: tags.self, color: '#a7f3d0' },
-  { tag: tags.logicOperator, color: '#cbd5e1' },
-  { tag: tags.compareOperator, color: '#cbd5e1' },
-  { tag: tags.operator, color: '#cbd5e1' },
-  { tag: tags.punctuation, color: '#e2e8f0' },
-  { tag: tags.brace, color: '#67e8f9' },
-  { tag: tags.paren, color: '#e2e8f0' },
-  { tag: tags.meta, color: '#94a3b8' },
-])
+/**
+ * Classical editor palette (VS Code Default Dark+/Light+ style).
+ * Keys blue, strings orange/red, numbers green, booleans blue, comments green.
+ */
+const palette = {
+  dark: {
+    keyword: '#569cd6',
+    key: '#9cdcfe',
+    string: '#ce9178',
+    number: '#b5cea8',
+    bool: '#569cd6',
+    null: '#569cd6',
+    comment: '#6a9955',
+    punctuation: '#d4d4d4',
+    brace: '#ffd700',
+    meta: '#808080',
+    jinja: '#4ec9b0',
+    text: '#d4d4d4',
+    bg: '#1e1e1e',
+    gutterBg: '#1e1e1e',
+    gutterText: '#858585',
+    activeLine: '#2a2a2a',
+    activeLineGutter: '#2a2a2a',
+    selection: '#264f78',
+    linkedLine: '#264f78',
+    linkedAccent: '#569cd6',
+    templatePreview: '#808080',
+    border: '#454545',
+    autocompleteSelected: '#094771',
+    lintError: '#f48771',
+  },
+  light: {
+    keyword: '#0000ff',
+    key: '#0451a5',
+    string: '#a31515',
+    number: '#098658',
+    bool: '#0000ff',
+    null: '#0000ff',
+    comment: '#008000',
+    punctuation: '#000000',
+    brace: '#000000',
+    meta: '#811f3f',
+    jinja: '#001080',
+    text: '#000000',
+    bg: '#ffffff',
+    gutterBg: '#f3f3f3',
+    gutterText: '#237893',
+    activeLine: '#f5f5f5',
+    activeLineGutter: '#f5f5f5',
+    selection: '#add6ff',
+    linkedLine: '#e8f2ff',
+    linkedAccent: '#0451a5',
+    templatePreview: '#6a737d',
+    border: '#c8c8c8',
+    autocompleteSelected: '#d6ebff',
+    lintError: '#e51400',
+  },
+} as const
 
-const lightHighlight = HighlightStyle.define([
-  { tag: tags.keyword, color: '#1d4ed8' },
-  { tag: tags.controlKeyword, color: '#1d4ed8' },
-  { tag: tags.operatorKeyword, color: '#334155' },
-  { tag: tags.definitionKeyword, color: '#6d28d9' },
-  { tag: tags.modifier, color: '#4338ca' },
-  { tag: tags.string, color: '#b45309' },
-  { tag: tags.special(tags.string), color: '#b45309' },
-  { tag: tags.number, color: '#a16207' },
-  { tag: tags.bool, color: '#be185d' },
-  { tag: tags.null, color: '#be185d' },
-  { tag: tags.comment, color: '#64748b' },
-  { tag: tags.propertyName, color: '#6d28d9' },
-  { tag: tags.definition(tags.propertyName), color: '#6d28d9' },
-  { tag: tags.variableName, color: '#0369a1' },
-  { tag: tags.definition(tags.variableName), color: '#0369a1' },
-  { tag: tags.special(tags.variableName), color: '#0369a1' },
-  { tag: tags.function(tags.variableName), color: '#047857' },
-  { tag: tags.standard(tags.variableName), color: '#047857' },
-  { tag: tags.self, color: '#047857' },
-  { tag: tags.logicOperator, color: '#334155' },
-  { tag: tags.compareOperator, color: '#334155' },
-  { tag: tags.operator, color: '#334155' },
-  { tag: tags.punctuation, color: '#475569' },
-  { tag: tags.brace, color: '#0e7490' },
-  { tag: tags.paren, color: '#475569' },
-  { tag: tags.meta, color: '#64748b' },
-])
+type YamlSyntaxPalette = (typeof palette)['dark'] | (typeof palette)['light']
+
+function defineHighlight(colors: YamlSyntaxPalette) {
+  return HighlightStyle.define([
+    { tag: tags.keyword, color: colors.keyword },
+    { tag: tags.controlKeyword, color: colors.keyword },
+    { tag: tags.operatorKeyword, color: colors.punctuation },
+    { tag: tags.definitionKeyword, color: colors.key },
+    { tag: tags.modifier, color: colors.key },
+    { tag: tags.string, color: colors.string },
+    { tag: tags.special(tags.string), color: colors.string },
+    { tag: tags.number, color: colors.number },
+    { tag: tags.integer, color: colors.number },
+    { tag: tags.float, color: colors.number },
+    { tag: tags.bool, color: colors.bool },
+    { tag: tags.null, color: colors.null },
+    { tag: tags.content, color: colors.text },
+    { tag: tags.literal, color: colors.text },
+    { tag: tags.comment, color: colors.comment, fontStyle: 'italic' },
+    { tag: tags.lineComment, color: colors.comment, fontStyle: 'italic' },
+    { tag: tags.propertyName, color: colors.key },
+    { tag: tags.definition(tags.propertyName), color: colors.key },
+    { tag: tags.variableName, color: colors.jinja },
+    { tag: tags.definition(tags.variableName), color: colors.jinja },
+    { tag: tags.special(tags.variableName), color: colors.jinja },
+    { tag: tags.function(tags.variableName), color: colors.jinja },
+    { tag: tags.standard(tags.variableName), color: colors.jinja },
+    { tag: tags.self, color: colors.jinja },
+    { tag: tags.logicOperator, color: colors.punctuation },
+    { tag: tags.compareOperator, color: colors.punctuation },
+    { tag: tags.operator, color: colors.punctuation },
+    { tag: tags.punctuation, color: colors.punctuation },
+    { tag: tags.separator, color: colors.punctuation },
+    { tag: tags.brace, color: colors.brace },
+    { tag: tags.squareBracket, color: colors.brace },
+    { tag: tags.paren, color: colors.punctuation },
+    { tag: tags.meta, color: colors.meta },
+    { tag: tags.labelName, color: colors.meta },
+    { tag: tags.typeName, color: colors.meta },
+    { tag: tags.attributeValue, color: colors.string },
+  ])
+}
+
+const darkHighlight = defineHighlight(palette.dark)
+const lightHighlight = defineHighlight(palette.light)
 
 function editorChrome(theme: ResolvedTheme, fontSizePx: number) {
-  const isDark = theme === 'dark'
-  const selectionColor = isDark ? '#334155' : '#bfdbfe'
+  const colors = palette[theme]
 
   return EditorView.theme(
     {
       '&': {
-        backgroundColor: isDark ? '#0f172a' : '#ffffff',
-        color: isDark ? '#f8fafc' : '#0f172a',
+        backgroundColor: colors.bg,
+        color: colors.text,
       },
       '.cm-content': {
-        caretColor: isDark ? '#f8fafc' : '#0f172a',
+        caretColor: colors.text,
         fontFamily: MONO,
         fontSize: `${fontSizePx}px`,
         lineHeight: `${Math.round(fontSizePx * 1.55 * 100) / 100}px`,
@@ -84,44 +130,59 @@ function editorChrome(theme: ResolvedTheme, fontSizePx: number) {
         fontFamily: MONO,
       },
       '.cm-gutters': {
-        backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
-        color: isDark ? '#cbd5e1' : '#475569',
+        backgroundColor: colors.gutterBg,
+        color: colors.gutterText,
         border: 'none',
       },
       '.cm-activeLineGutter': {
-        backgroundColor: isDark ? '#334155' : '#e2e8f0',
-        color: isDark ? '#f8fafc' : '#0f172a',
+        backgroundColor: colors.activeLineGutter,
+        color: colors.text,
       },
       '.cm-activeLine': {
-        backgroundColor: isDark ? '#1e293b' : '#f8fafc',
+        backgroundColor: colors.activeLine,
       },
       '.cm-linkedElementLine': {
-        backgroundColor: isDark ? '#172554' : '#eff6ff',
-        boxShadow: isDark
-          ? 'inset 3px 0 0 #60a5fa'
-          : 'inset 3px 0 0 #2563eb',
+        backgroundColor: colors.linkedLine,
+        boxShadow: `inset 3px 0 0 ${colors.linkedAccent}`,
       },
       '.cm-cursor, .cm-dropCursor': {
-        borderLeftColor: isDark ? '#f8fafc' : '#0f172a',
+        borderLeftColor: colors.text,
       },
       '.cm-content ::selection': {
-        backgroundColor: `${selectionColor} !important`,
+        backgroundColor: `${colors.selection} !important`,
       },
       '.cm-content *::selection': {
-        backgroundColor: `${selectionColor} !important`,
+        backgroundColor: `${colors.selection} !important`,
       },
       '.cm-selectionLayer': {
         display: 'none',
       },
+      // Syntax-tree spans set their own color; override for line-based YAML roles.
+      '.cm-yamlKey, .cm-yamlKey *': {
+        color: `${colors.key} !important`,
+      },
+      '.cm-yamlBlockIndicator, .cm-yamlBlockIndicator *': {
+        color: `${colors.string} !important`,
+      },
+      '.cm-yamlScalarNumber, .cm-yamlScalarNumber *': {
+        color: `${colors.number} !important`,
+      },
+      '.cm-yamlScalarBool, .cm-yamlScalarBool *': {
+        color: `${colors.bool} !important`,
+      },
+      '.cm-yamlScalarNull, .cm-yamlScalarNull *': {
+        color: `${colors.null} !important`,
+      },
       '.cm-lintRange-error': {
-        backgroundImage: isDark
-          ? 'url(\'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="6" height="3"><path d="m0 3 l2 -2 l1 0 l2 2 l1 0" stroke="%23fca5a5" fill="none" stroke-width=".7"/></svg>\')'
-          : 'url(\'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="6" height="3"><path d="m0 3 l2 -2 l1 0 l2 2 l1 0" stroke="%23dc2626" fill="none" stroke-width=".7"/></svg>\')',
+        backgroundImage:
+          theme === 'dark'
+            ? 'url(\'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="6" height="3"><path d="m0 3 l2 -2 l1 0 l2 2 l1 0" stroke="%23f48771" fill="none" stroke-width=".7"/></svg>\')'
+            : 'url(\'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="6" height="3"><path d="m0 3 l2 -2 l1 0 l2 2 l1 0" stroke="%23e51400" fill="none" stroke-width=".7"/></svg>\')',
         backgroundRepeat: 'repeat-x',
         backgroundPosition: 'left bottom',
       },
       '.cm-templatePreview': {
-        color: isDark ? '#94a3b8' : '#64748b',
+        color: colors.templatePreview,
         fontStyle: 'italic',
         marginLeft: '0.2em',
         pointerEvents: 'none',
@@ -129,37 +190,38 @@ function editorChrome(theme: ResolvedTheme, fontSizePx: number) {
       },
       '.cm-tooltip': {
         zIndex: 200,
-        border: `1px solid ${isDark ? '#475569' : '#cbd5e1'}`,
+        border: `1px solid ${colors.border}`,
         borderRadius: '6px',
-        boxShadow: isDark
-          ? '0 8px 24px rgba(15, 23, 42, 0.45)'
-          : '0 8px 24px rgba(15, 23, 42, 0.12)',
+        boxShadow:
+          theme === 'dark'
+            ? '0 8px 24px rgba(15, 23, 42, 0.45)'
+            : '0 8px 24px rgba(15, 23, 42, 0.12)',
       },
       '.cm-tooltip-autocomplete': {
-        backgroundColor: isDark ? '#1e293b' : '#ffffff',
-        color: isDark ? '#f8fafc' : '#0f172a',
+        backgroundColor: colors.gutterBg,
+        color: colors.text,
       },
       '.cm-tooltip-autocomplete > ul': {
         maxHeight: '12rem',
         overflowY: 'auto',
       },
       '.cm-tooltip-autocomplete ul li[aria-selected]': {
-        backgroundColor: isDark ? '#334155' : '#dbeafe',
-        color: isDark ? '#f8fafc' : '#0f172a',
+        backgroundColor: colors.autocompleteSelected,
+        color: colors.text,
       },
       '.cm-tooltip-lint': {
-        backgroundColor: isDark ? '#1e293b' : '#ffffff',
-        color: isDark ? '#f8fafc' : '#0f172a',
+        backgroundColor: colors.gutterBg,
+        color: colors.text,
         maxWidth: '32rem',
       },
       '.cm-diagnostic-error': {
-        borderLeft: `3px solid ${isDark ? '#f87171' : '#dc2626'}`,
+        borderLeft: `3px solid ${colors.lintError}`,
       },
       '.cm-diagnosticText': {
-        color: isDark ? '#f8fafc' : '#0f172a',
+        color: colors.text,
       },
     },
-    { dark: isDark },
+    { dark: theme === 'dark' },
   )
 }
 

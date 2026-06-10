@@ -261,7 +261,7 @@ describe('useProjectState history integration', () => {
     expect(result.current.elements[0]).toMatchObject({ value: 'Previous' })
   })
 
-  it('clears history when loading a different example design', () => {
+  it('clears history when loading the showcase demo', () => {
     const { result } = renderHook(() => useProjectState(bootstrapWithText()))
 
     act(() => {
@@ -270,7 +270,7 @@ describe('useProjectState history integration', () => {
     expect(result.current.canUndo).toBe(true)
 
     act(() => {
-      result.current.loadExample('sample-dashboard')
+      result.current.loadDemo()
     })
 
     expect(result.current.canUndo).toBe(false)

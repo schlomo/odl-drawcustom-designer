@@ -1,5 +1,6 @@
 import type { AssetKind, AssetUploadResult } from '../../core'
 import { validateAssetUpload } from '../../core'
+import { fontUploadVerifyFamily } from '../../core'
 
 function loadImageBlob(blob: Blob): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -18,7 +19,7 @@ function loadImageBlob(blob: Blob): Promise<void> {
 }
 
 async function loadFontBlob(blob: Blob): Promise<void> {
-  const face = new FontFace('oepl-upload-verify', await blob.arrayBuffer())
+  const face = new FontFace(fontUploadVerifyFamily(), await blob.arrayBuffer())
   await face.load()
 }
 

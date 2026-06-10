@@ -4,6 +4,7 @@ import {
   TemplateEvaluationError,
   type HaMockContext,
 } from '../../core'
+import { findYamlBlockScalarRegions } from './yamlBlockScalarContext'
 
 export interface TemplatePreviewAnchor {
   /** Document position for the widget (after the closing quote). */
@@ -115,6 +116,25 @@ function collectQuotedTemplateAnchors(
   }
 }
 
+function collectBlockScalarTemplateAnchors(
+  doc: string,
+  context: HaMockContext,
+  out: TemplatePreviewAnchor[],
+): void {
+  for (const region of findYamlBlockScalarRegions(doc)) {
+    if (!hasTemplateSyntax(region.value)) {
+      continue
+    }
+
+    const result = evaluateTemplatePreview(region.value, context)
+    out.push({
+      pos: region.valueEnd,
+      preview: result.preview,
+      tooltip: result.tooltip,
+    })
+  }
+}
+
 /** Find inline preview anchors for YAML quoted strings containing Jinja templates. */
 export function findTemplatePreviewAnchors(
   doc: string,
@@ -123,6 +143,7 @@ export function findTemplatePreviewAnchors(
   const anchors: TemplatePreviewAnchor[] = []
   collectQuotedTemplateAnchors(doc, DOUBLE_QUOTED, context, anchors)
   collectQuotedTemplateAnchors(doc, SINGLE_QUOTED, context, anchors)
+  collectBlockScalarTemplateAnchors(doc, context, anchors)
   anchors.sort((a, b) => a.pos - b.pos)
   return anchors
 }

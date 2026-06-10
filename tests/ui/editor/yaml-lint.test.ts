@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { APP_TITLE } from '../../../src/core'
 import { lintYamlDocument } from '../../../src/ui/editor/yamlLint'
 
 describe('lintYamlDocument', () => {
@@ -35,7 +36,7 @@ describe('lintYamlDocument', () => {
 
   it('highlights only the invalid field, not the whole document', () => {
     const source = `- type: text d
-  value: OEPL Designer
+  value: ${APP_TITLE}
   x: 10
   y: 10
 - type: rectangle

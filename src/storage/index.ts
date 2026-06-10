@@ -1,4 +1,4 @@
-export { db, clearAllStores, ensureDbReady, OeplDatabase, resetDbReadyForTests } from './db'
+export { db, clearAllStores, ensureDbReady, DesignerDatabase, resetDbReadyForTests } from './db'
 export {
   deleteStoredAsset,
   getStoredAsset,

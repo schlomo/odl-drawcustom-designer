@@ -1,6 +1,11 @@
 import type { CompletionContext } from '@codemirror/autocomplete'
+import { isInsideYamlBlockScalarContent } from './yamlBlockScalarContext'
 
 export function isInTemplateCapableYamlValue(context: CompletionContext): boolean {
+  if (isInsideYamlBlockScalarContent(context.state, context.pos)) {
+    return true
+  }
+
   const line = context.state.doc.lineAt(context.pos)
   const lineBefore = context.state.sliceDoc(line.from, context.pos)
 

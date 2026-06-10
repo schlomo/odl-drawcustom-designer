@@ -1,6 +1,6 @@
 ---
-name: OEPL YAML Designer
-overview: OpenEPaperLink drawcustom YAML designer — spec-complete core, global IndexedDB assets/mocks, last-session restore, hash share, multi-select editing, GH Pages v1; HA embed + service-options UI post-v1 (HA dev sync first).
+name: ODL Drawcustom Designer
+overview: OpenDisplay Language drawcustom YAML designer — spec-complete core, global IndexedDB assets/mocks, last-session restore, hash share, multi-select editing, GH Pages v1; HA embed + service-options UI post-v1 (HA dev sync first). Product slug odl-drawcustom-designer; workspace folder on disk stays oepl-designer/.
 todos:
   - id: scaffold
     content: "Create oepl-designer repo: Vite+React 19+TS, Tailwind, ESLint core/ui boundary, GH Actions Pages deploy"
@@ -94,9 +94,15 @@ todos:
     status: completed
   - id: phase4-load-demo
     content: "§18k: remove sidebar Load Example; single Load Demo in header"
-    status: pending
+    status: completed
   - id: phase4-rebrand
-    content: "§7.5: product/repo rebrand decision (odl-designer vs drawcustom-designer) — pending"
+    content: "§18r: rebrand to odl-drawcustom-designer (§7.5 owner decision; disk folder unchanged)"
+    status: completed
+  - id: phase4k-commit
+    content: "Commit Phase 4k after verification (§11w)"
+    status: pending
+  - id: phase4r-commit
+    content: "Commit Phase 4r after verification (§11y)"
     status: pending
   - id: phase4-demo-visible
     content: "§18m: showcase demo — invisible text below icons; fix fill:none+stroke hint bug"
@@ -781,15 +787,15 @@ flowchart LR
 | **4j** ODL + `visible` | ✅ Done | `c3f7474` | 831 (131 files) | ADR-012, odl-gap-report, `visible` all 16 types, CROSS_CUTTING_ELEMENT_FIELDS |
 | **4m** Demo invisibility | ✅ Done | `87ac782` | 856 (132 files) | fill:none+stroke fix; demo `visible: false` text; YAML sync debounce (bonus) |
 | **4n** Universal templates | ✅ Done | `fce5a17` | 919 (140 files) | ADR-013, propertyEditorMeta, template fields, geometry lock, preview clock |
-| **4k** Load Demo | ⬜ **Next** | — | — | Header button; drop Load Example (§18k) |
-| **4r** Rebrand | ⬜ Pending | — | — | Owner decision §7.5 (§18r) |
+| **4k** Load Demo | ✅ Done | — | — | Header Load Demo; sidebar Load Example removed (§18k) |
+| **4r** Rebrand | ✅ Done | — | — | **odl-drawcustom-designer** per §7.5; ADR-014 |
 | **4h** Ship | ⬜ Pending | — | — | GH Pages + smoke (§18h) |
 | **4f** HA embed | ⏸ **Post-v1** | — | — | HA dev sync; ADR-010 draft (§18f) |
 | **4g** Service options | ⏸ **Post-v1** | — | — | Schema only until HA alignment (§18g) |
 
-**Current repo health:** `npm test` → **919 passed** (140 files) · `npm run lint` → **clean** · last commit `fce5a17`
+**Current repo health:** Phase 4k + 4r complete (Load Demo + rebrand) · next **§18h** ship
 
-**Next:** Phase **4k** — Load Demo header button (§18k). **Post-v1:** **4f** HA embed + **4g** service options.
+**Next:** **§18h** ship. **Post-v1:** **4f** HA embed + **4g** service options.
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -1025,7 +1031,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **4n** | **Universal templating** | ✅ ADR-013, `propertyEditorMeta.ts`, template property fields, geometry locks, JSON whole-field templates, preview clock (`fce5a17`). |
 | **4k** | **Load Demo UX** | Remove sidebar Load Example dropdown + `example-designs.ts` catalog; one **Load Demo** button in header loads curated showcase dashboard (confirm/replace if session dirty). **Prerequisite:** **4m** + **4n**. |
 | **4m** | **Demo invisibility** | ✅ `isHiddenOnTag` stroke fix; demo invisible text; YAML sync debounce (`87ac782`). |
-| **4r** | **Rebrand** | Product + repo naming per §7.5 (decision pending — lean **odl-designer**). UI title, README, GH Pages path optional. |
+| **4r** | **Rebrand** | Product slug **`odl-drawcustom-designer`** per §7.5. UI, package, IndexedDB, storage keys, GH Pages path. Disk folder `oepl-designer/` unchanged. |
 
 **Explicitly cut from v1** (see §7.2): 20-project library, inch-based tag preset list, asset bundle zip, PWA, validation summary panel, history diff, element copy/paste, free pan/continuous zoom, layer hide/lock/duplicate panel, Floyd-Steinberg dither, **HA embed (4f)**, **service options UI (4g)**. (19-7/19-8 absorbed into **4n**.)
 
@@ -1055,7 +1061,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | Canvas edge snap | **Promote to v1** | Was post-v1; now **4e** |
 | PNG + YAML toolbar export | **Promote to v1** | **4b** |
 | Load Example dropdown (17 designs) | **Cut** | One **Load Demo** in header (**4k**); per-type samples were dev fixtures, not a product feature |
-| Product rebrand (`oepl-designer` → …) | **Decide in 4r** | See §7.5 — lean **odl-designer** |
+| Product rebrand (`oepl-designer` → …) | **Decided §7.5** | **`odl-drawcustom-designer`** — disk folder stays `oepl-designer/` |
 | HA embed / panel iframe (4f) | **Defer post-v1** | Owner to align with HA devs on message contract before implementation; ADR-010 remains draft |
 | Service options UI (4g) | **Defer post-v1** | Same HA-integration alignment as 4f; Zod schema + YAML edit path exists today |
 
@@ -1154,25 +1160,33 @@ Rotation in announcement (0/90/180/270) aligns with existing canvas rotation con
 
 **Spec maintenance:** Continue vendoring `supported_types.md` from OEPL upstream; add periodic diff against [ODL spec URL](https://opendisplay.org/protocol/open-display-language.html) (WIP — expect churn). **ADR-012** (draft in §18j) records dual-spec strategy and extension rules.
 
-### 7.5 Product naming (rebrand — decision pending)
+### 7.5 Product naming (rebrand — **owner decision 2026-06**)
 
-**Context:** Repo and UI still say `oepl-designer` / "OpenEPaperLink HA YAML Designer". OpenDisplay Language is the canonical forward name for the YAML payload (§7.4). Users today discover the tool via HA **`drawcustom`** service docs.
+**Slug / npm package / IndexedDB / GH Pages default path:** **`odl-drawcustom-designer`**
 
-**Candidates:**
+**Product title:** **ODL Drawcustom Designer**
 
-| Slug / repo | Pros | Cons |
-|-------------|------|------|
-| **`odl-designer`** | Matches OpenDisplay / ODL direction; not tied to one integration; pairs with §7.4 and §18j | Less obvious to HA users searching "drawcustom"; ODL spec still WIP |
-| **`drawcustom-designer`** | Immediate HA discoverability; matches current service name in automations | Feels legacy when ODL rename lands; narrow if tool serves non-HA OpenDisplay senders |
+**Tagline:** *Visual editor for OpenDisplay Language YAML — Home Assistant `drawcustom` compatible.*
 
-**Recommendation (lean): `odl-designer`**
+**Explicit exception — do not rename:**
 
-- **Product title:** "ODL Designer" (or "OpenDisplay Language Designer" in formal docs).
-- **Tagline (keep drawcustom discoverability):** e.g. *Visual editor for OpenDisplay Language YAML — Home Assistant `drawcustom` compatible.*
-- **Repo rename:** Optional for v1 — can rebrand UI/README first; migrate GitHub repo + `VITE_BASE_PATH` / Pages URL when ready (**4r**). Avoid maintaining two public names long term.
-- **Do not** use `oepl-designer` in user-facing copy after rebrand (keep only in git history / redirects).
+| Keep as-is | Reason |
+|------------|--------|
+| **Workspace folder on disk** `oepl-designer/` | Owner choice — local path unchanged |
+| **GitHub repo name** (for now) | Optional later; avoid broken clone URLs mid-v1 |
+| **"OpenEPaperLink" / "OEPL spec"** in docs | Accurate upstream vendor references (`supported_types.md`, gap report columns, ADR-012) — not product branding |
 
-**Decision needed from you before 4r:** confirm slug, whether to rename GitHub repo, and whether GH Pages moves from `/oepl-designer/` to `/odl-designer/`.
+**Rename / purge in code and user-facing copy:**
+
+- All former **`oepl-designer`** strings → **`odl-drawcustom-designer`**
+- Internal **`oepl-*` prefixes** (localStorage keys, IndexedDB default name, CSS font-family prefix, test db name prefixes) → derive from **`src/core/brand.ts`**; drop `oepl` where a shorter neutral prefix suffices (e.g. `drawcustom-font-*` for @font-face families)
+- UI header, `index.html` `<title>`, README, PLAN frontmatter, `.cursor/rules` descriptions, deploy workflow comments
+- Default **`VITE_BASE_PATH`** for GH Pages: `/odl-drawcustom-designer/` (override via repo var unchanged)
+- Showcase demo title: drop "OEPL" — e.g. **"ODL drawcustom Showcase"**
+
+**Single source of truth:** `src/core/brand.ts` (core, no React) — export slug, titles, IndexedDB name, storage key helper, font prefix, lint source id. **ADR-014** records naming rationale.
+
+**Do not** use `oepl-designer` or bare `oepl-` internal prefixes after **4r** (git history only).
 
 ### 7.6 Universal property templating (2026-06)
 
@@ -1253,7 +1267,7 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 | Canvas drag/resize/snap/keyboard | ✅ perf overlay **3f** | 2e–3f |
 | Add Element + Load Example | ✅ sidebar dropdown today → **cut in 4k** | 2e / **4k** |
 | Load Demo (single header button) | ⬜ **4k** | 4 |
-| Product rebrand (odl-designer) | ⬜ decision **§7.5** / **4r** | 4 |
+| Product rebrand (odl-drawcustom-designer) | ⬜ **4r** WIP | 4 |
 | Multi-select, bulk move, align H/V | ✅ (**4c**) | 4 |
 | Canvas zoom 200/100/Fit/50 | ✅ (**4b**) | 4 |
 | Canvas PNG copy + download | ✅ (**4b**) | 4 |
@@ -1360,7 +1374,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **4a–4n** ✅ through `fce5a17`. **Current work:** **§18k** → **§18r** → **§18h**. **§18f** + **§18g** post-v1 (HA dev sync).
+- Phase **4a–4n** ✅ through `fce5a17`. **Current work:** **§18k + §18r** (one session) → **§18h**. **§18f** + **§18g** post-v1 (HA dev sync).
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1610,16 +1624,22 @@ Delivered 2026-06-10. ADR-013, universal template fields, geometry locks, 919 te
 
 ---
 
-## 11w. Commit Phase 4k prompt ⬜
+## 11w. Commit Phase 4k + 4r prompt ⬜
 
 ```
-Commit Phase 4k after owner verification.
+Commit Phases 4k + 4r after owner verification (one code commit preferred).
 
-- Code commit: Load Demo header button; remove Load Example sidebar
-- Docs commit: PLAN §7 tracker + §18k ✅, README Next → §18r, repo health counts
+- Code commit: Load Demo (§18k) + odl-drawcustom-designer rebrand (§18r) + finish src/core/brand.ts
+- Docs commit: PLAN §7 tracker + §18k/§18r ✅, README, repo health counts, ADR-014
 
 Do not push unless I ask.
 ```
+
+---
+
+## 11y. Commit Phase 4r prompt ⬜
+
+Merged into **§11w** — 4k and 4r ship together in one commit after green gate.
 
 ---
 
@@ -1752,7 +1772,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a–i** ✅ through `c07d3f1`. **§18m** ✅ (`87ac782`). **§18n** ✅ (`fce5a17`). **Next: §18k** (Load Demo). **§18f** + **§18g** → post-v1.
+**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a–i** ✅ through `c07d3f1`. **§18m** ✅ (`87ac782`). **§18n** ✅ (`fce5a17`). **Next: §18k + §18r** (combined). **§18f** + **§18g** → post-v1.
 
 **Plan cross-reference map:**
 
@@ -1857,9 +1877,8 @@ Key files: `docs/testing.md`, `docs/adr/ADR-011-behavior-test-policy.md`, `docs/
 | ~~2~~ | ~~4j~~ | ~~§18j~~ | ✅ ADR-012 + visible all 16 |
 | ~~3~~ | ~~4m~~ | ~~§18m~~ | ✅ `87ac782` |
 | ~~4~~ | ~~4n~~ | ~~§18n~~ | ✅ `fce5a17` |
-| **5 — now** | 4k | §18k | Load Demo header button |
-| 6 | 4r | §18r | Rebrand — **owner confirms slug** (§7.5) |
-| 7 | 4h | §18h | GH Pages deploy + smoke |
+| **5 — now** | 4k + 4r | §18k + §18r | Load Demo + **odl-drawcustom-designer** rebrand (one session) |
+| 6 | 4h | §18h | GH Pages deploy + smoke |
 
 **Post-v1 (do not schedule before ship):** §18f HA embed · §18g service options UI — both blocked on HA dev / integration alignment.
 
@@ -2014,45 +2033,68 @@ Key files: `propertyEditorMeta.ts`, `elements.ts`, `property-fields/*`, `element
 
 <!-- prompt archived — phase complete -->
 
-### §18k — Load Demo (replace Load Example) ⬜ **Next**
+### §18k + §18r — Load Demo + rebrand ✅
+
+Read **§7.5** (owner decision locked). WIP exists but **broken** (`src/core/brand.ts` missing — finish it first).
 
 ```
-Execute Phase 4k — simplify onboarding to one demo.
+Execute Phases 4k + 4r in ONE agent session, TDD-first, ONE commit.
 
+Workspace folder on disk stays oepl-designer/ — do NOT rename the directory.
+
+## TDD gate (run throughout)
+npm run lint && npm test && npm run build
+
+## Part A — brand module (do first; unblocks WIP)
+Create src/core/brand.ts (core, no React). Export at minimum:
+- APP_SLUG = 'odl-drawcustom-designer'
+- APP_TITLE = 'ODL Drawcustom Designer'
+- APP_TAGLINE (for README/docs)
+- INDEXEDDB_NAME = APP_SLUG
+- SHOWCASE_DEMO_TITLE = 'ODL drawcustom Showcase' (no OEPL)
+- FONT_FAMILY_PREFIX = 'drawcustom-font' (drop oepl- prefix)
+- fontUploadVerifyFamily() for FontFace upload probe
+- YAML_LINT_SOURCE = `${APP_SLUG}-yaml`
+- storageKey(suffix) → `${APP_SLUG}-${suffix}`
+
+Add tests/core/brand.test.ts FIRST — assert all constants; grep-style test that src/ + tests/ contain no
+'oepl-designer' or /^oepl-/ localStorage/IndexedDB literals outside brand.ts (allow OpenEPaperLink upstream
+doc references in docs/spec/, ADR-012 gap columns).
+
+Wire existing WIP imports: db.ts, keys.ts, font-family-name.ts, sample-elements.ts, yamlLint.ts,
+verify-asset-upload.ts, yaml-lint/issue-ranges tests.
+
+## Part B — Load Demo (§18k)
 Remove:
-- Sidebar "Load example" `<select>` block (Sidebar.tsx)
-- EXAMPLE_DESIGNS catalog in example-designs.ts (17 entries: sample dashboard + 16 one-type stubs)
-- loadExample(exampleId) API — replace with loadDemo() loading one curated design
+- Sidebar "Load example" block; delete example-designs.ts
+- loadExample(exampleId) → loadDemo() (SAMPLE_ELEMENTS + SAMPLE_CANVAS)
 
 Add:
-- Header bar: single "Load Demo" button (next to Share / theme)
-- Loads SAMPLE_ELEMENTS + SAMPLE_CANVAS showcase dashboard (refactored per §18m; templated fields editable per §18n)
-- Confirm dialog if current session has unsaved-looking edits (elements.length > 0 and user changed since load)
+- Header "Load Demo" button; confirm when dirty (load-demo.ts helpers)
+Keep Add Element grid + last-session restore.
 
-Keep:
-- Add Element grid for creating from scratch
-- Last-session restore unchanged (demo is explicit user action, not auto on every visit)
+Tests: tests/ui/components/load-demo.test.tsx, use-project-state-load-demo.test.ts, load-demo.test.ts
 
-Tests: header button loads demo; sidebar no longer renders example dropdown; confirm when dirty.
+## Part C — rebrand sweep (§18r)
+- App.tsx header → APP_TITLE from brand
+- index.html title (already partial)
+- package.json name + npm install (refresh package-lock.json)
+- README title/tagline; VITE_BASE_PATH example → /odl-drawcustom-designer/
+- .github/workflows/deploy.yml comment + document default Pages var
+- .cursor/rules/*.mdc descriptions
+- tests/share/share-hash.test.ts — example path /tools/odl-drawcustom-designer/
+- tests/storage/db-upgrade.test.ts — test db prefixes use APP_SLUG not oepl-
+- resolution-picks label if it says OEPL → neutral "common tag sizes" or similar
 
-Next: docs/PLAN.md §18r or §18h
-```
+Keep unchanged:
+- docs/spec/odl-gap-report.md "OEPL spec" column labels (upstream accuracy)
+- ADR references to OpenEPaperLink as integration vendor
+- Local folder name oepl-designer/
+- GitHub repo name (no rename)
 
-### §18r — Product rebrand
+Add docs/adr/ADR-014-product-naming.md — slug odl-drawcustom-designer, disk-folder exception, drawcustom-font prefix.
 
-Read **§7.5**. Do not execute until slug confirmed with project owner.
-
-```
-Execute Phase 4r — rebrand after decision.
-
-Default assumption (if owner confirms §7.5 recommendation):
-- Product title: "ODL Designer"
-- Tagline mentions drawcustom compatibility for HA users
-- package.json name, index.html title, App.tsx header, README, PLAN frontmatter name
-- Optional: GitHub repo rename oepl-designer → odl-designer + VITE_BASE_PATH / Pages base path
-- ADR-014 or section in ADR-012: naming rationale (ADR-013 reserved for templating)
-
-Out of scope without explicit ask: redirect domain, npm publish, OpenDisplay org listing.
+Bonus WIP in tree (include if green): YAML block scalars, editor theme — OK in same commit.
 
 Next: docs/PLAN.md §18h
 ```

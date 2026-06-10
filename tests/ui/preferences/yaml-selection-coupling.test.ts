@@ -4,6 +4,7 @@ import {
   clampPanelHeight,
   getMaxPanelHeight,
   MIN_CANVAS_PREVIEW_HEIGHT,
+  resolveDefaultPanelHeight,
 } from '../../../src/ui/hooks/useResizablePanelHeight'
 
 describe('yaml selection coupling preference', () => {
@@ -26,5 +27,10 @@ describe('resizable yaml panel bounds', () => {
 
   it('does not cap height before the column is measured', () => {
     expect(getMaxPanelHeight(null, MIN_CANVAS_PREVIEW_HEIGHT, 120)).toBe(Number.POSITIVE_INFINITY)
+  })
+
+  it('uses half the column height when unset', () => {
+    const container = { clientHeight: 600 } as HTMLElement
+    expect(resolveDefaultPanelHeight(container, 120, MIN_CANVAS_PREVIEW_HEIGHT, 220)).toBe(300)
   })
 })

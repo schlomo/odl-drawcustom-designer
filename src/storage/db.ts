@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie'
+import { INDEXEDDB_NAME } from '../core'
 import type { SessionSnapshot, StoredAsset, StoredMock } from './types'
 
 function isRecoverableOpenError(error: unknown): boolean {
@@ -9,12 +10,12 @@ function isRecoverableOpenError(error: unknown): boolean {
   return name === 'UpgradeError' || name === 'DatabaseClosedError' || name === 'VersionError'
 }
 
-export class OeplDatabase extends Dexie {
+export class DesignerDatabase extends Dexie {
   assets!: Table<StoredAsset, string>
   mocks!: Table<StoredMock, string>
   session!: Table<SessionSnapshot, string>
 
-  constructor(name = 'oepl-designer') {
+  constructor(name = INDEXEDDB_NAME) {
     super(name)
     this.version(1).stores({
       assets: 'key',
@@ -35,12 +36,12 @@ export class OeplDatabase extends Dexie {
   }
 }
 
-export const db = new OeplDatabase()
+export const db = new DesignerDatabase()
 
 const readyByName = new Map<string, Promise<void>>()
 
 /** Opens IndexedDB; on unrecoverable upgrade errors, wipes and reopens (ADR-003 no-migration policy). */
-export async function ensureDbReady(database: OeplDatabase = db): Promise<void> {
+export async function ensureDbReady(database: DesignerDatabase = db): Promise<void> {
   const existing = readyByName.get(database.name)
   if (existing) {
     return existing
@@ -56,7 +57,7 @@ export async function ensureDbReady(database: OeplDatabase = db): Promise<void> 
   }
 }
 
-async function openWithRecovery(database: OeplDatabase): Promise<void> {
+async function openWithRecovery(database: DesignerDatabase): Promise<void> {
   try {
     await database.open()
   } catch (error) {

@@ -16,7 +16,7 @@ import {
 } from '../../storage'
 import type { AppBootstrap } from '../bootstrap/appBootstrap'
 import type { PersistedEditHistory, SessionEditSnapshot } from '../../storage'
-import { EXAMPLE_DESIGNS } from '../data/example-designs'
+import { SAMPLE_CANVAS, SAMPLE_ELEMENTS } from '../data/sample-elements'
 import { alignElementsInUnion, canAlignSelection, type ElementAlign } from '../lib/align-elements'
 import { applyElementUpdates, nudgeElementsAtIndices } from '../lib/batch-element-updates'
 import {
@@ -50,7 +50,7 @@ import {
   type PreviewDitherMode,
 } from '../preferences/displayConfig'
 import { writeMockStates } from '../preferences/mockStates'
-import { suppressShowcaseBundled } from '../preferences/showcaseAsset'
+import { allowShowcaseBundledForDemo, suppressShowcaseBundled } from '../preferences/showcaseAsset'
 import { readSnapGridPrefs, writeSnapGridPrefs, type SnapGridPrefs } from '../preferences/snapGrid'
 import {
   readShowHiddenHintsPrefs,
@@ -640,18 +640,13 @@ export function useProjectState(bootstrap: AppBootstrap) {
     commitSelectedIndices([])
   }, [commitElements, commitSelectedIndices, resetEditHistory])
 
-  const loadExample = useCallback(
-    (exampleId: string) => {
-      const example = EXAMPLE_DESIGNS.find((entry) => entry.id === exampleId)
-      if (!example) {
-        return
-      }
-      resetEditHistory()
-      commitElements(example.elements.map((element) => ({ ...element })))
-      commitSelectedIndices([])
-    },
-    [commitElements, commitSelectedIndices, resetEditHistory],
-  )
+  const loadDemo = useCallback(() => {
+    allowShowcaseBundledForDemo()
+    resetEditHistory()
+    commitCanvas({ ...SAMPLE_CANVAS })
+    commitElements(SAMPLE_ELEMENTS.map((element) => ({ ...element })))
+    commitSelectedIndices([])
+  }, [commitCanvas, commitElements, commitSelectedIndices, resetEditHistory])
 
   const nudgeElement = useCallback(
     (index: number, dx: number, dy: number) => {
@@ -941,7 +936,7 @@ export function useProjectState(bootstrap: AppBootstrap) {
     deleteSelectedElements,
     addElement,
     clearElements,
-    loadExample,
+    loadDemo,
     nudgeElement,
     nudgeSelectedElements,
     bringToFront,

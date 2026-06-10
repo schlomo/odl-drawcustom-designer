@@ -22,6 +22,7 @@ import { useYamlFontSize } from '../hooks/useYamlFontSize'
 import { useYamlSelectionCoupling } from '../hooks/useYamlSelectionCoupling'
 import { useYamlTemplatePreview } from '../hooks/useYamlTemplatePreview'
 import type { ResolvedTheme } from '../preferences/theme'
+import { YAML_PANEL_HEIGHT_STORAGE_KEY } from '../preferences/keys'
 import type { StatusMessage } from '../lib/status-messages'
 import { shell } from '../styles/shell'
 import { YamlHeaderToolbar } from './YamlHeaderToolbar'
@@ -97,8 +98,7 @@ export function YamlPanel({
     },
   )
   const { height: panelHeight, startResize } = useResizablePanelHeight({
-    storageKey: 'oepl-yaml-panel-height',
-    defaultHeight: 220,
+    storageKey: YAML_PANEL_HEIGHT_STORAGE_KEY,
     minHeight: MIN_YAML_PANEL_HEIGHT,
     minSiblingHeight: MIN_CANVAS_PREVIEW_HEIGHT,
     containerRef,

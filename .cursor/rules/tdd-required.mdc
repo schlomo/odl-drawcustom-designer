@@ -1,5 +1,5 @@
 ---
-description: TDD workflow and CI gates for oepl-designer
+description: TDD workflow and CI gates for odl-drawcustom-designer
 globs: src/core/**,tests/**,.github/**
 alwaysApply: true
 ---

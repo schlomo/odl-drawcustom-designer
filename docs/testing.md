@@ -1,6 +1,6 @@
 # Testing guide
 
-Phase 3g policy for oepl-designer. Canonical ADR: [ADR-011](adr/ADR-011-behavior-test-policy.md). CI gates: [ADR-008](adr/ADR-008-tdd-and-ci.md).
+Phase 3g policy for odl-drawcustom-designer. Canonical ADR: [ADR-011](adr/ADR-011-behavior-test-policy.md). CI gates: [ADR-008](adr/ADR-008-tdd-and-ci.md).
 
 ## Layer rules
 

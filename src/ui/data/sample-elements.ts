@@ -1,4 +1,5 @@
 import type { DrawElement } from '../../core'
+import { SHOWCASE_DEMO_TITLE } from '../../core'
 import type { DisplayConfig } from '../preferences/displayConfig'
 
 /** Canvas size for the built-in showcase dashboard (4.3" BWR). */
@@ -22,7 +23,7 @@ export const SAMPLE_ELEMENTS: DrawElement[] = [
   },
   {
     type: 'text',
-    value: 'ODL/OEPL drawcustom Showcase',
+    value: SHOWCASE_DEMO_TITLE,
     x: 40,
     y: 27,
     size: 26,
@@ -31,7 +32,7 @@ export const SAMPLE_ELEMENTS: DrawElement[] = [
   },
   {
     type: 'text',
-    value: "{{ now().strftime('%H:%M') }}",
+    value: "{%- set t = now() -%} {{ t.strftime('%H:%M') }}",
     x: 776,
     y: 20,
     size: 43,
@@ -42,8 +43,8 @@ export const SAMPLE_ELEMENTS: DrawElement[] = [
   {
     type: 'multiline',
     value:
-      'Advanced Online Editor for OpenDisplay and OpenEPaperlink displays including basic support for Home |Assistant template language, including simulation of HA states, common functions, custom fonts and |image content. Color mode preview. Supports ordering, layering, alignment, color mode, templating ...',
-    delimiter: '|',
+      'Advanced Online Editor for OpenDisplay and OpenEPaperlink displays including basic support for Home /Assistant template language, including simulation of HA states, common functions, custom fonts and /image content. Color mode preview. Supports ordering, layering, alignment, color mode, templating ...',
+    delimiter: '/',
     x: 40,
     offset_y: 122,
     y: 70,

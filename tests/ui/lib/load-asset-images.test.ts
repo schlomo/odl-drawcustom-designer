@@ -240,10 +240,10 @@ describe('drawCanvasStub dlimg preview', () => {
         font: 'missing-preview.ttf',
       },
       new Map(),
-      new Map([['missing-preview.ttf', 'oepl-font-missing-preview-ttf']]),
+      new Map([['missing-preview.ttf', 'drawcustom-font-missing-preview-ttf']]),
     )
 
     expect(ctx.fillText).toHaveBeenCalled()
-    expect(ctx.font).toBe('16px oepl-font-missing-preview-ttf, sans-serif')
+    expect(ctx.font).toBe('16px drawcustom-font-missing-preview-ttf, sans-serif')
   })
 })

@@ -21,6 +21,7 @@ import { YAML_EDITOR_BASIC_SETUP } from './yamlEditorSetup'
 import { yamlEntityIdsCompartment, yamlEntityIdsFacet } from './yamlEntityIds'
 import { yamlWithJinja } from './yamlLanguage'
 import { yamlPayloadLinter } from './yamlLint'
+import { yamlScalarHighlight } from './yamlScalarHighlight'
 import { createYamlEditorTheme } from './yamlTheme'
 import { shouldReportLinkedYamlCursor, shouldReportYamlDocChange } from './yamlEditorSelection'
 import type { StoredEditorSelection } from './yamlEditorScroll'
@@ -95,6 +96,7 @@ export function createYamlEditorState(
       yamlCloseBrackets(),
       yamlEditorKeymap(),
       yamlWithJinja(),
+      yamlScalarHighlight(),
       yamlEditorAutocompletion(),
       yamlPayloadLinter(),
       yamlEditorTooltipExtension(),

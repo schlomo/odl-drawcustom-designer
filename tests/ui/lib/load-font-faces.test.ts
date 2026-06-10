@@ -15,8 +15,8 @@ describe('load-font-faces helpers', () => {
   })
 
   it('builds stable css family names from yaml keys', () => {
-    expect(fontFamilyNameForKey('ppb.ttf')).toBe('oepl-font-ppb-ttf')
-    expect(fontFamilyNameForKey('/local/logo.png')).toBe('oepl-font-local-logo-png')
+    expect(fontFamilyNameForKey('ppb.ttf')).toBe('drawcustom-font-ppb-ttf')
+    expect(fontFamilyNameForKey('/local/logo.png')).toBe('drawcustom-font-local-logo-png')
   })
 
   it('collects non-template font keys from elements', () => {
@@ -54,8 +54,8 @@ describe('load-font-faces helpers', () => {
   })
 
   it('resolves canvas font family with fallback', () => {
-    const families = new Map([['ppb.ttf', 'oepl-font-ppb-ttf']])
-    expect(resolveCanvasFontFamily('ppb.ttf', families)).toBe('oepl-font-ppb-ttf')
+    const families = new Map([['ppb.ttf', 'drawcustom-font-ppb-ttf']])
+    expect(resolveCanvasFontFamily('ppb.ttf', families)).toBe('drawcustom-font-ppb-ttf')
     expect(resolveCanvasFontFamily('missing.ttf', families)).toBe('sans-serif')
     expect(resolveCanvasFontFamily(undefined, families)).toBe('sans-serif')
   })

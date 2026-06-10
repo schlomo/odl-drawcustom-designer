@@ -1,6 +1,6 @@
-# OEPL Designer
+# ODL Drawcustom Designer
 
-Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcustom` YAML payloads in Home Assistant.
+Visual editor for [OpenDisplay Language](https://opendisplay.org/protocol/open-display-language.html) YAML — Home Assistant [`drawcustom`](https://github.com/OpenEPaperLink/Home_Assistant_Integration) compatible.
 
 ## Status
 
@@ -36,9 +36,11 @@ Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcus
 
 **Phase 4j** — ODL alignment + `visible` on all 16 types (**committed** `c3f7474`).
 
+**Phase 4m** — demo invisibility + hidden-on-tag stroke fix (**committed** `87ac782`).
+
 **Phase 4n** — universal property templating (**committed** `fce5a17`).
 
-**Next:** Phase **4k** — Load Demo header button (§18k). **v1 queue:** 4k → 4r → 4h. **Post-v1:** HA embed (**4f**) + service options (**4g**). Map: [`docs/PLAN.md`](docs/PLAN.md) §18.
+**Next:** Phase **4h** — ship (§18h). **Post-v1:** HA embed (**4f**) + service options (**4g**). Map: [`docs/PLAN.md`](docs/PLAN.md) §18.
 
 ## Spec
 
@@ -54,11 +56,12 @@ npm run dev
 npm run build
 ```
 
-Local dev serves at `/`. For subpath hosting, build with `VITE_BASE_PATH` (e.g. `VITE_BASE_PATH=/tools/oepl/ npm run build`).
+Local dev serves at `/`. For subpath hosting, build with `VITE_BASE_PATH` (e.g. `VITE_BASE_PATH=/odl-drawcustom-designer/ npm run build`).
 
 ## Architecture
 
 - `src/core/` — pure TypeScript (no React); TDD with Vitest
+- `src/core/brand.ts` — product slug, titles, IndexedDB name, storage key prefix (§7.5, ADR-014-product-naming)
 - `src/ui/` — React 19 shell
 - `src/storage/` — Dexie IndexedDB (assets, global mocks, session) — Phase 4a ✅
 - `docs/adr/` — architecture decision records

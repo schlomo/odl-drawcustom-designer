@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { APP_TITLE } from '../../../src/core'
 import { parseYamlPayload, validatePayload } from '../../../src/core'
 import {
   findFieldRange,
@@ -57,7 +58,7 @@ describe('findFieldRange', () => {
 describe('locateZodPathInYaml', () => {
   it('locates invalid type on the first element only', () => {
     const doc = `- type: text d
-  value: OEPL Designer
+  value: ${APP_TITLE}
   x: 10
 - type: rectangle
   x_start: 10
@@ -114,7 +115,7 @@ describe('locateZodIssueInYaml', () => {
 
   it('highlights unrecognized keys by name in the editor', () => {
     const doc = `- type: text
-  value: OEPL Designer {{ "foo" }}
+  value: ${APP_TITLE} {{ "foo" }}
   ont: ppb.ttf
   x: 10
 `

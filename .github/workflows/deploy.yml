@@ -37,7 +37,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # Set to your deploy subpath, e.g. /oepl-designer/ — omit or use / for root/custom domain
+          # Default GH Pages subpath: /odl-drawcustom-designer/ — omit or use / for root/custom domain
           VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || '/' }}
 
       - uses: actions/configure-pages@v5

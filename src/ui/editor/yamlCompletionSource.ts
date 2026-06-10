@@ -1,5 +1,6 @@
 import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete'
 import { haJinjaCompletionSource } from './jinjaCompletions'
+import { isInsideYamlBlockScalarContent } from './yamlBlockScalarContext'
 import { yamlEntityIdsFacet } from './yamlEntityIds'
 import type { YamlCompletionContext } from './yamlCompletions'
 import {
@@ -64,6 +65,10 @@ export function completionInsertFrom(
 }
 
 export function yamlSchemaCompletionSource(context: CompletionContext): CompletionResult | null {
+  if (isInsideYamlBlockScalarContent(context.state, context.pos)) {
+    return null
+  }
+
   const lineBefore = lineTextBeforeCursor(context)
   const elementType = inferCurrentElementType(context.state.doc.toString(), context.pos)
   const completionContext = resolveYamlCompletionContext(

@@ -1,9 +1,9 @@
 import { jinjaLanguage } from '@codemirror/lang-jinja'
-import { yamlLanguage } from '@codemirror/lang-yaml'
+import { yaml, yamlLanguage } from '@codemirror/lang-yaml'
 import { LRLanguage, LanguageSupport } from '@codemirror/language'
 import { parseMixed } from '@lezer/common'
 
-const JINJA_STRING_NODES = new Set(['QuotedLiteral', 'Literal'])
+const JINJA_STRING_NODES = new Set(['QuotedLiteral', 'Literal', 'BlockLiteralContent'])
 
 const mixedYamlParser = yamlLanguage.parser.configure({
   wrap: parseMixed((node) => {
@@ -19,6 +19,8 @@ const mixedYamlLanguage = LRLanguage.define({
   parser: mixedYamlParser,
 })
 
+const standardYamlSupport = yaml().support
+
 export function yamlWithJinja(): LanguageSupport {
-  return new LanguageSupport(mixedYamlLanguage)
+  return new LanguageSupport(mixedYamlLanguage, standardYamlSupport)
 }

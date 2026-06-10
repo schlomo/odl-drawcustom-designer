@@ -33,7 +33,6 @@ function renderSidebarWithElements(
       onRemoveMockEntity={() => {}}
       onUploadAsset={async () => ({ ok: true, mime: 'image/png' })}
       onClearAsset={() => {}}
-      onLoadExample={() => {}}
       onReorderElement={() => {}}
     />,
   )

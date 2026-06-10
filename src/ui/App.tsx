@@ -16,6 +16,7 @@ import { YamlPanel } from './components/YamlPanel'
 import { remapSelectedIndex } from './editor/yamlElementsSync'
 import { collectKnownFontKeys } from './lib/known-font-keys'
 import { copyTextToClipboard } from './lib/export-download'
+import { requestLoadDemoConfirm, shouldConfirmLoadDemo } from './lib/load-demo'
 import { toolbarGroupRow, toolbarGroupsRow } from './lib/export-action-feedback'
 import { getMissingAssetMessages } from './lib/missing-asset-messages'
 import type { StatusMessage } from './lib/status-messages'
@@ -29,6 +30,7 @@ import { TextButton } from './components/TextButton'
 import { shell } from './styles/shell'
 import type { DrawElement } from '../core'
 import type { AddElementResult } from './hooks/useProjectState'
+import { APP_TITLE } from '../core'
 import { toolIconPath } from './lib/mdi-tool-icons'
 
 interface AppProps {
@@ -84,7 +86,7 @@ export function App({ bootstrap }: AppProps) {
     deleteSelectedElements,
     addElement,
     clearElements,
-    loadExample,
+    loadDemo,
     nudgeSelectedElements,
     selectAllInRect,
     bringSelectionToFront,
@@ -152,6 +154,20 @@ export function App({ bootstrap }: AppProps) {
     const timer = window.setTimeout(() => setElementAddNotice(null), 4000)
     return () => window.clearTimeout(timer)
   }, [elementAddNotice])
+
+  const handleLoadDemo = useCallback(() => {
+    if (
+      shouldConfirmLoadDemo({
+        elementCount: elements.length,
+        canUndo,
+        canRedo,
+      }) &&
+      !requestLoadDemoConfirm()
+    ) {
+      return
+    }
+    loadDemo()
+  }, [canRedo, canUndo, elements.length, loadDemo])
 
   const handleShare = useCallback(async () => {
     const payload = buildSharePayload({
@@ -285,7 +301,7 @@ export function App({ bootstrap }: AppProps) {
     <div className={shell.app}>
       <header className={`${shell.header} flex items-center justify-between gap-4`}>
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">OpenEPaperLink HA YAML Designer</h1>
+          <h1 className="text-lg font-semibold tracking-tight">{APP_TITLE}</h1>
           <p className={`text-xs ${shell.muted}`}>Phase 4d — undo/redo history</p>
         </div>
         <div className={toolbarGroupsRow}>
@@ -293,6 +309,9 @@ export function App({ bootstrap }: AppProps) {
             <TextButton variant="destructive" onClick={clearElements}>
               Clear all
             </TextButton>
+          </div>
+          <div className={toolbarGroupRow} role="group" aria-label="Demo">
+            <TextButton onClick={handleLoadDemo}>Load Demo</TextButton>
           </div>
           <div className={toolbarGroupRow} role="group" aria-label="Copy share link">
             <ExportIconButton
@@ -336,7 +355,6 @@ export function App({ bootstrap }: AppProps) {
           onRemoveMockEntity={removeMockEntity}
           onUploadAsset={uploadAsset}
           onClearAsset={clearAsset}
-          onLoadExample={loadExample}
           onReorderElement={handleReorderElement}
           onFocusSimulatorEntity={handleSimulatorEntityFocus}
         />

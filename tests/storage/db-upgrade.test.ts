@@ -1,6 +1,7 @@
 import Dexie from 'dexie'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ensureDbReady, OeplDatabase, resetDbReadyForTests } from '../../src/storage/db'
+import { ensureDbReady, DesignerDatabase, resetDbReadyForTests } from '../../src/storage/db'
+import { APP_SLUG } from '../../src/core'
 
 function legacyV1Database(name: string): Dexie {
   const legacy = new Dexie(name)
@@ -22,7 +23,7 @@ describe('Dexie schema upgrade', () => {
   })
 
   it('opens after legacy v1 schema and preserves global assets', async () => {
-    dbName = `oepl-upgrade-${crypto.randomUUID()}`
+    dbName = `${APP_SLUG}-upgrade-${crypto.randomUUID()}`
     const legacy = legacyV1Database(dbName)
     await legacy.open()
     const blob = new Blob(['legacy-png'], { type: 'image/png' })
@@ -39,7 +40,7 @@ describe('Dexie schema upgrade', () => {
     })
     await legacy.close()
 
-    const upgraded = new OeplDatabase(dbName)
+    const upgraded = new DesignerDatabase(dbName)
     await ensureDbReady(upgraded)
 
     const stored = await upgraded.assets.get('/local/legacy.png')
@@ -51,18 +52,18 @@ describe('Dexie schema upgrade', () => {
   })
 
   it('deletes and reopens when the first open throws UpgradeError', async () => {
-    dbName = `oepl-recover-${crypto.randomUUID()}`
-    const database = new OeplDatabase(dbName)
+    dbName = `${APP_SLUG}-recover-${crypto.randomUUID()}`
+    const database = new DesignerDatabase(dbName)
     let openAttempts = 0
 
-    vi.spyOn(database, 'open').mockImplementation(function (this: OeplDatabase, ...args) {
+    vi.spyOn(database, 'open').mockImplementation(function (this: DesignerDatabase, ...args) {
       openAttempts += 1
       if (openAttempts === 1) {
         return Promise.reject(new Dexie.UpgradeError('Not yet support for changing primary key'))
       }
       return Dexie.prototype.open.apply(this, args)
     })
-    vi.spyOn(database, 'delete').mockImplementation(function (this: OeplDatabase, ...args) {
+    vi.spyOn(database, 'delete').mockImplementation(function (this: DesignerDatabase, ...args) {
       return Dexie.prototype.delete.apply(this, args)
     })
 

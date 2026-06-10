@@ -101,9 +101,19 @@ export const HA_NOW_METHOD_COMPLETIONS: Completion[] = [
   },
 ]
 
+export const HA_STRFTIME_FORMAT_COMPLETIONS: Completion[] = [
+  { label: '%Y', type: 'constant', detail: 'year (2026)' },
+  { label: '%m', type: 'constant', detail: 'month (01–12)' },
+  { label: '%d', type: 'constant', detail: 'day (01–31)' },
+  { label: '%H', type: 'constant', detail: 'hour (00–23)' },
+  { label: '%M', type: 'constant', detail: 'minute (00–59)' },
+  { label: '%S', type: 'constant', detail: 'second (00–59)' },
+]
+
 export const HA_FILTER_COMPLETIONS: Completion[] = [
   { label: 'float', type: 'keyword', detail: '|float' },
   { label: 'int', type: 'keyword', detail: '|int' },
+  { label: 'round', type: 'keyword', detail: '|round(0)' },
 ]
 
 /** Statement tags supported inside `{% … %}` in drawcustom template strings. */
@@ -133,7 +143,14 @@ export function buildJinjaCompletionConfig(entityIds: readonly string[]) {
   }
 }
 
-type JinjaCompletionKind = 'delimiter' | 'expression' | 'filter' | 'entity-id' | 'now-method' | 'tag'
+type JinjaCompletionKind =
+  | 'delimiter'
+  | 'expression'
+  | 'filter'
+  | 'entity-id'
+  | 'now-method'
+  | 'strftime-format'
+  | 'tag'
 
 interface ResolvedJinjaContext {
   kind: JinjaCompletionKind
@@ -196,6 +213,22 @@ function matchNowMethodContext(slice: string, pos: number): { from: number; pref
   return { from: pos - prefix.length, prefix }
 }
 
+function matchStrftimeFormatContext(slice: string, pos: number): { from: number; prefix: string } | null {
+  const strftimeMatch = slice.match(/strftime\s*\(\s*['"]([^'"]*)$/)
+  if (!strftimeMatch) {
+    return null
+  }
+
+  const formatTail = strftimeMatch[1] ?? ''
+  const lastPercent = formatTail.lastIndexOf('%')
+  if (lastPercent === -1) {
+    return null
+  }
+
+  const prefix = formatTail.slice(lastPercent + 1)
+  return { from: pos - prefix.length - 1, prefix }
+}
+
 function matchEntityIdQuote(slice: string): string | null {
   const patterns = [
     /(?:states|state_attr)\s*\(\s*['"]([\w.]*)$/,
@@ -223,6 +256,16 @@ export function resolveJinjaCompletionContext(context: CompletionContext): Resol
   }
 
   const slice = jinjaSliceBefore(context)
+
+  const strftimeFormat = matchStrftimeFormatContext(slice, context.pos)
+  if (strftimeFormat !== null) {
+    return {
+      kind: 'strftime-format',
+      from: strftimeFormat.from,
+      prefix: strftimeFormat.prefix,
+    }
+  }
+
   const word = context.matchBefore(/[\w.]*/)
   const hasWord = Boolean(word && word.text.length > 0)
   if (!hasWord && !context.explicit && !isAtJinjaTemplateStart(context)) {
@@ -257,6 +300,13 @@ function filterByPrefix(options: Completion[], prefix: string): Completion[] {
     return options
   }
   return options.filter((option) => option.label.startsWith(prefix))
+}
+
+function filterStrftimeFormatCompletions(prefix: string): Completion[] {
+  if (!prefix) {
+    return HA_STRFTIME_FORMAT_COMPLETIONS
+  }
+  return HA_STRFTIME_FORMAT_COMPLETIONS.filter((option) => option.label.slice(1).startsWith(prefix))
 }
 
 function entityIdCompletions(entityIds: readonly string[], prefix: string): Completion[] {
@@ -294,6 +344,9 @@ export function haJinjaCompletionSource(entityIds: readonly string[]) {
       case 'now-method':
         options = filterByPrefix(HA_NOW_METHOD_COMPLETIONS, resolved.prefix)
         break
+      case 'strftime-format':
+        options = filterStrftimeFormatCompletions(resolved.prefix)
+        break
       case 'expression':
         options = filterByPrefix(HA_EXPRESSION_COMPLETIONS, resolved.prefix)
         break
@@ -310,7 +363,9 @@ export function haJinjaCompletionSource(entityIds: readonly string[]) {
         ? /^[%{]*$/
         : resolved.kind === 'tag'
           ? /^[\w]*$/
-          : /^[\w.]*$/
+          : resolved.kind === 'strftime-format'
+            ? /^%?[A-Za-z%]*$/
+            : /^[\w.]*$/
 
     return {
       from: resolved.from,

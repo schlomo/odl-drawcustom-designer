@@ -63,9 +63,12 @@ describe('template-capable schema', () => {
     }
 
     const roundTripped = roundTripYaml(yaml)
-    expect(roundTripped).toContain("progress: \"{{ states('sensor.progress') | float(50) }}\"")
-    expect(roundTripped).toContain("points: \"{{ states('sensor.points') | from_json }}\"")
-    expect(roundTripped).toContain("data: \"{{ states('sensor.plot') | from_json }}\"")
+    expect(roundTripped).toContain('progress: |-')
+    expect(roundTripped).toContain("{{ states('sensor.progress') | float(50) }}")
+    expect(roundTripped).toContain('points: |-')
+    expect(roundTripped).toContain("{{ states('sensor.points') | from_json }}")
+    expect(roundTripped).toContain('data: |-')
+    expect(roundTripped).toContain("{{ states('sensor.plot') | from_json }}")
 
     const elements = validation.data
     const progressBar = elements.find((element) => element.type === 'progress_bar')

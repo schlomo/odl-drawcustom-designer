@@ -42,11 +42,12 @@ describe('HA-clean serialize', () => {
     expect(exported).not.toContain('"type":')
   })
 
-  it('quotes template strings without quoting every key', () => {
+  it('uses block literals for template strings without quoting every key', () => {
     const exported = serializeYamlPayload([
       { type: 'text', value: 'Hi', x: 0, size: '{{ }}' },
     ])
-    expect(exported).toContain('size: "{{ }}"')
+    expect(exported).toContain('size: |-')
+    expect(exported).toContain('{{ }}')
     expect(exported).not.toContain('"type":')
   })
 

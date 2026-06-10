@@ -63,7 +63,7 @@ describe('HA jinja completion catalog', () => {
 
   it('includes homeassistant filters', () => {
     const labels = HA_FILTER_COMPLETIONS.map((entry) => entry.label)
-    expect(labels).toEqual(expect.arrayContaining(['float', 'int']))
+    expect(labels).toEqual(expect.arrayContaining(['float', 'int', 'round']))
   })
 
   it('includes statement tags used in drawcustom template strings', () => {
@@ -142,6 +142,36 @@ describe('resolveJinjaCompletionContext', () => {
       kind: 'now-method',
       from: pos,
       prefix: '',
+    })
+  })
+
+  it('offers strftime format codes after % inside strftime quotes', () => {
+    const doc = '  x_end: |-\n    {{ now().strftime(\'%'
+    const pos = doc.length
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, false))).toEqual({
+      kind: 'strftime-format',
+      from: pos - 1,
+      prefix: '',
+    })
+  })
+
+  it('offers strftime format codes after a second consecutive %', () => {
+    const doc = '  value: "{{ now().strftime(\'%H%M%'
+    const pos = doc.length
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, false))).toEqual({
+      kind: 'strftime-format',
+      from: pos - 1,
+      prefix: '',
+    })
+  })
+
+  it('filters strftime format codes while typing the current specifier', () => {
+    const doc = '  value: "{{ now().strftime(\'%H%M'
+    const pos = doc.length
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, false))).toEqual({
+      kind: 'strftime-format',
+      from: pos - 2,
+      prefix: 'M',
     })
   })
 

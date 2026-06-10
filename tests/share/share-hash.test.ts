@@ -121,9 +121,9 @@ describe('buildShareUrl', () => {
   it('uses origin, pathname, and #d= fragment', () => {
     const url = buildShareUrl('abc123', {
       origin: 'https://example.com',
-      pathname: '/tools/oepl/',
+      pathname: '/tools/odl-drawcustom-designer/',
     })
-    expect(url).toBe('https://example.com/tools/oepl/#d=abc123')
+    expect(url).toBe('https://example.com/tools/odl-drawcustom-designer/#d=abc123')
   })
 })
 
@@ -145,7 +145,7 @@ describe('clearShareHashFromLocation', () => {
     vi.stubGlobal('window', {
       location: {
         hash: '#d=abc123',
-        pathname: '/tools/oepl/',
+        pathname: '/tools/odl-drawcustom-designer/',
         search: '?ref=1',
       },
       history: { replaceState },
@@ -153,7 +153,7 @@ describe('clearShareHashFromLocation', () => {
 
     clearShareHashFromLocation()
 
-    expect(replaceState).toHaveBeenCalledWith(null, '', '/tools/oepl/?ref=1')
+    expect(replaceState).toHaveBeenCalledWith(null, '', '/tools/odl-drawcustom-designer/?ref=1')
   })
 
   it('does nothing when there is no share hash', () => {
