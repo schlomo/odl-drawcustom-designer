@@ -104,6 +104,12 @@ todos:
   - id: phase4m-commit
     content: "Commit Phase 4m after verification (§11u)"
     status: pending
+  - id: phase4-universal-templates
+    content: "§18n: universal property templating — schema + property UI + canvas lock (one session)"
+    status: pending
+  - id: phase4n-commit
+    content: "Commit Phase 4n after verification (§11v)"
+    status: pending
   - id: yaml-jinja-editor
     content: "CodeMirror 6 YAML panel: syntax highlighting (YAML + embedded Jinja), schema-driven autocomplete, lint diagnostics"
     status: completed
@@ -168,7 +174,7 @@ todos:
     content: "Commit Phase 3g after verification (§11m)"
     status: completed
   - id: phase4-property-form-ux
-    content: "Deferred post-v1: JSON blur UX + property form tests (19-7/19-8); 19-9 in §18d"
+    content: "Absorbed into §18n (4n): enum/number/bool/JSON template UX + property form tests (19-7/19-8)"
     status: cancelled
   - id: phase4-canvas-clipboard
     content: "Deferred post-v1: element Ctrl+C/V (19-10), free pan + continuous zoom (19-11)"
@@ -626,6 +632,7 @@ Maintain `docs/adr/` in repo (for future-you and contributors):
 | ADR-004 | Template evaluator scope (subset of Jinja, not full engine)                       |
 | ADR-005 | Share hash format and excluded data                                               |
 | ADR-012 | OpenDisplay Language alignment + cross-cutting element fields (§18j)              |
+| ADR-013 | Universal property templating — schema, property editor, canvas lock (§18n)       |
 | ADR-006 | UI framework: **React** for shell (AI-maintainability); core stays framework-free |
 | ADR-007 | Hybrid SVG + Canvas rendering                                                     |
 | ADR-008 | TDD policy and CI gates                                                           |
@@ -773,7 +780,8 @@ flowchart LR
 | **4i** Display config | ✅ Done | `c07d3f1` | 812 (131 files) | Resolution picker, TagColorMode, palette clamp/WYSIWYG, color-clamp hints |
 | **4j** ODL + `visible` | ✅ Done | `c3f7474` | 831 (131 files) | ADR-012, odl-gap-report, `visible` all 16 types, CROSS_CUTTING_ELEMENT_FIELDS |
 | **4m** Demo invisibility | ⬜ **Next** | — | — | Fix fill:none+stroke hint bug; demo `visible: false` text below icon triplet (§18m) |
-| **4k** Load Demo | ⬜ Pending | — | — | Header button; drop Load Example (§18k) |
+| **4n** Universal templates | ⬜ Pending | — | — | All property fields: scalar↔template UI; JSON whole-field templates; canvas lock (§18n) |
+| **4k** Load Demo | ⬜ Pending | — | — | Header button; drop Load Example (**after 4n**) (§18k) |
 | **4r** Rebrand | ⬜ Pending | — | — | Owner decision §7.5 (§18r) |
 | **4h** Ship | ⬜ Pending | — | — | GH Pages + smoke (§18h) |
 | **4f** HA embed | ⏸ **Post-v1** | — | — | HA dev sync; ADR-010 draft (§18f) |
@@ -871,7 +879,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **19-4** | Percentage coord drag (`"50%"`) when position is not templated | **3b** ✅ | `element-geometry.ts`, `canvas-interaction.test.ts` |
 | **19-5** | Plot nested sub-object property fields (e.g. `yaxis.smooth`) beyond top-level JSON blobs | **3d** ✅ | `ElementPropertyForm.tsx`, `propertyMetadata.ts` |
 | **19-6** | Canvas interaction unit tests — line endpoints, circle radius, bounds resize, nudge guard | **3f** ✅ | `tests/ui/lib/canvas-interaction.test.ts` |
-| **19-7** | Property form tests — JSON blur/revert, enum↔template toggle, font/image upload paths | **post-v1** | `ElementPropertyForm.tsx`, Testing Library |
+| **19-7** | Property form tests — scalar↔template toggle, JSON/template mode, font/image paths | **4n** ✅ scope | `ElementPropertyForm.tsx`, Testing Library |
 | **19-8** | JSON property field invalid-on-blur UX (inline error or revert to last valid) | **post-v1** | `ElementPropertyForm.tsx` |
 | **19-9** | Refactor `useProjectState` — batch selection remap with element mutations; `dispatchHistory` + undo/redo stack | **4d** ✅ | `useProjectState.ts`, `edit-history.ts` |
 | **19-10** | Element copy/paste (Ctrl+C/V, +10px offset) | **post-v1** | `DesignerCanvas.tsx`, `useProjectState.ts` |
@@ -1014,11 +1022,12 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **4g** | **Service options** | ⏸ **Post-v1** — `background`, `rotate`, `dither`, `ttl`, `dry-run` UI; schema exists; defer until HA integration alignment. |
 | **4h** | **Ship** | GH Pages deploy; optional single Playwright smoke (load + add element). |
 | **4j** | **ODL alignment** | ✅ ADR-012, `docs/spec/odl-gap-report.md`, `visible` on all 16 types, `CROSS_CUTTING_ELEMENT_FIELDS`, 16 visibility fixtures. |
-| **4k** | **Load Demo UX** | Remove sidebar Load Example dropdown + `example-designs.ts` catalog; one **Load Demo** button in header loads curated showcase dashboard (confirm/replace if session dirty). **Prerequisite:** **4m** demo YAML fixed. |
+| **4n** | **Universal templating** | All element properties accept literal or Jinja template in schema + property panel; JSON fields (`points`, `icons`, plot `data`) as plain JSON **or** whole-field template string; canvas locks drag/resize/nudge on templated geometry. ADR-013. **One agent session.** |
+| **4k** | **Load Demo UX** | Remove sidebar Load Example dropdown + `example-designs.ts` catalog; one **Load Demo** button in header loads curated showcase dashboard (confirm/replace if session dirty). **Prerequisite:** **4m** + **4n**. |
 | **4m** | **Demo invisibility** | Fix `isHiddenOnTag` false positive: `fill: none` + outline/stroke still draws on tag (arc, polygon, rectangle, line). Showcase: add `text` with `visible: false`, value `I'm invisible`, below icon_sequence triplet — **not** debug_grid overlay. |
 | **4r** | **Rebrand** | Product + repo naming per §7.5 (decision pending — lean **odl-designer**). UI title, README, GH Pages path optional. |
 
-**Explicitly cut from v1** (see §7.2): 20-project library, inch-based tag preset list, asset bundle zip, PWA, validation summary panel, history diff, element copy/paste, free pan/continuous zoom, layer hide/lock/duplicate panel, Floyd-Steinberg dither, property-form test suite (19-7/19-8), **HA embed (4f)**, **service options UI (4g)**.
+**Explicitly cut from v1** (see §7.2): 20-project library, inch-based tag preset list, asset bundle zip, PWA, validation summary panel, history diff, element copy/paste, free pan/continuous zoom, layer hide/lock/duplicate panel, Floyd-Steinberg dither, **HA embed (4f)**, **service options UI (4g)**. (19-7/19-8 absorbed into **4n**.)
 
 ### 7.2 Simplifications (2026-06 plan revision)
 
@@ -1039,7 +1048,8 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | Layer panel hide/lock/duplicate | **Defer** | `visible` in property form; multi-select z-order |
 | Plot CSV / sample data editor | **Defer** | Renderer synthetic data + YAML `data` field enough |
 | Floyd-Steinberg dither (d=1) | **Defer** | Ordered d=2 only for v1 |
-| Property form tests + JSON blur UX (19-7/19-8) | **Defer post-v1** | Not blocking ship |
+| Universal property templating (all fields + JSON whole-field templates) | **Promote to v1** | **4n** — before Load Demo / ship |
+| Property form template UX tests (19-7/19-8) | **Promote to v1** | Absorbed into **4n** |
 | HA automation snippet generator | **Replace (post-v1)** | HA embed load/save after HA dev agreement — not v1 |
 | Multi-select + alignment | **Promote to v1** | Was post-v1; now **4c** |
 | Canvas edge snap | **Promote to v1** | Was post-v1; now **4e** |
@@ -1164,6 +1174,20 @@ Rotation in announcement (0/90/180/270) aligns with existing canvas rotation con
 
 **Decision needed from you before 4r:** confirm slug, whether to rename GitHub repo, and whether GH Pages moves from `/oepl-designer/` to `/odl-designer/`.
 
+### 7.6 Universal property templating (2026-06)
+
+HA `drawcustom` may preprocess payload YAML through Jinja — **any literal** can be a template. The designer strategy:
+
+| Concern | Approach |
+|---------|----------|
+| **Schema** | Template-capable Zod unions on all properties; JSON fields (`points`, `icons`, plot `data`) accept **whole-field** template string OR structured JSON |
+| **Property panel** | Central `PropertyEditorShape` → scalar↔template UI; no per-type forks |
+| **YAML round-trip** | Template strings stored verbatim; never coerced on load/save/export |
+| **Preview** | Best-effort when templated; State Simulator evaluates known patterns (ADR-004) — no expanded evaluator in 4n |
+| **Canvas** | Drag/resize/nudge/align **locked** when geometry properties are templated |
+
+**Phase:** **4n** / §18n — **one agent session, one commit**, after **4m**, before Load Demo (**4k**) and ship (**4h**).
+
 ### 7.1 After Phase 2e — remaining feature map
 
 Once **2e** is committed, **Phase 2 is complete**. **v1** still requires Phases **3 + 4** plus deploy.
@@ -1203,7 +1227,7 @@ flowchart LR
 - **19-7/19-8** property form tests + JSON blur UX
 - Floyd-Steinberg dither; dlimg full resize/rotate preview
 
-**Recommended order:** **3g** (arch/quality gate) → **§18a–i** → **§18j** → **§18m** (demo YAML) → **§18h** (ship).
+**Recommended order:** **3g** (arch/quality gate) → **§18a–j** → **§18m** → **§18n** → **§18k** → **§18h** (ship).
 
 **Rationale for 3g before 4:** Phase 4 is the largest state-management churn since 2e. Undo, session persistence, and global mocks need trustworthy behavior tests and up-to-date ADRs — not more implementation-detail coverage.
 
@@ -1245,6 +1269,7 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 | Cross-cutting ODL fields (`visible` on all 16 types) | ✅ (**4j**) | 4 |
 | Showcase demo: `visible: false` text demonstrates invisibility (not fill:none false positive) | ⬜ **4m** | 4 |
 | Hidden-on-tag: fill:none + outline/stroke shapes still visible on tag | ⬜ **4m** | 4 |
+| Universal property templating (scalar + JSON whole-field; canvas lock) | ⬜ **4n** | 4 |
 | OpenDisplay Language schema parity audit | ✅ (**4j**) | 4 |
 | Real QR, plot, icons, parse_colors in preview | ✅ (**3c**–**3e**) | 3 |
 | Core test suite passes in CI | ✅ lint + test in workflow | — |
@@ -1335,7 +1360,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **4a–4j** ✅. **Current work:** **§18m** → **§18k/r** → **§18h**. **§18f** + **§18g** post-v1 (HA dev sync).
+- Phase **4a–4j** ✅. **Current work:** **§18m** → **§18n** → **§18k/r** → **§18h**. **§18f** + **§18g** post-v1 (HA dev sync).
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1575,7 +1600,20 @@ Delivered 2026-06-09. ADR-012, odl-gap-report, visible on all 16 types, 831 test
 Commit Phase 4m after owner verification.
 
 - Code commit: fill:none+stroke hint fix; showcase invisible text below icon triplet
-- Docs commit: PLAN §7 tracker + §18m ✅, README Next → §18k, repo health counts
+- Docs commit: PLAN §7 tracker + §18m ✅, README Next → §18n, repo health counts
+
+Do not push unless I ask.
+```
+
+---
+
+## 11v. Commit Phase 4n prompt ⬜
+
+```
+Commit Phase 4n after owner verification (single code commit expected).
+
+- Code commit: universal templating — ADR-013, schema, property UI, canvas lock
+- Docs commit: PLAN §7 tracker + §18n ✅, README Next → §18k, repo health counts
 
 Do not push unless I ask.
 ```
@@ -1815,9 +1853,10 @@ Key files: `docs/testing.md`, `docs/adr/ADR-011-behavior-test-policy.md`, `docs/
 | ~~1~~ | ~~4i~~ | ~~§18i~~ | ✅ `c07d3f1` |
 | ~~2~~ | ~~4j~~ | ~~§18j~~ | ✅ ADR-012 + visible all 16 |
 | **3 — now** | 4m | §18m | fill:none+stroke hint fix; invisible demo text below icons |
-| 4 | 4k | §18k | Load Demo header button (**after 4m**) |
-| 5 | 4r | §18r | Rebrand — **owner confirms slug** (§7.5) |
-| 6 | 4h | §18h | GH Pages deploy + smoke |
+| 4 | 4n | §18n | Universal property templating (**one session**) |
+| 5 | 4k | §18k | Load Demo header (**after 4m + 4n**) |
+| 6 | 4r | §18r | Rebrand — **owner confirms slug** (§7.5) |
+| 7 | 4h | §18h | GH Pages deploy + smoke |
 
 **Post-v1 (do not schedule before ship):** §18f HA embed · §18g service options UI — both blocked on HA dev / integration alignment.
 
@@ -1989,8 +2028,87 @@ Keep arc fill:none + outline as-is (should render correctly after hint fix).
 - With “Invisible” toggle on: ghost hint on demo text (visible_false), NOT on arc
 - Arc outline visible on canvas; no fill_none ghost on arc
 
-Do before §18k Load Demo. Do not commit unless I ask.
-End with: "Next prompt: docs/PLAN.md §18k"
+Do before §18n. Do not commit unless I ask.
+End with: "Next prompt: docs/PLAN.md §18n"
+```
+
+### §18n — Universal property templating ⬜ **after §18m**
+
+**Owner decision (2026-06):** Required before v1 ship. **One agent session** → one git commit.
+
+HA can run Jinja on YAML literals before parsing — so **any** field may arrive as a template string. The designer must **accept, preserve, and edit** templates without destroying them. Preview remains best-effort when values are templated.
+
+**JSON fields (`points`, `icons`, plot `data`):** support **either** parsed JSON **or** a single template string that HA evaluates to JSON at runtime — not per-coordinate templates in v1.
+
+```
+Execute Phase 4n — universal property templating (ONE session, ONE commit).
+
+Workspace: oepl-designer/ repo root. Follow .cursor/rules/ (no React in src/core/).
+Read: ADR-004 (templates), ADR-011 (behavior tests), docs/PLAN.md §7.6.
+
+Prerequisites: §18j ✅ (visible templates work today — extend pattern everywhere).
+
+## Philosophy
+- Do NOT implement per-element-type template hacks in ElementPropertyForm.
+- Central metadata drives schema, property editor mode, YAML round-trip, and canvas lock.
+- TDD: core tests first, then UI tests (subsumes deferred 19-7/19-8).
+
+## 1. Core — ADR-013 + schema (`src/core/schema/`)
+Create docs/adr/ADR-013-universal-property-templating.md:
+- HA YAML-level Jinja may template any literal; designer preserves verbatim strings
+- Property value shapes: scalar | template-string | json | json-or-template-string
+- Preview limits when templated (document; no new evaluator scope)
+
+Add helpers in src/core/schema/ (or propertyMetadata.ts):
+- `PropertyEditorShape` — number | boolean | enum | string | coordinate | json | color | font | icon
+- `isTemplateStoredValue(value)` — uses hasTemplateSyntax (existing)
+- `resolveEditorMode(value, shape)` → 'scalar' | 'template'
+- `jsonOrTemplateSchema(innerZodSchema)` — union of parsed JSON + jinjaTemplateStringSchema
+- `numericTemplateSchema`, `boolTemplateSchema`, `coordinateTemplateSchema` — apply to ALL numeric/bool/coord fields in elements.ts (audit every property on all 16 types)
+- JSON fields: `points`, `icons`, plot `data` → jsonOrTemplateSchema (whole field is template OR structured JSON)
+
+Tests:
+- tests/core/schema/template-capable-schema.test.ts — every visible property accepts template string where shape allows
+- YAML round-trip fixtures: element with templated x, progress, points, icons, data — no corruption
+- validatePayload accepts templated numerics/bools/JSON blobs
+
+## 2. Core — canvas geometry lock (`src/core/` or `src/ui/lib/`)
+Central `isPropertyTemplated(element, property)` / `elementGeometryLocked(element)`:
+- Any geometry-affecting property with template stored value → lock drag, resize, nudge, align for that element (or axis)
+- Reuse/extend existing guards in element-geometry.ts, nudgeElement, DesignerCanvas
+- Tests: templated x blocks drag; literal x allows drag; mixed multi-select behavior documented
+
+## 3. UI — unified property editor (`src/ui/`)
+Refactor ElementPropertyForm → dispatch on PropertyEditorShape from core metadata (not hardcoded NUMBER_PROPERTIES sets in property-field-meta.ts).
+
+Generic controls (new src/ui/components/property-fields/ or lib):
+- **ScalarOrTemplateField** — number input ↔ monospace textarea; "Template…" entry; auto-switch to template mode when value has Jinja; revert to scalar when user clears template syntax
+- **BooleanOrTemplateField** — checkbox ↔ textarea + Template option
+- **EnumOrTemplateField** — generalize existing color/enum pattern (dropdown + Template…)
+- **JsonOrTemplateField** — JSON textarea ↔ template textarea; toggle "JSON" | "Template"; template mode stores string on element, JSON mode stores array/object
+- Strings/fonts/icons/images — already partly template-aware; align with central mode resolver
+
+Remove duplication: property-field-meta.ts hardcoded BOOLEAN_PROPERTIES/NUMBER_PROPERTIES become derived from core metadata or thin wrappers.
+
+Tests (19-7/19-8 scope):
+- tests/ui/components/property-template-fields.test.tsx — number↔template, enum↔template, json↔template toggles
+- Editing templated field does not coerce to number / strip braces
+
+## 4. YAML editor / normalizePropertyValueForStorage
+- normalizePropertyValueForStorage must NOT parse template strings into numbers/booleans/JSON
+- CodeMirror/YAML export already preserve strings — verify no regression
+
+## Out of scope
+- Expanding Nunjucks evaluator (ADR-004 subset unchanged)
+- Per-point / per-icon template editing inside JSON arrays
+- HA embed, service options UI
+
+## Acceptance
+- npm run lint && npm test && npm run build — all green
+- All 16 types: paste YAML with templates on numeric + JSON fields → validates, panel shows template mode, canvas locked
+- Single git commit for entire phase
+
+Do not commit unless I ask. End with: "Next prompt: docs/PLAN.md §18k"
 ```
 
 ### §18k — Load Demo (replace Load Example)
@@ -2005,7 +2123,7 @@ Remove:
 
 Add:
 - Header bar: single "Load Demo" button (next to Share / theme)
-- Loads SAMPLE_ELEMENTS + SAMPLE_CANVAS showcase dashboard (refactored per §18m)
+- Loads SAMPLE_ELEMENTS + SAMPLE_CANVAS showcase dashboard (refactored per §18m; templated fields editable per §18n)
 - Confirm dialog if current session has unsaved-looking edits (elements.length > 0 and user changed since load)
 
 Keep:
@@ -2029,7 +2147,7 @@ Default assumption (if owner confirms §7.5 recommendation):
 - Tagline mentions drawcustom compatibility for HA users
 - package.json name, index.html title, App.tsx header, README, PLAN frontmatter name
 - Optional: GitHub repo rename oepl-designer → odl-designer + VITE_BASE_PATH / Pages base path
-- ADR-013 or section in ADR-012: naming rationale
+- ADR-014 or section in ADR-012: naming rationale (ADR-013 reserved for templating)
 
 Out of scope without explicit ask: redirect domain, npm publish, OpenDisplay org listing.
 
