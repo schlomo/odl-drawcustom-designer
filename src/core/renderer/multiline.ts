@@ -1,14 +1,14 @@
 import type { DrawElement } from '../schema/elements'
 import { getDominantTextDirection, toVisualText } from './bidi-text'
 import { resolveX, resolveY } from './coordinates'
-import { effectiveFontSize, effectiveNumber, effectiveString } from './element-defaults'
+import { effectiveBool, effectiveFontSize, effectiveNumber, effectiveString } from './element-defaults'
 import { DEFAULT_FONT_KEY, getFont } from './fonts'
 import { stripColorMarkup } from './parse-colors'
 import { buildColoredMultilineDrawLines } from './text-color-lines'
 import { layoutMultilineBlock, positionTextDrawLines } from './text-layout'
 import { estimateMultilineBounds } from './text-metrics'
 import type { RenderContext, RenderResult } from './types'
-import { isVisible, parseBool } from './visibility'
+import { isVisible } from './visibility'
 
 type MultilineElement = Extract<DrawElement, { type: 'multiline' }>
 
@@ -24,7 +24,7 @@ export function renderMultiline(
   const fontSize = effectiveFontSize(element, 'size', 20)
   const lineSpacing = effectiveNumber(element, 'spacing', 0)
   const defaultColor = effectiveString(element, 'color', 'black')
-  const parseColors = parseBool(element.parse_colors)
+  const parseColors = effectiveBool(element, 'parse_colors')
   const lineTexts = element.value.split(element.delimiter)
   const layoutLineTexts = parseColors
     ? lineTexts.map((line) => stripColorMarkup(line))
@@ -38,7 +38,8 @@ export function renderMultiline(
     layout ?? estimateMultilineBounds(layoutLineTexts, fontSize, lineSpacing, fontKey)
 
   const x = resolveX(element.x, ctx)
-  const y = element.y != null ? resolveY(element.y, ctx) : element.offset_y
+  const offsetY = effectiveNumber(element, 'offset_y', 0)
+  const y = element.y != null ? resolveY(element.y, ctx) : offsetY
 
   const drawLines =
     layout != null && font != null

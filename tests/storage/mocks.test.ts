@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  LEGACY_MOCK_STATES_STORAGE_KEY,
-  MOCK_STATES_MIGRATED_KEY,
   readMocksFromDb,
   writeMocksToDb,
 } from '../../src/storage'
@@ -44,12 +42,10 @@ describe('mock storage', () => {
   })
 
   it('readMockStates returns defaults when IndexedDB is empty', async () => {
-    localStorage.setItem(MOCK_STATES_MIGRATED_KEY, '1')
     expect(await readMockStates()).toEqual(DEFAULT_MOCK_STATES)
   })
 
   it('writeMockStates persists through the UI adapter', async () => {
-    localStorage.setItem(MOCK_STATES_MIGRATED_KEY, '1')
     await writeMockStates({
       'sensor.temperature': '99',
       'binary_sensor.door': false,
@@ -58,32 +54,6 @@ describe('mock storage', () => {
     expect(await readMockStates()).toEqual({
       'sensor.temperature': '99',
       'binary_sensor.door': false,
-    })
-  })
-
-  it('migrates legacy localStorage mock states into IndexedDB once', async () => {
-    localStorage.setItem(
-      LEGACY_MOCK_STATES_STORAGE_KEY,
-      JSON.stringify({
-        'sensor.temperature': '12',
-        'binary_sensor.door': 'on',
-      }),
-    )
-
-    expect(await readMockStates()).toEqual({
-      'sensor.temperature': '12',
-      'binary_sensor.door': 'on',
-    })
-    expect(localStorage.getItem(LEGACY_MOCK_STATES_STORAGE_KEY)).toBeNull()
-    expect(localStorage.getItem(MOCK_STATES_MIGRATED_KEY)).toBe('1')
-
-    localStorage.setItem(
-      LEGACY_MOCK_STATES_STORAGE_KEY,
-      JSON.stringify({ 'sensor.other': '1' }),
-    )
-    expect(await readMockStates()).toEqual({
-      'sensor.temperature': '12',
-      'binary_sensor.door': 'on',
     })
   })
 
@@ -111,7 +81,7 @@ describe('mock storage', () => {
     })
   })
 
-  it('ignores invalid entity ids and value types when parsing legacy data', () => {
+  it('ignores invalid entity ids and value types when parsing mock data', () => {
     expect(
       parseMockStates({
         'not-an-entity': 'x',

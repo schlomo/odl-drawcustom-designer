@@ -1,0 +1,14 @@
+- type: progress_bar
+  x_start: 10
+  y_start: 10
+  x_end: 210
+  y_end: 30
+  progress: "{{ states('sensor.progress') | float(50) }}"
+- type: polygon
+  points: "{{ states('sensor.polygon_points') | from_json }}"
+  fill: black
+- type: icon_sequence
+  x: 20
+  y: 40
+  icons: "{{ states('sensor.icons') | from_json }}"
+  size: 24

@@ -1,5 +1,9 @@
 import type { DrawElement } from '../schema/elements'
 import {
+  ICON_SEQUENCE_ICONS_PREVIEW,
+  resolveJsonFieldValue,
+} from '../schema/propertyEditorMeta'
+import {
   ICON_DEFAULT_ANCHOR,
   iconSequenceBoxSize,
   iconSequenceIconPositions,
@@ -27,7 +31,8 @@ export function renderIconSequence(
   const direction = resolveDirection(effectiveString(element, 'direction', 'right'))
   const size = effectiveFontSize(element, 'size', 20)
   const spacing = effectiveNumber(element, 'spacing', size / 4, 0)
-  const { width, height } = iconSequenceBoxSize(size, element.icons.length, spacing, direction)
+  const icons = resolveJsonFieldValue(element.icons, [...ICON_SEQUENCE_ICONS_PREVIEW])
+  const { width, height } = iconSequenceBoxSize(size, icons.length, spacing, direction)
   const anchored = resolveAnchoredBox(
     effectiveString(element, 'anchor', ICON_DEFAULT_ANCHOR),
     resolveX(element.x, ctx),
@@ -40,7 +45,7 @@ export function renderIconSequence(
     anchored.x,
     anchored.y,
     size,
-    element.icons.length,
+    icons.length,
     spacing,
     direction,
   )
@@ -55,7 +60,7 @@ export function renderIconSequence(
       direction,
       spacing,
       fill: resolveIconPaint(element, 'fill', 'black', paintOptions),
-      icons: element.icons.map((name, index) => ({
+      icons: icons.map((name, index) => ({
         name,
         path: resolveMdiPath(name),
         x: positions[index]!.x,

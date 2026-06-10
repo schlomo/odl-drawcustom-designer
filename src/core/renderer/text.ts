@@ -2,14 +2,14 @@ import type { DrawElement } from '../schema/elements'
 import { getDominantTextDirection, toVisualText } from './bidi-text'
 import { resolveAnchoredBox, TEXT_DEFAULT_ANCHOR } from './anchors'
 import { resolveCoordinate, resolveX, resolveY } from './coordinates'
-import { effectiveFontSize, effectiveNumber, effectiveString } from './element-defaults'
+import { effectiveBool, effectiveFontSize, effectiveNumber, effectiveString } from './element-defaults'
 import { DEFAULT_FONT_KEY, getFont } from './fonts'
 import { stripColorMarkup } from './parse-colors'
 import { buildColoredDrawLines } from './text-color-lines'
 import { layoutTextBlock, positionTextDrawLines } from './text-layout'
 import { estimateTextBounds } from './text-metrics'
 import type { RenderContext, RenderResult } from './types'
-import { isVisible, parseBool } from './visibility'
+import { isVisible } from './visibility'
 
 type TextElement = Extract<DrawElement, { type: 'text' }>
 
@@ -22,7 +22,7 @@ export function renderText(element: TextElement, ctx: RenderContext): RenderResu
   const fontKey = effectiveString(element, 'font', DEFAULT_FONT_KEY)
   const fontSize = effectiveFontSize(element, 'size', 20)
   const font = getFont(fontKey)
-  const parseColors = parseBool(element.parse_colors)
+  const parseColors = effectiveBool(element, 'parse_colors')
   const layoutText = parseColors ? stripColorMarkup(element.value) : element.value
   const maxWidth =
     element.max_width != null
@@ -36,7 +36,7 @@ export function renderText(element: TextElement, ctx: RenderContext): RenderResu
         fontSize,
         maxWidth,
         lineSpacing,
-        truncate: parseBool(element.truncate),
+        truncate: effectiveBool(element, 'truncate'),
       })
     : null
 

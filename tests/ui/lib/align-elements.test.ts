@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   alignDelta,
   alignElementsInUnion,
+  canAlignSelection,
   unionBounds,
   type ElementAlign,
 } from '../../../src/ui/lib/align-elements'
@@ -75,5 +76,31 @@ describe('alignElementsInUnion', () => {
 
     expect(next[0]).toMatchObject({ x: 10, y: 30 })
     expect(next[1]).toMatchObject({ x: 40, y: 30 })
+  })
+
+  it('does not align when selection includes templated geometry', () => {
+    const elements = [
+      { type: 'rectangle' as const, x_start: 10, y_start: 10, x_end: 30, y_end: 30 },
+      {
+        type: 'rectangle' as const,
+        x_start: '{{ 50 }}',
+        y_start: 20,
+        x_end: 80,
+        y_end: 40,
+      },
+    ]
+    const boundsByIndex = new Map<number, ElementBounds>([
+      [0, { x: 10, y: 10, width: 20, height: 20 }],
+      [1, { x: 50, y: 20, width: 30, height: 20 }],
+    ])
+
+    expect(canAlignSelection(elements, [0, 1])).toBe(false)
+    const next = alignElementsInUnion(elements, [0, 1], boundsByIndex, 'left', {
+      width: 200,
+      height: 200,
+    })
+
+    expect(next).toBe(elements)
+    expect(next[1]).toMatchObject({ x_start: '{{ 50 }}', x_end: 80 })
   })
 })

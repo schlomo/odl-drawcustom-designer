@@ -32,8 +32,3 @@ export function statusRowClassName(severity: StatusSeverity): string {
   }
   return 'border border-sky-300 bg-sky-50 text-[var(--shell-text)] dark:border-sky-500/30 dark:bg-sky-950/40'
 }
-
-/** @deprecated Use {@link statusRowClassName} */
-export function statusRowBackgroundClassName(severity: StatusSeverity): string {
-  return statusRowClassName(severity)
-}

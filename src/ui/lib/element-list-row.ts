@@ -1,5 +1,4 @@
-import type { DrawElement } from '../../core'
-import { normalizeMdiIconName } from '../../core'
+import { isTemplateStoredValue, normalizeMdiIconName, type DrawElement } from '../../core'
 import { isHiddenOnTag, isInvisibleElement } from './hidden-on-tag'
 
 export type ElementListThumbnail =
@@ -120,6 +119,13 @@ export function elementListRowMeta(element: DrawElement): ElementListRowMeta {
         thumbnail: { kind: 'mdi', name: element.value },
       }
     case 'icon_sequence':
+      if (typeof element.icons === 'string') {
+        return {
+          ...rowBase,
+          detail: isTemplateStoredValue(element.icons) ? 'templated icons' : element.icons,
+          thumbnail: { kind: 'badge', label: '…' },
+        }
+      }
       return {
         ...rowBase,
         detail: `${element.icons.length} icons`,
@@ -190,12 +196,26 @@ export function elementListRowMeta(element: DrawElement): ElementListRowMeta {
         thumbnail: { kind: 'badge', label: 'QR' },
       }
     case 'plot':
+      if (typeof element.data === 'string') {
+        return {
+          ...rowBase,
+          detail: isTemplateStoredValue(element.data) ? 'templated series' : element.data,
+          thumbnail: { kind: 'badge', label: '📈' },
+        }
+      }
       return {
         ...rowBase,
         detail: `${element.data.length} series`,
         thumbnail: { kind: 'badge', label: '📈' },
       }
     case 'polygon':
+      if (typeof element.points === 'string') {
+        return {
+          ...rowBase,
+          detail: isTemplateStoredValue(element.points) ? 'templated points' : element.points,
+          thumbnail: { kind: 'badge', label: '▱' },
+        }
+      }
       return {
         ...rowBase,
         detail: `${element.points.length} points`,

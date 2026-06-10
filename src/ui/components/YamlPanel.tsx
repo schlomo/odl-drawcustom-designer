@@ -6,6 +6,10 @@ import {
   shouldApplyExternalYamlSync,
   tryParseYamlElements,
 } from '../editor/yamlElementsSync'
+import {
+  shouldDeferYamlExternalSync,
+  yamlTextForExternalSync,
+} from '../editor/yamlExternalSync'
 import { getYamlStatusMessages } from '../lib/yaml-status-messages'
 import { YamlEditor } from '../editor/YamlEditor'
 import { createYamlScrollCommand, createEntityScrollCommand, mergeYamlScrollCommands } from '../editor/yamlScrollCommand'
@@ -75,7 +79,6 @@ export function YamlPanel({
   const skipExternalSyncRef = useRef(false)
   const yamlSelectionRef = useRef({ anchor: 0, head: 0 })
   const yamlScrollRef = useRef(0)
-  const pendingSerializedRef = useRef<string | null>(null)
   const { fontSize, increase, decrease } = useYamlFontSize()
   const { couplingEnabled, toggleCoupling } = useYamlSelectionCoupling()
   const { templatePreviewEnabled, toggleTemplatePreview } = useYamlTemplatePreview()
@@ -102,16 +105,14 @@ export function YamlPanel({
   })
 
   useEffect(() => {
-    if (propertyEditing || (!couplingEnabled && canvasDragging)) {
-      pendingSerializedRef.current = serialized
+    if (
+      shouldDeferYamlExternalSync({ propertyEditing, canvasDragging, couplingEnabled })
+    ) {
       return
     }
 
-    const nextSerialized = pendingSerializedRef.current ?? serialized
-    pendingSerializedRef.current = null
-
     if (shouldApplyExternalYamlSync(skipExternalSyncRef.current)) {
-      setYamlText(nextSerialized)
+      setYamlText(yamlTextForExternalSync(serialized))
     }
     skipExternalSyncRef.current = false
   }, [canvasDragging, couplingEnabled, propertyEditing, serialized])

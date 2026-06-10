@@ -35,9 +35,11 @@ export function IconButton({
   const resolvedSurface =
     surfaceClass ??
     (variant === 'destructive' ? shell.buttonDestructiveIcon : shell.button)
+  const disabledClass =
+    'disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[var(--shell-surface-2)]'
   const baseClass = compact
-    ? `${resolvedSurface} flex h-7 w-7 shrink-0 items-center justify-center gap-1.5 p-0`.trim()
-    : `${resolvedSurface} inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-2 py-1`.trim()
+    ? `${resolvedSurface} ${disabledClass} flex h-7 w-7 shrink-0 items-center justify-center gap-1.5 p-0`.trim()
+    : `${resolvedSurface} ${disabledClass} inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-2 py-1`.trim()
 
   const button = (
     <button

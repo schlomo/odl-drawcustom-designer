@@ -37,12 +37,6 @@ function parseColorMode(record: Record<string, unknown>): TagColorMode | null {
   if (isTagColorMode(record.colorMode)) {
     return record.colorMode
   }
-  if (record.accentMode === 'red') {
-    return 'bwr'
-  }
-  if (record.accentMode === 'yellow') {
-    return 'bwy'
-  }
   return null
 }
 

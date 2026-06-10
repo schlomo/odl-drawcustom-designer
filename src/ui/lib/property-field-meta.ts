@@ -1,74 +1,20 @@
 import {
   DEBUG_GRID_MIN_SPACING,
-  ENUMS,
   getPropertyDefault,
   getPropertyDescription,
   getPropertyEffectiveValue,
+  getPropertyEditorShape,
+  getPropertyEnumValuesForShape,
   getVisibleProperties,
-  normalizePropertyValueForStorage,
   hasTemplateSyntax,
+  isTemplateStoredValue,
+  TEMPLATE_BOOLEAN_PROPERTIES,
   type DrawElement,
+  type PropertyEditorShape,
 } from '../../core'
+import { formatPropertyValue } from './property-format'
 
 export type PropertyFieldKind = 'string' | 'number' | 'boolean' | 'enum' | 'json'
-
-const BOOLEAN_PROPERTIES = new Set([
-  'visible',
-  'dashed',
-  'parse_colors',
-  'truncate',
-  'show_percentage',
-  'show_labels',
-  'round_values',
-  'debug',
-  'smooth',
-  'show_points',
-  'snap_to_hours',
-])
-
-const NUMBER_PROPERTIES = new Set([
-  'x',
-  'y',
-  'size',
-  'spacing',
-  'offset_y',
-  'x_start',
-  'x_end',
-  'y_start',
-  'y_end',
-  'width',
-  'radius',
-  'start_angle',
-  'end_angle',
-  'xsize',
-  'ysize',
-  'rotate',
-  'boxsize',
-  'border',
-  'progress',
-  'dash_length',
-  'space_length',
-  'label_step',
-  'label_font_size',
-  'max_width',
-  'stroke_width',
-  'y_padding',
-  'x_size',
-  'x_offset',
-  'y_size',
-  'y_offset',
-  'x_repeat',
-  'y_repeat',
-  'duration',
-  'low',
-  'high',
-  'tick_width',
-  'tick_length',
-  'tick_every',
-  'point_size',
-  'value_scale',
-  'interval',
-])
 
 /** Thickness, size, and spacing fields — must not be negative in the inspector. */
 export const NON_NEGATIVE_NUMBER_PROPERTIES = new Set([
@@ -173,45 +119,10 @@ export function clampNumberPropertyForElement(
   return value
 }
 
-const JSON_PROPERTIES = new Set(['points', 'icons'])
-
 /** plot `data` is edited as JSON; multiline `value` fields are separate. */
 export const MULTILINE_STRING_PROPERTIES = new Set(['value', 'url', 'data'])
 
-export const TEMPLATE_EDITOR_OPTION = '__template__'
-export const TEMPLATE_EDITOR_STARTER = '{{ }}'
-
-const ENUM_PROPERTY_MAP: Record<string, keyof typeof ENUMS> = {
-  anchor: 'anchor',
-  color: 'color',
-  fill: 'color',
-  outline: 'color',
-  background: 'color',
-  line_color: 'color',
-  label_color: 'color',
-  bgcolor: 'color',
-  line_color_plot: 'color',
-  direction: 'direction',
-  resize_method: 'resize_method',
-  line_style: 'line_style',
-  grid_style: 'grid_style',
-  corners: 'corners',
-}
-
-function enumNameForProperty(property: string): keyof typeof ENUMS | null {
-  if (property in ENUM_PROPERTY_MAP) {
-    return ENUM_PROPERTY_MAP[property]
-  }
-  if (
-    property === 'stroke_fill' ||
-    property === 'grid_color' ||
-    property === 'point_color' ||
-    property.endsWith('_color')
-  ) {
-    return 'color'
-  }
-  return null
-}
+export { TEMPLATE_EDITOR_STARTER, formatPropertyValue } from './property-format'
 
 function plotNestedChild(property: string): string | null {
   const dot = property.indexOf('.')
@@ -222,47 +133,37 @@ function propertyLeaf(property: string): string {
   return plotNestedChild(property) ?? property
 }
 
-export function getPropertyFieldKind(property: string, value: unknown): PropertyFieldKind {
-  const leaf = propertyLeaf(property)
-  if (leaf === 'grid') {
-    return typeof value === 'boolean' ? 'boolean' : 'number'
+function shapeToFieldKind(shape: PropertyEditorShape): PropertyFieldKind {
+  switch (shape) {
+    case 'number':
+    case 'coordinate':
+      return 'number'
+    case 'boolean':
+      return 'boolean'
+    case 'enum':
+    case 'color':
+      return 'enum'
+    case 'json':
+      return 'json'
+    default:
+      return 'string'
   }
-  if (leaf === 'format') {
-    return 'string'
-  }
-  if (JSON_PROPERTIES.has(property) || (value != null && typeof value === 'object' && !property.includes('.'))) {
-    return 'json'
-  }
-  if (property === 'ylegend.position' || property === 'xlegend.position' || enumNameForProperty(leaf)) {
-    return 'enum'
-  }
-  if (BOOLEAN_PROPERTIES.has(leaf)) {
-    return 'boolean'
-  }
-  if (NUMBER_PROPERTIES.has(leaf) || typeof value === 'number') {
-    return 'number'
-  }
-  if (typeof value === 'boolean') {
-    return 'boolean'
-  }
-  return 'string'
 }
 
-const Y_LEGEND_POSITIONS = ['left', 'right'] as const
-const X_LEGEND_POSITIONS = ['bottom', 'top'] as const
+export function getPropertyFieldKind(
+  element: DrawElement,
+  property: string,
+  value?: unknown,
+): PropertyFieldKind {
+  const leaf = propertyLeaf(property)
+  if (leaf === 'grid' && value != null && typeof value === 'boolean') {
+    return 'boolean'
+  }
+  return shapeToFieldKind(getPropertyEditorShape(element.type, property))
+}
 
 export function getPropertyEnumValues(property: string): readonly string[] | null {
-  if (property === 'ylegend.position') {
-    return Y_LEGEND_POSITIONS
-  }
-  if (property === 'xlegend.position') {
-    return X_LEGEND_POSITIONS
-  }
-  const enumName = enumNameForProperty(plotNestedChild(property) ?? property)
-  if (!enumName) {
-    return null
-  }
-  return ENUMS[enumName].map(String)
+  return getPropertyEnumValuesForShape(property)
 }
 
 export function enumPropertyDefault(element: DrawElement, property: string): string | undefined {
@@ -282,14 +183,14 @@ export function isMultilineStringProperty(property: string): boolean {
 }
 
 export function getPropertyLabel(element: DrawElement, property: string): string {
-  if (BOOLEAN_PROPERTIES.has(propertyLeaf(property)) || property.includes('.')) {
+  if (TEMPLATE_BOOLEAN_PROPERTIES.has(propertyLeaf(property)) || property.includes('.')) {
     return getPropertyDescription(element.type, property)
   }
   return property
 }
 
 export function getPropertyTooltip(element: DrawElement, property: string): string | undefined {
-  if (BOOLEAN_PROPERTIES.has(propertyLeaf(property))) {
+  if (TEMPLATE_BOOLEAN_PROPERTIES.has(propertyLeaf(property))) {
     return property
   }
   return getPropertyDescription(element.type, property)
@@ -378,26 +279,33 @@ export function parsePropertyInput(
   kind: PropertyFieldKind,
   raw: string,
 ): string | number | boolean | unknown[] | Record<string, unknown> | null | undefined {
+  const trimmed = raw.trim()
   if (kind === 'json') {
-    const trimmed = raw.trim()
     if (!trimmed) {
       return undefined
+    }
+    if (hasTemplateSyntax(trimmed)) {
+      return trimmed
     }
     return JSON.parse(trimmed) as unknown[] | Record<string, unknown>
   }
   if (kind === 'number') {
-    const trimmed = raw.trim()
     if (!trimmed) {
       return undefined
+    }
+    if (hasTemplateSyntax(trimmed)) {
+      return trimmed
     }
     const parsed = Number(trimmed)
     return Number.isFinite(parsed) ? parsed : undefined
   }
   if (kind === 'boolean') {
+    if (hasTemplateSyntax(trimmed)) {
+      return trimmed
+    }
     return raw === 'true' || raw === 'True'
   }
   if (kind === 'enum') {
-    const trimmed = raw.trim()
     return trimmed || undefined
   }
   return raw
@@ -407,8 +315,15 @@ export function parseNumberPropertyValue(
   element: DrawElement,
   property: string,
   raw: string,
-): number | undefined {
+): number | string | undefined {
+  const trimmed = raw.trim()
+  if (hasTemplateSyntax(trimmed)) {
+    return trimmed
+  }
   const parsed = parsePropertyInput('number', raw)
+  if (typeof parsed === 'string') {
+    return parsed
+  }
   if (typeof parsed !== 'number') {
     return undefined
   }
@@ -426,6 +341,24 @@ export function parseNumberPropertyValue(
   return clampNumberPropertyForElement(element, property, next)
 }
 
+export function parseCoordinatePropertyValue(
+  element: DrawElement,
+  property: string,
+  raw: string,
+): number | string | undefined {
+  const trimmed = raw.trim()
+  if (!trimmed) {
+    return undefined
+  }
+  if (hasTemplateSyntax(trimmed)) {
+    return trimmed
+  }
+  if (/^\d+(\.\d+)?%$/.test(trimmed)) {
+    return trimmed
+  }
+  return parseNumberPropertyValue(element, property, raw)
+}
+
 export function storedPropertyValueUnchanged(
   element: DrawElement,
   property: string,
@@ -438,17 +371,7 @@ export function storedPropertyValueUnchanged(
   return stored === value
 }
 
-export { getPropertyEffectiveValue, normalizePropertyValueForStorage }
-
-export function formatPropertyValue(value: unknown): string {
-  if (value == null) {
-    return ''
-  }
-  if (typeof value === 'object') {
-    return JSON.stringify(value, null, 2)
-  }
-  return String(value)
-}
+export { getPropertyEffectiveValue, normalizePropertyValueForStorage } from '../../core'
 
 export function coerceBooleanValue(value: unknown): boolean {
   return value === true || value === 'true' || value === 'True'
@@ -464,6 +387,9 @@ export function booleanPropertyDefault(element: DrawElement, property: string): 
 
 export function getBooleanPropertyValue(element: DrawElement, property: string, value: unknown): boolean {
   if (value === undefined || value === null) {
+    return booleanPropertyDefault(element, property)
+  }
+  if (isTemplateStoredValue(value)) {
     return booleanPropertyDefault(element, property)
   }
   return coerceBooleanValue(value)

@@ -1,16 +1,19 @@
-import { useRef, useState, useCallback, useEffect, useMemo } from 'react'
-import { FONT_UPLOAD_ACCEPT, type AssetUploadResult, type DrawElement, DEBUG_GRID_MIN_SPACING } from '../../core'
+import { useRef, useState, useMemo } from 'react'
+import {
+  FONT_UPLOAD_ACCEPT,
+  getPropertyEditorShape,
+  type AssetUploadResult,
+  type DrawElement,
+  DEBUG_GRID_MIN_SPACING,
+} from '../../core'
 import {
   booleanPropertyDefault,
-  enumPropertyDefault,
   formatPropertyValue,
   getBooleanPropertyValue,
   getEditableProperties,
-  getEnumPropertyDisplayValue,
   getPropertyEffectiveValue,
   normalizePropertyValueForStorage,
   getPropertyEnumValues,
-  getPropertyFieldKind,
   getPropertyLabel,
   getPropertyTooltip,
   isCodeLikeStringValue,
@@ -21,16 +24,20 @@ import {
   isAllowNegativeNumberProperty,
   isNonNegativeNumberProperty,
   isClampedPercentProperty,
+  parseCoordinatePropertyValue,
   parseNumberPropertyValue,
-  storedPropertyValueUnchanged,
-  parsePropertyInput,
-  shouldUseEnumDropdown,
-  TEMPLATE_EDITOR_OPTION,
   TEMPLATE_EDITOR_STARTER,
-  type PropertyFieldKind,
 } from '../lib/property-field-meta'
 import { FONT_UPLOAD_OPTION } from '../lib/known-font-keys'
 import { filterMdiIconNames } from '../lib/mdi-icon-names'
+import {
+  BooleanOrTemplateField,
+  EnumOrTemplateField,
+  JsonOrTemplateField,
+  PropertyFieldControl,
+  ScalarOrTemplateField,
+  TemplateToggleButton,
+} from './property-fields'
 import { shell } from '../styles/shell'
 
 interface ElementPropertyFormProps {
@@ -72,13 +79,26 @@ function FontPropertyField({
 
   if (!useDropdown) {
     return (
-      <div className={`block text-xs ${shell.muted}`}>
-        <PropertyLabel element={element} property="font" />
+      <PropertyFieldControl
+        label={<PropertyLabel element={element} property="font" />}
+        trailing={
+          <TemplateToggleButton
+            active={isCodeLikeStringValue(current) && current.includes('{{')}
+            onClick={() => onChange(TEMPLATE_EDITOR_STARTER)}
+          />
+        }
+      >
         <textarea
-          className={`mt-1 w-full font-mono ${shell.input}`}
+          className={`w-full font-mono ${shell.input}`}
           rows={2}
           value={current}
           placeholder="ppb.ttf or {{ states('sensor.font') }}"
+          onKeyDown={(event) => {
+            if (event.key === '{') {
+              event.preventDefault()
+              onChange(TEMPLATE_EDITOR_STARTER)
+            }
+          }}
           onChange={(event) => onChange(event.target.value || undefined)}
         />
         <select
@@ -97,13 +117,15 @@ function FontPropertyField({
             </option>
           ))}
         </select>
-      </div>
+      </PropertyFieldControl>
     )
   }
 
   return (
-    <div className={`block text-xs ${shell.muted}`}>
-      <PropertyLabel element={element} property="font" />
+    <PropertyFieldControl
+      label={<PropertyLabel element={element} property="font" />}
+      trailing={<TemplateToggleButton onClick={() => onChange(TEMPLATE_EDITOR_STARTER)} />}
+    >
       <input
         ref={fontInputRef}
         type="file"
@@ -124,16 +146,12 @@ function FontPropertyField({
         }}
       />
       <select
-        className={`mt-1 w-full ${shell.input}`}
+        className={`w-full ${shell.input}`}
         value={current}
         onChange={(event) => {
           const next = event.target.value
           if (next === FONT_UPLOAD_OPTION) {
             fontInputRef.current?.click()
-            return
-          }
-          if (next === TEMPLATE_EDITOR_OPTION) {
-            onChange(TEMPLATE_EDITOR_STARTER)
             return
           }
           onChange(next || undefined)
@@ -145,9 +163,8 @@ function FontPropertyField({
           </option>
         ))}
         <option value={FONT_UPLOAD_OPTION}>Upload font…</option>
-        <option value={TEMPLATE_EDITOR_OPTION}>Template…</option>
       </select>
-    </div>
+    </PropertyFieldControl>
   )
 }
 
@@ -206,212 +223,6 @@ function IconNamePropertyField({
   )
 }
 
-function EnumPresetPicker({
-  element,
-  property,
-  enumValues,
-  onChange,
-}: {
-  element: DrawElement
-  property: string
-  enumValues: readonly string[]
-  onChange: (value: unknown) => void
-}) {
-  return (
-    <select
-      className={`mt-1 w-full ${shell.input}`}
-      value=""
-      onChange={(event) => {
-        const next = event.target.value
-        if (!next) {
-          return
-        }
-        if (next === enumPropertyDefault(element, property)) {
-          onChange(undefined)
-          return
-        }
-        onChange(next)
-      }}
-    >
-      <option value="">Pick preset…</option>
-      {enumValues.map((option) => (
-        <option key={option} value={option}>
-          {option}
-        </option>
-      ))}
-    </select>
-  )
-}
-
-function EnumPropertyField({
-  element,
-  property,
-  value,
-  enumValues,
-  onChange,
-}: {
-  element: DrawElement
-  property: string
-  value: unknown
-  enumValues: readonly string[]
-  onChange: (value: unknown) => void
-}) {
-  const useDropdown = shouldUseEnumDropdown(property, value, enumValues)
-  const displayValue = getEnumPropertyDisplayValue(element, property, value)
-
-  if (useDropdown) {
-    const selectValue = displayValue && enumValues.includes(displayValue) ? displayValue : ''
-    return (
-      <label className={`block text-xs ${shell.muted}`}>
-        <PropertyLabel element={element} property={property} />
-        <select
-          className={`mt-1 w-full ${shell.input}`}
-          value={selectValue}
-          onChange={(event) => {
-            const next = event.target.value
-            if (next === TEMPLATE_EDITOR_OPTION) {
-              onChange(TEMPLATE_EDITOR_STARTER)
-              return
-            }
-            if (!next || next === enumPropertyDefault(element, property)) {
-              onChange(undefined)
-              return
-            }
-            onChange(next)
-          }}
-        >
-          <option value="">
-            default
-            {enumPropertyDefault(element, property)
-              ? ` (${enumPropertyDefault(element, property)})`
-              : ''}
-          </option>
-          {enumValues.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-          <option value={TEMPLATE_EDITOR_OPTION}>Template…</option>
-        </select>
-      </label>
-    )
-  }
-
-  return (
-    <div className={`block text-xs ${shell.muted}`}>
-      <PropertyLabel element={element} property={property} />
-      <textarea
-        className={`mt-1 w-full font-mono ${shell.input}`}
-        rows={2}
-        value={formatPropertyValue(value)}
-        placeholder="Template, hex color, or custom value"
-        onChange={(event) => onChange(event.target.value || undefined)}
-      />
-      <EnumPresetPicker
-        element={element}
-        property={property}
-        enumValues={enumValues}
-        onChange={onChange}
-      />
-    </div>
-  )
-}
-
-function NumberPropertyField({
-  element,
-  property,
-  value,
-  typeMin,
-  allowNegative,
-  nonNegative,
-  clampedPercent,
-  onChange,
-  onBeginEdit,
-  onEndEdit,
-}: {
-  element: DrawElement
-  property: string
-  value: unknown
-  typeMin: number | undefined
-  allowNegative: boolean
-  nonNegative: boolean
-  clampedPercent: boolean
-  onChange: (value: unknown) => void
-  onBeginEdit?: () => void
-  onEndEdit?: () => void
-}) {
-  const [draft, setDraft] = useState<string | null>(null)
-  const rafRef = useRef<number | null>(null)
-  const draftRef = useRef('')
-
-  const displayValue = draft ?? (value == null ? '' : String(value))
-
-  const commitRaw = useCallback(
-    (raw: string) => {
-      const next = parseNumberPropertyValue(element, property, raw)
-      if (storedPropertyValueUnchanged(element, property, next)) {
-        return
-      }
-      onChange(next)
-    },
-    [element, onChange, property],
-  )
-
-  const scheduleCommit = useCallback(
-    (raw: string) => {
-      draftRef.current = raw
-      if (rafRef.current != null) {
-        cancelAnimationFrame(rafRef.current)
-      }
-      rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = null
-        commitRaw(draftRef.current)
-      })
-    },
-    [commitRaw],
-  )
-
-  useEffect(
-    () => () => {
-      if (rafRef.current != null) {
-        cancelAnimationFrame(rafRef.current)
-      }
-    },
-    [],
-  )
-
-  return (
-    <label className={`block text-xs ${shell.muted}`}>
-      <PropertyLabel element={element} property={property} />
-      <input
-        type="number"
-        className={`mt-1 w-full font-mono ${shell.input}`}
-        value={displayValue}
-        min={typeMin ?? (allowNegative ? -1 : nonNegative || clampedPercent ? 0 : undefined)}
-        max={clampedPercent ? 100 : undefined}
-        onFocus={() => {
-          onBeginEdit?.()
-          setDraft(value == null ? '' : String(value))
-        }}
-        onBlur={() => {
-          if (rafRef.current != null) {
-            cancelAnimationFrame(rafRef.current)
-            rafRef.current = null
-          }
-          commitRaw(draft ?? displayValue)
-          setDraft(null)
-          onEndEdit?.()
-        }}
-        onChange={(event) => {
-          const raw = event.target.value
-          setDraft(raw)
-          scheduleCommit(raw)
-        }}
-      />
-    </label>
-  )
-}
-
 function PropertyField({
   property,
   element,
@@ -458,29 +269,19 @@ function PropertyField({
     )
   }
 
-  const kind: PropertyFieldKind = getPropertyFieldKind(property, value)
-  const enumValues = kind === 'enum' ? getPropertyEnumValues(property) : null
+  const shape = getPropertyEditorShape(element.type, property)
+  const label = <PropertyLabel element={element} property={property} />
 
-  if (kind === 'boolean') {
+  if (shape === 'boolean') {
     return (
-      <label
-        className="flex items-center gap-2 text-xs text-[var(--shell-text)]"
-        title={getPropertyTooltip(element, property)}
-      >
-        <input
-          type="checkbox"
-          checked={getBooleanPropertyValue(element, property, value)}
-          onChange={(event) => {
-            const checked = event.target.checked
-            if (checked === booleanPropertyDefault(element, property)) {
-              onChange(undefined)
-              return
-            }
-            onChange(checked)
-          }}
-        />
-        <PropertyLabel element={element} property={property} />
-      </label>
+      <BooleanOrTemplateField
+        value={value}
+        label={label}
+        tooltip={getPropertyTooltip(element, property)}
+        checked={getBooleanPropertyValue(element, property, value)}
+        defaultChecked={booleanPropertyDefault(element, property)}
+        onChange={onChange}
+      />
     )
   }
 
@@ -505,7 +306,7 @@ function PropertyField({
 
     return (
       <div className={`block text-xs ${shell.muted}`}>
-        <PropertyLabel element={element} property={property} />
+        {label}
         <div className="mt-1 flex gap-1">
           <textarea
             className={`min-h-[2.5rem] flex-1 font-mono ${shell.input}`}
@@ -548,70 +349,52 @@ function PropertyField({
     )
   }
 
-  if (kind === 'enum' && enumValues) {
-    return (
-      <EnumPropertyField
-        element={element}
-        property={property}
-        value={value}
-        enumValues={enumValues}
-        onChange={onChange}
-      />
-    )
+  if (shape === 'enum' || shape === 'color') {
+    const enumValues = getPropertyEnumValues(property)
+    if (enumValues) {
+      return (
+        <EnumOrTemplateField
+          element={element}
+          property={property}
+          value={value}
+          label={label}
+          enumValues={enumValues}
+          onChange={onChange}
+        />
+      )
+    }
   }
 
-  if (kind === 'json') {
+  if (shape === 'json') {
     const samplePlotData =
       element.type === 'plot' && property === 'data'
         ? [
             { entity: 'sensor.temperature', color: 'red', width: 2, smooth: true },
             { entity: 'sensor.humidity', color: 'black', width: 1 },
           ]
-        : null
+        : undefined
 
     return (
-      <div className={`block text-xs ${shell.muted}`}>
-        <PropertyLabel element={element} property={property} />
-        <textarea
-          className={`mt-1 w-full font-mono ${shell.input}`}
-          rows={4}
-          value={formatPropertyValue(value)}
-          onFocus={onBeginEdit}
-          onBlur={(event) => {
-            onEndEdit?.()
-            try {
-              onChange(parsePropertyInput('json', event.target.value))
-            } catch {
-              // Revert display on invalid JSON blur.
-            }
-          }}
-          onChange={(event) => {
-            try {
-              onChange(parsePropertyInput('json', event.target.value))
-            } catch {
-              // Keep editing until JSON is valid.
-            }
-          }}
-        />
-        {samplePlotData ? (
-          <button
-            type="button"
-            className={`mt-1 ${shell.button} px-2 py-1`}
-            onClick={() => onChange(samplePlotData)}
-          >
-            Insert sample series
-          </button>
-        ) : null}
-      </div>
-    )
-  }
-
-  if (kind === 'number') {
-    return (
-      <NumberPropertyField
+      <JsonOrTemplateField
         element={element}
         property={property}
         value={value}
+        label={label}
+        sampleValue={samplePlotData}
+        onChange={onChange}
+        onBeginEdit={onBeginEdit}
+        onEndEdit={onEndEdit}
+      />
+    )
+  }
+
+  if (shape === 'number' || shape === 'coordinate') {
+    return (
+      <ScalarOrTemplateField
+        property={property}
+        value={value}
+        shape={shape}
+        label={label}
         typeMin={
           element.type === 'debug_grid' && property === 'spacing'
             ? DEBUG_GRID_MIN_SPACING
@@ -620,6 +403,11 @@ function PropertyField({
         allowNegative={isAllowNegativeNumberProperty(property)}
         nonNegative={isNonNegativeNumberProperty(property)}
         clampedPercent={isClampedPercentProperty(property)}
+        parseScalar={(raw) =>
+          shape === 'coordinate'
+            ? parseCoordinatePropertyValue(element, property, raw)
+            : parseNumberPropertyValue(element, property, raw)
+        }
         onChange={onChange}
         onBeginEdit={onBeginEdit}
         onEndEdit={onEndEdit}
@@ -630,7 +418,7 @@ function PropertyField({
   if (isMultilineStringProperty(property) || isCodeLikeStringValue(value)) {
     return (
       <label className={`block text-xs ${shell.muted}`}>
-        <PropertyLabel element={element} property={property} />
+        {label}
         <textarea
           className={`mt-1 w-full font-mono ${shell.input}`}
           rows={4}
@@ -645,7 +433,7 @@ function PropertyField({
 
   return (
     <label className={`block text-xs ${shell.muted}`}>
-      <PropertyLabel element={element} property={property} />
+      {label}
       <input
         type="text"
         className={`mt-1 w-full font-mono ${shell.input}`}

@@ -160,4 +160,18 @@ describe('hidden element hints', () => {
       resolveHiddenElementHint(element, result, { ...context, showHiddenHints: false }),
     ).toBeNull()
   })
+
+  it('does not throw when rectangle has templated coordinates', () => {
+    const element = {
+      type: 'rectangle' as const,
+      x_start: 0,
+      y_start: 0,
+      x_end: '{{ }}',
+      y_end: 100,
+    }
+
+    expect(() => resolveElementHitBounds(element, context)).not.toThrow()
+    const bounds = resolveElementHitBounds(element, context)
+    expect(bounds).not.toBeNull()
+  })
 })

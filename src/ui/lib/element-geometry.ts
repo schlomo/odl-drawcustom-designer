@@ -1,14 +1,17 @@
 import {
+  elementGeometryLocked,
   ICON_DEFAULT_ANCHOR,
+  ICON_SEQUENCE_ICONS_PREVIEW,
   anchorPointFromBox,
   createQrModuleGrid,
-  hasTemplateSyntax,
   iconSequenceBoxSize,
   isNumericStringCoordinate,
   isOppositeResizeHandle,
   isPercentageCoordinate,
+  isTemplateStoredValue,
   oppositeResizeHandleForAnchor,
   resolveDirection,
+  resolveJsonFieldValue,
   seSizeFromOppositeHandlePointer,
   type DrawElement,
 } from '../../core'
@@ -76,6 +79,11 @@ function spreadAxisDelta(
   return next !== undefined ? { [key]: next } : {}
 }
 
+function iconSequenceIconCount(element: DrawElement & { type: 'icon_sequence' }): number {
+  const icons = resolveJsonFieldValue(element.icons, [...ICON_SEQUENCE_ICONS_PREVIEW])
+  return icons.length
+}
+
 export function isNumericCoordinate(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
@@ -87,7 +95,7 @@ export function isInteractiveCoordinate(value: unknown): boolean {
   if (typeof value !== 'string') {
     return false
   }
-  if (hasTemplateSyntax(value)) {
+  if (isTemplateStoredValue(value)) {
     return false
   }
   if (isPercentageCoordinate(value) || isNumericStringCoordinate(value)) {
@@ -97,55 +105,11 @@ export function isInteractiveCoordinate(value: unknown): boolean {
 }
 
 export function isElementDraggable(element: DrawElement): boolean {
-  switch (element.type) {
-    case 'debug_grid':
-      return false
-    case 'text':
-      return isInteractiveCoordinate(element.x)
-    case 'multiline':
-      return isInteractiveCoordinate(element.x)
-    case 'line':
-      return (
-        isInteractiveCoordinate(element.x_start) &&
-        isInteractiveCoordinate(element.x_end) &&
-        isInteractiveCoordinate(element.y_start ?? 0) &&
-        isInteractiveCoordinate(element.y_end ?? 0)
-      )
-    case 'rectangle':
-    case 'ellipse':
-    case 'progress_bar':
-      return (
-        isInteractiveCoordinate(element.x_start) &&
-        isInteractiveCoordinate(element.x_end) &&
-        isInteractiveCoordinate(element.y_start) &&
-        isInteractiveCoordinate(element.y_end)
-      )
-    case 'rectangle_pattern':
-      return isInteractiveCoordinate(element.x_start) && isInteractiveCoordinate(element.y_start)
-    case 'polygon':
-      return element.points.every(([x, y]) => isNumericCoordinate(x) && isNumericCoordinate(y))
-    case 'circle':
-    case 'arc':
-      return isInteractiveCoordinate(element.x) && isInteractiveCoordinate(element.y)
-    case 'icon':
-    case 'icon_sequence':
-      return isInteractiveCoordinate(element.x) && isInteractiveCoordinate(element.y)
-    case 'dlimg':
-      return isNumericCoordinate(element.x) && isNumericCoordinate(element.y)
-    case 'qrcode':
-      return isInteractiveCoordinate(element.x) && isInteractiveCoordinate(element.y)
-    case 'plot':
-      return (
-        isNumericCoordinate(element.x_start ?? 0) &&
-        isNumericCoordinate(element.y_start ?? 0) &&
-        isNumericCoordinate(element.x_end ?? 0) &&
-        isNumericCoordinate(element.y_end ?? 0)
-      )
-    default: {
-      const _exhaustive: never = element
-      return _exhaustive
-    }
-  }
+  return element.type !== 'debug_grid' && !elementGeometryLocked(element)
+}
+
+export function isElementResizable(element: DrawElement): boolean {
+  return getInteractiveResizeHandles(element).length > 0
 }
 
 export function supportsBoxResize(element: DrawElement): boolean {
@@ -228,8 +192,6 @@ function isBoxResizeInteractive(element: DrawElement): boolean {
       )
     case 'dlimg':
       return (
-        isNumericCoordinate(element.x) &&
-        isNumericCoordinate(element.y) &&
         isEditableResizeScalar(element.xsize) &&
         isEditableResizeScalar(element.ysize)
       )
@@ -281,6 +243,21 @@ export function seSizeResizeHandleForElement(element: DrawElement): ResizeHandle
   return oppositeResizeHandleForAnchor(anchorForSeSizeElement(element), ICON_DEFAULT_ANCHOR)
 }
 
+function dlimgPositionTemplated(element: DrawElement & { type: 'dlimg' }): boolean {
+  return !isInteractiveCoordinate(element.x) || !isInteractiveCoordinate(element.y)
+}
+
+function getDlimgResizeHandles(element: DrawElement & { type: 'dlimg' }): CanvasResizeHandle[] {
+  const interactive = isBoxResizeInteractive(element)
+  if (!interactive) {
+    return BOX_RESIZE_HANDLES.map((handle) => ({ handle, interactive: false }))
+  }
+  if (dlimgPositionTemplated(element)) {
+    return [{ handle: 'se', interactive: true }]
+  }
+  return BOX_RESIZE_HANDLES.map((handle) => ({ handle, interactive: true }))
+}
+
 export function getCanvasResizeHandles(element: DrawElement): CanvasResizeHandle[] {
   if (element.type === 'line') {
     return [
@@ -289,7 +266,7 @@ export function getCanvasResizeHandles(element: DrawElement): CanvasResizeHandle
     ]
   }
 
-  if (elementHasSeSizeHandle(element) && isElementDraggable(element)) {
+  if (elementHasSeSizeHandle(element)) {
     return [
       {
         handle: seSizeResizeHandleForElement(element),
@@ -299,6 +276,9 @@ export function getCanvasResizeHandles(element: DrawElement): CanvasResizeHandle
   }
 
   if (elementHasBoxHandles(element)) {
+    if (element.type === 'dlimg') {
+      return getDlimgResizeHandles(element)
+    }
     const interactive = isBoxResizeInteractive(element)
     return BOX_RESIZE_HANDLES.map((handle) => ({ handle, interactive }))
   }
@@ -313,11 +293,7 @@ export function getInteractiveResizeHandles(element: DrawElement): ResizeHandle[
 }
 
 export function supportsSeSizeResize(element: DrawElement): boolean {
-  return (
-    elementHasSeSizeHandle(element) &&
-    isElementDraggable(element) &&
-    isSeSizeResizeInteractive(element)
-  )
+  return elementHasSeSizeHandle(element) && isSeSizeResizeInteractive(element)
 }
 
 export function seSizeResizeHandles(element: DrawElement): ResizeHandle[] {
@@ -370,7 +346,9 @@ export function translateElement(
         ...element,
         ...spreadAxisDelta('x', element.x, dx, undefined, canvas?.width),
         ...spreadAxisDelta('y', element.y, dy, 0, canvas?.height),
-        offset_y: element.offset_y + dy,
+        ...(isNumericCoordinate(element.offset_y)
+          ? { offset_y: roundCoordinate(element.offset_y + dy) }
+          : {}),
       }
     case 'line':
       return {
@@ -397,6 +375,9 @@ export function translateElement(
         ...(isNumericCoordinate(element.y_start) ? { y_start: roundCoordinate(element.y_start + dy) } : {}),
       }
     case 'polygon':
+      if (typeof element.points === 'string') {
+        return element
+      }
       return {
         ...element,
         points: element.points.map(([x, y]) => [roundCoordinate(x + dx), roundCoordinate(y + dy)] as [number, number]),
@@ -416,6 +397,9 @@ export function translateElement(
         ...spreadAxisDelta('y', element.y, dy, 0),
       }
     case 'dlimg':
+      if (!isNumericCoordinate(element.x) || !isNumericCoordinate(element.y)) {
+        return element
+      }
       return {
         ...element,
         x: roundCoordinate(element.x + dx),
@@ -465,13 +449,48 @@ function centerCoordinate(value: number | string): number {
   return 0
 }
 
+function resolveCenterFromBoundsOrCoords(
+  element: DrawElement & { x: number | string; y?: number | string },
+  startBounds: ElementBounds,
+): { cx: number; cy: number } {
+  if (isInteractiveCoordinate(element.x) && isInteractiveCoordinate(element.y ?? 0)) {
+    return {
+      cx: centerCoordinate(element.x),
+      cy: centerCoordinate(element.y ?? 0),
+    }
+  }
+  return {
+    cx: startBounds.x + startBounds.width / 2,
+    cy: startBounds.y + startBounds.height / 2,
+  }
+}
+
+function resolveIconAnchorFromBoundsOrCoords(
+  element: DrawElement & { type: 'icon' | 'icon_sequence'; x: number | string; y?: number | string; anchor?: string },
+  startBounds: ElementBounds,
+): { x: number; y: number } {
+  if (isInteractiveCoordinate(element.x) && isInteractiveCoordinate(element.y ?? 0)) {
+    return {
+      x: centerCoordinate(element.x),
+      y: centerCoordinate(element.y ?? 0),
+    }
+  }
+  const box = {
+    x: startBounds.x,
+    y: startBounds.y,
+    width: startBounds.width,
+    height: startBounds.height,
+  }
+  return anchorPointFromBox(element.anchor, box, ICON_DEFAULT_ANCHOR)
+}
+
 function applyCenterAnchoredSeSize(
   element: DrawElement & { type: 'circle' | 'arc' },
+  startBounds: ElementBounds,
   pointerX: number,
   pointerY: number,
 ): DrawElement {
-  const cx = centerCoordinate(element.x)
-  const cy = centerCoordinate(element.y)
+  const { cx, cy } = resolveCenterFromBoundsOrCoords(element, startBounds)
   const radius = Math.max(1, Math.round(Math.min(pointerX - cx, pointerY - cy)))
   return { ...element, radius }
 }
@@ -485,7 +504,7 @@ export function applySeSizeResize(
   handle: ResizeHandle = seSizeResizeHandleForElement(element),
 ): DrawElement {
   if (element.type === 'circle' || element.type === 'arc') {
-    return applyCenterAnchoredSeSize(element, pointerX, pointerY)
+    return applyCenterAnchoredSeSize(element, startBounds, pointerX, pointerY)
   }
 
   const dragHandle = isOppositeResizeHandle(handle)
@@ -493,8 +512,7 @@ export function applySeSizeResize(
     : oppositeResizeHandleForAnchor(anchorForSeSizeElement(element), ICON_DEFAULT_ANCHOR)
 
   if (element.type === 'icon') {
-    const anchorX = centerCoordinate(element.x)
-    const anchorY = centerCoordinate(element.y)
+    const { x: anchorX, y: anchorY } = resolveIconAnchorFromBoundsOrCoords(element, startBounds)
     const size = seSizeFromOppositeHandlePointer(
       element.anchor,
       anchorX,
@@ -510,10 +528,7 @@ export function applySeSizeResize(
 
   if (element.type === 'icon_sequence') {
     const direction = resolveDirection(element.direction)
-    const hasExplicitSpacing =
-      typeof element.spacing === 'number' && Number.isFinite(element.spacing)
-    const anchorX = centerCoordinate(element.x)
-    const anchorY = centerCoordinate(element.y)
+    const { x: anchorX, y: anchorY } = resolveIconAnchorFromBoundsOrCoords(element, startBounds)
     const size = seSizeFromOppositeHandlePointer(
       element.anchor,
       anchorX,
@@ -523,8 +538,10 @@ export function applySeSizeResize(
       ICON_DEFAULT_ANCHOR,
       (nextSize) => {
         const spacing =
-          hasExplicitSpacing && element.spacing != null ? element.spacing : nextSize / 4
-        return iconSequenceBoxSize(nextSize, element.icons.length, spacing, direction)
+          typeof element.spacing === 'number' && Number.isFinite(element.spacing)
+            ? element.spacing
+            : nextSize / 4
+        return iconSequenceBoxSize(nextSize, iconSequenceIconCount(element), spacing, direction)
       },
       dragHandle,
     )
@@ -563,38 +580,47 @@ export function applyBoundsResize(element: DrawElement, bounds: ElementBounds): 
         x_end: roundCoordinate(x2),
         y_end: roundCoordinate(y2),
       }
-    case 'dlimg':
-      return {
-        ...element,
-        x: roundCoordinate(bounds.x),
-        y: roundCoordinate(bounds.y),
-        xsize: Math.max(1, Math.round(bounds.width)),
-        ysize: Math.max(1, Math.round(bounds.height)),
+    case 'dlimg': {
+      const next = { ...element }
+      if (isEditableResizeScalar(element.xsize)) {
+        next.xsize = Math.max(1, Math.round(bounds.width))
       }
+      if (isEditableResizeScalar(element.ysize)) {
+        next.ysize = Math.max(1, Math.round(bounds.height))
+      }
+      if (isInteractiveCoordinate(element.x)) {
+        next.x = roundCoordinate(bounds.x)
+      }
+      if (isInteractiveCoordinate(element.y)) {
+        next.y = roundCoordinate(bounds.y)
+      }
+      return next
+    }
     case 'icon': {
       const size = squareSizeFromBounds(bounds)
       const box = { x: bounds.x, y: bounds.y, width: size, height: size }
       const anchor = anchorPointFromBox(element.anchor, box, ICON_DEFAULT_ANCHOR)
       return {
         ...element,
-        x: roundCoordinate(anchor.x),
-        y: roundCoordinate(anchor.y),
+        ...(isInteractiveCoordinate(element.x) ? { x: roundCoordinate(anchor.x) } : {}),
+        ...(isInteractiveCoordinate(element.y ?? 0) ? { y: roundCoordinate(anchor.y) } : {}),
         size,
       }
     }
     case 'icon_sequence': {
       const direction = resolveDirection(element.direction)
-      const hasExplicitSpacing =
-        typeof element.spacing === 'number' && Number.isFinite(element.spacing)
       const size = iconSequenceSizeFromBounds(bounds, direction)
-      const spacing = hasExplicitSpacing && element.spacing != null ? element.spacing : size / 4
-      const layout = iconSequenceBoxSize(size, element.icons.length, spacing, direction)
+      const spacing =
+        typeof element.spacing === 'number' && Number.isFinite(element.spacing)
+          ? element.spacing
+          : size / 4
+      const layout = iconSequenceBoxSize(size, iconSequenceIconCount(element), spacing, direction)
       const box = { x: bounds.x, y: bounds.y, width: layout.width, height: layout.height }
       const anchor = anchorPointFromBox(element.anchor, box, ICON_DEFAULT_ANCHOR)
       return {
         ...element,
-        x: roundCoordinate(anchor.x),
-        y: roundCoordinate(anchor.y),
+        ...(isInteractiveCoordinate(element.x) ? { x: roundCoordinate(anchor.x) } : {}),
+        ...(isInteractiveCoordinate(element.y ?? 0) ? { y: roundCoordinate(anchor.y) } : {}),
         size,
       }
     }
@@ -609,8 +635,8 @@ export function applyBoundsResize(element: DrawElement, bounds: ElementBounds): 
       const boxsize = Math.max(1, Math.round(pixelSize / moduleSpan))
       return {
         ...element,
-        x: roundCoordinate(bounds.x),
-        y: roundCoordinate(bounds.y),
+        ...(isInteractiveCoordinate(element.x) ? { x: roundCoordinate(bounds.x) } : {}),
+        ...(isInteractiveCoordinate(element.y ?? 0) ? { y: roundCoordinate(bounds.y) } : {}),
         boxsize,
       }
     }

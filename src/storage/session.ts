@@ -23,12 +23,6 @@ function parseSessionColorMode(record: Record<string, unknown>): SessionCanvas['
   if (isTagColorMode(record.colorMode)) {
     return record.colorMode
   }
-  if (record.accentMode === 'red') {
-    return 'bwr'
-  }
-  if (record.accentMode === 'yellow') {
-    return 'bwy'
-  }
   return null
 }
 

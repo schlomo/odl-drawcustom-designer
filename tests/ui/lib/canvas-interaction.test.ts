@@ -264,7 +264,7 @@ describe('element geometry', () => {
     expect(isElementDraggable(element)).toBe(false)
   })
 
-  it('shows a disabled southeast handle when icon size is templated', () => {
+  it('allows icon drag but not resize when size is templated', () => {
     const element = {
       type: 'icon' as const,
       value: 'home',
@@ -276,6 +276,102 @@ describe('element geometry', () => {
     expect(supportsSeSizeResize(element)).toBe(false)
     expect(getCanvasResizeHandles(element)).toEqual([{ handle: 'se', interactive: false }])
     expect(getInteractiveResizeHandles(element)).toEqual([])
+  })
+
+  it('allows arc drag when end_angle is templated', () => {
+    const element = {
+      type: 'arc' as const,
+      x: 100,
+      y: 100,
+      radius: 40,
+      start_angle: 0,
+      end_angle: "{{ 270 }}",
+    }
+    expect(isElementDraggable(element)).toBe(true)
+    expect(getCanvasResizeHandles(element)).toEqual([{ handle: 'se', interactive: true }])
+  })
+
+  it('allows circle resize but not drag when x is templated', () => {
+    const element = {
+      type: 'circle' as const,
+      x: '{{ 20 }}',
+      y: 174,
+      radius: 34,
+    }
+    expect(isElementDraggable(element)).toBe(false)
+    expect(supportsSeSizeResize(element)).toBe(true)
+    expect(getInteractiveResizeHandles(element)).toEqual(['se'])
+  })
+
+  it('resizes templated-x circle from preview bounds center', () => {
+    const element = {
+      type: 'circle' as const,
+      x: '{{ 20 }}',
+      y: 174,
+      radius: 34,
+    }
+    const startBounds = { x: 20 - 34, y: 174 - 34, width: 68, height: 68 }
+    const resized = applySeSizeResize(element, startBounds, 20 + 50, 174 + 50)
+    expect(resized.type).toBe('circle')
+    if (resized.type === 'circle') {
+      expect(resized.x).toBe('{{ 20 }}')
+      expect(resized.radius).toBe(50)
+    }
+  })
+
+  it('allows qrcode resize but not drag when x is templated', () => {
+    const element = {
+      type: 'qrcode' as const,
+      data: 'https://example.com',
+      x: '{{ 40 }}',
+      y: 50,
+      boxsize: 4,
+    }
+    expect(isElementDraggable(element)).toBe(false)
+    expect(getInteractiveResizeHandles(element)).toEqual(['se'])
+    const resized = applyBoundsResize(element, { x: 40, y: 50, width: 160, height: 160 })
+    expect(resized.type).toBe('qrcode')
+    if (resized.type === 'qrcode') {
+      expect(resized.x).toBe('{{ 40 }}')
+      expect(resized.boxsize).toBeGreaterThan(4)
+    }
+  })
+
+  it('allows dlimg SE resize but not drag when x is templated', () => {
+    const element = {
+      type: 'dlimg' as const,
+      url: 'demo.png',
+      x: '{{ 10 }}',
+      y: 20,
+      xsize: 100,
+      ysize: 50,
+    }
+    expect(isElementDraggable(element)).toBe(false)
+    expect(getInteractiveResizeHandles(element)).toEqual(['se'])
+    const resized = applyBoundsResize(element, { x: 10, y: 20, width: 140, height: 70 })
+    expect(resized.type).toBe('dlimg')
+    if (resized.type === 'dlimg') {
+      expect(resized.x).toBe('{{ 10 }}')
+      expect(resized.xsize).toBe(140)
+      expect(resized.ysize).toBe(70)
+    }
+  })
+
+  it('resizes templated-x icon from preview bounds anchor', () => {
+    const element = {
+      type: 'icon' as const,
+      value: 'home',
+      x: '{{ 10 }}',
+      y: 20,
+      size: 24,
+    }
+    const startBounds = { x: 10, y: 20, width: 24, height: 24 }
+    const resized = applySeSizeResize(element, startBounds, 10 + 48, 20 + 48)
+    expect(resized.type).toBe('icon')
+    if (resized.type === 'icon') {
+      expect(resized.x).toBe('{{ 10 }}')
+      expect(resized.size).toBe(48)
+    }
   })
 
   it('allows icon resize when size is a numeric literal', () => {
@@ -304,6 +400,23 @@ describe('element geometry', () => {
     const element = {
       ...createElementFromTemplate('rectangle'),
       x_start: "{{ 10 }}",
+    }
+    expect(isElementDraggable(element)).toBe(false)
+  })
+
+  it('marks templated x as geometry locked for text', () => {
+    const element = {
+      type: 'text' as const,
+      value: 'Hi',
+      x: "{{ states('sensor.x') }}",
+    }
+    expect(isElementDraggable(element)).toBe(false)
+  })
+
+  it('marks templated polygon points as not draggable', () => {
+    const element = {
+      type: 'polygon' as const,
+      points: "{{ states('sensor.points') | from_json }}",
     }
     expect(isElementDraggable(element)).toBe(false)
   })
@@ -524,12 +637,14 @@ describe('snapMoveDelta', () => {
 })
 
 describe('property field meta', () => {
+  const textElement = { type: 'text' as const, value: 'Hi', x: 0 }
+
   it('classifies known property kinds', () => {
-    expect(getPropertyFieldKind('color', 'red')).toBe('enum')
-    expect(getPropertyFieldKind('anchor', 'mm')).toBe('enum')
-    expect(getPropertyFieldKind('size', 32)).toBe('number')
-    expect(getPropertyFieldKind('visible', true)).toBe('boolean')
-    expect(getPropertyFieldKind('points', [[0, 0]])).toBe('json')
+    expect(getPropertyFieldKind(textElement, 'color', 'red')).toBe('enum')
+    expect(getPropertyFieldKind(textElement, 'anchor', 'mm')).toBe('enum')
+    expect(getPropertyFieldKind(textElement, 'size', 32)).toBe('number')
+    expect(getPropertyFieldKind(textElement, 'visible', true)).toBe('boolean')
+    expect(getPropertyFieldKind({ type: 'polygon', points: [[0, 0]] }, 'points', [[0, 0]])).toBe('json')
   })
 
   it('treats missing visible as true per spec default', () => {
@@ -561,8 +676,8 @@ describe('property field meta', () => {
     expect(shouldUseEnumDropdown('fill', '#ff0000', ['red', 'black'])).toBe(false)
     expect(shouldUseEnumDropdown('fill', null, ['red', 'black', 'none'])).toBe(true)
     expect(shouldUseEnumDropdown('corners', undefined, ['all'])).toBe(true)
-    expect(getPropertyFieldKind('corners', 'all')).toBe('enum')
-    expect(getPropertyFieldKind('corners', 'top_left,top_right')).toBe('enum')
+    expect(getPropertyFieldKind(textElement, 'corners', 'all')).toBe('enum')
+    expect(getPropertyFieldKind({ type: 'rectangle', x_start: 0, x_end: 1, y_start: 0, y_end: 1 }, 'corners', 'top_left,top_right')).toBe('enum')
     expect(isCodeLikeStringValue('{{ states("x") }}')).toBe(true)
   })
 

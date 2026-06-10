@@ -89,13 +89,3 @@ export function isTagColorMode(value: unknown): value is TagColorMode {
     value === 'rgb'
   )
 }
-
-export function migrateAccentModeToColorMode(
-  accentMode: AccentMode | undefined,
-  colorMode: TagColorMode | undefined,
-): TagColorMode {
-  if (colorMode != null && isTagColorMode(colorMode)) {
-    return colorMode
-  }
-  return accentModeToColorMode(accentMode ?? 'red')
-}

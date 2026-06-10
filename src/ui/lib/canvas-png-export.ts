@@ -1,7 +1,7 @@
 import type opentype from 'opentype.js'
 import {
   finalizeTagImageData,
-  renderElement,
+  safeRenderElement,
   renderHalftonePatternDefs,
   type DrawElement,
   type DitherMode,
@@ -154,7 +154,7 @@ export async function renderPayloadToPngBlob(options: RenderPayloadToPngOptions)
   const patternDefs = renderHalftonePatternDefs(drawContext)
 
   for (const element of options.elements) {
-    const result = renderElement(element, renderContext)
+    const result = safeRenderElement(element, renderContext)
     if (!result) {
       continue
     }

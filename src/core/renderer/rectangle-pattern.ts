@@ -1,5 +1,5 @@
 import type { DrawElement } from '../schema/elements'
-import { effectiveStrokeWidth, resolveShapePaint } from './element-defaults'
+import { effectiveNumber, effectiveStrokeWidth, resolveShapePaint } from './element-defaults'
 import { resolveX, resolveY } from './coordinates'
 import { paintOptionsFromContext } from './preview-paint'
 import type { RenderContext, RenderResult, SvgRectPrimitive } from './types'
@@ -17,16 +17,22 @@ function buildPatternRects(
   const strokeWidth = effectiveStrokeWidth(element, 'width', 1)
   const xStart = resolveX(element.x_start, ctx)
   const yStart = resolveY(element.y_start, ctx)
+  const xSize = effectiveNumber(element, 'x_size', 10, 1)
+  const ySize = effectiveNumber(element, 'y_size', 10, 1)
+  const xOffset = effectiveNumber(element, 'x_offset', 0, 0)
+  const yOffset = effectiveNumber(element, 'y_offset', 0, 0)
+  const xRepeat = effectiveNumber(element, 'x_repeat', 1, 1)
+  const yRepeat = effectiveNumber(element, 'y_repeat', 1, 1)
   const rects: SvgRectPrimitive[] = []
 
-  for (let row = 0; row < element.y_repeat; row += 1) {
-    for (let col = 0; col < element.x_repeat; col += 1) {
+  for (let row = 0; row < yRepeat; row += 1) {
+    for (let col = 0; col < xRepeat; col += 1) {
       rects.push({
         kind: 'rect',
-        x: xStart + col * (element.x_size + element.x_offset),
-        y: yStart + row * (element.y_size + element.y_offset),
-        width: element.x_size,
-        height: element.y_size,
+        x: xStart + col * (xSize + xOffset),
+        y: yStart + row * (ySize + yOffset),
+        width: xSize,
+        height: ySize,
         fill,
         stroke,
         strokeWidth,

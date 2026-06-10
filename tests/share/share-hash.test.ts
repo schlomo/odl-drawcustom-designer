@@ -203,7 +203,7 @@ describe('sharePayloadToBootstrap', () => {
     expect(bootstrap.importSource).toBe('hash')
   })
 
-  it('migrates legacy accent-only share links', () => {
+  it('derives colorMode from share accent when colorMode is omitted', () => {
     const payload = {
       v: 1 as const,
       name: 'Legacy',

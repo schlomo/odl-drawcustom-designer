@@ -8,13 +8,17 @@ import {
 export interface TemplatePreviewAnchor {
   /** Document position for the widget (after the closing quote). */
   pos: number
+  /** Inline label after the arrow. */
   preview: string
+  /** Full text for hover when the inline label is truncated. */
+  tooltip?: string
 }
 
 const DOUBLE_QUOTED = /"(?:[^"\\]|\\.)*"/g
 const SINGLE_QUOTED = /'(?:[^'\\]|\\.)*'/g
 
 export const TEMPLATE_PREVIEW_MAX_LENGTH = 48
+export const TEMPLATE_ERROR_INLINE_MAX_LENGTH = 72
 
 export function formatTemplatePreviewLabel(raw: string): string {
   const collapsed = raw.replace(/\s+/g, ' ').trim()
@@ -24,14 +28,61 @@ export function formatTemplatePreviewLabel(raw: string): string {
   return `${collapsed.slice(0, TEMPLATE_PREVIEW_MAX_LENGTH - 1)}…`
 }
 
-function evaluateTemplatePreview(template: string, context: HaMockContext): string {
-  try {
-    return formatTemplatePreviewLabel(evaluateTemplate(template, context))
-  } catch (error) {
-    if (error instanceof TemplateEvaluationError) {
-      return '[template error]'
+export function formatTemplateErrorPreview(message: string): string {
+  const inline = `[error] ${message}`
+  if (inline.length <= TEMPLATE_ERROR_INLINE_MAX_LENGTH) {
+    return inline
+  }
+  return `${inline.slice(0, TEMPLATE_ERROR_INLINE_MAX_LENGTH - 1)}…`
+}
+
+export function simplifyTemplateErrorMessage(message: string): string {
+  const lines = message
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && line !== '(unknown path)')
+
+  const explicit = lines.find((line) => line.startsWith('Error:'))
+  if (explicit) {
+    return explicit.replace(/^Error:\s*/, '')
+  }
+
+  return lines[lines.length - 1] ?? message
+}
+
+export function extractTemplatePreviewErrorMessage(error: unknown): string {
+  let message = 'Template evaluation failed'
+
+  if (error instanceof TemplateEvaluationError) {
+    message = simplifyTemplateErrorMessage(error.message)
+    if (message === 'Template evaluation failed' && error.cause instanceof Error) {
+      message = simplifyTemplateErrorMessage(error.cause.message)
     }
-    return '[template error]'
+  } else if (error instanceof Error) {
+    message = simplifyTemplateErrorMessage(error.message)
+  }
+
+  return message
+}
+
+export function formatTemplatePreviewError(error: unknown): string {
+  return formatTemplateErrorPreview(extractTemplatePreviewErrorMessage(error))
+}
+
+interface TemplatePreviewResult {
+  preview: string
+  tooltip?: string
+}
+
+function evaluateTemplatePreview(template: string, context: HaMockContext): TemplatePreviewResult {
+  try {
+    return { preview: formatTemplatePreviewLabel(evaluateTemplate(template, context)) }
+  } catch (error) {
+    const message = extractTemplatePreviewErrorMessage(error)
+    return {
+      preview: formatTemplateErrorPreview(message),
+      tooltip: message,
+    }
   }
 }
 
@@ -54,9 +105,12 @@ function collectQuotedTemplateAnchors(
       continue
     }
 
+    const result = evaluateTemplatePreview(inner, context)
+
     out.push({
       pos: start + quoted.length,
-      preview: evaluateTemplatePreview(inner, context),
+      preview: result.preview,
+      tooltip: result.tooltip,
     })
   }
 }

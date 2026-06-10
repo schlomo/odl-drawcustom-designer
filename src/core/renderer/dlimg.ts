@@ -1,4 +1,5 @@
 import type { DrawElement } from '../schema/elements'
+import { effectiveNumber } from './element-defaults'
 import type { RenderContext, RenderResult } from './types'
 import { isVisible } from './visibility'
 
@@ -12,12 +13,14 @@ export function renderDlimg(element: DlimgElement, _ctx: RenderContext): RenderR
 
   const primitive = {
     kind: 'dlimg-stub' as const,
-    x: element.x,
-    y: element.y,
-    width: element.xsize,
-    height: element.ysize,
+    x: effectiveNumber(element, 'x', 0),
+    y: effectiveNumber(element, 'y', 0),
+    width: effectiveNumber(element, 'xsize', 1, 1),
+    height: effectiveNumber(element, 'ysize', 1, 1),
     url: element.url,
-    ...(element.rotate != null ? { rotate: element.rotate } : {}),
+    ...(element.rotate != null
+      ? { rotate: effectiveNumber(element, 'rotate', 0) }
+      : {}),
     ...(element.resize_method != null ? { resizeMethod: element.resize_method } : {}),
   }
 

@@ -25,7 +25,7 @@ describe('colour_scheme helpers', () => {
     expect(colorModeToColourScheme('six')).toBe(0x04)
   })
 
-  it('migrates legacy accent modes', () => {
+  it('maps accent keywords to color modes', () => {
     expect(accentModeToColorMode('red')).toBe('bwr')
     expect(accentModeToColorMode('yellow')).toBe('bwy')
     expect(colorModeToAccent('bwr')).toBe('red')

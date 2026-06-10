@@ -34,16 +34,8 @@ describe('display config preferences', () => {
     })
   })
 
-  it('migrates legacy accentMode values', () => {
-    expect(
-      parseDisplayConfig({ width: 100, height: 100, rotation: 0, accentMode: 'yellow' }),
-    ).toEqual({
-      width: 100,
-      height: 100,
-      rotation: 0,
-      colorMode: 'bwy',
-      previewDitherMode: 0,
-    })
+  it('rejects stored configs without colorMode', () => {
+    expect(parseDisplayConfig({ width: 100, height: 100, rotation: 0, accentMode: 'yellow' })).toBeNull()
   })
 
   it('rejects invalid stored values', () => {

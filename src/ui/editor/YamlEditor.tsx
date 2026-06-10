@@ -9,7 +9,7 @@ import {
   yamlThemeCompartment,
 } from './yamlEditorExtensions'
 import { yamlEntityIdsCompartment, yamlEntityIdsFacet } from './yamlEntityIds'
-import { reconfigureTemplatePreview } from './yamlTemplatePreview'
+import { reconfigureTemplatePreview, templatePreviewNowEffect } from './yamlTemplatePreview'
 import { createYamlEditorTheme } from './yamlTheme'
 import {
   shouldMoveCursorOnLinkedScroll,
@@ -107,10 +107,11 @@ export function YamlEditor({
   const templatePreview = useMemo(
     () => ({
       enabled: templatePreviewEnabled,
-      context: mockContext ?? { states: {} },
+      context: { states: mockContext?.states ?? {} },
     }),
-    [mockContext, templatePreviewEnabled],
+    [templatePreviewEnabled, mockContext?.states],
   )
+  const previewNowMs = mockContext?.now?.getTime()
 
   useEffect(() => {
     onChangeRef.current = onChange
@@ -198,6 +199,17 @@ export function YamlEditor({
       effects: reconfigureTemplatePreview(templatePreview),
     })
   }, [templatePreview])
+
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view || previewNowMs === undefined) {
+      return
+    }
+
+    view.dispatch({
+      effects: templatePreviewNowEffect.of(new Date(previewNowMs)),
+    })
+  }, [previewNowMs])
 
   useEffect(() => {
     const view = viewRef.current

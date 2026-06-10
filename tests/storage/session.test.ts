@@ -118,26 +118,4 @@ describe('session storage adapter', () => {
     expect(stored?.canvas.width).toBe(800)
     expect(stored?.elements).toHaveLength(1)
   })
-
-  it('migrates legacy accentMode in stored sessions', () => {
-    const parsed = parseSessionSnapshot({
-      name: 'Legacy',
-      canvas: {
-        width: 296,
-        height: 128,
-        rotation: 0,
-        accentMode: 'yellow',
-        previewDitherMode: 2,
-      },
-      elements: [{ type: 'text', value: 'Hi', x: 0, y: 0 }],
-    })
-
-    expect(parsed?.canvas).toEqual({
-      width: 296,
-      height: 128,
-      rotation: 0,
-      colorMode: 'bwy',
-      previewDitherMode: 2,
-    })
-  })
 })

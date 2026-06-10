@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   findTemplatePreviewAnchors,
+  formatTemplatePreviewError,
   formatTemplatePreviewLabel,
+  simplifyTemplateErrorMessage,
   TEMPLATE_PREVIEW_MAX_LENGTH,
 } from '../../../src/ui/editor/templatePreviewAnchors'
 import { buildTemplatePreviewDecorations } from '../../../src/ui/editor/yamlTemplatePreview'
@@ -65,6 +67,34 @@ note: "{{ states('sensor.b')
   it('truncates long preview labels', () => {
     const long = 'x'.repeat(TEMPLATE_PREVIEW_MAX_LENGTH + 10)
     expect(formatTemplatePreviewLabel(long)).toBe(`${'x'.repeat(TEMPLATE_PREVIEW_MAX_LENGTH - 1)}…`)
+  })
+
+  it('shows a short evaluator message for template errors', () => {
+    const doc = `progress: "{{ round(now().strftime('%S')) }}"`
+    const anchors = findTemplatePreviewAnchors(doc, { states: {}, now: new Date(2026, 5, 6, 12, 0, 30) })
+    expect(anchors[0]?.preview).toContain('[error]')
+    expect(anchors[0]?.preview).toContain('Unable to call `round`')
+    expect(anchors[0]?.tooltip).toContain('Unable to call `round`')
+  })
+
+  it('simplifies nunjucks error noise', () => {
+    expect(
+      simplifyTemplateErrorMessage(
+        "(unknown path)\n  Error: Unable to call `round`, which is undefined or falsey",
+      ),
+    ).toBe('Unable to call `round`, which is undefined or falsey')
+  })
+
+  it('formats template preview errors with truncation', () => {
+    const long = `Unable to call ${'round'} ${'x'.repeat(TEMPLATE_PREVIEW_MAX_LENGTH)}`
+    expect(formatTemplatePreviewError(new Error(long))).toMatch(/^\[error\] Unable to call round/)
+  })
+
+  it('keeps the full error message in tooltip metadata', () => {
+    const doc = `value: "{{ tates('sensor.temp') }}"`
+    const anchors = findTemplatePreviewAnchors(doc, { states: {} })
+    expect(anchors[0]?.preview).toMatch(/^\[error\] Unable to call/)
+    expect(anchors[0]?.tooltip).toContain('Unable to call `tates`')
   })
 })
 

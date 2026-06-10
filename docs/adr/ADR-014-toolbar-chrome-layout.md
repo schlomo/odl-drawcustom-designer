@@ -1,4 +1,4 @@
-# ADR-013: Single-row responsive toolbars
+# ADR-014: Single-row responsive toolbars
 
 ## Status
 

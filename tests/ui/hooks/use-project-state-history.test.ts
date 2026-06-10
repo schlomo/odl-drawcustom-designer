@@ -113,6 +113,105 @@ describe('useProjectState history integration', () => {
     expect(result.current.selectedIndices).toEqual([0, 1])
   })
 
+  it('skips multi-select align when selection includes templated geometry', () => {
+    const { result } = renderHook(() =>
+      useProjectState(
+        buildAppBootstrap(
+          {
+            id: 'current',
+            name: 'Templated align',
+            canvas: {
+              width: 400,
+              height: 300,
+              rotation: 0,
+              colorMode: 'bwr',
+              previewDitherMode: 0,
+            },
+            elements: [
+              { type: 'rectangle', x_start: 10, y_start: 10, x_end: 30, y_end: 30 },
+              {
+                type: 'rectangle',
+                x_start: '{{ 50 }}',
+                y_start: 20,
+                x_end: 80,
+                y_end: 40,
+              },
+            ],
+            updatedAt: 1,
+          },
+          {},
+          'session',
+        ),
+      ),
+    )
+
+    const boundsByIndex = new Map<number, ElementBounds>([
+      [0, { x: 10, y: 10, width: 20, height: 20 }],
+      [1, { x: 50, y: 20, width: 30, height: 20 }],
+    ])
+
+    act(() => {
+      result.current.selectElement(0, { additive: true })
+      result.current.selectElement(1, { additive: true })
+    })
+
+    act(() => {
+      result.current.alignSelection('left', boundsByIndex)
+    })
+
+    expect(result.current.elements[1]).toMatchObject({ x_start: '{{ 50 }}', x_end: 80 })
+  })
+
+  it('still reorders layers when selection includes templated geometry', () => {
+    const { result } = renderHook(() =>
+      useProjectState(
+        buildAppBootstrap(
+          {
+            id: 'current',
+            name: 'Templated layer',
+            canvas: {
+              width: 400,
+              height: 300,
+              rotation: 0,
+              colorMode: 'bwr',
+              previewDitherMode: 0,
+            },
+            elements: [
+              { type: 'text', value: 'A', x: 0, y: 0 },
+              { type: 'text', value: 'B', x: 10, y: 0 },
+              {
+                type: 'rectangle',
+                x_start: '{{ 10 }}',
+                y_start: 10,
+                x_end: 30,
+                y_end: 30,
+              },
+            ],
+            updatedAt: 1,
+          },
+          {},
+          'session',
+        ),
+      ),
+    )
+
+    act(() => {
+      result.current.selectElement(0, { additive: true })
+      result.current.selectElement(2, { additive: true })
+    })
+
+    act(() => {
+      result.current.bringSelectionToFront()
+    })
+
+    expect(result.current.elements.map((element) => element.type)).toEqual([
+      'text',
+      'text',
+      'rectangle',
+    ])
+    expect(result.current.elements[2]).toMatchObject({ x_start: '{{ 10 }}' })
+  })
+
   it('restores persisted undo depth from session bootstrap', () => {
     const { result } = renderHook(() =>
       useProjectState(

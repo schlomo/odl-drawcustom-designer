@@ -5,7 +5,7 @@ import {
   toolbarGroupsRow,
 } from '../../../src/ui/lib/export-action-feedback'
 
-describe('toolbar chrome classes (ADR-013)', () => {
+describe('toolbar chrome classes (ADR-014)', () => {
   it('keeps panel toolbars on a single row', () => {
     expect(toolbarGroupsRow).toContain('flex-nowrap')
     expect(toolbarGroupsRow).toContain('overflow-visible')

@@ -1,6 +1,9 @@
 import type { RenderContext } from './types'
+import { hasTemplateSyntax } from '../templates/patterns'
 
 export type CoordinateInput = number | string
+
+export const TEMPLATE_COORDINATE_PLACEHOLDER = 0
 
 export function isPercentageCoordinate(value: unknown): value is string {
   return typeof value === 'string' && /^\d+(\.\d+)?%$/.test(value)
@@ -11,7 +14,7 @@ export function isNumericStringCoordinate(value: unknown): value is string {
     return false
   }
   const trimmed = value.trim()
-  if (trimmed.length === 0 || isPercentageCoordinate(trimmed)) {
+  if (trimmed.length === 0 || isPercentageCoordinate(trimmed) || hasTemplateSyntax(trimmed)) {
     return false
   }
   const parsed = Number.parseFloat(trimmed)
@@ -24,6 +27,10 @@ export function resolveCoordinate(value: CoordinateInput, dimension: number): nu
   }
 
   const trimmed = value.trim()
+  if (hasTemplateSyntax(trimmed)) {
+    return TEMPLATE_COORDINATE_PLACEHOLDER
+  }
+
   const percentMatch = /^(\d+(?:\.\d+)?)%$/.exec(trimmed)
   if (percentMatch) {
     return (dimension * Number.parseFloat(percentMatch[1])) / 100
@@ -34,7 +41,7 @@ export function resolveCoordinate(value: CoordinateInput, dimension: number): nu
     return parsed
   }
 
-  throw new Error(`Invalid coordinate: ${value}`)
+  return TEMPLATE_COORDINATE_PLACEHOLDER
 }
 
 export function resolveX(value: CoordinateInput, ctx: RenderContext): number {

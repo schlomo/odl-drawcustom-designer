@@ -1,4 +1,5 @@
 import type { DrawElement } from '../schema/elements'
+import { PLOT_DATA_PREVIEW, resolveJsonFieldValue } from '../schema/propertyEditorMeta'
 import { resolveBounds } from './bounds'
 import {
   effectiveBool,
@@ -21,12 +22,25 @@ import { isVisible } from './visibility'
 type PlotElement = Extract<DrawElement, { type: 'plot' }>
 type PlotLegend = NonNullable<PlotElement['ylegend']>
 type PlotAxis = NonNullable<PlotElement['yaxis']>
+type PlotDataLine = PlotElement['data'] extends (infer T)[] | string ? T : never
+
+function plotDataLines(element: PlotElement): PlotDataLine[] {
+  return resolveJsonFieldValue(element.data, [...PLOT_DATA_PREVIEW]) as PlotDataLine[]
+}
 
 const DEFAULT_POINT_COUNT = 24
 const DEFAULT_LEGEND_FONT_SIZE = 10
 const Y_LEGEND_WIDTH = 28
 const X_LEGEND_HEIGHT = 16
 const DEFAULT_Y_TICK_LENGTH = 4
+
+function plotLineNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function optionalPlotBound(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
 
 function readNestedRecord(
   record: PlotLegend | PlotAxis | undefined,
@@ -124,7 +138,7 @@ function buildSeries(
 ): PlotSeriesPrimitive[] {
   const pointCount = Math.max(8, Math.min(DEFAULT_POINT_COUNT, Math.round(chartWidth / 8)))
 
-  return element.data.map((line, seriesIndex) => {
+  return plotDataLines(element).map((line, seriesIndex) => {
     const values = generateSampleSeriesValues(line.entity, seriesIndex, pointCount, low, high)
     const scale =
       typeof line.value_scale === 'number' && Number.isFinite(line.value_scale)
@@ -139,12 +153,12 @@ function buildSeries(
     return {
       entity: line.entity,
       color: line.color ?? 'black',
-      lineWidth: Math.max(1, line.width ?? 1),
+      lineWidth: Math.max(1, plotLineNumber(line.width, 1)),
       points,
       smooth: line.smooth === true,
       lineStyle: line.line_style === 'step' ? 'step' : 'linear',
       showPoints: line.show_points === true,
-      pointSize: Math.max(1, line.point_size ?? 3),
+      pointSize: Math.max(1, plotLineNumber(line.point_size, 3)),
       pointColor: line.point_color ?? 'black',
     }
   })
@@ -311,10 +325,15 @@ export function renderPlot(element: PlotElement, ctx: RenderContext): RenderResu
     xLegendPosition,
   )
 
-  const previewValues = element.data.flatMap((line, index) =>
+  const dataLines = plotDataLines(element)
+  const previewValues = dataLines.flatMap((line, index) =>
     generateSampleSeriesValues(line.entity, index, DEFAULT_POINT_COUNT, 0, 1),
   )
-  const range = resolvePlotValueRange(element.low, element.high, previewValues)
+  const range = resolvePlotValueRange(
+    optionalPlotBound(element.low),
+    optionalPlotBound(element.high),
+    previewValues,
+  )
   const roundValues = element.round_values === true
   const low = roundValues ? Math.floor(range.low) : range.low
   const high = roundValues ? Math.ceil(range.high) : range.high

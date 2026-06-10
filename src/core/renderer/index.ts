@@ -58,9 +58,18 @@ export function renderElement(element: DrawElement, ctx: RenderContext): RenderR
   }
 }
 
+/** Best-effort render — never throws (templated/incomplete values must not crash the UI). */
+export function safeRenderElement(element: DrawElement, ctx: RenderContext): RenderResult | null {
+  try {
+    return renderElement(element, ctx)
+  } catch {
+    return null
+  }
+}
+
 export function renderPayload(elements: DrawElement[], ctx: RenderContext): RenderResult[] {
   return elements.flatMap((element) => {
-    const result = renderElement(element, ctx)
+    const result = safeRenderElement(element, ctx)
     return result ? [result] : []
   })
 }
@@ -124,6 +133,7 @@ export {
   resolveCoordinate,
   resolveX,
   resolveY,
+  TEMPLATE_COORDINATE_PLACEHOLDER,
 } from './coordinates'
 export { fontFamilyNameForKey } from './font-family-name'
 export {

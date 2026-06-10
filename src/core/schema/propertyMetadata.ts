@@ -1,5 +1,6 @@
 import type { DrawElement } from './elements'
 import { PROPERTIES_BY_TYPE } from './completions'
+import { hasTemplateSyntax } from '../templates/patterns'
 
 export interface PropertySpecMeta {
   description: string
@@ -384,6 +385,9 @@ export function normalizePropertyValueForStorage(
 ): unknown {
   if (value === undefined || value === null) {
     return undefined
+  }
+  if (typeof value === 'string' && hasTemplateSyntax(value)) {
+    return value
   }
   const defaultValue =
     computedPropertyDefault(element, property) ?? getPropertyDefault(element.type, property)

@@ -16,10 +16,6 @@ export {
   writeSessionToDb,
   type SessionWritePayload,
 } from './session'
-export {
-  LEGACY_MOCK_STATES_STORAGE_KEY,
-  MOCK_STATES_MIGRATED_KEY,
-} from './keys'
 export type {
   PersistedEditHistory,
   SessionCanvas,

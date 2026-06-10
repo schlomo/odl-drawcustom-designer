@@ -6,7 +6,7 @@ import {
   useState,
   type CSSProperties,
 } from 'react'
-import { renderElement, type DrawElement, type RenderContext } from '../../core'
+import { safeRenderElement, type DrawElement, type RenderContext } from '../../core'
 import { CanvasElementSlot } from './CanvasElementSlot'
 import {
   applyBoundsResize,
@@ -75,7 +75,7 @@ import { toolbarHeaderSlotWidth } from '../lib/toolbar-header-slot'
 import { useToolbarLabels } from '../hooks/useToolbarLabels'
 import { useElementSize } from '../hooks/useElementSize'
 import { type ElementBounds } from '../lib/primitive-bounds'
-import { unionBounds, type ElementAlign } from '../lib/align-elements'
+import { canAlignSelection, unionBounds, type ElementAlign } from '../lib/align-elements'
 import { isElementCanvasSelectable, resolveElementHitBounds } from '../lib/hidden-element-hints'
 import { normalizeMarqueeRect } from '../lib/marquee-selection'
 import {
@@ -489,7 +489,7 @@ export function DesignerCanvas({
       return null
     }
     void fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts)
-    return renderElement(overlayElementForSelection, renderContext)
+    return safeRenderElement(overlayElementForSelection, renderContext)
   }, [fontAssetKeys, opentypeFonts, overlayElementForSelection, renderContext])
 
   const lineCoords = useMemo(() => {
@@ -650,14 +650,13 @@ export function DesignerCanvas({
           !isMultiSelect &&
           selectedIndex != null &&
           selectionBounds &&
-          selectedEditElement &&
-          isElementDraggable(selectedEditElement)
+          selectedEditElement
         ) {
           const handles = getInteractiveResizeHandles(selectedEditElement)
           const handle = hitResizeHandle(point, selectionBounds, handles, lineCoords)
           if (handle && !shouldPreferMoveOverResize(point, selectionBounds, handle, lineCoords)) {
             cursor = resizeHandleCursor(handle)
-          } else {
+          } else if (isElementDraggable(selectedEditElement)) {
             const hit = findTopmostElementHit(hitTargets, point)
             const hitElement = hit ? editElements[hit.index] : undefined
             if (hitElement && isElementDraggable(hitElement)) {
@@ -925,8 +924,7 @@ export function DesignerCanvas({
         !isMultiSelect &&
         selectedIndex != null &&
         selectionBounds &&
-        selectedEditElement &&
-        isElementDraggable(selectedEditElement)
+        selectedEditElement
       ) {
         const handles = getInteractiveResizeHandles(selectedEditElement)
         const handle = hitResizeHandle(interactionPoint, selectionBounds, handles, lineCoords)
@@ -1100,6 +1098,7 @@ export function DesignerCanvas({
 
   const canMoveSelectionUp = selectedIndices.some((index) => index < elementCount - 1)
   const canMoveSelectionDown = selectedIndices.some((index) => index > 0)
+  const canAlignMultiSelection = canAlignSelection(editElements, selectedIndices)
 
   const canvasSnapGuideOverlay = useMemo(() => {
     if (!snapGrid.enabled || canvasSnapGuides.length === 0) {
@@ -1222,6 +1221,7 @@ export function DesignerCanvas({
       <div className="relative min-h-0 flex-1">
         <CanvasSelectionToolbar
           selectionCount={selectedIndices.length}
+          canAlign={canAlignMultiSelection}
           canMoveUp={canMoveSelectionUp}
           canMoveDown={canMoveSelectionDown}
           onAlign={onAlignSelection}

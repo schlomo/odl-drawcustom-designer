@@ -33,6 +33,23 @@ describe('golden YAML round-trip (all spec fixtures)', () => {
 })
 
 describe('HA-clean serialize', () => {
+  it('uses plain scalars when quoting is not required', () => {
+    const exported = serializeYamlPayload([
+      { type: 'text', value: 'Hello', x: 40, y: 20, size: 20, fill: 'red' },
+    ])
+    expect(exported).toContain('fill: red')
+    expect(exported).toContain('size: 20')
+    expect(exported).not.toContain('"type":')
+  })
+
+  it('quotes template strings without quoting every key', () => {
+    const exported = serializeYamlPayload([
+      { type: 'text', value: 'Hi', x: 0, size: '{{ }}' },
+    ])
+    expect(exported).toContain('size: "{{ }}"')
+    expect(exported).not.toContain('"type":')
+  })
+
   it('strips all designer-only fields from exported YAML', () => {
     const elements = parseYamlPayload(`
 - type: text

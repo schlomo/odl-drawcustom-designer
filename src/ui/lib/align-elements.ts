@@ -1,10 +1,28 @@
+import { elementGeometryLocked, type DrawElement } from '../../core'
 import { translateElement, type TranslateCanvasDefaults } from './element-geometry'
-import type { DrawElement } from '../../core'
 import type { ElementBounds } from './primitive-bounds'
 
 export type HorizontalAlign = 'left' | 'center' | 'right'
 export type VerticalAlign = 'top' | 'middle' | 'bottom'
 export type ElementAlign = HorizontalAlign | VerticalAlign
+
+/** True when any selected element has templated geometry — canvas align must not run. */
+export function selectionIncludesGeometryLocked(
+  elements: readonly DrawElement[],
+  indices: readonly number[],
+): boolean {
+  return indices.some((index) => {
+    const element = elements[index]
+    return element != null && elementGeometryLocked(element)
+  })
+}
+
+export function canAlignSelection(
+  elements: readonly DrawElement[],
+  indices: readonly number[],
+): boolean {
+  return indices.length >= 2 && !selectionIncludesGeometryLocked(elements, indices)
+}
 
 export function unionBounds(all: ElementBounds[]): ElementBounds | null {
   if (all.length === 0) {
@@ -58,6 +76,10 @@ export function alignElementsInUnion(
   align: ElementAlign,
   canvas: TranslateCanvasDefaults,
 ): DrawElement[] {
+  if (selectionIncludesGeometryLocked(elements, indices)) {
+    return elements
+  }
+
   const boundsList = indices
     .map((index) => boundsByIndex.get(index))
     .filter((bounds): bounds is ElementBounds => bounds != null)

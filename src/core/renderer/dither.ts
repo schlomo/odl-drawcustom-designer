@@ -6,7 +6,7 @@ import {
 } from '../display/palette'
 import { clampImageDataToColorMode } from '../display/palette-clamp'
 import { mapColor } from './colors'
-import type { AccentMode, ColorOptions, DitherMode } from './types'
+import type { ColorOptions, DitherMode } from './types'
 
 export type { DitherMode } from './types'
 
@@ -86,14 +86,6 @@ export function resolveHalftonePair(colorName: string, options: ColorOptions): H
   }
 }
 
-/** @deprecated Prefer {@link resolveHalftonePair} with ColorOptions. */
-export function resolveHalftonePairLegacy(
-  colorName: string,
-  accentMode: AccentMode,
-): HalftonePair | null {
-  return resolveHalftonePair(colorName, { accentMode })
-}
-
 export function sampleOrderedDitherColor(
   x: number,
   y: number,
@@ -106,16 +98,6 @@ export function sampleOrderedDitherColor(
   }
 
   return bayerThreshold(x, y) < pair.ratio ? pair.dark : pair.light
-}
-
-/** @deprecated Prefer {@link sampleOrderedDitherColor} with ColorOptions. */
-export function sampleOrderedDitherColorLegacy(
-  x: number,
-  y: number,
-  colorName: string,
-  accentMode: AccentMode,
-): string {
-  return sampleOrderedDitherColor(x, y, colorName, { accentMode })
 }
 
 export function resolvePreviewColor(
@@ -298,18 +280,6 @@ export function applyOrderedDitherBuffer(
   }
 }
 
-/** @deprecated Prefer {@link applyOrderedDitherBuffer} with ColorOptions. */
-export function applyOrderedDitherBufferLegacy(
-  rgba: Uint8ClampedArray,
-  width: number,
-  height: number,
-  colorNameHint: string | null,
-  accentMode: AccentMode,
-  ditherMode: DitherMode | undefined,
-): void {
-  applyOrderedDitherBuffer(rgba, width, height, colorNameHint, { accentMode, ditherMode })
-}
-
 /** Clamp raster pixels to the tag palette, then Bayer-dither halftone tones when d=2. */
 export function finalizeTagImageData(
   rgba: Uint8ClampedArray,
@@ -338,15 +308,6 @@ export function halftoneTileColors(
     }
   }
   return colors
-}
-
-/** @deprecated Prefer {@link halftoneTileColors} with ColorOptions. */
-export function halftoneTileColorsLegacy(
-  colorName: string,
-  accentMode: AccentMode,
-  tileSize = 4,
-): string[] {
-  return halftoneTileColors(colorName, { accentMode }, tileSize)
 }
 
 export { colorModeToAccent }

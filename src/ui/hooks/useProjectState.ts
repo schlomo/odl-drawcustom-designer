@@ -8,7 +8,7 @@ import {
   type ServiceOptions,
 } from '../../core'
 import type { AssetKind, AssetUploadResult, RenderContext, TagColorMode } from '../../core'
-import { applyTemplateContextToPayload, scanPayloadForTemplates } from '../../core'
+import { applyTemplateContextToPayload, resolvePreviewClockInterval, scanPayloadForTemplates } from '../../core'
 import {
   persistAsset,
   removePersistedAsset,
@@ -17,7 +17,7 @@ import {
 import type { AppBootstrap } from '../bootstrap/appBootstrap'
 import type { PersistedEditHistory, SessionEditSnapshot } from '../../storage'
 import { EXAMPLE_DESIGNS } from '../data/example-designs'
-import { alignElementsInUnion, type ElementAlign } from '../lib/align-elements'
+import { alignElementsInUnion, canAlignSelection, type ElementAlign } from '../lib/align-elements'
 import { applyElementUpdates, nudgeElementsAtIndices } from '../lib/batch-element-updates'
 import {
   canAddElementType,
@@ -302,7 +302,12 @@ export function useProjectState(bootstrap: AppBootstrap) {
     writeShowHiddenHintsPrefs({ enabled: showHiddenHints })
   }, [showHiddenHints])
 
-  const previewNow = useTemplatePreviewClock()
+  const previewClockInterval = useMemo(
+    () => resolvePreviewClockInterval(elements),
+    [elements],
+  )
+
+  const previewNow = useTemplatePreviewClock(previewClockInterval)
 
   const mockContext = useMemo(
     () => buildEffectiveMockContext(elements, mockStates),
@@ -836,12 +841,15 @@ export function useProjectState(bootstrap: AppBootstrap) {
         return
       }
       dispatchHistory(() => {
-        commitElements((current) =>
-          alignElementsInUnion(current, selectedIndicesRef.current, boundsByIndex, align, {
+        commitElements((current) => {
+          if (!canAlignSelection(current, selectedIndicesRef.current)) {
+            return current
+          }
+          return alignElementsInUnion(current, selectedIndicesRef.current, boundsByIndex, align, {
             width: canvasRef.current.width,
             height: canvasRef.current.height,
-          }),
-        )
+          })
+        })
       })
     },
     [commitElements, dispatchHistory, selectedIndices],

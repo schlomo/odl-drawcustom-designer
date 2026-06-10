@@ -1,5 +1,5 @@
 import type { DrawElement } from '../schema/elements'
-import { effectiveStrokeWidth, resolveShapePaint } from './element-defaults'
+import { effectiveNumber, effectiveStrokeWidth, resolveShapePaint } from './element-defaults'
 import { resolveX, resolveY } from './coordinates'
 import { paintOptionsFromContext } from './preview-paint'
 import type { RenderContext, RenderResult } from './types'
@@ -18,7 +18,7 @@ export function renderCircle(element: CircleElement, ctx: RenderContext): Render
     kind: 'circle' as const,
     cx: resolveX(element.x, ctx),
     cy: resolveY(element.y, ctx),
-    r: element.radius,
+    r: effectiveNumber(element, 'radius', 1, 1),
     fill: resolveShapePaint(element, 'fill', paintOptions),
     stroke: resolveShapePaint(element, 'outline', paintOptions, 'black') ?? undefined,
     strokeWidth: effectiveStrokeWidth(element, 'width', 1),

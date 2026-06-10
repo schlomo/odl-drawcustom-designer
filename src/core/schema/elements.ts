@@ -1,15 +1,16 @@
 import { z } from 'zod'
 import {
   anchorSchema,
-  boolSchema,
+  boolTemplateSchema,
   colorSchema,
-  coordinateSchema,
-  numericTemplateSchema,
+  coordinateTemplateSchema,
   cornersSchema,
   directionSchema,
   fontSchema,
   gridStyleSchema,
+  jsonOrTemplateSchema,
   lineStyleSchema,
+  numericTemplateSchema,
   resizeMethodSchema,
   spanGapsSchema,
   visibleSchema,
@@ -19,15 +20,15 @@ import { iconNameSchema } from './iconName'
 const debugGridSchema = z
   .object({
     type: z.literal('debug_grid'),
-    spacing: z.number().optional(),
+    spacing: numericTemplateSchema.optional(),
     line_color: colorSchema.optional(),
-    dashed: boolSchema.optional(),
-    dash_length: z.number().optional(),
-    space_length: z.number().optional(),
-    show_labels: boolSchema.optional(),
-    label_step: z.number().optional(),
+    dashed: boolTemplateSchema.optional(),
+    dash_length: numericTemplateSchema.optional(),
+    space_length: numericTemplateSchema.optional(),
+    show_labels: boolTemplateSchema.optional(),
+    label_step: numericTemplateSchema.optional(),
     label_color: colorSchema.optional(),
-    label_font_size: z.number().optional(),
+    label_font_size: numericTemplateSchema.optional(),
     font: fontSchema,
     visible: visibleSchema,
   })
@@ -37,20 +38,20 @@ const textSchema = z
   .object({
     type: z.literal('text'),
     value: z.string(),
-    x: coordinateSchema,
-    y: coordinateSchema.optional(),
-    size: z.number().optional(),
+    x: coordinateTemplateSchema,
+    y: coordinateTemplateSchema.optional(),
+    size: numericTemplateSchema.optional(),
     font: fontSchema,
     color: colorSchema.optional(),
     anchor: anchorSchema,
-    max_width: coordinateSchema.optional(),
-    spacing: z.number().optional(),
-    stroke_width: z.number().optional(),
+    max_width: coordinateTemplateSchema.optional(),
+    spacing: numericTemplateSchema.optional(),
+    stroke_width: numericTemplateSchema.optional(),
     stroke_fill: colorSchema.optional(),
-    y_padding: z.number().optional(),
+    y_padding: numericTemplateSchema.optional(),
     visible: visibleSchema,
-    parse_colors: boolSchema.optional(),
-    truncate: boolSchema.optional(),
+    parse_colors: boolTemplateSchema.optional(),
+    truncate: boolTemplateSchema.optional(),
   })
   .strict()
 
@@ -59,31 +60,31 @@ const multilineSchema = z
     type: z.literal('multiline'),
     value: z.string(),
     delimiter: z.string().min(1),
-    x: coordinateSchema,
-    offset_y: z.number(),
-    y: coordinateSchema.optional(),
-    size: z.number().optional(),
+    x: coordinateTemplateSchema,
+    offset_y: numericTemplateSchema,
+    y: coordinateTemplateSchema.optional(),
+    size: numericTemplateSchema.optional(),
     font: fontSchema,
     color: colorSchema.optional(),
-    spacing: z.number().optional(),
+    spacing: numericTemplateSchema.optional(),
     visible: visibleSchema,
-    parse_colors: boolSchema.optional(),
+    parse_colors: boolTemplateSchema.optional(),
   })
   .strict()
 
 const lineSchema = z
   .object({
     type: z.literal('line'),
-    x_start: coordinateSchema,
-    x_end: coordinateSchema,
-    y_start: coordinateSchema.optional(),
-    y_end: coordinateSchema.optional(),
+    x_start: coordinateTemplateSchema,
+    x_end: coordinateTemplateSchema,
+    y_start: coordinateTemplateSchema.optional(),
+    y_end: coordinateTemplateSchema.optional(),
     fill: colorSchema.optional(),
-    width: z.number().optional(),
-    y_padding: z.number().optional(),
-    dashed: boolSchema.optional(),
-    dash_length: z.number().optional(),
-    space_length: z.number().optional(),
+    width: numericTemplateSchema.optional(),
+    y_padding: numericTemplateSchema.optional(),
+    dashed: boolTemplateSchema.optional(),
+    dash_length: numericTemplateSchema.optional(),
+    space_length: numericTemplateSchema.optional(),
     visible: visibleSchema,
   })
   .strict()
@@ -91,14 +92,14 @@ const lineSchema = z
 const rectangleSchema = z
   .object({
     type: z.literal('rectangle'),
-    x_start: coordinateSchema,
-    x_end: coordinateSchema,
-    y_start: coordinateSchema,
-    y_end: coordinateSchema,
+    x_start: coordinateTemplateSchema,
+    x_end: coordinateTemplateSchema,
+    y_start: coordinateTemplateSchema,
+    y_end: coordinateTemplateSchema,
     fill: colorSchema.optional(),
     outline: colorSchema.optional(),
-    width: z.number().optional(),
-    radius: z.number().optional(),
+    width: numericTemplateSchema.optional(),
+    radius: numericTemplateSchema.optional(),
     corners: cornersSchema.optional(),
     visible: visibleSchema,
   })
@@ -107,28 +108,30 @@ const rectangleSchema = z
 const rectanglePatternSchema = z
   .object({
     type: z.literal('rectangle_pattern'),
-    x_start: coordinateSchema,
-    x_size: z.number(),
-    x_offset: z.number(),
-    y_start: coordinateSchema,
-    y_size: z.number(),
-    y_offset: z.number(),
-    x_repeat: z.number().int(),
-    y_repeat: z.number().int(),
+    x_start: coordinateTemplateSchema,
+    x_size: numericTemplateSchema,
+    x_offset: numericTemplateSchema,
+    y_start: coordinateTemplateSchema,
+    y_size: numericTemplateSchema,
+    y_offset: numericTemplateSchema,
+    x_repeat: numericTemplateSchema,
+    y_repeat: numericTemplateSchema,
     fill: colorSchema.optional(),
     outline: colorSchema.optional(),
-    width: z.number().optional(),
+    width: numericTemplateSchema.optional(),
     visible: visibleSchema,
   })
   .strict()
 
+const polygonPointsSchema = z.array(z.tuple([z.number(), z.number()]))
+
 const polygonSchema = z
   .object({
     type: z.literal('polygon'),
-    points: z.array(z.tuple([z.number(), z.number()])),
+    points: jsonOrTemplateSchema(polygonPointsSchema),
     fill: colorSchema.optional(),
     outline: colorSchema.optional(),
-    width: z.number().optional(),
+    width: numericTemplateSchema.optional(),
     visible: visibleSchema,
   })
   .strict()
@@ -136,12 +139,12 @@ const polygonSchema = z
 const circleSchema = z
   .object({
     type: z.literal('circle'),
-    x: coordinateSchema,
-    y: coordinateSchema,
-    radius: z.number(),
+    x: coordinateTemplateSchema,
+    y: coordinateTemplateSchema,
+    radius: numericTemplateSchema,
     fill: colorSchema.optional(),
     outline: colorSchema.optional(),
-    width: z.number().optional(),
+    width: numericTemplateSchema.optional(),
     visible: visibleSchema,
   })
   .strict()
@@ -149,13 +152,13 @@ const circleSchema = z
 const ellipseSchema = z
   .object({
     type: z.literal('ellipse'),
-    x_start: coordinateSchema,
-    x_end: coordinateSchema,
-    y_start: coordinateSchema,
-    y_end: coordinateSchema,
+    x_start: coordinateTemplateSchema,
+    x_end: coordinateTemplateSchema,
+    y_start: coordinateTemplateSchema,
+    y_end: coordinateTemplateSchema,
     fill: colorSchema.optional(),
     outline: colorSchema.optional(),
-    width: z.number().optional(),
+    width: numericTemplateSchema.optional(),
     visible: visibleSchema,
   })
   .strict()
@@ -163,14 +166,14 @@ const ellipseSchema = z
 const arcSchema = z
   .object({
     type: z.literal('arc'),
-    x: coordinateSchema,
-    y: coordinateSchema,
-    radius: z.number(),
-    start_angle: z.number(),
-    end_angle: z.number(),
+    x: coordinateTemplateSchema,
+    y: coordinateTemplateSchema,
+    radius: numericTemplateSchema,
+    start_angle: numericTemplateSchema,
+    end_angle: numericTemplateSchema,
     fill: colorSchema.optional(),
     outline: colorSchema.optional(),
-    width: z.number().optional(),
+    width: numericTemplateSchema.optional(),
     visible: visibleSchema,
   })
   .strict()
@@ -179,8 +182,8 @@ const iconSchema = z
   .object({
     type: z.literal('icon'),
     value: iconNameSchema,
-    x: coordinateSchema,
-    y: coordinateSchema,
+    x: coordinateTemplateSchema,
+    y: coordinateTemplateSchema,
     size: numericTemplateSchema,
     fill: colorSchema.optional(),
     color: colorSchema.optional(),
@@ -192,12 +195,12 @@ const iconSchema = z
 const iconSequenceSchema = z
   .object({
     type: z.literal('icon_sequence'),
-    x: coordinateSchema,
-    y: coordinateSchema,
-    icons: z.array(iconNameSchema).min(1),
+    x: coordinateTemplateSchema,
+    y: coordinateTemplateSchema,
+    icons: jsonOrTemplateSchema(z.array(iconNameSchema).min(1)),
     size: numericTemplateSchema,
     direction: directionSchema.optional(),
-    spacing: z.number().optional(),
+    spacing: numericTemplateSchema.optional(),
     fill: colorSchema.optional(),
     anchor: anchorSchema,
     visible: visibleSchema,
@@ -208,12 +211,12 @@ const dlimgSchema = z
   .object({
     type: z.literal('dlimg'),
     url: z.string(),
-    x: z.number(),
-    y: z.number(),
-    xsize: z.number(),
-    ysize: z.number(),
+    x: numericTemplateSchema,
+    y: numericTemplateSchema,
+    xsize: numericTemplateSchema,
+    ysize: numericTemplateSchema,
     resize_method: resizeMethodSchema.optional(),
-    rotate: z.number().optional(),
+    rotate: numericTemplateSchema.optional(),
     visible: visibleSchema,
   })
   .strict()
@@ -222,10 +225,10 @@ const qrcodeSchema = z
   .object({
     type: z.literal('qrcode'),
     data: z.string(),
-    x: coordinateSchema,
-    y: coordinateSchema,
-    boxsize: z.number().optional(),
-    border: z.number().optional(),
+    x: coordinateTemplateSchema,
+    y: coordinateTemplateSchema,
+    boxsize: numericTemplateSchema.optional(),
+    border: numericTemplateSchema.optional(),
     color: colorSchema.optional(),
     bgcolor: colorSchema.optional(),
     visible: visibleSchema,
@@ -236,37 +239,37 @@ const plotDataLineSchema = z
   .object({
     entity: z.string(),
     color: colorSchema.optional(),
-    width: z.number().optional(),
+    width: numericTemplateSchema.optional(),
     span_gaps: spanGapsSchema.optional(),
-    smooth: boolSchema.optional(),
+    smooth: boolTemplateSchema.optional(),
     line_style: lineStyleSchema.optional(),
-    show_points: boolSchema.optional(),
-    point_size: z.number().optional(),
+    show_points: boolTemplateSchema.optional(),
+    point_size: numericTemplateSchema.optional(),
     point_color: colorSchema.optional(),
-    value_scale: z.number().optional(),
+    value_scale: numericTemplateSchema.optional(),
   })
   .strict()
 
 const plotLegendSchema = z
   .object({
-    width: z.number().optional(),
+    width: numericTemplateSchema.optional(),
     color: colorSchema.optional(),
     position: z.string().optional(),
-    size: z.number().optional(),
+    size: numericTemplateSchema.optional(),
     format: z.string().optional(),
-    interval: z.number().optional(),
-    snap_to_hours: boolSchema.optional(),
+    interval: numericTemplateSchema.optional(),
+    snap_to_hours: boolTemplateSchema.optional(),
   })
   .strict()
 
 const plotAxisSchema = z
   .object({
-    width: z.number().optional(),
+    width: numericTemplateSchema.optional(),
     color: colorSchema.optional(),
-    tick_width: z.number().optional(),
-    tick_length: z.number().optional(),
-    tick_every: z.number().optional(),
-    grid: z.union([boolSchema, z.number()]).optional(),
+    tick_width: numericTemplateSchema.optional(),
+    tick_length: numericTemplateSchema.optional(),
+    tick_every: numericTemplateSchema.optional(),
+    grid: z.union([boolTemplateSchema, numericTemplateSchema]).optional(),
     grid_color: colorSchema.optional(),
     grid_style: gridStyleSchema.optional(),
   })
@@ -275,22 +278,22 @@ const plotAxisSchema = z
 const plotSchema = z
   .object({
     type: z.literal('plot'),
-    data: z.array(plotDataLineSchema).min(1),
+    data: jsonOrTemplateSchema(z.array(plotDataLineSchema).min(1)),
     ylegend: plotLegendSchema.optional(),
     yaxis: plotAxisSchema.optional(),
     xlegend: plotLegendSchema.optional(),
     xaxis: plotAxisSchema.optional(),
-    x_start: z.number().optional(),
-    y_start: z.number().optional(),
-    x_end: z.number().optional(),
-    y_end: z.number().optional(),
-    duration: z.number().optional(),
-    low: z.number().optional(),
-    high: z.number().optional(),
+    x_start: numericTemplateSchema.optional(),
+    y_start: numericTemplateSchema.optional(),
+    x_end: numericTemplateSchema.optional(),
+    y_end: numericTemplateSchema.optional(),
+    duration: numericTemplateSchema.optional(),
+    low: numericTemplateSchema.optional(),
+    high: numericTemplateSchema.optional(),
     font: fontSchema,
-    round_values: boolSchema.optional(),
-    size: z.number().optional(),
-    debug: boolSchema.optional(),
+    round_values: boolTemplateSchema.optional(),
+    size: numericTemplateSchema.optional(),
+    debug: boolTemplateSchema.optional(),
     visible: visibleSchema,
   })
   .strict()
@@ -298,17 +301,17 @@ const plotSchema = z
 const progressBarSchema = z
   .object({
     type: z.literal('progress_bar'),
-    x_start: coordinateSchema,
-    y_start: coordinateSchema,
-    x_end: coordinateSchema,
-    y_end: coordinateSchema,
-    progress: z.number(),
+    x_start: coordinateTemplateSchema,
+    y_start: coordinateTemplateSchema,
+    x_end: coordinateTemplateSchema,
+    y_end: coordinateTemplateSchema,
+    progress: numericTemplateSchema,
     direction: directionSchema.optional(),
     background: colorSchema.optional(),
     fill: colorSchema.optional(),
     outline: colorSchema.optional(),
-    width: z.number().optional(),
-    show_percentage: boolSchema.optional(),
+    width: numericTemplateSchema.optional(),
+    show_percentage: boolTemplateSchema.optional(),
     font: fontSchema,
     visible: visibleSchema,
   })

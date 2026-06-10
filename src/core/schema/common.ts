@@ -50,6 +50,14 @@ export const coordinateSchema = z.union([
 /** Numeric fields that accept HA Jinja templates (e.g. dynamic icon size). */
 export const numericTemplateSchema = z.union([z.number(), jinjaTemplateStringSchema])
 
+/** Coordinate fields (pixel, percentage, numeric string) that accept HA Jinja templates. */
+export const coordinateTemplateSchema = z.union([coordinateSchema, jinjaTemplateStringSchema])
+
+/** Structured JSON value or a whole-field template string evaluated to JSON at runtime. */
+export function jsonOrTemplateSchema<T extends z.ZodType>(inner: T) {
+  return z.union([inner, jinjaTemplateStringSchema])
+}
+
 export const boolSchema = z.union([
   z.boolean(),
   z.enum(['true', 'false', 'True', 'False']),

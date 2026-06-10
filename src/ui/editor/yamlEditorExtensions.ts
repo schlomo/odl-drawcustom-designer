@@ -1,5 +1,5 @@
-import { closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete'
-import { defaultKeymap, historyKeymap, indentWithTab } from '@codemirror/commands'
+import { acceptCompletion, closeBracketsKeymap, completionKeymap, completionStatus } from '@codemirror/autocomplete'
+import { defaultKeymap, historyKeymap, indentLess, indentMore } from '@codemirror/commands'
 import { foldKeymap, indentUnit } from '@codemirror/language'
 import { lintKeymap } from '@codemirror/lint'
 import { searchKeymap } from '@codemirror/search'
@@ -25,11 +25,34 @@ import { createYamlEditorTheme } from './yamlTheme'
 import { shouldReportLinkedYamlCursor, shouldReportYamlDocChange } from './yamlEditorSelection'
 import type { StoredEditorSelection } from './yamlEditorScroll'
 
+/** Tab accepts an open completion, otherwise inserts indent at the cursor (or indents a selection). */
+export function runYamlEditorTab(view: EditorView): boolean {
+  if (completionStatus(view.state) === 'active') {
+    return acceptCompletion(view)
+  }
+
+  const { state, dispatch } = view
+  if (state.selection.ranges.some((range) => !range.empty)) {
+    return indentMore(view)
+  }
+
+  const unit = state.facet(indentUnit)
+  dispatch(
+    state.update(state.replaceSelection(unit), {
+      scrollIntoView: true,
+      userEvent: 'input.type',
+    }),
+  )
+  return true
+}
+
+export const yamlEditorTabBinding = { key: 'Tab', run: runYamlEditorTab, shift: indentLess }
+
 export const yamlThemeCompartment = new Compartment()
 
 export function yamlEditorKeymap() {
   return keymap.of([
-    indentWithTab,
+    yamlEditorTabBinding,
     ...closeBracketsKeymap,
     ...defaultKeymap,
     ...searchKeymap,

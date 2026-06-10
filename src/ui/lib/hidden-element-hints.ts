@@ -1,6 +1,6 @@
 import {
   isVisible,
-  renderElement,
+  safeRenderElement,
   type DrawElement,
   type RenderContext,
   type RenderResult,
@@ -26,10 +26,10 @@ function renderIgnoringVisibility(
   ctx: RenderContext,
 ): RenderResult | null {
   if (!elementHasVisibleProperty(element) || isVisible(element.visible)) {
-    return renderElement(element, ctx)
+    return safeRenderElement(element, ctx)
   }
 
-  return renderElement({ ...element, visible: true } as DrawElement, ctx)
+  return safeRenderElement({ ...element, visible: true } as DrawElement, ctx)
 }
 
 function boundsForHiddenElement(
@@ -84,7 +84,7 @@ export function resolveElementHitBounds(
     return null
   }
 
-  const result = renderElement(element, ctx)
+  const result = safeRenderElement(element, ctx)
   if (result && !isFillNoneOnTag(element)) {
     return getPrimitiveBounds(result.primitive)
   }

@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react'
 import type opentype from 'opentype.js'
-import { renderElement, renderHalftonePatternDefs, type DrawElement, type RenderContext } from '../../core'
+import { safeRenderElement, renderHalftonePatternDefs, type DrawElement, type RenderContext } from '../../core'
 import { collectFontKeysFromElements } from '../lib/load-font-faces'
 import { fontLayoutTokenForKeys } from '../lib/font-layout-token'
 import { resolveHiddenElementHint } from '../lib/hidden-element-hints'
@@ -35,7 +35,7 @@ export const CanvasElementSlot = memo(function CanvasElementSlot({
   const result = useMemo(() => {
     // renderElement reads font metrics via getFont(); token ties layout to loaded fonts.
     void fontLayoutTokenForKeys(collectFontKeysFromElements([element]), opentypeFonts)
-    return renderElement(element, renderContext)
+    return safeRenderElement(element, renderContext)
   }, [element, renderContext, opentypeFonts])
 
   const hiddenHint = useMemo(

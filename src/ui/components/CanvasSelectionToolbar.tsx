@@ -24,6 +24,7 @@ const VERTICAL_ALIGNS: { align: ElementAlign; icon: keyof typeof TOOL_ICONS; tit
 
 interface CanvasSelectionToolbarProps {
   selectionCount: number
+  canAlign: boolean
   canMoveUp: boolean
   canMoveDown: boolean
   onAlign: (align: ElementAlign, boundsByIndex: Map<number, ElementBounds>) => void
@@ -36,6 +37,7 @@ interface CanvasSelectionToolbarProps {
 
 export function CanvasSelectionToolbar({
   selectionCount,
+  canAlign,
   canMoveUp,
   canMoveDown,
   onAlign,
@@ -48,6 +50,9 @@ export function CanvasSelectionToolbar({
   if (selectionCount < 2) {
     return null
   }
+
+  const alignTooltip = (title: string) =>
+    canAlign ? title : `${title} (disabled — selection includes templated geometry)`
 
   return (
     <div
@@ -65,7 +70,8 @@ export function CanvasSelectionToolbar({
             key={align}
             compact
             iconPath={TOOL_ICONS[icon]}
-            tooltip={title}
+            tooltip={alignTooltip(title)}
+            disabled={!canAlign}
             onClick={() => onAlign(align, boundsByIndex)}
           />
         ))}
@@ -77,7 +83,8 @@ export function CanvasSelectionToolbar({
             key={align}
             compact
             iconPath={TOOL_ICONS[icon]}
-            tooltip={title}
+            tooltip={alignTooltip(title)}
+            disabled={!canAlign}
             onClick={() => onAlign(align, boundsByIndex)}
           />
         ))}

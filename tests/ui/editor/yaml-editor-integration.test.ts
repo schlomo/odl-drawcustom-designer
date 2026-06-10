@@ -1,10 +1,10 @@
 /** @vitest-environment jsdom */
 import { CompletionContext } from '@codemirror/autocomplete'
-import { indentWithTab } from '@codemirror/commands'
 import { forceLinting } from '@codemirror/lint'
 import { EditorState, Transaction } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { describe, expect, it, afterEach, vi } from 'vitest'
+import { runYamlEditorTab } from '../../../src/ui/editor/yamlEditorExtensions'
 import {
   completionInsertFrom,
   lineTextBeforeCursor,
@@ -200,17 +200,17 @@ describe('yaml editor first-block integration', () => {
     expect(result!.options.map((option) => option.label)).toEqual(['true', 'false', 'True', 'False'])
   })
 
-  it('indents the current line when Tab is pressed', () => {
+  it('inserts indentation at the cursor when Tab is pressed', () => {
     const doc = `- type: text
-value: Hi
+  value: Hi
 `
     view = mountEditor(doc).view
-    const valueLineStart = doc.indexOf('value')
-    view!.dispatch({ selection: { anchor: valueLineStart, head: valueLineStart } })
+    const insertAt = doc.indexOf('value: Hi') + 'value: H'.length
+    view!.dispatch({ selection: { anchor: insertAt, head: insertAt } })
     view!.focus()
 
-    expect(indentWithTab.run!(view!)).toBe(true)
-    expect(view!.state.doc.line(2).text).toBe('  value: Hi')
+    expect(runYamlEditorTab(view!)).toBe(true)
+    expect(view!.state.doc.line(2).text).toBe('  value: H  i')
   })
 
   it('reports user-initiated document edits', () => {
