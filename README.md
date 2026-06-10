@@ -36,7 +36,9 @@ Visual designer for [OpenEPaperLink](https://github.com/OpenEPaperLink) `drawcus
 
 **Phase 4j** — ODL alignment + `visible` on all 16 types (**committed** `c3f7474`).
 
-**Next:** Phase **4m** — demo invisibility + fill:none fix (§18m). **v1 queue:** 4m → **4n** (universal templating) → 4k → 4r → 4h. **Post-v1:** HA embed (**4f**) + service options (**4g**). Map: [`docs/PLAN.md`](docs/PLAN.md) §18.
+**Phase 4m** — demo invisibility + fill:none stroke fix (**committed** `87ac782`).
+
+**Next:** Phase **4n** — universal property templating (§18n). **v1 queue:** 4n → 4k → 4r → 4h. **Post-v1:** HA embed (**4f**) + service options (**4g**). Map: [`docs/PLAN.md`](docs/PLAN.md) §18.
 
 ## Spec
 

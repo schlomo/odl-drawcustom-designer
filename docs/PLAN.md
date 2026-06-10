@@ -100,10 +100,10 @@ todos:
     status: pending
   - id: phase4-demo-visible
     content: "§18m: showcase demo — invisible text below icons; fix fill:none+stroke hint bug"
-    status: pending
+    status: completed
   - id: phase4m-commit
     content: "Commit Phase 4m after verification (§11u)"
-    status: pending
+    status: completed
   - id: phase4-universal-templates
     content: "§18n: universal property templating — schema + property UI + canvas lock (one session)"
     status: pending
@@ -779,17 +779,17 @@ flowchart LR
 | **4e** Edge snap | ✅ Done | `f07f004` | 724 (119 files) | `snapBoundsToCanvas`, drag/resize/nudge, border guides |
 | **4i** Display config | ✅ Done | `c07d3f1` | 812 (131 files) | Resolution picker, TagColorMode, palette clamp/WYSIWYG, color-clamp hints |
 | **4j** ODL + `visible` | ✅ Done | `c3f7474` | 831 (131 files) | ADR-012, odl-gap-report, `visible` all 16 types, CROSS_CUTTING_ELEMENT_FIELDS |
-| **4m** Demo invisibility | ⬜ **Next** | — | — | Fix fill:none+stroke hint bug; demo `visible: false` text below icon triplet (§18m) |
-| **4n** Universal templates | ⬜ Pending | — | — | All property fields: scalar↔template UI; JSON whole-field templates; canvas lock (§18n) |
+| **4m** Demo invisibility | ✅ Done | `87ac782` | 856 (132 files) | fill:none+stroke fix; demo `visible: false` text; YAML sync debounce (bonus) |
+| **4n** Universal templates | ⬜ **Next** | — | — | All property fields: scalar↔template UI; JSON whole-field templates; canvas lock (§18n) |
 | **4k** Load Demo | ⬜ Pending | — | — | Header button; drop Load Example (**after 4n**) (§18k) |
 | **4r** Rebrand | ⬜ Pending | — | — | Owner decision §7.5 (§18r) |
 | **4h** Ship | ⬜ Pending | — | — | GH Pages + smoke (§18h) |
 | **4f** HA embed | ⏸ **Post-v1** | — | — | HA dev sync; ADR-010 draft (§18f) |
 | **4g** Service options | ⏸ **Post-v1** | — | — | Schema only until HA alignment (§18g) |
 
-**Current repo health:** `npm test` → **831 passed** (131 files) · `npm run lint` → **clean** · last commit `c3f7474`
+**Current repo health:** `npm test` → **856 passed** (132 files) · `npm run lint` → **clean** · last commit `87ac782`
 
-**Next:** Phase **4m** — showcase demo overlay (§18m). **Post-v1:** **4f** HA embed + **4g** service options.
+**Next:** Phase **4n** — universal property templating (§18n). **Post-v1:** **4f** HA embed + **4g** service options.
 
 ### Phase 0 — Bootstrap + ADRs ✅
 
@@ -1024,7 +1024,7 @@ From §19 critical review (2026-06-07). Not blocking §11f; scheduled in Phases 
 | **4j** | **ODL alignment** | ✅ ADR-012, `docs/spec/odl-gap-report.md`, `visible` on all 16 types, `CROSS_CUTTING_ELEMENT_FIELDS`, 16 visibility fixtures. |
 | **4n** | **Universal templating** | All element properties accept literal or Jinja template in schema + property panel; JSON fields (`points`, `icons`, plot `data`) as plain JSON **or** whole-field template string; canvas locks drag/resize/nudge on templated geometry. ADR-013. **One agent session.** |
 | **4k** | **Load Demo UX** | Remove sidebar Load Example dropdown + `example-designs.ts` catalog; one **Load Demo** button in header loads curated showcase dashboard (confirm/replace if session dirty). **Prerequisite:** **4m** + **4n**. |
-| **4m** | **Demo invisibility** | Fix `isHiddenOnTag` false positive: `fill: none` + outline/stroke still draws on tag (arc, polygon, rectangle, line). Showcase: add `text` with `visible: false`, value `I'm invisible`, below icon_sequence triplet — **not** debug_grid overlay. |
+| **4m** | **Demo invisibility** | ✅ `isHiddenOnTag` stroke fix; demo invisible text; YAML sync debounce (`87ac782`). |
 | **4r** | **Rebrand** | Product + repo naming per §7.5 (decision pending — lean **odl-designer**). UI title, README, GH Pages path optional. |
 
 **Explicitly cut from v1** (see §7.2): 20-project library, inch-based tag preset list, asset bundle zip, PWA, validation summary panel, history diff, element copy/paste, free pan/continuous zoom, layer hide/lock/duplicate panel, Floyd-Steinberg dither, **HA embed (4f)**, **service options UI (4g)**. (19-7/19-8 absorbed into **4n**.)
@@ -1144,7 +1144,7 @@ Rotation in announcement (0/90/180/270) aligns with existing canvas rotation con
 |------|-------------------|---------|----------|------------------------|
 | all 16 types | partial upstream | ✅ | ✅ | ✅ |
 
-**Showcase demo (fix in §18m — next):** Arc uses valid `fill: none` + `outline` but `isHiddenOnTag` wrongly treats any `fill: none` as tag-invisible. Fix hint logic for stroke-only shapes. Demo invisibility example: **`text` with `visible: false`** (“I'm invisible”) placed below the icon_sequence triplet — not debug_grid.
+**Showcase demo (§18m ✅ `87ac782`):** `isHiddenOnTag` respects stroke-only shapes; demo **`text` `visible: false`** (“I'm invisible”) below icon_sequence triplet.
 
 **Other ODL notes (no v1 blockers):**
 
@@ -1267,8 +1267,8 @@ Track status against §7.1. **Phase 2e** covers several editing items; **Phases 
 | HA embed: load/save drawcustom + live states | ⏸ **post-v1** (4f) | — |
 | Service options UI (`background`, `rotate`, `dither`, …) | ⏸ **post-v1** (schema only) | — |
 | Cross-cutting ODL fields (`visible` on all 16 types) | ✅ (**4j**) | 4 |
-| Showcase demo: `visible: false` text demonstrates invisibility (not fill:none false positive) | ⬜ **4m** | 4 |
-| Hidden-on-tag: fill:none + outline/stroke shapes still visible on tag | ⬜ **4m** | 4 |
+| Showcase demo: `visible: false` text demonstrates invisibility (not fill:none false positive) | ✅ (**4m**) | 4 |
+| Hidden-on-tag: fill:none + outline/stroke shapes still visible on tag | ✅ (**4m**) | 4 |
 | Universal property templating (scalar + JSON whole-field; canvas lock) | ⬜ **4n** | 4 |
 | OpenDisplay Language schema parity audit | ✅ (**4j**) | 4 |
 | Real QR, plot, icons, parse_colors in preview | ✅ (**3c**–**3e**) | 3 |
@@ -1360,7 +1360,7 @@ Compare outputs side-by-side; merge the winner or ask agent to combine best part
 
 **Phase 2–4 — UI**
 
-- Phase **4a–4j** ✅. **Current work:** **§18m** → **§18n** → **§18k/r** → **§18h**. **§18f** + **§18g** post-v1 (HA dev sync).
+- Phase **4a–4j** ✅; **4m** ✅ (`87ac782`). **Current work:** **§18n** → **§18k/r** → **§18h**. **§18f** + **§18g** post-v1 (HA dev sync).
 - One agent session per §17 subsection to avoid context bloat.
 - After each chunk: invoke **spec-reviewer** (`.cursor/agents/spec-reviewer.md`) against `docs/spec/supported_types.md` and §8.
 - Use **split-to-prs** when a session exceeds ~500 lines — e.g. §17a storage PR, §17b text PR, etc.
@@ -1594,16 +1594,11 @@ Delivered 2026-06-09. ADR-012, odl-gap-report, visible on all 16 types, 831 test
 
 ---
 
-## 11u. Commit Phase 4m prompt ⬜
+## 11u. Commit Phase 4m prompt ✅ (`87ac782`)
 
-```
-Commit Phase 4m after owner verification.
+Delivered 2026-06-10. fill:none+stroke hint fix, invisible demo text, YAML sync debounce bonus.
 
-- Code commit: fill:none+stroke hint fix; showcase invisible text below icon triplet
-- Docs commit: PLAN §7 tracker + §18m ✅, README Next → §18n, repo health counts
-
-Do not push unless I ask.
-```
+<!-- prompt archived — phase complete -->
 
 ---
 
@@ -1749,7 +1744,7 @@ Delivered — see §7 Phase 2e checklist. Key files: `DesignerCanvas.tsx`, `Elem
 
 ## 17. Phase 3 — fidelity prompts
 
-**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a–i** ✅ through `c07d3f1`. **§18j** ✅ (`c3f7474`). **Next: §18m** (demo overlay). **§18f** + **§18g** → post-v1.
+**§17f** ✅ (`1b629ff`). **§17g** ✅ (`e8ff378`). **§18a–i** ✅ through `c07d3f1`. **§18j** ✅ (`c3f7474`). **§18m** ✅ (`87ac782`). **Next: §18n** (universal templating). **§18f** + **§18g** → post-v1.
 
 **Plan cross-reference map:**
 
@@ -1852,15 +1847,15 @@ Key files: `docs/testing.md`, `docs/adr/ADR-011-behavior-test-policy.md`, `docs/
 |------|-------|-----|----------------|
 | ~~1~~ | ~~4i~~ | ~~§18i~~ | ✅ `c07d3f1` |
 | ~~2~~ | ~~4j~~ | ~~§18j~~ | ✅ ADR-012 + visible all 16 |
-| **3 — now** | 4m | §18m | fill:none+stroke hint fix; invisible demo text below icons |
-| 4 | 4n | §18n | Universal property templating (**one session**) |
+| ~~3~~ | ~~4m~~ | ~~§18m~~ | ✅ `87ac782` |
+| **4 — now** | 4n | §18n | Universal property templating (**one session**) |
 | 5 | 4k | §18k | Load Demo header (**after 4m + 4n**) |
 | 6 | 4r | §18r | Rebrand — **owner confirms slug** (§7.5) |
 | 7 | 4h | §18h | GH Pages deploy + smoke |
 
 **Post-v1 (do not schedule before ship):** §18f HA embed · §18g service options UI — both blocked on HA dev / integration alignment.
 
-**Completed:** §18a → §18b → §18c → §18d → §18e → **§18i** → **§18j**.
+**Completed:** §18a → §18b → §18c → §18d → §18e → **§18i** → **§18j** → **§18m**.
 
 ### §18a — Storage reshape (Phase 4a) ✅ (`5ad7e6f`)
 
@@ -1984,55 +1979,19 @@ Key files: `elements.ts`, `completions.ts`, `debug-grid.ts`, `polygon.ts`, `arc.
 
 <!-- prompt archived — phase complete -->
 
-### §18m — Demo invisibility + fill:none stroke fix ⬜ **Next**
+### §18m — Demo invisibility + fill:none stroke fix ✅ (`87ac782`)
 
-**Prerequisite:** §18j ✅ (`c3f7474`) — `visible` on all types including `text`.
+Delivered 2026-06-10:
 
-**Owner decision (2026-06):** Do **not** hide debug_grid. Fix the arc false-positive (fill:none + outline should render on tag). Demo invisibility = **`text` “I'm invisible”** with `visible: false` below the icon_sequence triplet (~x:30, y:270 area).
+- `hidden-on-tag.ts` — stroke-only shapes with `fill: none` + outline no longer ghost as invisible
+- `sample-elements.ts` — `text` “I'm invisible” `visible: false` below icon_sequence
+- Bonus in same commit: YAML↔canvas debounce, property number coalesce, `now()` Jinja autocomplete
 
-```
-Execute Phase 4m — fix hidden-on-tag logic + showcase invisibility demo.
+Key files: `hidden-on-tag.ts`, `hidden-element-hints.ts`, `sample-elements.ts`
 
-Workspace: oepl-designer/ repo root. Follow .cursor/rules/.
+<!-- prompt archived — phase complete -->
 
-## 1. Bug fix — hidden-on-tag.ts / hidden-element-hints.ts
-`isHiddenOnTag` / `isFillNoneOnTag` currently treats ANY fill: none as tag-invisible.
-Wrong for arc, polygon, rectangle (and line uses `fill` as stroke color — verify) when
-outline/stroke would still draw on the tag.
-
-Fix:
-- fill: none → hidden ONLY when the element would not render visible geometry on tag
-  - icon / icon_sequence: keep fill:none → invisible (spec)
-  - arc / polygon / rectangle / ellipse / circle: fill:none + outline (or width stroke) → VISIBLE on tag
-  - arc in showcase must NOT get fill_none ghost hint
-- visible: false → unchanged (text, any type)
-
-Update tests/ui/lib/hidden-element-hints.test.ts:
-- rectangle fill none + outline → NO fill_none hint (or not hidden on tag)
-- arc fill none + outline → NO fill_none hint
-- icon fill none → still fill_none hint
-- element-list-row tests if affected
-
-## 2. Showcase — sample-elements.ts
-Add after icon_sequence block (~y: 305–320, centered under triplet):
-- type: text
-- value: "I'm invisible"
-- visible: false
-- sensible x/y, size ~14–16, font rbm.ttf, color black
-
-Do NOT set debug_grid visible: false. Keep debug_grid as designer grid overlay.
-Keep arc fill:none + outline as-is (should render correctly after hint fix).
-
-## Acceptance
-- npm run lint && npm test && npm run build — all green
-- With “Invisible” toggle on: ghost hint on demo text (visible_false), NOT on arc
-- Arc outline visible on canvas; no fill_none ghost on arc
-
-Do before §18n. Do not commit unless I ask.
-End with: "Next prompt: docs/PLAN.md §18n"
-```
-
-### §18n — Universal property templating ⬜ **after §18m**
+### §18n — Universal property templating ⬜ **Next**
 
 **Owner decision (2026-06):** Required before v1 ship. **One agent session** → one git commit.
 
