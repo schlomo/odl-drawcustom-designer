@@ -33,7 +33,9 @@ export const CanvasElementLayer = memo(function CanvasElementLayer({
     if (!canvas) {
       return
     }
-    const ctx = canvas.getContext('2d')
+    const ctx = canvas.getContext('2d', {
+      willReadFrequently: primitive.kind === 'dlimg-stub',
+    })
     if (!ctx) {
       return
     }

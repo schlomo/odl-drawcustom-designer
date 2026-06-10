@@ -15,6 +15,7 @@ import {
   resolveYamlCompletionContext,
 } from '../../../src/ui/editor/yamlCompletions'
 import { createYamlEditorState } from '../../../src/ui/editor/yamlEditorExtensions'
+import { locateElementIndexAtPosition } from '../../../src/ui/editor/locateElementInYaml'
 import { lintYamlDocument } from '../../../src/ui/editor/yamlLint'
 
 const INVALID_FIRST_BLOCK = `- type: rectangle
@@ -35,10 +36,14 @@ describe('yaml editor first-block integration', () => {
     container = null
   })
 
-  function mountEditor(doc: string, onChange: (value: string) => void = () => {}) {
+  function mountEditor(
+    doc: string,
+    onChange: (value: string) => void = () => {},
+    onCursorPositionChange: ((position: number, doc: string) => void) | undefined = undefined,
+  ) {
     container = document.body.appendChild(document.createElement('div'))
     const pointerActiveRef = { current: false }
-    const onCursorPositionChangeRef = { current: undefined }
+    const onCursorPositionChangeRef = { current: onCursorPositionChange }
     const suppressCursorReportRef = { current: false }
     const state = createYamlEditorState(
       doc,
@@ -48,15 +53,14 @@ describe('yaml editor first-block integration', () => {
       onChange,
       pointerActiveRef,
       onCursorPositionChangeRef,
-      () => true,
       suppressCursorReportRef,
     )
     view = new EditorView({ state, parent: container })
-    return view
+    return { view, pointerActiveRef }
   }
 
   it('renders lint markers for the first list item', async () => {
-    mountEditor(INVALID_FIRST_BLOCK)
+    view = mountEditor(INVALID_FIRST_BLOCK).view
     forceLinting(view!)
 
     await vi.waitFor(() => {
@@ -76,7 +80,7 @@ describe('yaml editor first-block integration', () => {
   })
 
   it('offers schema completions on the first list item header line', () => {
-    mountEditor(INVALID_FIRST_BLOCK)
+    view = mountEditor(INVALID_FIRST_BLOCK).view
     const headerPos = INVALID_FIRST_BLOCK.indexOf('type:') + 'type: '.length
     const state = view!.state
     const context = new CompletionContext(state, headerPos, true)
@@ -88,7 +92,7 @@ describe('yaml editor first-block integration', () => {
   })
 
   it('offers property completions on the first list item body', () => {
-    mountEditor(INVALID_FIRST_BLOCK)
+    view = mountEditor(INVALID_FIRST_BLOCK).view
     const pos = INVALID_FIRST_BLOCK.indexOf('x_end') + 2
     const context = new CompletionContext(view!.state, pos, true)
     const result = yamlSchemaCompletionSource(context)
@@ -105,7 +109,7 @@ describe('yaml editor first-block integration', () => {
   value: home
   size: 24
 `
-    mountEditor(doc)
+    view = mountEditor(doc).view
     const pos = doc.indexOf('home') + 'home'.length
     const context = new CompletionContext(view!.state, pos, true)
     const result = yamlSchemaCompletionSource(context)
@@ -123,7 +127,7 @@ describe('yaml editor first-block integration', () => {
   value: home group
   size: 24
 `
-    mountEditor(doc)
+    view = mountEditor(doc).view
     const pos = doc.indexOf('home group') + 'home group'.length
     const context = new CompletionContext(view!.state, pos, true)
     const result = yamlSchemaCompletionSource(context)
@@ -139,7 +143,7 @@ describe('yaml editor first-block integration', () => {
   value: 
   size: 24
 `
-    mountEditor(doc)
+    view = mountEditor(doc).view
     const pos = doc.indexOf('value: ') + 'value: '.length
     const context = new CompletionContext(view!.state, pos, true)
     expect(yamlSchemaCompletionSource(context)).toBeNull()
@@ -154,7 +158,7 @@ describe('yaml editor first-block integration', () => {
     - home group
   size: 24
 `
-    mountEditor(doc)
+    view = mountEditor(doc).view
     const pos = doc.indexOf('home group') + 'home group'.length
     const context = new CompletionContext(view!.state, pos, true)
     const result = yamlSchemaCompletionSource(context)
@@ -169,7 +173,7 @@ describe('yaml editor first-block integration', () => {
   color: '{{ states("sensor") }}'
 `
     const onChange = vi.fn()
-    mountEditor(doc, onChange)
+    view = mountEditor(doc, onChange).view
     const replacement = `- type: text
   value: Hi
   color: r
@@ -187,7 +191,7 @@ describe('yaml editor first-block integration', () => {
   x: 0
   visible: 
 `
-    mountEditor(doc)
+    view = mountEditor(doc).view
     const pos = doc.indexOf('visible: ') + 'visible: '.length
     const context = new CompletionContext(view!.state, pos, true)
     const result = yamlSchemaCompletionSource(context)
@@ -200,7 +204,7 @@ describe('yaml editor first-block integration', () => {
     const doc = `- type: text
 value: Hi
 `
-    mountEditor(doc)
+    view = mountEditor(doc).view
     const valueLineStart = doc.indexOf('value')
     view!.dispatch({ selection: { anchor: valueLineStart, head: valueLineStart } })
     view!.focus()
@@ -214,7 +218,7 @@ value: Hi
   value: Hi
 `
     const onChange = vi.fn()
-    mountEditor(doc, onChange)
+    view = mountEditor(doc, onChange).view
     const colorPos = doc.indexOf('value: Hi') + 'value: Hi'.length
     onChange.mockClear()
     view!.dispatch({
@@ -224,6 +228,54 @@ value: Hi
     })
     expect(onChange).toHaveBeenCalledTimes(1)
     expect(onChange.mock.calls[0]![0]).toContain('Hi!')
+  })
+
+  it('reports linked cursor position with the live document while typing on the last block line', () => {
+    const initial = `- type: rectangle
+  x_start: 30
+  x_end: 180
+  outline: black
+  width: 2
+- type: circle
+  x: 224
+`
+    let linkedPosition = 0
+    let linkedDoc = initial
+    const { view: mountedView } = mountEditor(initial, () => {}, (position, doc) => {
+      linkedPosition = position
+      linkedDoc = doc
+    })
+    view = mountedView
+
+    const insertAt = initial.indexOf('width: 2') + 'width: 2'.length
+    view!.focus()
+    view!.dispatch({
+      changes: { from: insertAt, to: insertAt, insert: '0' },
+      selection: { anchor: insertAt + 1 },
+      annotations: Transaction.userEvent.of('input.type'),
+    })
+
+    expect(locateElementIndexAtPosition(linkedDoc, linkedPosition)).toBe(0)
+    expect(linkedDoc).toContain('width: 20')
+  })
+
+  it('reports linked selection when clicking another element block before focus', () => {
+    const doc = `- type: rectangle
+  x_start: 10
+- type: circle
+  x: 224
+`
+    let linkedIndex: number | null = null
+    const { view: mountedView, pointerActiveRef } = mountEditor(doc, () => {}, (position, editorDoc) => {
+      linkedIndex = locateElementIndexAtPosition(editorDoc, position)
+    })
+    view = mountedView
+
+    const circlePos = doc.indexOf('x: 224')
+    pointerActiveRef.current = true
+    view.dispatch({ selection: { anchor: circlePos } })
+
+    expect(linkedIndex).toBe(1)
   })
 })
 

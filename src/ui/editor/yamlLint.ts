@@ -57,6 +57,6 @@ function diagnosticsFromSource(doc: string): Diagnostic[] {
 
 export function yamlPayloadLinter() {
   return linter((view: EditorView) => diagnosticsFromSource(view.state.doc.toString()), {
-    delay: 0,
+    delay: 250,
   })
 }

@@ -13,6 +13,8 @@ interface SharedPropertyFormProps {
   onPropertyChange: (key: string, value: unknown) => void
   onUploadFont: (file: File) => Promise<AssetUploadResult>
   onUploadImageForUrl: (urlKey: string, file: File) => Promise<AssetUploadResult>
+  onBeginEdit?: () => void
+  onEndEdit?: () => void
 }
 
 export function SharedPropertyForm({
@@ -21,6 +23,8 @@ export function SharedPropertyForm({
   onPropertyChange,
   onUploadFont,
   onUploadImageForUrl,
+  onBeginEdit,
+  onEndEdit,
 }: SharedPropertyFormProps) {
   const sharedProperties = getSharedEditableProperties(elements)
 
@@ -61,6 +65,8 @@ export function SharedPropertyForm({
         mixedProperties={sharedProperties.filter((property) =>
           isSharedPropertyValueMixed(elements, property),
         )}
+        onBeginEdit={onBeginEdit}
+        onEndEdit={onEndEdit}
       />
     </div>
   )

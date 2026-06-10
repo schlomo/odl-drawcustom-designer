@@ -145,7 +145,7 @@ export {
 export { mdiExportName, normalizeMdiIconName, resolveMdiPath } from './mdi-icons'
 export { renderArc } from './arc'
 export { renderCircle } from './circle'
-export { renderDebugGrid } from './debug-grid'
+export { renderDebugGrid, DEBUG_GRID_MIN_SPACING } from './debug-grid'
 export { renderDlimg } from './dlimg'
 export { renderEllipse } from './ellipse'
 export { renderIcon } from './icon'

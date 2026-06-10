@@ -1,16 +1,26 @@
-import { parseYamlPayload, serializeYamlPayload, validatePayload, type DrawElement } from '../../core'
+import { parseYamlPayload, validatePayload, type DrawElement } from '../../core'
 import { moveElementInArray } from '../lib/element-geometry'
 import { remapIndexAfterMove } from '../lib/selection-remap'
 
-/** Normalize key order / quoting via yaml round-trip so comparisons are stable. */
-function canonicalPayloadYaml(elements: DrawElement[]): string {
-  const yaml = serializeYamlPayload(elements)
-  const parsed = tryParseYamlElements(yaml)
-  return parsed ? serializeYamlPayload(parsed) : yaml
+/** Recursively sort object keys so element comparison is order-stable without YAML round-trips. */
+function sortKeysDeep(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortKeysDeep)
+  }
+  if (value !== null && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    const sorted: Record<string, unknown> = {}
+    for (const key of Object.keys(record).sort()) {
+      sorted[key] = sortKeysDeep(record[key])
+    }
+    return sorted
+  }
+  return value
 }
 
-function canonicalElementYaml(element: DrawElement): string {
-  return canonicalPayloadYaml([element])
+/** Stable structural signature for a draw element (fast path for sync comparisons). */
+export function stableElementSignature(element: DrawElement): string {
+  return JSON.stringify(sortKeysDeep(element))
 }
 
 function elementsAtIndexEquivalent(
@@ -18,7 +28,7 @@ function elementsAtIndexEquivalent(
   right: DrawElement[],
   index: number,
 ): boolean {
-  return canonicalElementYaml(left[index]!) === canonicalElementYaml(right[index]!)
+  return stableElementSignature(left[index]!) === stableElementSignature(right[index]!)
 }
 
 export interface YamlElementsParseIssue {
@@ -82,7 +92,12 @@ export function elementsSequenceEqual(left: DrawElement[], right: DrawElement[])
     return false
   }
 
-  return canonicalPayloadYaml(left) === canonicalPayloadYaml(right)
+  for (let index = 0; index < left.length; index += 1) {
+    if (!elementsAtIndexEquivalent(left, right, index)) {
+      return false
+    }
+  }
+  return true
 }
 
 function findSingleLayerMove(
@@ -155,9 +170,9 @@ export function remapSelectedIndex(
     return remapIndexAfterMove(selectedIndex, layerMove.fromIndex, layerMove.toIndex)
   }
 
-  const selectedYaml = canonicalElementYaml(selected)
+  const selectedSignature = stableElementSignature(selected)
   const exactMatch = nextElements.findIndex(
-    (element) => canonicalElementYaml(element) === selectedYaml,
+    (element) => stableElementSignature(element) === selectedSignature,
   )
   if (exactMatch >= 0) {
     return exactMatch

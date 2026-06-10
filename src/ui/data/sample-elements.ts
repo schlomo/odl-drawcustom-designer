@@ -155,6 +155,16 @@ export const SAMPLE_ELEMENTS: DrawElement[] = [
     fill: 'black',
   },
   {
+    type: 'text',
+    value: "I'm invisible",
+    x: 30,
+    y: 312,
+    size: 15,
+    font: 'rbm.ttf',
+    color: 'black',
+    visible: false,
+  },
+  {
     type: 'icon',
     value: 'mdi:thermometer',
     x: 150,

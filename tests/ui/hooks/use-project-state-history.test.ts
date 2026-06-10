@@ -298,6 +298,28 @@ describe('useProjectState history integration', () => {
     expect(result.current.elements[0]).toMatchObject({ x: beforeX, y: 10 })
   })
 
+  it('coalesces property panel edits into one undo step', () => {
+    const { result } = renderHook(() => useProjectState(bootstrapWithText()))
+
+    const beforeX = result.current.elements[0]?.type === 'text' ? result.current.elements[0].x : 0
+
+    act(() => {
+      result.current.beginEditCoalesce()
+      result.current.updateElementProperty(0, 'x', beforeX + 5)
+      result.current.updateElementProperty(0, 'x', beforeX + 15)
+      result.current.endEditCoalesce()
+    })
+
+    expect(result.current.canUndo).toBe(true)
+    expect(result.current.historyUndoDepth).toBe(1)
+
+    act(() => {
+      result.current.undo()
+    })
+
+    expect(result.current.elements[0]).toMatchObject({ x: beforeX, y: 10 })
+  })
+
   it('does not record display config changes in undo history', () => {
     const { result } = renderHook(() => useProjectState(bootstrapWithText()))
 

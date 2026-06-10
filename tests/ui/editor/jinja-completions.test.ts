@@ -3,6 +3,7 @@ import {
   HA_DELIMITER_COMPLETIONS,
   HA_EXPRESSION_COMPLETIONS,
   HA_FILTER_COMPLETIONS,
+  HA_NOW_METHOD_COMPLETIONS,
   HA_TAG_COMPLETIONS,
   resolveJinjaCompletionContext,
 } from '../../../src/ui/editor/jinjaCompletions'
@@ -49,8 +50,15 @@ describe('HA jinja completion catalog', () => {
   it('prioritizes homeassistant functions over generic jinja', () => {
     const labels = HA_EXPRESSION_COMPLETIONS.map((entry) => entry.label)
     expect(labels).toContain('states')
+    expect(labels).toContain('now')
     expect(labels).not.toContain('sameas')
     expect(labels).not.toContain('string')
+  })
+
+  it('includes now() strftime as the supported method', () => {
+    const labels = HA_NOW_METHOD_COMPLETIONS.map((entry) => entry.label)
+    expect(labels).toEqual(['strftime'])
+    expect(HA_NOW_METHOD_COMPLETIONS[0]?.detail).toContain('%H:%M')
   })
 
   it('includes homeassistant filters', () => {
@@ -114,6 +122,26 @@ describe('resolveJinjaCompletionContext', () => {
       kind: 'expression',
       from: doc.indexOf('stat'),
       prefix: 'stat',
+    })
+  })
+
+  it('resolves now() method completions after the dot', () => {
+    const doc = '  value: "{{ now().str'
+    const pos = doc.length
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, true))).toEqual({
+      kind: 'now-method',
+      from: doc.indexOf('str'),
+      prefix: 'str',
+    })
+  })
+
+  it('offers now() methods right after now().', () => {
+    const doc = '  value: "{{ now().'
+    const pos = doc.length
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, true))).toEqual({
+      kind: 'now-method',
+      from: pos,
+      prefix: '',
     })
   })
 

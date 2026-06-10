@@ -54,4 +54,9 @@ describe('debug grid preview', () => {
     const result = renderDebugGrid({ type: 'debug_grid', show_labels: false }, context)
     expect(result?.primitive.showLabels).toBeUndefined()
   })
+
+  it('clamps spacing below the designer minimum', () => {
+    const result = renderDebugGrid({ type: 'debug_grid', spacing: 0 }, context)
+    expect(result?.primitive.spacing).toBe(8)
+  })
 })

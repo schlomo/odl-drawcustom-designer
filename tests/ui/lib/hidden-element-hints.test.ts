@@ -75,8 +75,8 @@ describe('hidden element hints', () => {
     expect(resolveHiddenElementHint(element, null, context)?.reason).toBe('visible_false')
   })
 
-  it('ghosts shapes with fill none', () => {
-    const element = {
+  it('does not ghost stroke-only shapes with fill none and outline', () => {
+    const rectangle = {
       type: 'rectangle' as const,
       x_start: 10,
       x_end: 50,
@@ -86,8 +86,38 @@ describe('hidden element hints', () => {
       outline: 'black',
     }
 
+    const rectangleResult = renderElement(rectangle, context)
+    expect(rectangleResult).not.toBeNull()
+    expect(resolveHiddenElementHint(rectangle, rectangleResult, context)).toBeNull()
+
+    const arc = {
+      type: 'arc' as const,
+      x: 100,
+      y: 100,
+      radius: 40,
+      start_angle: 30,
+      end_angle: 330,
+      fill: 'none',
+      outline: 'black',
+      width: 3,
+    }
+
+    const arcResult = renderElement(arc, context)
+    expect(arcResult).not.toBeNull()
+    expect(resolveHiddenElementHint(arc, arcResult, context)).toBeNull()
+  })
+
+  it('ghosts icons with fill none', () => {
+    const element = {
+      type: 'icon' as const,
+      value: 'home',
+      x: 0,
+      y: 0,
+      size: 24,
+      fill: 'none',
+    }
     const result = renderElement(element, context)
-    expect(result).not.toBeNull()
+
     expect(resolveHiddenElementHint(element, result, context)?.reason).toBe('fill_none')
   })
 
@@ -99,21 +129,20 @@ describe('hidden element hints', () => {
       y: 20,
       visible: false,
     }
-    const fillNone = {
-      type: 'rectangle' as const,
-      x_start: 0,
-      x_end: 100,
-      y_start: 0,
-      y_end: 100,
+    const fillNoneIcon = {
+      type: 'icon' as const,
+      value: 'mdi:eye-off',
+      x: 0,
+      y: 0,
+      size: 24,
       fill: 'none',
-      outline: 'black',
     }
     const ctx = { ...context, showHiddenHints: false }
 
     expect(isElementCanvasSelectable(invisible, ctx)).toBe(false)
-    expect(isElementCanvasSelectable(fillNone, ctx)).toBe(false)
+    expect(isElementCanvasSelectable(fillNoneIcon, ctx)).toBe(false)
     expect(resolveElementHitBounds(invisible, ctx)).toBeNull()
-    expect(resolveElementHitBounds(fillNone, ctx)).toBeNull()
+    expect(resolveElementHitBounds(fillNoneIcon, ctx)).toBeNull()
   })
 
   it('returns null when ghost hints are disabled', () => {

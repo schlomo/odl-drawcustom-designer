@@ -3,7 +3,7 @@ import { defaultKeymap, historyKeymap, indentWithTab } from '@codemirror/command
 import { foldKeymap, indentUnit } from '@codemirror/language'
 import { lintKeymap } from '@codemirror/lint'
 import { searchKeymap } from '@codemirror/search'
-import { Compartment, EditorState } from '@codemirror/state'
+import { Compartment, EditorState, Transaction } from '@codemirror/state'
 import { EditorView, keymap, tooltips, type ViewUpdate } from '@codemirror/view'
 import { basicSetup } from '@uiw/codemirror-extensions-basic-setup'
 import type { ResolvedTheme } from '../preferences/theme'
@@ -22,7 +22,7 @@ import { yamlEntityIdsCompartment, yamlEntityIdsFacet } from './yamlEntityIds'
 import { yamlWithJinja } from './yamlLanguage'
 import { yamlPayloadLinter } from './yamlLint'
 import { createYamlEditorTheme } from './yamlTheme'
-import { shouldSyncYamlCursorToCanvas, shouldReportYamlDocChange } from './yamlEditorSelection'
+import { shouldReportLinkedYamlCursor, shouldReportYamlDocChange } from './yamlEditorSelection'
 import type { StoredEditorSelection } from './yamlEditorScroll'
 
 export const yamlThemeCompartment = new Compartment()
@@ -55,12 +55,12 @@ export function createYamlEditorState(
   onDocChange: (value: string, update: ViewUpdate) => void,
   pointerActiveRef: { current: boolean },
   onCursorPositionChangeRef: {
-    current: ((position: number) => void) | undefined
+    current: ((position: number, doc: string) => void) | undefined
   },
-  shouldReportCursor: (selection: { empty: boolean }) => boolean,
   suppressCursorReportRef: { current: boolean },
   yamlSelectionRef?: { current: StoredEditorSelection },
   templatePreview: TemplatePreviewConfig = { enabled: true, context: { states: {} } },
+  onEditorBlurRef?: { current: (() => void) | undefined },
 ): EditorState {
   return EditorState.create({
     doc,
@@ -84,6 +84,7 @@ export function createYamlEditorState(
         },
         blur: () => {
           pointerActiveRef.current = false
+          onEditorBlurRef?.current?.()
         },
       }),
       highlightActiveLineWhenCollapsed(),
@@ -111,23 +112,26 @@ export function createYamlEditorState(
         if (!onCursorPositionChange || suppressCursorReportRef.current) {
           return
         }
-        if (!update.selectionSet && !update.docChanged) {
-          return
-        }
-        // Linked YAML selection follows explicit cursor moves, not programmatic doc sync.
-        if (update.docChanged && !update.selectionSet) {
-          return
-        }
 
+        const userInitiated = update.transactions.some(
+          (transaction) => transaction.annotation(Transaction.userEvent) != null,
+        )
         const { main } = update.state.selection
-        if (!shouldReportCursor(main)) {
-          return
-        }
-        if (!shouldSyncYamlCursorToCanvas(update.view.hasFocus)) {
+
+        if (
+          !shouldReportLinkedYamlCursor({
+            selectionSet: update.selectionSet,
+            docChanged: update.docChanged,
+            viewHasFocus: update.view.hasFocus,
+            pointerActive: pointerActiveRef.current,
+            selectionEmpty: main.empty,
+            userInitiated,
+          })
+        ) {
           return
         }
 
-        onCursorPositionChange(main.head)
+        onCursorPositionChange(main.head, update.state.doc.toString())
       }),
       yamlThemeCompartment.of(createYamlEditorTheme(colorScheme, fontSizePx)),
       yamlEntityIdsCompartment.of(yamlEntityIdsFacet.of(entityIds)),

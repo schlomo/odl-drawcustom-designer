@@ -49,6 +49,8 @@ interface YamlPanelProps {
   onStatusMessagesChange?: (messages: StatusMessage[]) => void
   /** True while the canvas is in an active pointer drag (move/resize). */
   canvasDragging?: boolean
+  /** True while a property panel field has focus (typing). */
+  propertyEditing?: boolean
   mockContext?: HaMockContext
 }
 
@@ -65,6 +67,7 @@ export function YamlPanel({
   entityScrollRequest = null,
   onStatusMessagesChange,
   canvasDragging = false,
+  propertyEditing = false,
   mockContext,
 }: YamlPanelProps) {
   const serialized = useMemo(() => serializeYamlPayload(elements), [elements])
@@ -99,7 +102,7 @@ export function YamlPanel({
   })
 
   useEffect(() => {
-    if (!couplingEnabled && canvasDragging) {
+    if (propertyEditing || (!couplingEnabled && canvasDragging)) {
       pendingSerializedRef.current = serialized
       return
     }
@@ -111,7 +114,7 @@ export function YamlPanel({
       setYamlText(nextSerialized)
     }
     skipExternalSyncRef.current = false
-  }, [canvasDragging, couplingEnabled, serialized])
+  }, [canvasDragging, couplingEnabled, propertyEditing, serialized])
 
   const elementsRef = useRef(elements)
 
@@ -162,35 +165,81 @@ export function YamlPanel({
     onIncreaseFontSize: increase,
   }
 
+  const pendingParsedRef = useRef<DrawElement[] | null>(null)
+  const syncTimerRef = useRef<number | null>(null)
+
+  const flushYamlElementsSync = useCallback(() => {
+    if (syncTimerRef.current != null) {
+      window.clearTimeout(syncTimerRef.current)
+      syncTimerRef.current = null
+    }
+    const pending = pendingParsedRef.current
+    pendingParsedRef.current = null
+    if (pending == null || elementsSequenceEqual(elementsRef.current, pending)) {
+      return
+    }
+    skipExternalSyncRef.current = true
+    onElementsChange(pending)
+  }, [onElementsChange])
+
+  useEffect(
+    () => () => {
+      if (syncTimerRef.current != null) {
+        window.clearTimeout(syncTimerRef.current)
+      }
+    },
+    [],
+  )
+
   const handleYamlChange = useCallback(
     (text: string) => {
       setYamlText(text)
 
       const parsed = tryParseYamlElements(text)
-      if (parsed === null || elementsSequenceEqual(elementsRef.current, parsed)) {
+      if (parsed === null) {
+        pendingParsedRef.current = null
+        if (syncTimerRef.current != null) {
+          window.clearTimeout(syncTimerRef.current)
+          syncTimerRef.current = null
+        }
         return
       }
 
-      skipExternalSyncRef.current = true
-      onElementsChange(parsed)
+      if (elementsSequenceEqual(elementsRef.current, parsed)) {
+        pendingParsedRef.current = null
+        if (syncTimerRef.current != null) {
+          window.clearTimeout(syncTimerRef.current)
+          syncTimerRef.current = null
+        }
+        return
+      }
+
+      pendingParsedRef.current = parsed
+      if (syncTimerRef.current != null) {
+        window.clearTimeout(syncTimerRef.current)
+      }
+      syncTimerRef.current = window.setTimeout(() => {
+        syncTimerRef.current = null
+        flushYamlElementsSync()
+      }, 80)
     },
-    [onElementsChange],
+    [flushYamlElementsSync],
   )
 
   const handleCursorPosition = useCallback(
-    (position: number) => {
+    (position: number, doc: string) => {
       if (!couplingEnabled) {
         return
       }
 
-      const index = locateElementIndexAtPosition(yamlText, position)
+      const index = locateElementIndexAtPosition(doc, position)
       if (index == null || index === selectedIndex) {
         return
       }
 
       onSelectElement(index, 'yaml')
     },
-    [couplingEnabled, onSelectElement, selectedIndex, yamlText],
+    [couplingEnabled, onSelectElement, selectedIndex],
   )
 
   return (
@@ -241,6 +290,7 @@ export function YamlPanel({
           yamlSelectionRef={yamlSelectionRef}
           yamlScrollRef={yamlScrollRef}
           onCursorPositionChange={handleCursorPosition}
+          onEditorBlur={flushYamlElementsSync}
           value={yamlText}
           onChange={handleYamlChange}
         />

@@ -171,6 +171,7 @@ export {
   renderPlot,
   renderProgressBar,
   renderDebugGrid,
+  DEBUG_GRID_MIN_SPACING,
   resolveCoordinate,
   resolveX,
   resolveY,

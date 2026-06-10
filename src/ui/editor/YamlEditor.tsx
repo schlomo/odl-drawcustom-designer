@@ -1,5 +1,5 @@
 import { EditorView } from '@codemirror/view'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { parseYamlPayload, scanPayloadForTemplates, validatePayload, type HaMockContext } from '../../core'
 import type { ResolvedTheme } from '../preferences/theme'
 import { locateElementFocusInYaml } from './locateElementInYaml'
@@ -13,7 +13,6 @@ import { reconfigureTemplatePreview } from './yamlTemplatePreview'
 import { createYamlEditorTheme } from './yamlTheme'
 import {
   shouldMoveCursorOnLinkedScroll,
-  shouldReportYamlCursorPosition,
 } from './yamlEditorSelection'
 import type { StoredEditorSelection } from './yamlEditorScroll'
 import {
@@ -42,7 +41,9 @@ export interface YamlEditorProps {
   preserveLinkedElementIndex?: number | null
   /** Scroll linked element into view on canvas/property-driven YAML sync. */
   scrollLinkedElementOnSync?: boolean
-  onCursorPositionChange?: (position: number) => void
+  onCursorPositionChange?: (position: number, doc: string) => void
+  /** Flush debounced YAML → canvas sync (e.g. on editor blur). */
+  onEditorBlur?: () => void
   /** Last known YAML selection — survives canvas-driven doc sync while unlinked. */
   yamlSelectionRef?: { current: StoredEditorSelection }
   /** Last known YAML scrollTop — survives canvas-driven doc sync while unlinked. */
@@ -80,6 +81,7 @@ export function YamlEditor({
   preserveLinkedElementIndex = null,
   scrollLinkedElementOnSync = false,
   onCursorPositionChange,
+  onEditorBlur,
   yamlSelectionRef,
   yamlScrollRef,
   className,
@@ -93,9 +95,11 @@ export function YamlEditor({
   const lastScrollTokenRef = useRef<string | null>(null)
   const onChangeRef = useRef(onChange)
   const onCursorPositionChangeRef = useRef(onCursorPositionChange)
+  const onEditorBlurRef = useRef(onEditorBlur)
   const lastEmittedValueRef = useRef(value)
   const suppressCursorReportRef = useRef(false)
-  const scannedEntityIds = useMemo(() => resolveEntityIds(value), [value])
+  const [entityScanSource, setEntityScanSource] = useState(value)
+  const scannedEntityIds = useMemo(() => resolveEntityIds(entityScanSource), [entityScanSource])
   const entityIds = useMemo(
     () => mergeEntityIds(scannedEntityIds, extraEntityIds),
     [scannedEntityIds, extraEntityIds],
@@ -111,7 +115,15 @@ export function YamlEditor({
   useEffect(() => {
     onChangeRef.current = onChange
     onCursorPositionChangeRef.current = onCursorPositionChange
+    onEditorBlurRef.current = onEditorBlur
   })
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setEntityScanSource(value), 200)
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [value])
 
   useEffect(() => {
     const container = containerRef.current
@@ -131,17 +143,17 @@ export function YamlEditor({
         },
         pointerActiveRef,
         onCursorPositionChangeRef,
-        shouldReportYamlCursorPosition,
         suppressCursorReportRef,
         yamlSelectionRef,
         templatePreview,
+        onEditorBlurRef,
       ),
       parent: container,
     })
 
     viewRef.current = view
     lastEmittedValueRef.current = value
-    onCursorPositionChangeRef.current?.(view.state.selection.main.head)
+    onCursorPositionChangeRef.current?.(view.state.selection.main.head, view.state.doc.toString())
 
     const unbindScroll = yamlScrollRef ? bindYamlScrollStore(view, yamlScrollRef) : undefined
 

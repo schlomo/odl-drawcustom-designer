@@ -1,4 +1,5 @@
 import {
+  DEBUG_GRID_MIN_SPACING,
   ENUMS,
   getPropertyDefault,
   getPropertyDescription,
@@ -158,6 +159,18 @@ export function roundPositionNumber(property: string, value: number): number {
     return value
   }
   return Math.round(value)
+}
+
+/** Type-specific minimums for inspector number fields (matches renderer floors). */
+export function clampNumberPropertyForElement(
+  element: DrawElement,
+  property: string,
+  value: number,
+): number {
+  if (element.type === 'debug_grid' && propertyLeaf(property) === 'spacing') {
+    return Math.max(DEBUG_GRID_MIN_SPACING, value)
+  }
+  return value
 }
 
 const JSON_PROPERTIES = new Set(['points', 'icons'])
@@ -361,8 +374,6 @@ export function isSharedPropertyValueMixed(elements: DrawElement[], property: st
   )
 }
 
-export { getPropertyEffectiveValue, normalizePropertyValueForStorage }
-
 export function parsePropertyInput(
   kind: PropertyFieldKind,
   raw: string,
@@ -391,6 +402,43 @@ export function parsePropertyInput(
   }
   return raw
 }
+
+export function parseNumberPropertyValue(
+  element: DrawElement,
+  property: string,
+  raw: string,
+): number | undefined {
+  const parsed = parsePropertyInput('number', raw)
+  if (typeof parsed !== 'number') {
+    return undefined
+  }
+
+  let next = parsed
+  if (isNonNegativeNumberProperty(property)) {
+    next = Math.max(0, next)
+  }
+  if (isClampedPercentProperty(property)) {
+    next = Math.min(100, Math.max(0, next))
+  }
+  if (isPositionNumberProperty(property)) {
+    next = roundPositionNumber(property, next)
+  }
+  return clampNumberPropertyForElement(element, property, next)
+}
+
+export function storedPropertyValueUnchanged(
+  element: DrawElement,
+  property: string,
+  value: unknown,
+): boolean {
+  const stored = (element as Record<string, unknown>)[property]
+  if (value === undefined) {
+    return stored === undefined
+  }
+  return stored === value
+}
+
+export { getPropertyEffectiveValue, normalizePropertyValueForStorage }
 
 export function formatPropertyValue(value: unknown): string {
   if (value == null) {

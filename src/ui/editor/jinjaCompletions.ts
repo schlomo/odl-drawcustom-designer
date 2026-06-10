@@ -83,6 +83,22 @@ export const HA_EXPRESSION_COMPLETIONS: Completion[] = [
     detail: "iif(condition, if_true, if_false)",
     apply: applyExpression("iif(is_state('', 'on'), '', '')"),
   },
+  {
+    label: 'now',
+    type: 'function',
+    detail: "now().strftime('%H:%M')",
+    apply: applyExpression("now().strftime('%H:%M')"),
+  },
+]
+
+/** Methods on HA `now()` supported by template preview (`HaDateTime`). */
+export const HA_NOW_METHOD_COMPLETIONS: Completion[] = [
+  {
+    label: 'strftime',
+    type: 'function',
+    detail: "strftime('%H:%M') — codes: %Y %m %d %H %M %S",
+    apply: applyExpression("strftime('%H:%M')"),
+  },
 ]
 
 export const HA_FILTER_COMPLETIONS: Completion[] = [
@@ -117,7 +133,7 @@ export function buildJinjaCompletionConfig(entityIds: readonly string[]) {
   }
 }
 
-type JinjaCompletionKind = 'delimiter' | 'expression' | 'filter' | 'entity-id' | 'tag'
+type JinjaCompletionKind = 'delimiter' | 'expression' | 'filter' | 'entity-id' | 'now-method' | 'tag'
 
 interface ResolvedJinjaContext {
   kind: JinjaCompletionKind
@@ -171,6 +187,15 @@ function tagKeywordPrefix(slice: string): string {
   return match?.[1] ?? ''
 }
 
+function matchNowMethodContext(slice: string, pos: number): { from: number; prefix: string } | null {
+  const match = slice.match(/now\(\)\.(\w*)$/)
+  if (!match) {
+    return null
+  }
+  const prefix = match[1] ?? ''
+  return { from: pos - prefix.length, prefix }
+}
+
 function matchEntityIdQuote(slice: string): string | null {
   const patterns = [
     /(?:states|state_attr)\s*\(\s*['"]([\w.]*)$/,
@@ -207,6 +232,11 @@ export function resolveJinjaCompletionContext(context: CompletionContext): Resol
   const entityPrefix = matchEntityIdQuote(slice)
   if (entityPrefix !== null) {
     return { kind: 'entity-id', from: word?.from ?? context.pos, prefix: entityPrefix }
+  }
+
+  const nowMethod = matchNowMethodContext(slice, context.pos)
+  if (nowMethod !== null) {
+    return { kind: 'now-method', from: nowMethod.from, prefix: nowMethod.prefix }
   }
 
   if (isFilterContext(slice)) {
@@ -260,6 +290,9 @@ export function haJinjaCompletionSource(entityIds: readonly string[]) {
         break
       case 'tag':
         options = filterByPrefix(HA_TAG_COMPLETIONS, resolved.prefix)
+        break
+      case 'now-method':
+        options = filterByPrefix(HA_NOW_METHOD_COMPLETIONS, resolved.prefix)
         break
       case 'expression':
         options = filterByPrefix(HA_EXPRESSION_COMPLETIONS, resolved.prefix)

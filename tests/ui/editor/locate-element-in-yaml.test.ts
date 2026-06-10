@@ -57,6 +57,37 @@ describe('locateElementIndexAtPosition', () => {
     const pointPos = doc.indexOf('- - 50')
     expect(locateElementIndexAtPosition(doc, pointPos)).toBe(1)
   })
+
+  it('keeps the rectangle when the cursor is on the last property line before the next element', () => {
+    const doc = `- type: rectangle
+  x_start: 30
+  x_end: 180
+  y_start: 140
+  y_end: 212
+  fill: white
+  outline: black
+  width: 30
+- type: circle
+  x: 224
+  y: 174
+`
+    const cursorAfterWidth = doc.indexOf('width: 30') + 'width: 30'.length
+    expect(locateElementIndexAtPosition(doc, cursorAfterWidth)).toBe(0)
+  })
+
+  it('mis-identifies the next element when position is paired with a stale shorter document', () => {
+    const current = `- type: rectangle
+  x_start: 30
+  outline: black
+  width: 30
+- type: circle
+  x: 224
+`
+    const stale = current.replace('width: 30', 'width: 3')
+    const cursorAfterWidth = current.indexOf('width: 30') + 'width: 30'.length
+    expect(locateElementIndexAtPosition(current, cursorAfterWidth)).toBe(0)
+    expect(locateElementIndexAtPosition(stale, cursorAfterWidth)).toBe(1)
+  })
 })
 
 describe('locateElementFocusInYaml', () => {

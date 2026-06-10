@@ -25,6 +25,7 @@ import {
   elementsWithAddedElement,
   type AddElementResult,
 } from '../lib/add-element-guards'
+import { storedPropertyValueUnchanged } from '../lib/property-field-meta'
 import { createElementFromTemplate } from '../lib/create-element-from-template'
 import { moveElementInArray } from '../lib/element-geometry'
 import { reorderSelectionBlock } from '../lib/reorder-selection'
@@ -510,12 +511,15 @@ export function useProjectState(bootstrap: AppBootstrap) {
 
   const updateElementProperty = useCallback(
     (index: number, key: string, value: unknown) => {
-      dispatchHistory(() => {
+      const mutate = () => {
         commitElements((current) => {
           if (index < 0 || index >= current.length) {
             return current
           }
           const element = current[index]
+          if (element.type !== 'plot' && storedPropertyValueUnchanged(element, key, value)) {
+            return current
+          }
           const next = [...current]
           if (element.type === 'plot') {
             next[index] = applyPlotPropertyUpdate(element, key, value)
@@ -530,14 +534,20 @@ export function useProjectState(bootstrap: AppBootstrap) {
           }
           return next
         })
-      })
+      }
+
+      if (historyRef.current!.isCoalescing()) {
+        mutate()
+        return
+      }
+      dispatchHistory(mutate)
     },
     [commitElements, dispatchHistory],
   )
 
   const updateSelectedProperty = useCallback(
     (key: string, value: unknown) => {
-      dispatchHistory(() => {
+      const mutate = () => {
         commitElements((current) => {
           let next = current
           for (const index of selectedIndicesRef.current) {
@@ -545,6 +555,9 @@ export function useProjectState(bootstrap: AppBootstrap) {
               continue
             }
             const element = next[index]!
+            if (element.type !== 'plot' && storedPropertyValueUnchanged(element, key, value)) {
+              continue
+            }
             const updated = [...next]
             if (element.type === 'plot') {
               updated[index] = applyPlotPropertyUpdate(element, key, value)
@@ -559,7 +572,13 @@ export function useProjectState(bootstrap: AppBootstrap) {
           }
           return next
         })
-      })
+      }
+
+      if (historyRef.current!.isCoalescing()) {
+        mutate()
+        return
+      }
+      dispatchHistory(mutate)
     },
     [commitElements, dispatchHistory],
   )

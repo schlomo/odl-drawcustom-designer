@@ -38,7 +38,6 @@ describe('yaml tooltip clipping', () => {
         () => {},
         pointerActiveRef,
         onCursorPositionChangeRef,
-        () => true,
         suppressCursorReportRef,
       ),
       parent: container,

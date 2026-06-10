@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { serializeYamlPayload, type DrawElement } from '../../../src/core'
+import { SAMPLE_ELEMENTS } from '../../../src/ui/data/sample-elements'
 import {
   elementsSequenceEqual,
   getYamlElementsParseIssues,
   remapSelectedIndex,
   resolveLinkedElementIndex,
+  stableElementSignature,
   summarizeYamlElementsParseIssues,
   tryParseYamlElements,
 } from '../../../src/ui/editor/yamlElementsSync'
@@ -67,6 +69,18 @@ describe('elementsSequenceEqual', () => {
 
   it('returns true for identical sequences', () => {
     expect(elementsSequenceEqual(elements, [...elements])).toBe(true)
+  })
+
+  it('matches showcase round-trip without yaml canonicalization', () => {
+    const parsed = tryParseYamlElements(serializeYamlPayload(SAMPLE_ELEMENTS))!
+    expect(elementsSequenceEqual(SAMPLE_ELEMENTS, parsed)).toBe(true)
+  })
+
+  it('treats key order differences as equal', () => {
+    const left = { type: 'text' as const, value: 'Hi', x: 0, y: 0, font: 'ppb.ttf', size: 20 }
+    const right = { type: 'text' as const, value: 'Hi', x: 0, y: 0, size: 20, font: 'ppb.ttf' }
+    expect(stableElementSignature(left)).toBe(stableElementSignature(right))
+    expect(elementsSequenceEqual([left], [right])).toBe(true)
   })
 })
 

@@ -7,6 +7,9 @@ import { isVisible } from './visibility'
 
 type DebugGridElement = Extract<DrawElement, { type: 'debug_grid' }>
 
+/** Minimum spacing for debug grid lines — prevents pathological SVG line counts in the designer. */
+export const DEBUG_GRID_MIN_SPACING = 8
+
 export function renderDebugGrid(
   element: DebugGridElement,
   ctx: RenderContext,
@@ -23,7 +26,7 @@ export function renderDebugGrid(
       kind: 'debug-grid-stub',
       width: ctx.width,
       height: ctx.height,
-      spacing: effectiveNumber(element, 'spacing', 20, 1),
+      spacing: effectiveNumber(element, 'spacing', 20, DEBUG_GRID_MIN_SPACING),
       stroke: resolveShapePaintFallback(element, 'line_color', paintOptions, 'black'),
       ...(effectiveBool(element, 'dashed')
         ? {

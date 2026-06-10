@@ -78,7 +78,7 @@ describe('elementListRowMeta', () => {
     expect(meta.hiddenOnTag).toBe(true)
   })
 
-  it('marks fill-none rectangles as hidden on tag', () => {
+  it('does not mark stroke-only rectangles with fill none as hidden on tag', () => {
     const meta = elementListRowMeta({
       type: 'rectangle',
       x_start: 0,
@@ -86,6 +86,20 @@ describe('elementListRowMeta', () => {
       y_start: 0,
       y_end: 10,
       fill: 'none',
+      outline: 'black',
+    })
+    expect(meta.hiddenOnTag).toBe(false)
+  })
+
+  it('marks fill-none rectangles without outline as hidden on tag', () => {
+    const meta = elementListRowMeta({
+      type: 'rectangle',
+      x_start: 0,
+      x_end: 10,
+      y_start: 0,
+      y_end: 10,
+      fill: 'none',
+      outline: 'none',
     })
     expect(meta.hiddenOnTag).toBe(true)
   })

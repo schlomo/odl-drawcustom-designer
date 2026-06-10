@@ -47,6 +47,7 @@ export function App({ bootstrap }: AppProps) {
   } | null>(null)
   const [yamlStatusMessages, setYamlStatusMessages] = useState<StatusMessage[]>([])
   const [canvasDragging, setCanvasDragging] = useState(false)
+  const [propertyEditing, setPropertyEditing] = useState(false)
   const [elementAddNotice, setElementAddNotice] = useState<StatusMessage | null>(null)
   const { flashSuccess, flashError, getFeedback } = useExportActionFeedback()
   const {
@@ -221,6 +222,16 @@ export function App({ bootstrap }: AppProps) {
     [nudgeSelectedElements, selectedIndices.length],
   )
 
+  const handleBeginPropertyEdit = useCallback(() => {
+    beginEditCoalesce()
+    setPropertyEditing(true)
+  }, [beginEditCoalesce])
+
+  const handleEndPropertyEdit = useCallback(() => {
+    endEditCoalesce()
+    setPropertyEditing(false)
+  }, [endEditCoalesce])
+
   const handlePropertyChange = useCallback(
     (key: string, value: unknown) => {
       if (selectedIndices.length === 1) {
@@ -387,6 +398,7 @@ export function App({ bootstrap }: AppProps) {
             selectionSource={selectionSource}
             entityScrollRequest={entityScrollRequest}
             canvasDragging={canvasDragging}
+            propertyEditing={propertyEditing}
           />
         </div>
 
@@ -398,6 +410,8 @@ export function App({ bootstrap }: AppProps) {
           onPropertyChange={handlePropertyChange}
           onUploadFont={handleUploadFont}
           onUploadImageForUrl={handleUploadImageForUrl}
+          onBeginPropertyEdit={handleBeginPropertyEdit}
+          onEndPropertyEdit={handleEndPropertyEdit}
           onDelete={handleDeleteSelected}
           onBringToFront={bringSelectionToFront}
           onSendToBack={sendSelectionToBack}

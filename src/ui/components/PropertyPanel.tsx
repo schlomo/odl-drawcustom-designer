@@ -18,6 +18,8 @@ interface PropertyPanelProps {
   onPropertyChange: (key: string, value: unknown) => void
   onUploadFont: (file: File) => Promise<AssetUploadResult>
   onUploadImageForUrl: (urlKey: string, file: File) => Promise<AssetUploadResult>
+  onBeginPropertyEdit?: () => void
+  onEndPropertyEdit?: () => void
   onDelete: () => void
   onBringToFront: () => void
   onSendToBack: () => void
@@ -33,6 +35,8 @@ export function PropertyPanel({
   onPropertyChange,
   onUploadFont,
   onUploadImageForUrl,
+  onBeginPropertyEdit,
+  onEndPropertyEdit,
   onDelete,
   onBringToFront,
   onSendToBack,
@@ -111,6 +115,8 @@ export function PropertyPanel({
             onPropertyChange={onPropertyChange}
             onUploadFont={onUploadFont}
             onUploadImageForUrl={onUploadImageForUrl}
+            onBeginEdit={onBeginPropertyEdit}
+            onEndEdit={onEndPropertyEdit}
           />
         ) : (
           <ElementPropertyForm
@@ -119,6 +125,8 @@ export function PropertyPanel({
             onPropertyChange={onPropertyChange}
             onUploadFont={onUploadFont}
             onUploadImageForUrl={onUploadImageForUrl}
+            onBeginEdit={onBeginPropertyEdit}
+            onEndEdit={onEndPropertyEdit}
           />
         )}
       </div>

@@ -1,5 +1,5 @@
-import { useRef, useMemo, useState } from 'react'
-import { FONT_UPLOAD_ACCEPT, type AssetUploadResult, type DrawElement } from '../../core'
+import { useRef, useState, useCallback, useEffect, useMemo } from 'react'
+import { FONT_UPLOAD_ACCEPT, type AssetUploadResult, type DrawElement, DEBUG_GRID_MIN_SPACING } from '../../core'
 import {
   booleanPropertyDefault,
   enumPropertyDefault,
@@ -21,8 +21,8 @@ import {
   isAllowNegativeNumberProperty,
   isNonNegativeNumberProperty,
   isClampedPercentProperty,
-  isPositionNumberProperty,
-  roundPositionNumber,
+  parseNumberPropertyValue,
+  storedPropertyValueUnchanged,
   parsePropertyInput,
   shouldUseEnumDropdown,
   TEMPLATE_EDITOR_OPTION,
@@ -41,6 +41,8 @@ interface ElementPropertyFormProps {
   onUploadImageForUrl: (urlKey: string, file: File) => Promise<AssetUploadResult>
   properties?: string[]
   mixedProperties?: string[]
+  onBeginEdit?: () => void
+  onEndEdit?: () => void
 }
 
 function PropertyLabel({ element, property }: { element: DrawElement; property: string }) {
@@ -315,6 +317,101 @@ function EnumPropertyField({
   )
 }
 
+function NumberPropertyField({
+  element,
+  property,
+  value,
+  typeMin,
+  allowNegative,
+  nonNegative,
+  clampedPercent,
+  onChange,
+  onBeginEdit,
+  onEndEdit,
+}: {
+  element: DrawElement
+  property: string
+  value: unknown
+  typeMin: number | undefined
+  allowNegative: boolean
+  nonNegative: boolean
+  clampedPercent: boolean
+  onChange: (value: unknown) => void
+  onBeginEdit?: () => void
+  onEndEdit?: () => void
+}) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const rafRef = useRef<number | null>(null)
+  const draftRef = useRef('')
+
+  const displayValue = draft ?? (value == null ? '' : String(value))
+
+  const commitRaw = useCallback(
+    (raw: string) => {
+      const next = parseNumberPropertyValue(element, property, raw)
+      if (storedPropertyValueUnchanged(element, property, next)) {
+        return
+      }
+      onChange(next)
+    },
+    [element, onChange, property],
+  )
+
+  const scheduleCommit = useCallback(
+    (raw: string) => {
+      draftRef.current = raw
+      if (rafRef.current != null) {
+        cancelAnimationFrame(rafRef.current)
+      }
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null
+        commitRaw(draftRef.current)
+      })
+    },
+    [commitRaw],
+  )
+
+  useEffect(
+    () => () => {
+      if (rafRef.current != null) {
+        cancelAnimationFrame(rafRef.current)
+      }
+    },
+    [],
+  )
+
+  return (
+    <label className={`block text-xs ${shell.muted}`}>
+      <PropertyLabel element={element} property={property} />
+      <input
+        type="number"
+        className={`mt-1 w-full font-mono ${shell.input}`}
+        value={displayValue}
+        min={typeMin ?? (allowNegative ? -1 : nonNegative || clampedPercent ? 0 : undefined)}
+        max={clampedPercent ? 100 : undefined}
+        onFocus={() => {
+          onBeginEdit?.()
+          setDraft(value == null ? '' : String(value))
+        }}
+        onBlur={() => {
+          if (rafRef.current != null) {
+            cancelAnimationFrame(rafRef.current)
+            rafRef.current = null
+          }
+          commitRaw(draft ?? displayValue)
+          setDraft(null)
+          onEndEdit?.()
+        }}
+        onChange={(event) => {
+          const raw = event.target.value
+          setDraft(raw)
+          scheduleCommit(raw)
+        }}
+      />
+    </label>
+  )
+}
+
 function PropertyField({
   property,
   element,
@@ -324,6 +421,8 @@ function PropertyField({
   onChange,
   onUploadFont,
   onUploadImageForUrl,
+  onBeginEdit,
+  onEndEdit,
 }: {
   property: string
   element: DrawElement
@@ -333,6 +432,8 @@ function PropertyField({
   onChange: (value: unknown) => void
   onUploadFont: (file: File) => Promise<AssetUploadResult>
   onUploadImageForUrl: (urlKey: string, file: File) => Promise<AssetUploadResult>
+  onBeginEdit?: () => void
+  onEndEdit?: () => void
 }) {
   if (mixed) {
     return (
@@ -345,10 +446,12 @@ function PropertyField({
           placeholder="Mixed values"
           readOnly
           onFocus={(event) => {
+            onBeginEdit?.()
             event.currentTarget.readOnly = false
             event.currentTarget.placeholder = ''
             event.currentTarget.value = ''
           }}
+          onBlur={onEndEdit}
           onChange={(event) => onChange(event.target.value || undefined)}
         />
       </label>
@@ -473,18 +576,20 @@ function PropertyField({
           className={`mt-1 w-full font-mono ${shell.input}`}
           rows={4}
           value={formatPropertyValue(value)}
+          onFocus={onBeginEdit}
+          onBlur={(event) => {
+            onEndEdit?.()
+            try {
+              onChange(parsePropertyInput('json', event.target.value))
+            } catch {
+              // Revert display on invalid JSON blur.
+            }
+          }}
           onChange={(event) => {
             try {
               onChange(parsePropertyInput('json', event.target.value))
             } catch {
               // Keep editing until JSON is valid.
-            }
-          }}
-          onBlur={(event) => {
-            try {
-              onChange(parsePropertyInput('json', event.target.value))
-            } catch {
-              // Revert display on invalid JSON blur.
             }
           }}
         />
@@ -502,38 +607,23 @@ function PropertyField({
   }
 
   if (kind === 'number') {
-    const allowNegative = isAllowNegativeNumberProperty(property)
-    const nonNegative = isNonNegativeNumberProperty(property)
-    const clampedPercent = isClampedPercentProperty(property)
     return (
-      <label className={`block text-xs ${shell.muted}`}>
-        <PropertyLabel element={element} property={property} />
-        <input
-          type="number"
-          className={`mt-1 w-full font-mono ${shell.input}`}
-          value={value == null ? '' : String(value)}
-          min={allowNegative ? -1 : nonNegative || clampedPercent ? 0 : undefined}
-          max={clampedPercent ? 100 : undefined}
-          onChange={(event) => {
-            const parsed = parsePropertyInput('number', event.target.value)
-            if (typeof parsed !== 'number') {
-              onChange(parsed)
-              return
-            }
-            let next = parsed
-            if (nonNegative) {
-              next = Math.max(0, next)
-            }
-            if (clampedPercent) {
-              next = Math.min(100, Math.max(0, next))
-            }
-            if (isPositionNumberProperty(property)) {
-              next = roundPositionNumber(property, next)
-            }
-            onChange(next)
-          }}
-        />
-      </label>
+      <NumberPropertyField
+        element={element}
+        property={property}
+        value={value}
+        typeMin={
+          element.type === 'debug_grid' && property === 'spacing'
+            ? DEBUG_GRID_MIN_SPACING
+            : undefined
+        }
+        allowNegative={isAllowNegativeNumberProperty(property)}
+        nonNegative={isNonNegativeNumberProperty(property)}
+        clampedPercent={isClampedPercentProperty(property)}
+        onChange={onChange}
+        onBeginEdit={onBeginEdit}
+        onEndEdit={onEndEdit}
+      />
     )
   }
 
@@ -545,6 +635,8 @@ function PropertyField({
           className={`mt-1 w-full font-mono ${shell.input}`}
           rows={4}
           value={formatPropertyValue(value)}
+          onFocus={onBeginEdit}
+          onBlur={onEndEdit}
           onChange={(event) => onChange(event.target.value)}
         />
       </label>
@@ -558,6 +650,8 @@ function PropertyField({
         type="text"
         className={`mt-1 w-full font-mono ${shell.input}`}
         value={formatPropertyValue(value)}
+        onFocus={onBeginEdit}
+        onBlur={onEndEdit}
         onChange={(event) => onChange(event.target.value)}
       />
     </label>
@@ -572,6 +666,8 @@ export function ElementPropertyForm({
   onUploadImageForUrl,
   properties: propertiesOverride,
   mixedProperties = [],
+  onBeginEdit,
+  onEndEdit,
 }: ElementPropertyFormProps) {
   const properties = propertiesOverride ?? getEditableProperties(element)
   const mixed = new Set(mixedProperties)
@@ -593,6 +689,8 @@ export function ElementPropertyForm({
           }
           onUploadFont={onUploadFont}
           onUploadImageForUrl={onUploadImageForUrl}
+          onBeginEdit={onBeginEdit}
+          onEndEdit={onEndEdit}
         />
       ))}
     </div>
