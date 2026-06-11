@@ -1,4 +1,4 @@
-# ODL Drawcustom Designer
+# ODL/OEPL Drawcustom Designer
 
 Visual editor for [OpenDisplay Language](https://opendisplay.org/protocol/open-display-language.html) YAML — Home Assistant [`drawcustom`](https://github.com/OpenEPaperLink/Home_Assistant_Integration) compatible.
 

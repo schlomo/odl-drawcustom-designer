@@ -30,7 +30,8 @@ import { TextButton } from './components/TextButton'
 import { shell } from './styles/shell'
 import type { DrawElement } from '../core'
 import type { AddElementResult } from './hooks/useProjectState'
-import { APP_TITLE } from '../core'
+import { APP_GITHUB_REPO_URL, APP_TITLE } from '../core'
+import { logoUrl } from '../assets/bundled-urls'
 import { toolIconPath } from './lib/mdi-tool-icons'
 
 interface AppProps {
@@ -156,18 +157,11 @@ export function App({ bootstrap }: AppProps) {
   }, [elementAddNotice])
 
   const handleLoadDemo = useCallback(() => {
-    if (
-      shouldConfirmLoadDemo({
-        elementCount: elements.length,
-        canUndo,
-        canRedo,
-      }) &&
-      !requestLoadDemoConfirm()
-    ) {
+    if (shouldConfirmLoadDemo(elements.length) && !requestLoadDemoConfirm()) {
       return
     }
     loadDemo()
-  }, [canRedo, canUndo, elements.length, loadDemo])
+  }, [elements.length, loadDemo])
 
   const handleShare = useCallback(async () => {
     const payload = buildSharePayload({
@@ -300,9 +294,23 @@ export function App({ bootstrap }: AppProps) {
   return (
     <div className={shell.app}>
       <header className={`${shell.header} flex items-center justify-between gap-4`}>
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">{APP_TITLE}</h1>
-          <p className={`text-xs ${shell.muted}`}>Phase 4d — undo/redo history</p>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <a
+            href={APP_GITHUB_REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            aria-label="Open ODL/OEPL Drawcustom Designer on GitHub"
+          >
+            <img
+              src={logoUrl}
+              alt=""
+              className="h-7 w-auto"
+              width={792}
+              height={603}
+            />
+          </a>
+          <h1 className="truncate text-lg font-semibold tracking-tight">{APP_TITLE}</h1>
         </div>
         <div className={toolbarGroupsRow}>
           <div className={toolbarGroupRow} role="group" aria-label="Session">

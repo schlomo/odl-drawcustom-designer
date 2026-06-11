@@ -1,4 +1,5 @@
 export {
+  APP_GITHUB_REPO_URL,
   APP_SLUG,
   APP_TAGLINE,
   APP_TITLE,

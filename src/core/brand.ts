@@ -2,14 +2,18 @@
 
 export const APP_SLUG = 'odl-drawcustom-designer' as const
 
-export const APP_TITLE = 'ODL Drawcustom Designer' as const
+export const APP_TITLE = 'ODL/OEPL Drawcustom Designer' as const
 
 export const APP_TAGLINE =
   'Visual editor for OpenDisplay Language YAML — Home Assistant drawcustom compatible.' as const
 
+/** Public GitHub repository URL (showcase QR, header logo link). */
+export const APP_GITHUB_REPO_URL =
+  'https://github.com/schlomo/odl-drawcustom-designer/' as const
+
 export const INDEXEDDB_NAME = APP_SLUG
 
-export const SHOWCASE_DEMO_TITLE = 'ODL drawcustom Showcase' as const
+export const SHOWCASE_DEMO_TITLE = 'ODL/OEPL drawcustom Showcase' as const
 
 export const FONT_FAMILY_PREFIX = 'drawcustom-font' as const
 

@@ -1,5 +1,5 @@
 import type { DrawElement } from '../../core'
-import { SHOWCASE_DEMO_TITLE } from '../../core'
+import { APP_GITHUB_REPO_URL, SHOWCASE_DEMO_TITLE } from '../../core'
 import type { DisplayConfig } from '../preferences/displayConfig'
 
 /** Canvas size for the built-in showcase dashboard (4.3" BWR). */
@@ -165,7 +165,7 @@ export const SAMPLE_ELEMENTS: DrawElement[] = [
   },
   {
     type: 'qrcode',
-    data: 'https://github.com/schlomo/odl-designer/',
+    data: APP_GITHUB_REPO_URL,
     x: 230,
     y: 260,
     boxsize: 3,
