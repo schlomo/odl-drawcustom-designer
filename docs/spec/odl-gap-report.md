@@ -8,8 +8,8 @@ Audit of draw element parity: [OpenDisplay Language (WIP)](https://opendisplay.o
 
 | Column | Meaning |
 |--------|---------|
-| **OEPL spec** | `docs/spec/supported_types.md` (HA drawcustom upstream) |
-| **ODL** | OpenDisplay Language draft (may lag or differ) |
+| **HA drawcustom** | `docs/spec/supported_types.md` — [upstream](https://github.com/OpenEPaperLink/Home_Assistant_Integration/blob/main/docs/drawcustom/supported_types.md) |
+| **ODL** | [OpenDisplay Language](https://opendisplay.org/protocol/open-display-language.html) (WIP; may lag or differ) |
 | **Schema** | Zod in `src/core/schema/elements.ts` |
 | **Renderer** | `src/core/renderer/` + `isVisible` where applicable |
 | **Property UI** | `getVisibleProperties` / inspector forms |
@@ -20,11 +20,11 @@ Audit of draw element parity: [OpenDisplay Language (WIP)](https://opendisplay.o
 
 | Field | OEPL | ODL | Schema | UI | Notes |
 |-------|------|-----|--------|-----|-------|
-| `background` | ✅ | ✅ | ✅ | post-v1 | §18g |
-| `rotate` | ✅ | ✅ | ✅ | post-v1 | Canvas rotation control ✅ |
-| `dither` | ✅ | ✅ | ✅ | post-v1 | Preview pipeline ✅ |
-| `ttl` | ✅ | ✅ | ✅ | post-v1 | |
-| `dry-run` | ✅ | ✅ | ✅ | post-v1 | |
+| `background` | ✅ | ✅ | ✅ | — | Schema + session/share only |
+| `rotate` | ✅ | ✅ | ✅ | ✅ | Display config rotation |
+| `dither` | ✅ | ✅ | ✅ | ✅ | Canvas preview dither toggle → share/session |
+| `ttl` | ✅ | ✅ | ✅ | — | Schema + session/share only |
+| `dry-run` | ✅ | ✅ | ✅ | — | Schema + session/share only |
 
 ## Cross-cutting element fields
 
@@ -62,14 +62,14 @@ All 16 draw type **names** match ODL and OEPL.
 | **`multiline.parse_colors`** | Schema + renderer + UI | OEPL text parity; ODL tables omit it — keep until ODL adds or rejects |
 | **`icon.color`** | Accepted alias of `fill` in schema | OEPL examples use `color`; ODL documents `fill` — HA export should prefer `fill` when both present |
 | **`visible` on debug_grid / polygon / arc** | Full stack support | Cross-cutting UX; upstream ODL WIP may add later (ADR-012) |
-| **`TagColorMode.rgb`** | Preview only | Not in Basic Standard `colour_scheme` enum — designer-only (§18i) |
-| **Designer overlays** | Hidden hints, debug grid | Not part of tag payload semantics; `visible: false` for designer-only layers (§18m) |
+| **`TagColorMode.rgb`** | Preview only | Not in Basic Standard `colour_scheme` enum — designer-only preview mode |
+| **Designer overlays** | Hidden hints, debug grid | Not part of tag payload semantics; `visible: false` for designer-only layers |
 
 ## Basic Standard (wire protocol) — preview mapping only
 
 | Basic Standard | Editor | v1 implementation |
 |----------------|--------|-------------------|
-| `colour_scheme` 0x00–0x04 | `TagColorMode` bw/bwr/bwy/four/six | Dropdown ✅ (§18i) |
+| `colour_scheme` 0x00–0x04 | `TagColorMode` bw/bwr/bwy/four/six | Display config dropdown ✅ |
 | Rotation 0/90/180/270 | Canvas rotation | ✅ |
 | Packet 0x82 image body | PNG export | YAML/PNG ✅; binary encode **post-v1** (ADR-012) |
 
@@ -82,4 +82,4 @@ All 16 draw type **names** match ODL and OEPL.
 ## References
 
 - ADR-012 — dual-spec strategy and extension rules
-- PLAN §7.4 — alignment overview
+- ADR-014-product-naming — product slug and ODL/OEPL discoverability in titles

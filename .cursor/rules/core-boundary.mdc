@@ -16,7 +16,7 @@ alwaysApply: false
 2. Implement minimal code (Green).
 3. Refactor without changing behavior.
 
-Fixtures: `tests/fixtures/` — examples derived from `docs/spec/supported_types.md`.
+Fixtures: `tests/fixtures/` — examples from `docs/spec/supported_types.md` (HA drawcustom); align with [ODL](https://opendisplay.org/protocol/open-display-language.html) via `docs/spec/odl-gap-report.md`.
 
 ## Module layout
 

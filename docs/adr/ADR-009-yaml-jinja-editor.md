@@ -97,7 +97,7 @@ Layer buttons (Front / Back / ↑ / ↓), drag-reorder in the layer list, and YA
 
 **Tests:** `tests/ui/lib/selection-remap.test.ts`, `tests/ui/editor/yaml-elements-sync.test.ts` (layer-down and duplicate-element cases).
 
-**Deferred:** full `useProjectState` batching via `useReducer` for undo/redo (PLAN §19-9) — selection+elements pairing above is the minimum contract until then.
+**Deferred:** full `useProjectState` batching via `useReducer` for undo/redo — selection+elements pairing above is the minimum contract until then.
 
 ## Consequences
 
@@ -118,7 +118,6 @@ Layer buttons (Front / Back / ↑ / ↓), drag-reorder in the layer list, and YA
 
 ## References
 
-- `docs/PLAN.md` §2 (YAML + Jinja editor)
-- `src/ui/editor/` — implementation modules listed in PLAN §6
+- `src/ui/editor/` — CodeMirror extensions, completions, lint, YAML↔canvas coupling
 - ADR-004 (template evaluator scope in core, separate from editor completions)
 - ADR-006 (React shell; editor stays in `src/ui/`)

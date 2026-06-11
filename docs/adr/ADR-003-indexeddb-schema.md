@@ -39,7 +39,7 @@ Use **Dexie** (IndexedDB wrapper) with these logical stores:
 
 - Large blobs stay out of localStorage size limits
 - Opening the app restores the last session automatically
-- Hash share (`#d=pako`, ADR-005) excludes assets and mocks; global assets re-bind by path after import
+- Hash share (`#d=eJ…`, ADR-005) excludes assets and mocks; global assets re-bind by path after import
 - Embedded HA mode (ADR-010) uses live states instead of mocks when available
 
 ## Alternatives considered

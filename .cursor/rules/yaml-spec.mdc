@@ -1,34 +1,50 @@
 ---
-description: OpenEPaperLink drawcustom YAML spec reference and export rules
+description: Drawcustom YAML spec (HA + ODL), dual-spec alignment, and HA-clean export rules
 globs: src/core/**,tests/**,docs/spec/**,src/ui/lib/element-geometry.ts,src/ui/hooks/useProjectState.ts
 alwaysApply: false
 ---
 
 # YAML spec
 
-Canonical spec (vendored upstream):
+Draw payloads are defined by two related specifications. Use **both** when adding fields, fixtures, or export behavior; reconcile differences via `docs/spec/odl-gap-report.md` (ADR-012).
 
-`docs/spec/supported_types.md`
+## Specifications
 
-Upstream source: https://github.com/OpenEPaperLink/Home_Assistant_Integration/blob/main/docs/drawcustom/supported_types.md
+| Spec | Role | Local copy | Upstream |
+|------|------|------------|----------|
+| **HA drawcustom** | What Home Assistant’s `drawcustom` service accepts today | `docs/spec/supported_types.md` | [OpenEPaperLink HA integration — supported_types.md](https://github.com/OpenEPaperLink/Home_Assistant_Integration/blob/main/docs/drawcustom/supported_types.md) |
+| **OpenDisplay Language (ODL)** | Canonical forward name for the same YAML element list (WIP) | — (diff only) | [opendisplay.org — Open Display Language](https://opendisplay.org/protocol/open-display-language.html) |
+
+**Wire protocol (not YAML):** [OpenDisplay Basic Standard](https://opendisplay.org/protocol/basic-standard.html) — display announcement, `colour_scheme`, packet encoding; maps to editor display config (ADR-012).
+
+**Home Assistant `drawcustom` integrations** (custom components — payload shape matches this editor):
+
+| Integration | Service |
+|-------------|---------|
+| [OpenEPaperLink HA](https://github.com/OpenEPaperLink/Home_Assistant_Integration) | `open_epaper_link.drawcustom` |
+| [OpenDisplay HA](https://github.com/OpenDisplay/Home_Assistant_Integration) | `opendisplay.drawcustom` |
+
+The built-in [core OpenDisplay integration](https://www.home-assistant.io/integrations/opendisplay/) uses `upload_image` only — not `drawcustom`.
+
+When ODL and the vendored HA spec disagree, follow ADR-012 extension rules and update the gap report. Do not bulk-replace `supported_types.md` from ODL until upstream stabilizes.
 
 ## HA-clean export rules
 
-YAML copied for Home Assistant must contain **only** valid drawcustom fields:
+YAML copied for Home Assistant must contain **only** valid drawcustom / ODL fields:
 
 - No designer metadata fields
 - No `preview_data_url` or similar preview hacks
 - No YAML comments added by the designer for asset substitution
 - Template strings preserved verbatim (`{{ ... }}`, `{% ... %}`)
-- YamlEditor autocomplete must scaffold `{{ }}` / `{% %}` closers; inner completions must not add closing delimiters (ADR-009, `docs/PLAN.md` §2)
+- YamlEditor autocomplete must scaffold `{{ }}` / `{% %}` closers; inner completions must not add closing delimiters (ADR-009)
 
 ## Service options (top-level, not per-element)
 
-`background`, `rotate`, `dither`, `ttl`, `dry-run` — modeled separately from element payload.
+`background`, `rotate`, `dither`, `ttl`, `dry-run` — modeled separately from element payload (HA + ODL service tables).
 
 ## Designer templates vs minimal HA YAML
 
-HA allows **optional** position fields (e.g. `text.y` defaults to auto-placement per `supported_types.md`). **Minimal** golden fixtures in `tests/fixtures/spec/*-minimal.yaml` must stay valid for the schema and stay in sync with `src/core/schema/elementTemplates.ts` (see `tests/core/schema/elementTemplates.test.ts`).
+HA allows **optional** position fields (e.g. `text.y` defaults to auto-placement per `supported_types.md` / ODL). **Minimal** golden fixtures in `tests/fixtures/spec/*-minimal.yaml` must stay valid for the schema and stay in sync with `src/core/schema/elementTemplates.ts` (see `tests/core/schema/elementTemplates.test.ts`).
 
 **Add Element** templates are **not** minimal exports — they must include designer-friendly defaults so new elements are immediately editable on canvas:
 
@@ -44,4 +60,4 @@ Do not strip optional fields from HA export solely to add designer defaults — 
 
 ## Fixtures
 
-When adding tests, create golden YAML under `tests/fixtures/spec/` or `tests/fixtures/elements/` from spec examples. Do not search the workspace for `supported_types.md` elsewhere.
+When adding tests, create golden YAML under `tests/fixtures/spec/` or `tests/fixtures/elements/` from HA spec examples (and ODL where it adds cases). Do not search the workspace for `supported_types.md` elsewhere.

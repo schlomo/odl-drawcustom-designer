@@ -1,4 +1,4 @@
-/** Product identity — single source of truth (§7.5, ADR-014). */
+/** Product identity — single source of truth (ADR-014). */
 
 export const APP_SLUG = 'odl-drawcustom-designer' as const
 

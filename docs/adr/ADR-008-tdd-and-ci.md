@@ -14,7 +14,7 @@ Correctness of YAML round-trip, template evaluation, and rendering is the produc
 
 | Layer | Tool | Scope |
 |-------|------|-------|
-| Core (yaml, schema, templates, assets, renderer) | Vitest | Golden fixtures from `docs/spec/supported_types.md` |
+| Core (yaml, schema, templates, assets, renderer) | Vitest | Golden fixtures from `docs/spec/supported_types.md` (HA drawcustom); ODL parity via `docs/spec/odl-gap-report.md` |
 | UI smoke | Playwright (Phase 2+) | Load app, add element, edit property, copy YAML |
 
 **Rules:**
@@ -24,7 +24,7 @@ Correctness of YAML round-trip, template evaluation, and rendering is the produc
 - ESLint core boundary must pass
 - CI: `npm ci` → `npm run lint` → `npm test` → `npm run build` → deploy to GH Pages
 
-Fixtures live in `tests/fixtures/` derived from vendored spec at `docs/spec/supported_types.md`.
+Fixtures live in `tests/fixtures/` derived from vendored HA spec at `docs/spec/supported_types.md` ([upstream](https://github.com/OpenEPaperLink/Home_Assistant_Integration/blob/main/docs/drawcustom/supported_types.md)); reconcile with [OpenDisplay Language](https://opendisplay.org/protocol/open-display-language.html) per ADR-012.
 
 ## Consequences
 

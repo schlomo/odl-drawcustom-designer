@@ -3,7 +3,7 @@ export interface ResolutionPick {
   height: number
 }
 
-/** Common drawcustom display WxH quick-picks (§7.3 — dimensions only, no inch labels). */
+/** Common drawcustom display WxH quick-picks (dimensions only, no inch labels). */
 export const RESOLUTION_QUICK_PICKS: readonly ResolutionPick[] = [
   { width: 152, height: 152 },
   { width: 200, height: 200 },

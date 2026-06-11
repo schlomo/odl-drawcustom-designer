@@ -8,7 +8,7 @@ Accepted (Phase 4r — 2026-06)
 
 The designer was scaffolded as **oepl-designer**, reflecting the OpenEPaperLink HA integration lineage. OpenDisplay Language (ODL) is the canonical name for drawcustom payload YAML. User-facing copy still referenced OpenEPaperLink/OEPL in headers and demo titles, while storage keys and IndexedDB names used `oepl-*` prefixes scattered across the codebase.
 
-Owner decision (§7.5): rebrand the **product** without renaming the GitHub repo or local workspace folder.
+Owner decision: rebrand the **product** without renaming the GitHub repo or local workspace folder.
 
 ## Decision
 
@@ -17,10 +17,10 @@ Owner decision (§7.5): rebrand the **product** without renaming the GitHub repo
 | Export | Value |
 |--------|-------|
 | `APP_SLUG` | `odl-drawcustom-designer` |
-| `APP_TITLE` | ODL Drawcustom Designer |
+| `APP_TITLE` | ODL/OEPL Drawcustom Designer |
 | `APP_TAGLINE` | Visual editor for OpenDisplay Language YAML — Home Assistant drawcustom compatible. |
 | `INDEXEDDB_NAME` | same as `APP_SLUG` |
-| `SHOWCASE_DEMO_TITLE` | ODL drawcustom Showcase |
+| `SHOWCASE_DEMO_TITLE` | ODL/OEPL drawcustom Showcase |
 | `FONT_FAMILY_PREFIX` | `drawcustom-font` |
 | `YAML_LINT_SOURCE` | `${APP_SLUG}-yaml` |
 | `storageKey(suffix)` | `${APP_SLUG}-${suffix}` |
@@ -45,6 +45,6 @@ Build with `VITE_BASE_PATH=/odl-drawcustom-designer/` for subpath hosting (overr
 
 ## References
 
-- `docs/PLAN.md` §7.5
 - `src/core/brand.ts`
 - `tests/core/brand.test.ts`
+- ADR-012 (ODL / drawcustom alignment)

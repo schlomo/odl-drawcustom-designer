@@ -32,7 +32,7 @@ const batteryOkContext: HaMockContext = {
 }
 
 describe('evaluateTemplate', () => {
-  describe('priority patterns from PLAN §2', () => {
+  describe('priority HA template patterns (ADR-004)', () => {
     it("evaluates states('sensor.temperature')", () => {
       expect(evaluateTemplate("{{ states('sensor.temperature') }}", temperatureContext)).toBe('21.5')
     })

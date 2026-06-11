@@ -14,7 +14,7 @@ import {
 } from '../../../src/ui/data/resolution-picks'
 
 describe('resolution quick-picks', () => {
-  it('lists §7.3 dimensions without inch labels', () => {
+  it('lists common tag dimensions without inch labels', () => {
     expect(RESOLUTION_QUICK_PICKS).toHaveLength(18)
     expect(formatResolutionLabel(384, 184)).toBe('384×184')
     expect(RESOLUTION_QUICK_PICKS.some((pick) => pick.width === 880 && pick.height === 528)).toBe(true)

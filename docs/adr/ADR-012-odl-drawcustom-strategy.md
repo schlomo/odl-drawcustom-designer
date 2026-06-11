@@ -23,16 +23,16 @@ Upstream ODL spec is **WIP** (expect churn). We continue vendoring `docs/spec/su
 | Concern | Forward spec | Export / runtime today |
 |---------|--------------|------------------------|
 | Element types (16) | ODL draw types | Same names in HA `drawcustom` payload |
-| Service options | ODL top-level keys | `background`, `rotate`, `dither`, `ttl`, `dry-run` — schema ✅, UI post-v1 (§18g) |
+| Service options | ODL top-level keys | `background`, `rotate`, `dither`, `ttl`, `dry-run` — schema ✅; **`rotate`/`dither`** via display config + canvas toolbar |
 | Templates | ODL + HA Jinja | Preserved verbatim in export (ADR-004) |
-| Cross-cutting fields | ODL documents `visible` on most types | **`visible` on all 16 types** in Zod, renderer, completions, property panel (§18j) |
+| Cross-cutting fields | ODL documents `visible` on most types | **`visible` on all 16 types** in Zod, renderer, completions, property panel |
 | Wire image bytes | Basic Standard packet 0x82 | **Post-v1** — document mapping only in v1 |
 
 **Export rule:** Serialized YAML for Home Assistant contains only valid drawcustom/ODL fields — no designer metadata, no preview hacks (ADR-001, yaml-spec rule).
 
 ### Basic Standard `colour_scheme` ↔ editor `TagColorMode`
 
-Announcement `colour_scheme` maps to canvas preview mode (`src/core/display/palette.ts`, §18i):
+Announcement `colour_scheme` maps to canvas preview mode (`src/core/display/palette.ts`):
 
 | `colour_scheme` | Basic Standard | Editor `TagColorMode` |
 |-----------------|----------------|------------------------|
@@ -79,8 +79,8 @@ Intentional deltas (keep until upstream agrees):
 
 - Same payloads work for HA `drawcustom` today and ODL-named integrations later.
 - Spec audit table (`docs/spec/odl-gap-report.md`) tracks drift; periodic manual diff against ODL URL.
-- §18m can use `debug_grid` + `visible: false` for designer-only overlay without `fill: none` hacks.
-- Product rebrand (`odl-designer`) remains a separate decision (§7.5, §18r).
+- Showcase demo uses `visible: false` text and stroke-aware hidden hints without `fill: none` false positives.
+- Product slug **`odl-drawcustom-designer`** — see ADR-014-product-naming.
 
 ## Alternatives considered
 
@@ -90,8 +90,10 @@ Intentional deltas (keep until upstream agrees):
 
 ## References
 
-- PLAN §7.4, §18j
 - `docs/spec/odl-gap-report.md`
-- `docs/spec/supported_types.md` (vendored OEPL upstream)
+- ADR-014-product-naming
+- `docs/spec/supported_types.md` (vendored HA drawcustom — [upstream](https://github.com/OpenEPaperLink/Home_Assistant_Integration/blob/main/docs/drawcustom/supported_types.md))
+- [OpenDisplay Language](https://opendisplay.org/protocol/open-display-language.html)
+- Home Assistant custom integrations: [OpenEPaperLink](https://github.com/OpenEPaperLink/Home_Assistant_Integration) (`open_epaper_link.drawcustom`), [OpenDisplay](https://github.com/OpenDisplay/Home_Assistant_Integration) (`opendisplay.drawcustom`)
 - ADR-004 (template scope), ADR-008 (TDD/CI), ADR-011 (behavior tests)
 - `src/core/display/palette.ts` (TagColorMode / colour_scheme)

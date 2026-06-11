@@ -30,7 +30,7 @@ Support **two runtimes** with one shared `src/core/` + React shell:
 ## Consequences
 
 - Core template evaluator stays identical; only the state provider swaps (`MockStateProvider` vs `HaLiveStateProvider`)
-- Share hash (`#d=pako`) remains standalone-first; embedded mode may ignore URL hash
+- Share hash (`#d=eJ…`, ADR-005) remains standalone-first; embedded mode may ignore URL hash
 - CORS and auth for HA API calls must be documented per deployment (same-origin when embedded in HA frontend is ideal)
 
 ## Alternatives considered

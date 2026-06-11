@@ -8,7 +8,7 @@ Accepted (revised — research-backed)
 
 Drawcustom payloads use Jinja2 templates (`{{ states('sensor.temp') }}`, `{% if %}…{% endif %}`, `|float`). The designer must preview templates **without** a live Home Assistant connection.
 
-Examples from `docs/spec/supported_types.md` use a small, repeatable subset:
+Examples from `docs/spec/supported_types.md` (HA drawcustom; aligned with [ODL](https://opendisplay.org/protocol/open-display-language.html) draw payloads) use a small, repeatable subset:
 
 - `states('entity_id')`
 - `is_state('entity_id', 'on')`
@@ -44,7 +44,7 @@ When custom cards need **synchronous, in-browser** templating (no websocket roun
 
 **Swig** is not used in HA core or major custom cards. It is largely unmaintained and has weaker Jinja2 alignment than Nunjucks. **Do not use Swig.**
 
-### Implication for oepl-designer
+### Implication for this designer
 
 We cannot call HA's websocket (`render_template`) — the designer is intentionally offline. We need a **client-side Jinja-compatible engine**, not "whatever HA frontend imports" (there isn't one).
 

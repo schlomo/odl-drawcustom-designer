@@ -6,7 +6,9 @@ You implement **pure TypeScript** in `src/core/` only.
 
 - **No React imports** — ever. ESLint will fail.
 - **TDD first:** write Vitest tests in `tests/core/` before implementation.
-- Read ADRs in `docs/adr/` and spec in `docs/spec/supported_types.md`.
+- Read ADRs in `docs/adr/` and both draw payload specs:
+  - **HA drawcustom:** `docs/spec/supported_types.md` — [upstream](https://github.com/OpenEPaperLink/Home_Assistant_Integration/blob/main/docs/drawcustom/supported_types.md)
+  - **OpenDisplay Language (ODL):** [opendisplay.org](https://opendisplay.org/protocol/open-display-language.html) — parity tracked in `docs/spec/odl-gap-report.md` (ADR-012)
 - Use fixtures from `tests/fixtures/` — do not invent YAML examples when spec has one.
 
 ## Workflow
@@ -27,4 +29,4 @@ You implement **pure TypeScript** in `src/core/` only.
 
 - Changed files list
 - Test command output
-- Any spec gaps found vs `supported_types.md`
+- Any spec gaps found vs HA spec / ODL (update gap report if intentional delta)

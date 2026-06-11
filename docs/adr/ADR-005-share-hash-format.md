@@ -15,7 +15,13 @@ Deployment target is **not fixed**: the app may be served from a custom domain, 
 Share state lives in the **URL fragment** only — independent of origin, domain, or base path:
 
 ```
-#d=<compressed-payload>
+#d=<base64url-compressed-payload>
+```
+
+Typical payloads start with `eJ` (gzip/deflate via pako). Example:
+
+```
+#d=eJxLzkksKlYoLi1JLEnVUSjPL8lMLsnMz1NISSxJLElV0FBIzS9ILEpV...
 ```
 
 Examples (all equivalent in what they encode; only the origin/path differs):

@@ -1,6 +1,6 @@
 # Architecture audit — 2026-06-08
 
-Phase 3g gate before Phase 4 (PLAN §17g). No product features added.
+Architecture quality gate before major storage work (ADR-011). No product features added.
 
 ## Summary
 
@@ -202,7 +202,7 @@ Legend: **KEEP** = behavior; **MERGE/DEL** = removed or consolidated in 3g.
 
 - **Share hash (ADR-005):** not implemented — Phase 4b
 - **Service options UI (4g):** schema exists; top-level `background`/`dither`/etc. not in property shell
-- **Floyd-Steinberg dither (d=1):** deferred post-v1 per PLAN §7.2
+- **Floyd-Steinberg dither (d=1):** deferred post-v1
 - **IndexedDB session store:** ADR-003 target schema; v1 code still uses projects — Phase 4a
 
 ### Recommendations
@@ -215,4 +215,4 @@ Legend: **KEEP** = behavior; **MERGE/DEL** = removed or consolidated in 3g.
 
 ## Next
 
-Phase 4 entry: PLAN §18a (storage reshape). Read `docs/testing.md` first.
+Next storage work: global IndexedDB reshape (ADR-003). Read `docs/testing.md` first.

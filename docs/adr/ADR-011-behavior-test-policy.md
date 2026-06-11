@@ -21,7 +21,7 @@ Tests assert **observable outcomes** at layer boundaries:
 | **Storage** (`tests/storage/`) | Persist/load round-trip for assets and mocks | Dexie schema internals beyond public adapter API |
 | **Integration** | End-to-end editor mount (CodeMirror + lint + completion) where unit tests cannot cover DOM/tooltip behavior | Every CodeMirror extension flag in isolation |
 
-**Fixture policy:** Golden YAML under `tests/fixtures/spec/` derived from `docs/spec/supported_types.md`. One sweep (`yaml-roundtrip.test.ts`, `render-element.test.ts`) covers all minimal fixtures; per-type tests add **only** behavior not covered by the sweep (e.g. percentage coords, visibility, dither).
+**Fixture policy:** Golden YAML under `tests/fixtures/spec/` derived from `docs/spec/supported_types.md` (HA drawcustom). Parity with [OpenDisplay Language](https://opendisplay.org/protocol/open-display-language.html) tracked in `docs/spec/odl-gap-report.md` (ADR-012). One sweep (`yaml-roundtrip.test.ts`, `render-element.test.ts`) covers all minimal fixtures; per-type tests add **only** behavior not covered by the sweep (e.g. percentage coords, visibility, dither).
 
 **Deletion rule:** Removing a test is allowed when an equal or stronger behavior assertion exists elsewhere. Test count may decrease; spec/user-visible coverage must not.
 
@@ -40,12 +40,11 @@ Tests assert **observable outcomes** at layer boundaries:
 
 ## Alternatives considered
 
-- **Extend ADR-008 only** — rejected; ADR-008 stays focused on workflow/CI; behavior policy deserves a dedicated ADR for discoverability (PLAN §7 ADR table)
+- **Extend ADR-008 only** — rejected; ADR-008 stays focused on workflow/CI; behavior policy deserves a dedicated ADR for discoverability
 - **100% coverage targets** — rejected; encourages implementation mirrors
-- **Playwright-only UI tests** — deferred post-v1 (PLAN §4h); Vitest behavior tests suffice for canvas geometry and editor wiring
+- **Playwright-only UI tests** — deferred post-v1; Vitest behavior tests suffice for canvas geometry and editor wiring
 
 ## References
 
 - ADR-008 (TDD and CI gates)
 - `docs/testing.md`
-- PLAN §17g (Phase 3g gate)

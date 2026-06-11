@@ -8,7 +8,7 @@ Accepted (Phase 4n — 2026-06)
 
 Home Assistant `drawcustom` may preprocess payload YAML through Jinja before the integration parses element definitions. **Any literal** in the payload — coordinates, booleans, JSON blobs — can therefore arrive as a template string. The designer must accept, preserve, and edit those strings without coercing them to numbers, booleans, or parsed JSON on load, save, or export.
 
-Phase **§18j** added template support for `visible`, colors, and icon `size`. Users still hit validation errors and broken property panels when templating other fields (e.g. `progress`, `points`, plot `data`). Per-type hacks in `ElementPropertyForm` do not scale across 16 draw types and plot nested fields.
+Earlier work added template support for `visible`, colors, and icon `size` only. Users still hit validation errors and broken property panels when templating other fields (e.g. `progress`, `points`, plot `data`). Per-type hacks in `ElementPropertyForm` do not scale across 16 draw types and plot nested fields.
 
 Preview remains **best-effort** when values are templated (ADR-004 evaluator scope unchanged).
 
@@ -84,7 +84,7 @@ No expansion of Nunjucks evaluator scope (ADR-004). Templated geometry uses last
 - Templated **position** locks move/align; templated **size/content** fields lock only the relevant resize handles
 - YAML inline preview shows `[error] …` with a short evaluator message; hover shows the full text
 - Property panel tests (19-7/19-8 scope) assert mode switching without coercion
-- Toolbar chrome ADR renumbered to **ADR-014** (this ADR takes **013** per PLAN §7 ADR table)
+- Toolbar chrome layout is documented separately as **ADR-014-toolbar-chrome-layout** (this ADR is **013**)
 
 ## Alternatives considered
 
@@ -96,4 +96,4 @@ No expansion of Nunjucks evaluator scope (ADR-004). Templated geometry uses last
 
 - ADR-004 (template evaluator scope)
 - ADR-011 (behavior-test policy)
-- PLAN §7.6, §18n
+- `src/core/schema/propertyEditorMeta.ts`

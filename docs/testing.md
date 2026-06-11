@@ -1,6 +1,6 @@
 # Testing guide
 
-Phase 3g policy for odl-drawcustom-designer. Canonical ADR: [ADR-011](adr/ADR-011-behavior-test-policy.md). CI gates: [ADR-008](adr/ADR-008-tdd-and-ci.md).
+Canonical ADR: [ADR-011](adr/ADR-011-behavior-test-policy.md). CI gates: [ADR-008](adr/ADR-008-tdd-and-ci.md).
 
 ## Layer rules
 
@@ -9,7 +9,7 @@ Phase 3g policy for odl-drawcustom-designer. Canonical ADR: [ADR-011](adr/ADR-01
 | `tests/core/` | Node (Vitest) | Spec-visible outcomes: YAML parse/serialize equality, validation, render primitives, template strings, HA-clean export |
 | `tests/ui/` | Node or jsdom | User-visible wiring: canvas geometry, YAML↔canvas coupling, editor lint/completion, focus guards |
 | `tests/storage/` | Node + fake IndexedDB | Asset/mock persist round-trip via public storage adapters |
-| `tests/fixtures/` | (data) | Golden YAML from `docs/spec/supported_types.md` — not hand-waved inline strings when a fixture exists |
+| `tests/fixtures/` | (data) | Golden YAML from `docs/spec/supported_types.md` (HA drawcustom); reconcile with [ODL](https://opendisplay.org/protocol/open-display-language.html) per `docs/spec/odl-gap-report.md` |
 
 **Core changes:** Red → Green → Refactor (`.cursor/rules/tdd-required.mdc`). Write or update `tests/core/` first.
 
@@ -48,7 +48,7 @@ tests/fixtures/
 **Storage — worth a test**
 
 - Put/get asset blob by YAML key
-- Mock map read/write for active project (until Phase 4a global mocks)
+- Global mock map read/write (Dexie v3)
 
 ## Anti-patterns — do not add
 
@@ -59,7 +59,7 @@ tests/fixtures/
 | Assert export / function exists | TypeScript + imports already enforce |
 | Snapshot of stub label strings | Brittle; assert structured primitive fields |
 | Third copy of HA-clean strip logic | Keep `yaml-roundtrip.test.ts` + one validate case |
-| Playwright for logic covered by Vitest | Defer E2E to Phase 4h smoke only |
+| Playwright for logic covered by Vitest | Defer E2E to optional ship smoke only |
 
 ## When NOT to add a test
 
@@ -76,6 +76,6 @@ npm run lint          # includes core React import ban
 npm run build         # required before deploy (ADR-008)
 ```
 
-## Phase 4 reminder
+## Storage tests
 
-Read this file before §18a storage reshape and §18d undo/redo. Dexie v2 will change storage tests; keep adapter-level behavior assertions, not schema version internals.
+Dexie schema upgrades wipe dev data on failure (ADR-003). Keep adapter-level behavior assertions, not internal version numbers.
