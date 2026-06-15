@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   APP_GITHUB_REPO_URL,
+  APP_PRIVACY_NOTE,
   APP_SLUG,
   APP_TAGLINE,
   APP_TITLE,
@@ -18,6 +19,9 @@ describe('brand constants', () => {
     expect(APP_TITLE).toBe('ODL/OEPL Drawcustom Designer')
     expect(APP_TAGLINE).toBe(
       'Visual editor for OpenDisplay Language YAML — Home Assistant drawcustom compatible.',
+    )
+    expect(APP_PRIVACY_NOTE).toBe(
+      'Client-side only — local storage and URL hash share links; nothing sent to a server.',
     )
     expect(INDEXEDDB_NAME).toBe(APP_SLUG)
     expect(SHOWCASE_DEMO_TITLE).toBe('ODL/OEPL drawcustom Showcase')

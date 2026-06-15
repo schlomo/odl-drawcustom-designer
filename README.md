@@ -2,6 +2,8 @@
 
 **[Open the designer →](https://schlomo.github.io/odl-drawcustom-designer/)**
 
+**Client-side only** — the app runs entirely in the browser. Designs, fonts, and images stay in local storage (IndexedDB). **Share links** embed the design in the URL hash (`#d=…`) — copied to clipboard, not uploaded anywhere.
+
 Visual [feature-rich](#features) editor for **[OpenDisplay Language](https://opendisplay.org/protocol/open-display-language.html)** (ODL) and [OpenEPaperLink](https://github.com/OpenDisplay/Home_Assistant_Integration/blob/main/docs/drawcustom/supported_types.md) (OEPL) drawcustom YAML. Paste exported element lists into Home Assistant’s **`drawcustom`** service (OpenEPaperLink or OpenDisplay custom integrations below).
 
 Design layouts in the browser, preview them with realistic tag palettes and dithering, export HA-clean YAML or PNG, and share designs via URL. Simulate Home Assistant entity states for template preview. Add custom fonts and images to your designs.

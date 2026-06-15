@@ -30,7 +30,7 @@ import { TextButton } from './components/TextButton'
 import { shell } from './styles/shell'
 import type { DrawElement } from '../core'
 import type { AddElementResult } from './hooks/useProjectState'
-import { APP_GITHUB_REPO_URL, APP_TITLE } from '../core'
+import { APP_GITHUB_REPO_URL, APP_PRIVACY_NOTE, APP_TITLE } from '../core'
 import { logoUrl } from '../assets/bundled-urls'
 import { toolIconPath } from './lib/mdi-tool-icons'
 
@@ -310,7 +310,10 @@ export function App({ bootstrap }: AppProps) {
               height={603}
             />
           </a>
-          <h1 className="truncate text-lg font-semibold tracking-tight">{APP_TITLE}</h1>
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-semibold tracking-tight">{APP_TITLE}</h1>
+            <p className={`truncate text-xs ${shell.muted}`}>{APP_PRIVACY_NOTE}</p>
+          </div>
         </div>
         <div className={toolbarGroupsRow}>
           <div className={toolbarGroupRow} role="group" aria-label="Session">
