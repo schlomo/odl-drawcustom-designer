@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted as direction — **implementation deferred post-v1** (2026-06). Do not code embed bridge until owner aligns with HA / OpenEPaperLink maintainers on the message contract below.
+Accepted — **implementation deferred post-v1**. Do not code embed bridge until owner aligns with HA / OpenEPaperLink maintainers on the message contract below.
 
 ## Context
 

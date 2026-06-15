@@ -2,7 +2,7 @@
 
 Audit of draw element parity: [OpenDisplay Language (WIP)](https://opendisplay.org/protocol/open-display-language.html) vs vendored [`supported_types.md`](supported_types.md) vs this designer (schema, renderer, property UI).
 
-**Last reviewed:** Phase 4j (2026-06). **Do not auto-sync** `supported_types.md` from ODL until upstream stabilizes — update this report after manual diff.
+**Do not auto-sync** `supported_types.md` from ODL until upstream stabilizes — update this report after manual diff.
 
 ## Legend
 

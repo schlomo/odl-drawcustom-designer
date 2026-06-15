@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (locked in Phase 0)
+Accepted
 
 ## Context
 
@@ -14,14 +14,14 @@ Use **React 19 + Vite + TypeScript** for the UI shell only.
 
 Core modules (`src/core/`) remain **framework-agnostic pure TypeScript** with zero React imports. UI components are thin adapters calling core APIs.
 
-State management (Phase 2+): Zustand + immer for project, selection, history, UI prefs.
+State management: `useProjectState` in `src/ui/hooks/` for project, selection, undo/redo history, and UI prefs.
 
 ## Consequences
 
 - Best codegen reliability for complex property panels and forms
 - CodeMirror, Testing Library, dnd-kit patterns available
 - Bundle size (~45 KB gzip React) acceptable for desktop designer use case
-- Phase 0 half-day sanity check validates React shell + one property form
+- Property panels and editor wiring are covered by Vitest + Testing Library
 
 ## Alternatives considered
 

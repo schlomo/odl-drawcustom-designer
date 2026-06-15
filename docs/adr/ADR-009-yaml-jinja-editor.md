@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (Phase 2b, validated in user testing 2026-06-05)
+Accepted
 
 ## Context
 
@@ -97,7 +97,7 @@ Layer buttons (Front / Back / ↑ / ↓), drag-reorder in the layer list, and YA
 
 **Tests:** `tests/ui/lib/selection-remap.test.ts`, `tests/ui/editor/yaml-elements-sync.test.ts` (layer-down and duplicate-element cases).
 
-**Deferred:** full `useProjectState` batching via `useReducer` for undo/redo — selection+elements pairing above is the minimum contract until then.
+**Deferred:** full `useProjectState` batching via `useReducer` for undo/redo — selection+elements pairing above is the minimum contract for now.
 
 ## Consequences
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (Phase 4d polish)
+Accepted
 
 ## Context
 

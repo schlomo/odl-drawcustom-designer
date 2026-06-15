@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (Phase 4j — 2026-06)
+Accepted
 
 ## Context
 
@@ -85,7 +85,7 @@ Intentional deltas (keep until upstream agrees):
 ## Alternatives considered
 
 - **ODL-only schema, break HA field aliases** — rejected; breaks existing automations and vendored spec examples.
-- **Wait for ODL to document `visible` on polygon/arc/debug_grid** — rejected; inconsistent editor UX until then.
+- **Wait for ODL to document `visible` on polygon/arc/debug_grid** — rejected; editor ships `visible` on all 16 types for consistent UX.
 - **Implement Basic Standard binary export in v1** — rejected; out of scope; mapping documented for post-v1.
 
 ## References

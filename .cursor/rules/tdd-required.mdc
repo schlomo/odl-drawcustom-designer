@@ -20,10 +20,10 @@ npm ci → npm test → npm run build → deploy
 
 Deploy only when tests and build pass. See ADR-008.
 
-## Phase boundaries
+## Layer scope
 
-- **Phase 0:** scaffold, ADRs, one golden round-trip test, React shell stub
-- **Phase 1:** full YAML engine (Zod schema, all 16 types, validate)
-- **Phase 2+:** UI panels, renderer, IndexedDB
+- **Core** (`src/core/`): YAML engine, schema, renderer, templates — TDD with Vitest first
+- **UI** (`src/ui/`): React shell, canvas, editor, property panels — behavior tests in `tests/ui/`
+- **Storage** (`src/storage/`): Dexie adapters — tests in `tests/storage/`
 
-Do not implement later-phase modules when the current phase scope is narrower.
+Do not put business logic in UI or skip core tests for spec-visible behavior.

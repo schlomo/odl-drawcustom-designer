@@ -27,10 +27,10 @@ Typical payloads start with `eJ` (gzip/deflate via pako). Example:
 Examples (all equivalent in what they encode; only the origin/path differs):
 
 - `https://design.example.com/#d=…`
-- `https://example.com/tools/oepl/#d=…`
+- `https://example.com/tools/designer/#d=…`
 - `http://localhost:5173/#d=…`
 
-The app reads `location.hash` on load; it does **not** assume `github.io`, `/oepl-designer/`, or any particular hostname.
+The app reads `location.hash` on load; it does **not** assume any particular hostname or deploy path.
 
 **Payload** (JSON before compression):
 
@@ -63,6 +63,6 @@ On load: restore metadata + elements; re-bind assets from local IndexedDB by exa
 
 ## Alternatives considered
 
-- **Hard-coded `github.io/oepl-designer` URLs** — rejected; does not match custom domain/path hosting
+- **Hard-coded deployment URLs in share logic** — rejected; does not match custom domain/path hosting
 - **Query param `?design=`** — acceptable fallback; hash preferred so fragments are not sent to servers/logs
 - **Include mocks in hash** — deferred; default exclude keeps URLs smaller

@@ -15,7 +15,7 @@ Correctness of YAML round-trip, template evaluation, and rendering is the produc
 | Layer | Tool | Scope |
 |-------|------|-------|
 | Core (yaml, schema, templates, assets, renderer) | Vitest | Golden fixtures from `docs/spec/supported_types.md` (HA drawcustom); ODL parity via `docs/spec/odl-gap-report.md` |
-| UI smoke | Playwright (Phase 2+) | Load app, add element, edit property, copy YAML |
+| UI smoke | Playwright (optional) | Load app, add element, edit property, copy YAML |
 
 **Rules:**
 
@@ -28,10 +28,10 @@ Fixtures live in `tests/fixtures/` derived from vendored HA spec at `docs/spec/s
 
 ## Consequences
 
-- Phase 0 establishes Vitest harness + one golden YAML round-trip test
+- Vitest harness + golden YAML round-trip tests guard core regressions
 - GitHub Actions blocks deploy on test or build failure
 - Agents use `tests/fixtures/` as source of truth for spec examples
-- Detailed layer rules and anti-patterns: `docs/testing.md` (Phase 3g)
+- Detailed layer rules and anti-patterns: `docs/testing.md`
 
 ## Alternatives considered
 

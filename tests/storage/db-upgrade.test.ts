@@ -3,14 +3,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ensureDbReady, DesignerDatabase, resetDbReadyForTests } from '../../src/storage/db'
 import { APP_SLUG } from '../../src/core'
 
-function legacyV1Database(name: string): Dexie {
-  const legacy = new Dexie(name)
-  legacy.version(1).stores({
+function v1Database(name: string): Dexie {
+  const database = new Dexie(name)
+  database.version(1).stores({
     assets: 'key',
     mocks: '[projectId+entityId], projectId',
     projects: 'id, updatedAt',
   })
-  return legacy
+  return database
 }
 
 describe('Dexie schema upgrade', () => {
@@ -22,30 +22,30 @@ describe('Dexie schema upgrade', () => {
     vi.restoreAllMocks()
   })
 
-  it('opens after legacy v1 schema and preserves global assets', async () => {
+  it('opens after v1 schema and preserves global assets', async () => {
     dbName = `${APP_SLUG}-upgrade-${crypto.randomUUID()}`
-    const legacy = legacyV1Database(dbName)
-    await legacy.open()
-    const blob = new Blob(['legacy-png'], { type: 'image/png' })
-    await legacy.table('assets').put({
-      key: '/local/legacy.png',
+    const v1 = v1Database(dbName)
+    await v1.open()
+    const blob = new Blob(['v1-png'], { type: 'image/png' })
+    await v1.table('assets').put({
+      key: '/local/v1.png',
       blob,
       mime: 'image/png',
       updatedAt: 1,
     })
-    await legacy.table('mocks').put({
+    await v1.table('mocks').put({
       projectId: 'project-a',
       entityId: 'sensor.temp',
       value: '20',
     })
-    await legacy.close()
+    await v1.close()
 
     const upgraded = new DesignerDatabase(dbName)
     await ensureDbReady(upgraded)
 
-    const stored = await upgraded.assets.get('/local/legacy.png')
+    const stored = await upgraded.assets.get('/local/v1.png')
     expect(stored?.mime).toBe('image/png')
-    expect(await stored?.blob.text()).toBe('legacy-png')
+    expect(await stored?.blob.text()).toBe('v1-png')
     expect(await upgraded.mocks.count()).toBe(0)
     expect(upgraded.tables.map((table) => table.name).sort()).toEqual(['assets', 'mocks', 'session'])
     await upgraded.close()

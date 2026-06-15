@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-The OEPL designer must be testable, portable, and maintainable. Rendering, YAML parsing, template evaluation, and asset resolution are complex and correctness-critical. UI panels and canvas chrome change frequently and benefit from a component framework.
+The drawcustom designer must be testable, portable, and maintainable. Rendering, YAML parsing, template evaluation, and asset resolution are complex and correctness-critical. UI panels and canvas chrome change frequently and benefit from a component framework.
 
 ## Decision
 

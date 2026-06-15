@@ -13,7 +13,7 @@ The previous designer stored clipboard image previews as `preview_data_url` and 
 Use a **designer-only local content map**:
 
 - Key = exact string from YAML (`ppb.ttf`, `/local/logo.png`, `https://…`)
-- Value = blob + mime in IndexedDB (via Dexie in Phase 3)
+- Value = blob + mime in IndexedDB (via Dexie, ADR-003)
 - YAML exported for HA contains **only** valid drawcustom fields — no designer metadata or asset comments
 - Content Manager UI lists referenced keys with resolved/missing/bundled status
 

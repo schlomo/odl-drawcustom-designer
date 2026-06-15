@@ -2,11 +2,11 @@
 
 ## Status
 
-Accepted (Phase 3g — 2026-06)
+Accepted
 
 ## Context
 
-The test suite grew with Phase 2–3 UI and editor work. Many tests assert internal helpers (`shouldShowX`, one-line wrappers, fixture smoke duplicated by sweeps). Phase 4 reshapes storage, undo/redo, and multi-select — brittle implementation tests increase refactor cost without protecting user-visible behavior.
+The test suite includes UI and editor coverage. Some tests assert internal helpers (`shouldShowX`, one-line wrappers, fixture smoke duplicated by sweeps). Brittle implementation tests increase refactor cost without protecting user-visible behavior.
 
 ADR-008 established TDD and CI gates but did not distinguish **behavior** coverage from **implementation mirror** tests.
 
@@ -34,7 +34,7 @@ Tests assert **observable outcomes** at layer boundaries:
 
 ## Consequences
 
-- Phase 4 agents read `docs/testing.md` before storage/undo work
+- Contributors read `docs/testing.md` before large storage or undo/redo changes
 - Spec reviewer checklist (`.cursor/agents/spec-reviewer.md`) aligns with behavior outcomes
 - CI unchanged: `npm test` must pass; fewer tests is not a regression if behavior coverage holds
 

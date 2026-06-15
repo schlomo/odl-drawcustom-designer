@@ -2,13 +2,11 @@
 
 ## Status
 
-Accepted (Phase 4r — 2026-06)
+Accepted
 
 ## Context
 
-The designer was scaffolded as **oepl-designer**, reflecting the OpenEPaperLink HA integration lineage. OpenDisplay Language (ODL) is the canonical name for drawcustom payload YAML. User-facing copy still referenced OpenEPaperLink/OEPL in headers and demo titles, while storage keys and IndexedDB names used `oepl-*` prefixes scattered across the codebase.
-
-Owner decision: rebrand the **product** without renaming the GitHub repo or local workspace folder.
+OpenDisplay Language (ODL) is the canonical name for drawcustom payload YAML. Product slug, titles, storage keys, and build paths should use one module (`src/core/brand.ts`) so renames do not require grep-driven migrations.
 
 ## Decision
 
@@ -27,10 +25,10 @@ Owner decision: rebrand the **product** without renaming the GitHub repo or loca
 
 All localStorage keys, Dexie database name, CodeMirror lint source id, and CSS `@font-face` family prefixes derive from this module.
 
-### Explicit exceptions (unchanged)
+### Paths and upstream labels
 
-- **Workspace folder on disk:** `oepl-designer/`
-- **GitHub repository name** (optional rename later)
+- **Workspace folder:** `odl-drawcustom-designer/`
+- **GitHub repository:** `schlomo/odl-drawcustom-designer` (see `APP_GITHUB_REPO_URL` in `brand.ts`)
 - **Upstream spec references:** "OEPL spec" column labels in `docs/spec/odl-gap-report.md`, OpenEPaperLink vendor mentions in ADRs and vendored `supported_types.md`
 
 ### GH Pages default path
@@ -39,9 +37,8 @@ Build with `VITE_BASE_PATH=/odl-drawcustom-designer/` for subpath hosting (overr
 
 ## Consequences
 
-- One commit point for future rename tweaks (title, slug) without grep-driven migrations.
-- Existing browser IndexedDB under the old name is not migrated — acceptable during v1 development (ADR-003 no-migration policy).
-- Tests enforce no `oepl-designer` or bare `oepl-` literals in `src/` or `tests/` outside `brand.ts`.
+- One commit point for title/slug tweaks via `brand.ts`.
+- IndexedDB name changes are not migrated across slug renames (ADR-003 no-migration policy).
 
 ## References
 

@@ -2,13 +2,13 @@
 
 ## Status
 
-Accepted (Phase 4n — 2026-06)
+Accepted
 
 ## Context
 
-Home Assistant `drawcustom` may preprocess payload YAML through Jinja before the integration parses element definitions. **Any literal** in the payload — coordinates, booleans, JSON blobs — can therefore arrive as a template string. The designer must accept, preserve, and edit those strings without coercing them to numbers, booleans, or parsed JSON on load, save, or export.
+Home Assistant `drawcustom` may preprocess payload YAML through Jinja before the integration parses element definitions. **Any literal** in the payload — coordinates, booleans, JSON blobs — can therefore arrive as a template string. The designer accepts, preserves, and edits those strings without coercing them to numbers, booleans, or parsed JSON on load, save, or export.
 
-Earlier work added template support for `visible`, colors, and icon `size` only. Users still hit validation errors and broken property panels when templating other fields (e.g. `progress`, `points`, plot `data`). Per-type hacks in `ElementPropertyForm` do not scale across 16 draw types and plot nested fields.
+Per-type template UI in the property panel does not scale across 16 draw types and plot nested fields.
 
 Preview remains **best-effort** when values are templated (ADR-004 evaluator scope unchanged).
 
@@ -83,13 +83,13 @@ No expansion of Nunjucks evaluator scope (ADR-004). Templated geometry uses last
 - Paste YAML with templated `x`, `progress`, `points` → validates, property panel shows template mode
 - Templated **position** locks move/align; templated **size/content** fields lock only the relevant resize handles
 - YAML inline preview shows `[error] …` with a short evaluator message; hover shows the full text
-- Property panel tests (19-7/19-8 scope) assert mode switching without coercion
+- Property panel tests assert mode switching without coercion
 - Toolbar chrome layout is documented separately as **ADR-014-toolbar-chrome-layout** (this ADR is **013**)
 
 ## Alternatives considered
 
 - **Per-type template UI in ElementPropertyForm** — rejected; duplicates metadata already implied by Zod shapes
-- **Expand evaluator to resolve all templated geometry live** — rejected for 4n; preview stays best-effort
+- **Expand evaluator to resolve all templated geometry live** — rejected; preview stays best-effort
 - **Per-point templates inside JSON arrays** — deferred post-v1
 
 ## References

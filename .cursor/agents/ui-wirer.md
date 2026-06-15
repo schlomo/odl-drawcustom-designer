@@ -13,9 +13,9 @@ You implement the **React 19 shell** in `src/ui/` and wire it to core APIs.
 
 1. Read ADR-001 and ADR-006 (core/UI split, React for shell only); draw payload rules in `.cursor/rules/yaml-spec.mdc`.
 2. Build or extend components under `src/ui/components/`.
-3. Connect state (local useState in Phase 0; Zustand in Phase 2+) to core calls.
+3. Connect state via `useProjectState` and core calls.
 4. Run `npm run build` and `npm run lint` after UI changes.
-5. Add Playwright smoke tests only when Phase 2 UI scope requires them.
+5. Optional Playwright smoke tests for ship checks — Vitest covers canvas/editor wiring (ADR-011).
 
 ## YamlEditor (`src/ui/editor/`)
 

@@ -22,7 +22,7 @@ export class DesignerDatabase extends Dexie {
       mocks: '[projectId+entityId], projectId',
       projects: 'id, updatedAt',
     })
-    // Dexie cannot change a store primary key in-place — drop legacy stores first.
+    // Dexie cannot change a store primary key in-place — drop prior stores first.
     this.version(2).stores({
       assets: 'key',
       mocks: null,

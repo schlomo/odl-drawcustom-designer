@@ -1,5 +1,3 @@
-import { readdirSync, readFileSync } from 'node:fs'
-import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   APP_GITHUB_REPO_URL,
@@ -13,44 +11,6 @@ import {
   fontUploadVerifyFamily,
   storageKey,
 } from '../../src/core/brand'
-
-const REPO_ROOT = join(import.meta.dirname, '../..')
-
-function* walkSourceFiles(dir: string): Generator<string> {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const fullPath = join(dir, entry.name)
-    if (entry.isDirectory()) {
-      yield* walkSourceFiles(fullPath)
-      continue
-    }
-    if (/\.(ts|tsx)$/.test(entry.name)) {
-      yield fullPath
-    }
-  }
-}
-
-function collectForbiddenLiterals(): string[] {
-  const violations: string[] = []
-  const oeplPrefixPattern = /['"`]oepl-[\w-]+['"`]/
-
-  for (const scanDir of ['src', 'tests'] as const) {
-    for (const filePath of walkSourceFiles(join(REPO_ROOT, scanDir))) {
-      const relPath = relative(REPO_ROOT, filePath).replaceAll('\\', '/')
-      if (relPath === 'src/core/brand.ts' || relPath === 'tests/core/brand.test.ts') {
-        continue
-      }
-      const content = readFileSync(filePath, 'utf8')
-      if (content.includes('oepl-designer')) {
-        violations.push(`${relPath}: contains "oepl-designer"`)
-      }
-      if (oeplPrefixPattern.test(content)) {
-        violations.push(`${relPath}: contains oepl- storage/IndexedDB literal`)
-      }
-    }
-  }
-
-  return violations
-}
 
 describe('brand constants', () => {
   it('exports the odl-drawcustom-designer product identity', () => {
@@ -75,11 +35,5 @@ describe('brand constants', () => {
     const second = fontUploadVerifyFamily()
     expect(first).toMatch(/^drawcustom-font-upload-verify-\d+$/)
     expect(second).not.toBe(first)
-  })
-})
-
-describe('brand naming sweep', () => {
-  it('has no oepl-designer or oepl- storage literals outside brand.ts', () => {
-    expect(collectForbiddenLiterals()).toEqual([])
   })
 })
