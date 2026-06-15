@@ -1,0 +1,115 @@
+# Deploy production to gh-pages (main) and PR previews under pr-preview/pr-<n>/.
+#
+# Requires repository Settings → Pages: "Deploy from a branch" → gh-pages / (root).
+# Official "GitHub Actions" Pages source does not work with PR preview deploys.
+# Settings → Actions → General → Workflow permissions: Read and write.
+#
+# Actions: JamesIves/github-pages-deploy-action (production),
+#          rossjrw/pr-preview-action (PR previews + sticky comment + cleanup).
+
+name: GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
+  workflow_dispatch:
+
+concurrency:
+  group: >-
+    pages-${{
+      github.event_name == 'pull_request'
+        && format('preview-{0}', github.event.number)
+        || 'production'
+    }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  production:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || format('/{0}/', github.event.repository.name) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-production-${{ github.run_number }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Deploy production
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: dist
+          token: ${{ secrets.GITHUB_TOKEN }}
+          clean-exclude: pr-preview
+          force: false
+
+  preview:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        if: github.event.action != 'closed'
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install, test, and build
+        if: github.event.action != 'closed'
+        env:
+          VITE_BASE_PATH: >-
+            /${{ github.event.repository.name }}/pr-preview/pr-${{ github.event.number }}/
+        run: |
+          npm ci
+          npm run lint
+          npm run test
+          npm run build
+
+      - name: Upload dist artifact
+        if: github.event.action != 'closed'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-pr-${{ github.event.number }}-${{ github.run_number }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Deploy PR preview
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: dist
+          preview-branch: gh-pages
+          qr-code: true
+          wait-for-pages-deployment: true
