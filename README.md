@@ -198,3 +198,7 @@ Copyright © 2026 Schlomo Schapiro
 Third-party and upstream attributions: [`NOTICE`](NOTICE) · [`docs/THIRD_PARTY.md`](docs/THIRD_PARTY.md) · [`docs/spec/ATTRIBUTION.md`](docs/spec/ATTRIBUTION.md)
 
 This project is **not** affiliated with OpenEPaperLink, OpenDisplay, or Home Assistant. Upstream firmware and integrations may use **different licenses** (see third-party docs).
+
+## 💖 Sponsorship & Credits
+
+* **Initial Development**: Sponsored by [Tektit Consulting](https://tkt.dev/schlomo) (via [Schlomo](https://github.com/schlomo)).
