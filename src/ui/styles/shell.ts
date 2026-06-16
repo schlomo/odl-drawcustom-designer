@@ -1,7 +1,7 @@
 /** Shared shell classes driven by CSS variables in index.css */
 export const shell = {
   app: 'flex h-screen flex-col bg-[var(--shell-bg)] text-[var(--shell-text)]',
-  header: 'shrink-0 border-b border-[var(--shell-border)] px-6 py-3',
+  header: 'shrink-0 border-b border-[var(--shell-border)] px-6 py-2',
   panel: 'bg-[var(--shell-surface)]',
   panelBorder: 'border-[var(--shell-border)]',
   muted: 'text-[var(--shell-muted)]',

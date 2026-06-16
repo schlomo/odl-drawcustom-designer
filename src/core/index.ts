@@ -1,5 +1,6 @@
 export {
   APP_GITHUB_REPO_URL,
+  APP_PRIVACY_HEADLINE,
   APP_PRIVACY_NOTE,
   APP_SLUG,
   APP_TAGLINE,
@@ -11,6 +12,14 @@ export {
   fontUploadVerifyFamily,
   storageKey,
 } from './brand'
+export {
+  APP_GIT_BRANCH,
+  APP_GIT_REVISION,
+  formatGitBranchLabel,
+  formatGitRevisionLabel,
+  githubBranchUrl,
+  githubCommitUrl,
+} from './buildInfo'
 export {
   roundTripYaml,
   parseYamlDocument,

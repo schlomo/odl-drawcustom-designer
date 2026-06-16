@@ -30,7 +30,18 @@ import { TextButton } from './components/TextButton'
 import { shell } from './styles/shell'
 import type { DrawElement } from '../core'
 import type { AddElementResult } from './hooks/useProjectState'
-import { APP_GITHUB_REPO_URL, APP_PRIVACY_NOTE, APP_TITLE } from '../core'
+import {
+  APP_GITHUB_REPO_URL,
+  APP_GIT_BRANCH,
+  APP_GIT_REVISION,
+  APP_PRIVACY_HEADLINE,
+  APP_PRIVACY_NOTE,
+  APP_TITLE,
+  formatGitBranchLabel,
+  formatGitRevisionLabel,
+  githubBranchUrl,
+  githubCommitUrl,
+} from '../core'
 import { logoUrl } from '../assets/bundled-urls'
 import { toolIconPath } from './lib/mdi-tool-icons'
 
@@ -293,8 +304,8 @@ export function App({ bootstrap }: AppProps) {
 
   return (
     <div className={shell.app}>
-      <header className={`${shell.header} flex items-center justify-between gap-4`}>
-        <div className="flex min-w-0 items-center gap-2.5">
+      <header className={`${shell.header} flex items-center gap-4`}>
+        <div className="flex shrink-0 items-center gap-2.5">
           <a
             href={APP_GITHUB_REPO_URL}
             target="_blank"
@@ -310,12 +321,51 @@ export function App({ bootstrap }: AppProps) {
               height={603}
             />
           </a>
-          <div className="min-w-0">
-            <h1 className="truncate text-lg font-semibold tracking-tight">{APP_TITLE}</h1>
-            <p className={`truncate text-xs ${shell.muted}`}>{APP_PRIVACY_NOTE}</p>
-          </div>
+          <h1 className="truncate text-lg font-semibold tracking-tight">{APP_TITLE}</h1>
         </div>
-        <div className={toolbarGroupsRow}>
+        <div
+          className={`flex min-w-0 flex-1 items-center justify-center gap-1 text-xs ${shell.muted}`}
+        >
+          <span className="truncate" title={APP_PRIVACY_NOTE}>
+            {APP_PRIVACY_HEADLINE}
+          </span>
+          <span aria-hidden="true" className="shrink-0">
+            {' · '}
+          </span>
+          <a
+            href={APP_GITHUB_REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 underline-offset-2 hover:underline"
+          >
+            GitHub
+          </a>
+          <span aria-hidden="true" className="shrink-0">
+            {' · '}
+          </span>
+          <a
+            href={githubBranchUrl(APP_GIT_BRANCH)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 font-mono underline-offset-2 hover:underline"
+            title={`Branch: ${APP_GIT_BRANCH}`}
+          >
+            {formatGitBranchLabel(APP_GIT_BRANCH)}
+          </a>
+          <span aria-hidden="true" className="shrink-0">
+            {' · '}
+          </span>
+          <a
+            href={githubCommitUrl(APP_GIT_REVISION)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 font-mono underline-offset-2 hover:underline"
+            title={`Revision: ${APP_GIT_REVISION}`}
+          >
+            {formatGitRevisionLabel(APP_GIT_REVISION)}
+          </a>
+        </div>
+        <div className={`${toolbarGroupsRow} shrink-0`}>
           <div className={toolbarGroupRow} role="group" aria-label="Session">
             <TextButton variant="destructive" onClick={clearElements}>
               Clear all
