@@ -1,7 +1,8 @@
 import type opentype from 'opentype.js'
 import { getDominantTextDirection, toVisualText } from './bidi-text'
-import { parseColorMarkup } from './parse-colors'
-import { measureTextWidth, type TextBlockLayout } from './text-layout'
+import { parseColorMarkup, stripColorMarkup } from './parse-colors'
+import { layoutMultilineBlock, measureTextWidth, type TextBlockLayout } from './text-layout'
+import { positionTextBlockAtAnchor } from './text-ink-bounds'
 import type { ColoredTextDrawSegment, TextDrawLine } from './types'
 import type { TextColorSegment } from './parse-colors'
 export type { TextColorSegment } from './parse-colors'
@@ -75,39 +76,28 @@ export function buildColoredDrawLines(
   parseColors: boolean,
   layout: TextBlockLayout,
   fontSize: number,
-  boxX: number,
-  boxY: number,
-  anchor: string | undefined,
-  lineSpacing: number,
-  defaultAnchor: string,
+  positionedLines: TextDrawLine[],
 ): TextDrawLine[] {
   const segments = parseColors ? parseColorMarkup(value, defaultColor) : [{ text: value, color: defaultColor }]
   const { text: flattened, ranges } = flattenSegments(segments)
-  const normalized = (anchor ?? defaultAnchor).trim().toLowerCase()
-  const horizontal = normalized[0] ?? 'l'
 
   const lineRanges = lineRangesInFlattened(
     flattened,
     layout.lines.map((line) => line.text),
   )
 
-  return layout.lines.map((line, index) => {
-    let lineX = boxX
-    if (horizontal === 'm') {
-      lineX = boxX + (layout.width - line.width) / 2
-    } else if (horizontal === 'r') {
-      lineX = boxX + layout.width - line.width
+  return positionedLines.map((positioned, index) => {
+    const line = layout.lines[index]
+    if (!line) {
+      return positioned
     }
-
-    const baselineY =
-      boxY + layout.metrics.ascender + index * (layout.metrics.lineHeight + lineSpacing)
 
     const [rangeStart, rangeEnd] = lineRanges[index] ?? [0, line.text.length]
     const lineSegments = parseColors
       ? sliceSegmentRanges(flattened, ranges, rangeStart, rangeEnd)
       : [{ text: line.text, color: defaultColor }]
 
-    let segmentX = lineX
+    let segmentX = positioned.x
     const colorSegments: ColoredTextDrawSegment[] = lineSegments.map((segment) => {
       const entry: ColoredTextDrawSegment = {
         text: segment.text,
@@ -120,10 +110,9 @@ export function buildColoredDrawLines(
     })
 
     return {
+      ...positioned,
       text: line.text,
       visualText: toVisualText(line.text),
-      x: lineX,
-      y: baselineY,
       width: line.width,
       direction: getDominantTextDirection(line.text),
       ...(parseColors ? { colorSegments } : {}),
@@ -138,20 +127,32 @@ export function buildColoredMultilineDrawLines(
   parseColors: boolean,
   fontSize: number,
   lineSpacing: number,
-  startX: number,
-  startY: number,
+  anchorX: number,
+  anchorY: number,
 ): TextDrawLine[] {
-  const metricsAscender = font.ascender * (fontSize / font.unitsPerEm)
-  const lineHeight = (font.ascender - font.descender) * (fontSize / font.unitsPerEm)
+  const layoutLineTexts = parseColors
+    ? lineTexts.map((line) => stripColorMarkup(line))
+    : lineTexts
+  const layout = layoutMultilineBlock(font, layoutLineTexts, fontSize, lineSpacing)
+  const positioned = positionTextBlockAtAnchor(
+    font,
+    layout,
+    fontSize,
+    anchorX,
+    anchorY,
+    'lt',
+    lineSpacing,
+    'lt',
+  )
 
-  return lineTexts.flatMap((lineText, index) => {
+  return positioned.drawLines.flatMap((positionedLine, index) => {
+    const lineText = lineTexts[index] ?? positionedLine.text
     const segments = parseColors
       ? parseColorMarkup(lineText, defaultColor)
       : [{ text: lineText, color: defaultColor }]
     const stripped = segments.map((segment) => segment.text).join('')
-    const baselineY = startY + metricsAscender + index * (lineHeight + lineSpacing)
-    let segmentX = startX + 2
 
+    let segmentX = positionedLine.x
     const colorSegments: ColoredTextDrawSegment[] = segments.map((segment) => {
       const entry: ColoredTextDrawSegment = {
         text: segment.text,
@@ -165,10 +166,9 @@ export function buildColoredMultilineDrawLines(
 
     return [
       {
+        ...positionedLine,
         text: stripped,
         visualText: toVisualText(stripped),
-        x: startX + 2,
-        y: baselineY,
         width: measureTextWidth(font, stripped, fontSize),
         direction: getDominantTextDirection(stripped),
         ...(parseColors ? { colorSegments } : {}),

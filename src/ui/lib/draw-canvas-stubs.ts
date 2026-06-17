@@ -38,6 +38,14 @@ function resolveCanvasFill(
   return resolvePreviewCanvasPaint(ctx, colorName, paintOptionsFromDrawColor(drawColor))
 }
 
+/**
+ * Threshold glyph alpha while drawing (Canvas filter).
+ * Approximates Pillow ImageDraw.fontmode="1" used by OEPL/OpenDisplay HA imagegen.
+ */
+export const TAG_TEXT_HARD_EDGE_CANVAS_FILTER = `url("data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg"><filter id="hard"><feComponentTransfer><feFuncA type="discrete" tableValues="0 1"/></feComponentTransfer></filter></svg>',
+)}#hard")`
+
 function drawOpentypeLine(
   ctx: CanvasRenderingContext2D,
   font: opentype.Font,
@@ -47,10 +55,16 @@ function drawOpentypeLine(
 ): void {
   const positions = computeOpentypeGlyphPositions(font, line.text, fontSize, line.x, line.y)
 
-  for (const { glyph, x, y } of positions) {
-    const path = glyph.getPath(x, y, fontSize)
-    path.fill = fill as string
-    path.draw(ctx)
+  ctx.save()
+  ctx.filter = TAG_TEXT_HARD_EDGE_CANVAS_FILTER
+  try {
+    for (const { glyph, x, y } of positions) {
+      const path = glyph.getPath(x, y, fontSize)
+      path.fill = fill as string
+      path.draw(ctx)
+    }
+  } finally {
+    ctx.restore()
   }
 }
 

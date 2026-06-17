@@ -1,12 +1,13 @@
 import type { DrawElement } from '../schema/elements'
 import { getDominantTextDirection, toVisualText } from './bidi-text'
-import { resolveAnchoredBox, TEXT_DEFAULT_ANCHOR } from './anchors'
+import { TEXT_DEFAULT_ANCHOR } from './anchors'
 import { resolveCoordinate, resolveX, resolveY } from './coordinates'
 import { effectiveBool, effectiveFontSize, effectiveNumber, effectiveString } from './element-defaults'
 import { DEFAULT_FONT_KEY, getFont } from './fonts'
 import { stripColorMarkup } from './parse-colors'
 import { buildColoredDrawLines } from './text-color-lines'
-import { layoutTextBlock, positionTextDrawLines } from './text-layout'
+import { layoutTextBlock } from './text-layout'
+import { positionTextBlockAtAnchor } from './text-ink-bounds'
 import { estimateTextBounds } from './text-metrics'
 import type { RenderContext, RenderResult } from './types'
 import { isVisible } from './visibility'
@@ -47,15 +48,20 @@ export function renderText(element: TextElement, ctx: RenderContext): RenderResu
   const anchorX = resolveX(element.x, ctx)
   const anchorY = resolveY(element.y ?? 0, ctx)
   const anchor = effectiveString(element, 'anchor', TEXT_DEFAULT_ANCHOR)
-  const anchored = resolveAnchoredBox(
-    anchor,
-    anchorX,
-    anchorY,
-    width,
-    height,
-    TEXT_DEFAULT_ANCHOR,
-    { baselineOffset },
-  )
+
+  const positioned =
+    layout != null && font != null
+      ? positionTextBlockAtAnchor(
+          font,
+          layout,
+          fontSize,
+          anchorX,
+          anchorY,
+          anchor,
+          lineSpacing,
+          TEXT_DEFAULT_ANCHOR,
+        )
+      : null
 
   const drawLines =
     layout != null && font != null
@@ -67,13 +73,9 @@ export function renderText(element: TextElement, ctx: RenderContext): RenderResu
             true,
             layout,
             fontSize,
-            anchored.x,
-            anchored.y,
-            anchor,
-            lineSpacing,
-            TEXT_DEFAULT_ANCHOR,
+            positioned!.drawLines,
           )
-        : positionTextDrawLines(layout, anchored.x, anchored.y, anchor, lineSpacing, TEXT_DEFAULT_ANCHOR)
+        : positioned!.drawLines
       : [
           {
             text: layoutText,
@@ -85,12 +87,14 @@ export function renderText(element: TextElement, ctx: RenderContext): RenderResu
           },
         ]
 
+  const bounds = positioned?.bounds ?? { x: anchorX, y: anchorY, width, height }
+
   const primitive = {
     kind: 'text-stub' as const,
-    x: anchored.x,
-    y: anchored.y,
-    width: anchored.width,
-    height: anchored.height,
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
     anchorX,
     anchorY,
     anchor,

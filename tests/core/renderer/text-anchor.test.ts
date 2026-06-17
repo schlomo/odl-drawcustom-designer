@@ -6,6 +6,7 @@ import { renderText } from '../../../src/core/renderer/text'
 import { getCanvasTextDrawStyle } from '../../../src/core/renderer/text-anchor-draw'
 import type { RenderContext } from '../../../src/core/renderer/types'
 import { getPrimitiveBounds } from '../../../src/ui/lib/primitive-bounds'
+import { loadBundledTestFont } from './font-test-utils'
 const context: RenderContext = { width: 880, height: 528, colorMode: 'bwr' }
 
 describe('anchor rendering', () => {
@@ -105,6 +106,30 @@ describe('anchor rendering', () => {
       textAlign: 'right',
       textBaseline: 'bottom',
     })
+  })
+
+  it('places lb anchor on glyph ink bottom (Pillow textbbox)', () => {
+    loadBundledTestFont('rbm.ttf')
+    const fontSize = 24
+    const anchorY = 182
+    const result = renderText(
+      {
+        type: 'text',
+        value: "ב' תמוז ה' תשפ\"ו",
+        x: 20,
+        y: anchorY,
+        size: fontSize,
+        anchor: 'lb',
+        font: 'rbm.ttf',
+      },
+      context,
+    )
+
+    expect(result?.primitive.kind).toBe('text-stub')
+    if (result?.primitive.kind !== 'text-stub') {
+      return
+    }
+    expect(result.primitive.y + result.primitive.height).toBeCloseTo(anchorY, 1)
   })
 
   it('feeds anchored primitives into selection bounds', () => {

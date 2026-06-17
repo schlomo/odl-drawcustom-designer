@@ -1,6 +1,6 @@
 import type opentype from 'opentype.js'
 import { getFont } from './fonts'
-import { getDominantTextDirection, toVisualText } from './bidi-text'
+import { positionTextBlockAtAnchor } from './text-ink-bounds'
 import type { TextDrawLine } from './types'
 
 export interface FontMetrics {
@@ -201,36 +201,25 @@ export function layoutMultilineBlock(
 }
 
 export function positionTextDrawLines(
+  font: opentype.Font,
   layout: TextBlockLayout,
-  boxX: number,
-  boxY: number,
+  fontSize: number,
+  anchorX: number,
+  anchorY: number,
   anchor: string | undefined,
   lineSpacing: number,
   defaultAnchor: string,
 ): TextDrawLine[] {
-  const normalized = (anchor ?? defaultAnchor).trim().toLowerCase()
-  const horizontal = normalized[0] ?? 'l'
-
-  return layout.lines.map((line, index) => {
-    let lineX = boxX
-    if (horizontal === 'm') {
-      lineX = boxX + (layout.width - line.width) / 2
-    } else if (horizontal === 'r') {
-      lineX = boxX + layout.width - line.width
-    }
-
-    const baselineY =
-      boxY + layout.metrics.ascender + index * (layout.metrics.lineHeight + lineSpacing)
-
-    return {
-      text: line.text,
-      visualText: toVisualText(line.text),
-      x: lineX,
-      y: baselineY,
-      width: line.width,
-      direction: getDominantTextDirection(line.text),
-    }
-  })
+  return positionTextBlockAtAnchor(
+    font,
+    layout,
+    fontSize,
+    anchorX,
+    anchorY,
+    anchor,
+    lineSpacing,
+    defaultAnchor,
+  ).drawLines
 }
 
 export function layoutTextWithFont(
