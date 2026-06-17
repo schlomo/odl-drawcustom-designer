@@ -51,11 +51,11 @@ function openResolutionMenu() {
   return screen.getByRole('listbox', { name: 'Resolution options' })
 }
 
-afterEach(() => {
-  delete (HTMLElement.prototype as HTMLElement & { scrollIntoView?: () => void }).scrollIntoView
-})
-
 describe('Sidebar resolution control', () => {
+  afterEach(() => {
+    delete (HTMLElement.prototype as HTMLElement & { scrollIntoView?: () => void }).scrollIntoView
+  })
+
   it('hides W/H inputs on a quick-pick until Custom is selected', () => {
     renderSidebar()
 

@@ -38,7 +38,10 @@ export function ResolutionSelect({
     if (!open) {
       return
     }
-    selectedOptionRef.current?.scrollIntoView?.({ block: 'center' })
+    const selectedOption = selectedOptionRef.current
+    if (typeof selectedOption?.scrollIntoView === 'function') {
+      selectedOption.scrollIntoView({ block: 'center' })
+    }
     const onDocumentMouseDown = (event: MouseEvent) => {
       if (!containerRef.current?.contains(event.target as Node)) {
         setOpen(false)
