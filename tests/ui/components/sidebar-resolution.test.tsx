@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Sidebar } from '../../../src/ui/components/Sidebar'
 
 const defaultCanvas = {
@@ -52,6 +52,10 @@ function openResolutionMenu() {
 }
 
 describe('Sidebar resolution control', () => {
+  afterEach(() => {
+    delete (HTMLElement.prototype as HTMLElement & { scrollIntoView?: () => void }).scrollIntoView
+  })
+
   it('hides W/H inputs on a quick-pick until Custom is selected', () => {
     renderSidebar()
 
@@ -91,5 +95,22 @@ describe('Sidebar resolution control', () => {
     expect(within(listbox).getByRole('option', { name: /800×480/i })).toHaveTextContent('Landscape')
     expect(within(listbox).getByRole('option', { name: /168×384/i })).toHaveTextContent('Portrait')
     expect(within(listbox).getByRole('option', { name: /152×152/i })).toHaveTextContent('Square')
+  })
+
+  it('scrolls the current resolution into the middle when opening the menu', () => {
+    const scrollIntoView = vi.fn()
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    })
+
+    renderSidebar()
+
+    const listbox = openResolutionMenu()
+    expect(within(listbox).getByRole('option', { name: /384×184/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' })
   })
 })

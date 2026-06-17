@@ -31,11 +31,16 @@ export function ResolutionSelect({
 }: ResolutionSelectProps) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const selectedOptionRef = useRef<HTMLButtonElement>(null)
   const listboxId = useId()
 
   useEffect(() => {
     if (!open) {
       return
+    }
+    const selectedOption = selectedOptionRef.current
+    if (typeof selectedOption?.scrollIntoView === 'function') {
+      selectedOption.scrollIntoView({ block: 'center' })
     }
     const onDocumentMouseDown = (event: MouseEvent) => {
       if (!containerRef.current?.contains(event.target as Node)) {
@@ -82,6 +87,7 @@ export function ResolutionSelect({
             return (
               <li key={optionValue} role="presentation">
                 <button
+                  ref={value === optionValue ? selectedOptionRef : undefined}
                   type="button"
                   role="option"
                   aria-selected={value === optionValue}
@@ -101,6 +107,7 @@ export function ResolutionSelect({
           })}
           <li role="presentation">
             <button
+              ref={value === CUSTOM_RESOLUTION_VALUE ? selectedOptionRef : undefined}
               type="button"
               role="option"
               aria-selected={value === CUSTOM_RESOLUTION_VALUE}
