@@ -122,9 +122,24 @@ OpenDisplay uses the same payload shape with `action: opendisplay.drawcustom`.
 - **PNG** — copy to clipboard or download (respects rotation and color mode)
 - **YAML** — copy or download HA-ready payload from the toolbar
 
+### Home Assistant preview parity
+
+The designer aims for a **close** match to what OEPL/OpenDisplay HA integrations render via Pillow `imagegen`, but it is **not pixel-identical** today.
+
+| Area | Typical match | Known gaps |
+|------|----------------|------------|
+| **Layout** (anchors, positions) | Good for text when using bundled/custom fonts | Small (1–2 px) possible; templated values need mock states |
+| **Tag palette & dither** | Color modes and `finalizeTagImageData` clamp to tag colours | Wrong-accent colours clamp to grey on BWR/BWY |
+| **Text glyphs** | Readable; hard-edge filter approximates Pillow `fontmode = "1"` | Glyph edges differ (opentype.js vs Pillow/FreeType) |
+| **SVG shapes & lines** | Rectangles, icons generally usable | Thin **lines** on coloured backgrounds may export as **grey** instead of black; SVG antialiasing vs Pillow integer pixels ([ADR-007](docs/adr/ADR-007-hybrid-rendering.md)) |
+| **Templates** | Mock entity states in the State Simulator | Live HA evaluation can differ |
+| **Assets** | Local fonts/images by YAML path | Share links do not include uploaded blobs |
+
+Use preview and PNG export to **sanity-check** layouts before deploying to a tag; compare against a real HA render when exact appearance matters. Details: [ADR-007](docs/adr/ADR-007-hybrid-rendering.md) · [gap report](docs/spec/odl-gap-report.md).
+
 ### Preview rendering fidelity
 
-- **OpenType** — measured text and multiline layout with font metrics and anchors
+- **OpenType** — measured text and multiline layout with ink-bound anchors and font metrics
 - **MDI icons** — `@mdi/js` paths with autocomplete
 - **QR codes** — live module preview
 - **Plots** — axes, legends, and series from YAML `data`
@@ -137,12 +152,15 @@ OpenDisplay uses the same payload shape with `action: opendisplay.drawcustom`.
 - Binary OpenDisplay wire-format export
 - Element copy/paste, free canvas pan, continuous zoom beyond fixed steps
 - On-canvas polygon vertex editing
+- Using Canvas instead of SVG for rendering for better HA visual matching
 
 See `docs/adr/` for rationale (especially ADR-010, ADR-012).
 
 ## Development
 
 Requires **Node.js ^26** (see `.nvmrc`).
+
+**AI assistants:** read [`AGENTS.md`](AGENTS.md) before changing code (TDD, ADRs, HA parity). Also: [`CLAUDE.md`](CLAUDE.md) · [`.github/copilot-instructions.md`](.github/copilot-instructions.md).
 
 ```bash
 npm install
@@ -162,7 +180,7 @@ npm run build
 - `src/storage/` — Dexie IndexedDB (assets, mocks, session)
 - `docs/adr/` — architecture decision records
 
-Start with [ADR-001](docs/adr/ADR-001-core-ui-separation.md) (core/UI boundary) and [ADR-006](docs/adr/ADR-006-ui-framework-react.md) (React shell).
+Start with [ADR-001](docs/adr/ADR-001-core-ui-separation.md) (core/UI boundary), [ADR-007](docs/adr/ADR-007-hybrid-rendering.md) (HA preview parity), and [ADR-006](docs/adr/ADR-006-ui-framework-react.md) (React shell).
 
 ## License
 

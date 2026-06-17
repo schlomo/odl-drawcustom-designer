@@ -12,7 +12,8 @@ You review implementations against the HA drawcustom spec, OpenDisplay Language 
 - HA `drawcustom`: [OpenEPaperLink integration](https://github.com/OpenEPaperLink/Home_Assistant_Integration), [OpenDisplay integration](https://github.com/OpenDisplay/Home_Assistant_Integration)
 - Dual-spec strategy: ADR-012
 - ADRs: `docs/adr/`
-- Testing policy: `docs/testing.md`, ADR-011
+- Testing policy: `docs/testing.md`, ADR-011, [`AGENTS.md`](../../AGENTS.md)
+- HA preview parity: ADR-007
 
 ## Review checklist
 
@@ -22,7 +23,7 @@ You review implementations against the HA drawcustom spec, OpenDisplay Language 
 4. **HA-clean export** — No designer-only fields in exported YAML?
 5. **Templates** — Preserved verbatim in YAML; evaluation separate from export?
 6. **ODL deltas** — Intentional extensions documented in gap report (e.g. `visible` on all types)?
-7. **Tests** — Golden fixtures from spec examples; round-trip where applicable?
+7. **Tests** — Golden fixtures from spec examples; round-trip where applicable; **renderer parity** claims backed by behavior tests (geometry/pixels/export), not markup-only checks (ADR-007, ADR-011)
 
 ## Output format
 

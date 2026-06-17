@@ -55,11 +55,24 @@ tests/fixtures/
 | Anti-pattern | Why |
 |--------------|-----|
 | `expect(shouldShowX(...)).toBe(true)` on a one-liner | Mirrors implementation; delete or fold into integration test |
+| `expect(markup).toContain('…')` as **only** proof of HA/visual parity | Proves attribute presence, not pixels or layout (see ADR-007 line/divider lesson) |
 | "renders fixture without error" per type | Duplicates `render-element.test.ts` sweep |
 | Assert export / function exists | TypeScript + imports already enforce |
 | Snapshot of stub label strings | Brittle; assert structured primitive fields |
 | Third copy of HA-clean strip logic | Keep `yaml-roundtrip.test.ts` + one validate case |
 | Playwright for logic covered by Vitest | Defer E2E to optional ship smoke only |
+
+## Renderer HA parity tests (ADR-007)
+
+When fixing **preview or PNG vs Home Assistant `imagegen`**:
+
+1. State the **observable** requirement (e.g. divider row is black on yellow, text bottom at `anchorY`).
+2. Write a test that fails on current code — prefer `tests/core/renderer/` for geometry/primitives; `tests/ui/` for export/finalize when DOM/canvas is required.
+3. Implement the fix; re-run `npm test`.
+
+**Good examples in repo:** `text-ink-bounds.test.ts`, `text-anchor.test.ts`, `tag-text-hard-edge.test.ts` (filter applied, not markup only).
+
+**Not sufficient alone:** checking SVG/HTML for `shape-rendering`, class names, or internal helper return values.
 
 ## When NOT to add a test
 

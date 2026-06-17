@@ -1,29 +1,32 @@
 ---
-description: TDD workflow and CI gates for odl-drawcustom-designer
-globs: src/core/**,tests/**,.github/**
+description: TDD, ADR-first workflow, and behavior tests (all agents — see AGENTS.md)
 alwaysApply: true
 ---
 
-# TDD required
+# TDD and ADR-first workflow
 
-Follow Red → Green → Refactor for all `src/core/` work.
+**Canonical doc:** [`AGENTS.md`](../../AGENTS.md) (shared with Claude Code and GitHub Copilot).
 
-- Tests live in `tests/core/` mirroring core module structure.
-- Golden YAML fixtures in `tests/fixtures/`.
-- Run `npm test` before finishing any core task.
+## Before coding
 
-## CI gates (non-negotiable)
+1. Read **relevant ADRs** in `docs/adr/` (rendering → ADR-007; tests → ADR-008, ADR-011; export → ADR-012).
+2. Read `docs/testing.md` for layer rules and anti-patterns.
 
-```
-npm ci → npm test → npm run build → deploy
-```
+## TDD (Red → Green → Refactor)
 
-Deploy only when tests and build pass. See ADR-008.
+- Core: `tests/core/` mirroring `src/core/`
+- UI: `tests/ui/` for wiring and user-visible behavior
+- Run `npm test` before finishing
 
-## Layer scope
+## Behavior tests only (ADR-011)
 
-- **Core** (`src/core/`): YAML engine, schema, renderer, templates — TDD with Vitest first
-- **UI** (`src/ui/`): React shell, canvas, editor, property panels — behavior tests in `tests/ui/`
-- **Storage** (`src/storage/`): Dexie adapters — tests in `tests/storage/`
+Assert **outcomes**, not implementation:
 
-Do not put business logic in UI or skip core tests for spec-visible behavior.
+- **Yes:** anchor ink at `anchorY`; YAML round-trip; primitive `stroke === '#000000'`; PNG row pixel color after export
+- **No:** `toContain('crispEdges')` as sole parity proof; `expect(shouldShowX()).toBe(true)` on one-liners; duplicate render smoke per type
+
+**Renderer / HA parity (ADR-007):** visual fixes must include a test on the render or export path. Attribute/markup-only tests do not count.
+
+## Before finishing / committing
+
+`npm test` → `npm run lint` → `npm run build` (ADR-008). CI uses `npm ci` instead of `npm install`.

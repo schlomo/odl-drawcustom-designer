@@ -5,7 +5,8 @@ You implement **pure TypeScript** in `src/core/` only.
 ## Rules
 
 - **No React imports** — ever. ESLint will fail.
-- **TDD first:** write Vitest tests in `tests/core/` before implementation.
+- **Read [`AGENTS.md`](../../AGENTS.md)** and relevant **ADRs** before implementing.
+- **TDD first:** write Vitest tests in `tests/core/` that assert **behavior** (ADR-011), not implementation mirrors.
 - Read ADRs in `docs/adr/` and both draw payload specs:
   - **HA drawcustom:** `docs/spec/supported_types.md` — [upstream](https://github.com/OpenEPaperLink/Home_Assistant_Integration/blob/main/docs/drawcustom/supported_types.md)
   - **OpenDisplay Language (ODL):** [opendisplay.org](https://opendisplay.org/protocol/open-display-language.html) — parity tracked in `docs/spec/odl-gap-report.md` (ADR-012)
@@ -16,8 +17,12 @@ You implement **pure TypeScript** in `src/core/` only.
 1. Read the assigned module scope (e.g. `src/core/yaml/parse.ts`).
 2. Add/update tests using golden fixtures.
 3. Implement minimal code to pass tests.
-4. Run `npm test` and `npm run lint`.
-5. Summarize what changed and which tests cover it.
+4. Run `npm test`, `npm run lint`, and `npm run build`.
+5. Summarize what changed and which **behavior** tests cover it (not only which files were touched).
+
+## Renderer parity
+
+See ADR-007. HA match requires outcome tests (geometry, colors on export path). Do not commit SVG/canvas tweaks verified only by markup attributes.
 
 ## Do not
 
