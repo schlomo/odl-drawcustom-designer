@@ -80,10 +80,10 @@ describe('App header build metadata', () => {
       expect(screen.getByRole('link', { name: 'GitHub' })).toBeInTheDocument()
     })
 
-    const meta = screen.getByText(APP_PRIVACY_HEADLINE).closest('div')
+    const meta = screen.getByTestId('header-meta-row')
     expect(meta).not.toBeNull()
 
-    const links = within(meta!).getAllByRole('link')
+    const links = within(meta).getAllByRole('link')
     expect(links.map((link) => link.textContent)).toEqual([
       'GitHub',
       formatGitBranchLabel(APP_GIT_BRANCH),
@@ -110,5 +110,15 @@ describe('App header build metadata', () => {
     const revisionLink = screen.getByTitle(`Revision: ${APP_GIT_REVISION}`)
     expect(revisionLink).toHaveAttribute('href', githubCommitUrl(APP_GIT_REVISION))
     expect(revisionLink).toHaveAttribute('target', '_blank')
+  })
+
+  it('omits the legal subline when VITE_HEADER_LEGAL_HTML is unset', async () => {
+    render(<App bootstrap={bootstrapForApp()} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('header-meta-row')).toBeInTheDocument()
+    })
+
+    expect(screen.queryByTestId('header-legal-subline')).not.toBeInTheDocument()
   })
 })

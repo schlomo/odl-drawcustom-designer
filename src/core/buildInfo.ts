@@ -10,6 +10,13 @@ export const APP_GIT_BRANCH =
 export const APP_GIT_REVISION =
   (import.meta.env.VITE_GIT_REVISION ?? 'dev').trim() || 'dev'
 
+/**
+ * Optional HTML for a second header line (e.g. Impressum / Datenschutz links).
+ * Set at build time via `VITE_HEADER_LEGAL_HTML`; trusted content only.
+ */
+export const APP_HEADER_LEGAL_HTML =
+  (import.meta.env.VITE_HEADER_LEGAL_HTML ?? '').trim()
+
 /** Compact branch label for the header (leaf segment, truncated when long). */
 export function formatGitBranchLabel(branch: string, maxLen = 12): string {
   if (DEV_LABELS.has(branch) || branch.length <= maxLen) {

@@ -28,4 +28,4 @@ Product documentation: [`README.md`](../README.md). Architecture decisions: [`do
 npm run lint && npm test && npm run build
 ```
 
-**GitHub Pages:** `.github/workflows/pages.yml` — branch `gh-pages`; optional repo variable `VITE_BASE_PATH=/odl-drawcustom-designer/`.
+**GitHub Pages:** `.github/workflows/pages.yml` — see [`docs/DEPLOYMENT.md`](DEPLOYMENT.md).

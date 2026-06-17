@@ -39,6 +39,7 @@ jobs:
       contents: write
     env:
       VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || format('/{0}/', github.event.repository.name) }}
+      VITE_HEADER_LEGAL_HTML: ${{ vars.VITE_HEADER_LEGAL_HTML || '' }}
     steps:
       - uses: actions/checkout@v4
 

@@ -152,32 +152,7 @@ npm run dev
 npm run build
 ```
 
-Local dev serves at `/`. For GitHub Pages or other subpath hosting:
-
-```bash
-VITE_BASE_PATH=/odl-drawcustom-designer/ npm run build
-```
-
-### GitHub Pages
-
-CI workflow: [`.github/workflows/pages.yml`](.github/workflows/pages.yml) ([JamesIves/github-pages-deploy-action](https://github.com/JamesIves/github-pages-deploy-action) + [rossjrw/pr-preview-action](https://github.com/rossjrw/pr-preview-action)).
-
-**One-time repo setup**
-
-1. **Settings → Pages** — source **Deploy from a branch**, branch **`gh-pages`**, folder **`/` (root)**. Do not use the “GitHub Actions” Pages source (PR previews deploy to the `gh-pages` branch).
-2. **Settings → Actions → General → Workflow permissions** — **Read and write permissions**.
-
-**Deploys**
-
-| Trigger | Result |
-|---------|--------|
-| Push to `main` | Production at `https://<user>.github.io/<repo>/` |
-| Pull request (same repo) | Preview at `…/pr-preview/pr-<n>/` + sticky PR comment (QR code) |
-| PR closed | Preview removed automatically |
-
-Optional repository variable **`VITE_BASE_PATH`** overrides the production build base (default: `/<repo-name>/`). PR previews always use `/<repo-name>/pr-preview/pr-<n>/`.
-
-Fork PRs do not get previews ([upstream limitation](https://github.com/rossjrw/pr-preview-action#setup)).
+**Deployment, GitHub Pages, and build-time environment variables** (base path, legal header HTML, git metadata): [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ## Architecture
 

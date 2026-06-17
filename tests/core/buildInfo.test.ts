@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   APP_GIT_BRANCH,
   APP_GIT_REVISION,
+  APP_HEADER_LEGAL_HTML,
   formatGitBranchLabel,
   formatGitRevisionLabel,
   githubBranchUrl,
@@ -17,6 +18,12 @@ describe('APP_GIT_REVISION', () => {
 describe('APP_GIT_BRANCH', () => {
   it('is injected by Vitest as test', () => {
     expect(APP_GIT_BRANCH).toBe('test')
+  })
+})
+
+describe('APP_HEADER_LEGAL_HTML', () => {
+  it('is empty when VITE_HEADER_LEGAL_HTML is unset', () => {
+    expect(APP_HEADER_LEGAL_HTML).toBe('')
   })
 })
 

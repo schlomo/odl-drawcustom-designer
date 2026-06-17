@@ -15,6 +15,7 @@ export {
 export {
   APP_GIT_BRANCH,
   APP_GIT_REVISION,
+  APP_HEADER_LEGAL_HTML,
   formatGitBranchLabel,
   formatGitRevisionLabel,
   githubBranchUrl,

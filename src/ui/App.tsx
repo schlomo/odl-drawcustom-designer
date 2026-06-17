@@ -34,6 +34,7 @@ import {
   APP_GITHUB_REPO_URL,
   APP_GIT_BRANCH,
   APP_GIT_REVISION,
+  APP_HEADER_LEGAL_HTML,
   APP_PRIVACY_HEADLINE,
   APP_PRIVACY_NOTE,
   APP_TITLE,
@@ -323,47 +324,58 @@ export function App({ bootstrap }: AppProps) {
           </a>
           <h1 className="truncate text-lg font-semibold tracking-tight">{APP_TITLE}</h1>
         </div>
-        <div
-          className={`flex min-w-0 flex-1 items-center justify-center gap-1 text-xs ${shell.muted}`}
-        >
-          <span className="truncate" title={APP_PRIVACY_NOTE}>
-            {APP_PRIVACY_HEADLINE}
-          </span>
-          <span aria-hidden="true" className="shrink-0">
-            {' · '}
-          </span>
-          <a
-            href={APP_GITHUB_REPO_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 underline-offset-2 hover:underline"
+        <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5">
+          <div
+            data-testid="header-meta-row"
+            className={`flex w-full min-w-0 items-center justify-center gap-1 text-xs ${shell.muted}`}
           >
-            GitHub
-          </a>
-          <span aria-hidden="true" className="shrink-0">
-            {' · '}
-          </span>
-          <a
-            href={githubBranchUrl(APP_GIT_BRANCH)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 font-mono underline-offset-2 hover:underline"
-            title={`Branch: ${APP_GIT_BRANCH}`}
-          >
-            {formatGitBranchLabel(APP_GIT_BRANCH)}
-          </a>
-          <span aria-hidden="true" className="shrink-0">
-            {' · '}
-          </span>
-          <a
-            href={githubCommitUrl(APP_GIT_REVISION)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 font-mono underline-offset-2 hover:underline"
-            title={`Revision: ${APP_GIT_REVISION}`}
-          >
-            {formatGitRevisionLabel(APP_GIT_REVISION)}
-          </a>
+            <span className="truncate" title={APP_PRIVACY_NOTE}>
+              {APP_PRIVACY_HEADLINE}
+            </span>
+            <span aria-hidden="true" className="shrink-0">
+              {' · '}
+            </span>
+            <a
+              href={APP_GITHUB_REPO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 underline-offset-2 hover:underline"
+            >
+              GitHub
+            </a>
+            <span aria-hidden="true" className="shrink-0">
+              {' · '}
+            </span>
+            <a
+              href={githubBranchUrl(APP_GIT_BRANCH)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 font-mono underline-offset-2 hover:underline"
+              title={`Branch: ${APP_GIT_BRANCH}`}
+            >
+              {formatGitBranchLabel(APP_GIT_BRANCH)}
+            </a>
+            <span aria-hidden="true" className="shrink-0">
+              {' · '}
+            </span>
+            <a
+              href={githubCommitUrl(APP_GIT_REVISION)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 font-mono underline-offset-2 hover:underline"
+              title={`Revision: ${APP_GIT_REVISION}`}
+            >
+              {formatGitRevisionLabel(APP_GIT_REVISION)}
+            </a>
+          </div>
+          {APP_HEADER_LEGAL_HTML ? (
+            <div
+              data-testid="header-legal-subline"
+              className={`w-full text-center text-xs ${shell.muted} [&_a]:underline-offset-2 [&_a]:hover:underline`}
+              // Build-time HTML from VITE_HEADER_LEGAL_HTML (trusted deploy config only).
+              dangerouslySetInnerHTML={{ __html: APP_HEADER_LEGAL_HTML }}
+            />
+          ) : null}
         </div>
         <div className={`${toolbarGroupsRow} shrink-0`}>
           <div className={toolbarGroupRow} role="group" aria-label="Session">
