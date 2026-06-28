@@ -1,5 +1,5 @@
 import nunjucks from 'nunjucks'
-import { attributeValueEquals } from './attribute-values'
+import { attributeValueEquals, coerceAttributeValue } from './attribute-values'
 import { createHaDateTime } from './ha-datetime'
 import { haFloat, haIif, haNamespace, haSetAttr } from './ha-globals'
 import type { HaMockContext } from './types'
@@ -164,22 +164,31 @@ function isValidVariableName(name: string): boolean {
 /**
  * User-defined variables are LITERAL mock values — the resolved runtime value
  * the user wants during preview, consistent with how the State Simulator mocks
- * literal entity states and typed attributes (ADR-004). Values are injected
- * VERBATIM as Nunjucks globals; they are NOT rendered as templates (Home
- * Assistant renders script `variables:` once at the automation level and never
- * re-parses the rendered output, so the simulator captures the resolved
- * literal). A value that happens to contain `{{ … }}` is emitted as-is.
+ * literal entity states and typed attributes (ADR-004). They are NOT rendered
+ * as templates (Home Assistant renders script `variables:` once at the
+ * automation level and never re-parses the rendered output), so a value that
+ * happens to contain `{{ … }}` is emitted as-is.
+ *
+ * HA renders `variables:` with `parse_result=True`, so a variable's resolved
+ * value carries its NATIVE type (bool / int / float / dict / list) into the
+ * downstream templates that reference it — it is NOT always a string. We mirror
+ * that by inferring the literal type from the user's text with the SAME rules
+ * as mock attribute values (`coerceAttributeValue`): `"false"` becomes the
+ * boolean `false` (falsy, unlike the truthy string), `"5"` becomes the number
+ * `5`, JSON arrays/objects parse to lists/dicts, and a plain word stays a
+ * string. Type inference never re-renders the value, so a `{{ … }}`-looking
+ * string is kept verbatim.
  */
-function collectVariableGlobals(context: HaMockContext): Record<string, string> {
+function collectVariableGlobals(context: HaMockContext): Record<string, unknown> {
   const variables = context.variables
   if (!variables) {
     return {}
   }
 
-  const globals: Record<string, string> = {}
+  const globals: Record<string, unknown> = {}
   for (const [name, value] of Object.entries(variables)) {
     if (isValidVariableName(name)) {
-      globals[name] = value
+      globals[name] = coerceAttributeValue(value)
     }
   }
   return globals

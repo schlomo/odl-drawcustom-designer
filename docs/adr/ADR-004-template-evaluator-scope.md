@@ -158,21 +158,39 @@ designer's analog of HA **script-level `variables:`**.
 - **Literal mock values (not templates).** A Simulator variable is a **literal
   mock value** — the resolved runtime value the user wants during preview,
   exactly like mock entity **states** (`on`) and typed **attributes**
-  (`false`, `21.5`). The value is injected **verbatim**; it is **not** rendered
-  as a template. A value that happens to contain template text (e.g.
-  `{{ foo }}`) is emitted **as-is**, not resolved. This is consistent with the
-  rest of the simulator and faithful to HA's single-pass semantics: real HA
-  renders script `variables:` once at the automation level and never re-parses
-  the rendered output, so the simulator simply captures that resolved literal.
+  (`false`, `21.5`). It is **not** rendered as a template: a value that happens
+  to contain template text (e.g. `{{ foo }}`) is emitted **as-is**, never
+  resolved. This is faithful to HA's single-pass semantics — real HA renders
+  script `variables:` once at the automation level and never re-parses the
+  rendered output, so the simulator captures that resolved literal.
+- **HA variable types — research (2026-06, PR #8).** HA automation/script
+  `variables:` are **not always strings.** Each value is run through
+  `template.render_complex` (`homeassistant/helpers/template.py`), which renders
+  every `Template` leaf with `parse_result=True`; that path parses results into
+  **native Python types** (`bool`, `int`, `float`, `list`, `dict`, `None`) via
+  `ast.literal_eval`, and a literal YAML value keeps its YAML scalar type.
+  Those typed values flow **into the downstream templates** that reference the
+  variable (arithmetic, truthiness, comparisons). So a variable can be a number
+  or boolean downstream — e.g. `{{ count + 1 }}` or `{{ iif(flag, …) }}` see a
+  real number / boolean, not a string. **Decision:** the Simulator therefore
+  infers a variable's literal type from the text the user types using the SAME
+  rule as mock attributes (`coerceAttributeValue`): `"false"`→boolean `false`
+  (falsy), `"5"`→number, JSON `[…]`/`{…}`→list/dict, else string. Type inference
+  is applied **only at injection** and never re-renders the value (the verbatim
+  guarantee above still holds for `{{ … }}`-looking strings, which are not valid
+  number/bool/JSON and stay strings). This is the consistent counterpart to #9's
+  typed attribute values; storage stays a plain text map (no schema change).
 - **Data shape:** a global `name → value` map (`HaMockContext.variables`,
-  `Record<string, string>`), separate from entity states/attributes. Names must
-  be bare identifiers (`/^[A-Za-z_$][\w$]*$/`) and may not shadow built-in
-  globals (`states`, `is_state`, `state_attr`, `is_state_attr`, `now`, `float`,
-  `iif`, `namespace`).
+  `Record<string, string>` of the raw literal text), separate from entity
+  states/attributes; the type is inferred at injection. Names must be bare
+  identifiers (`/^[A-Za-z_$][\w$]*$/`) and may not shadow built-in globals
+  (`states`, `is_state`, `state_attr`, `is_state_attr`, `now`, `float`, `iif`,
+  `namespace`).
 - **Injection:** `createEnvironment` registers each valid variable as a Nunjucks
-  global (`env.addGlobal(name, value)`), so a bare `{{ name }}` resolves in
-  **every** field's evaluation. Variable globals and the `states(...)` function
-  occupy different namespaces, so they never collide.
+  global with its **coerced** value (`env.addGlobal(name, coerceAttributeValue(value))`),
+  so a bare `{{ name }}` resolves in **every** field's evaluation. Variable
+  globals and the `states(...)` function occupy different namespaces, so they
+  never collide.
 - **Auto-population (scan):** templates are scanned for **bare variable
   references** — identifiers used as `{{ name }}` / in expressions that are NOT
   HA globals, entity-id string args, function calls, filters, member-access
@@ -180,6 +198,13 @@ designer's analog of HA **script-level `variables:`**.
   (`extractVariableReferences` → `TemplateScanResult.variablesReferenced`).
   Discovered names surface as **empty-valued, pre-filled rows** the user just
   fills in — mirroring how referenced **attributes** are pre-filled (issue #4).
+  Re-scanning follows YAML edits, so **renaming** a referenced variable
+  (`something` → `something2`) drops the old name and pre-fills the new one.
+- **Current/All scope (mirrors entities):** the Variables section honors the
+  State Simulator's `PanelScopeToggle` exactly like the entity list —
+  **current** shows only variables referenced in the current payload (a stale
+  stored name left over from a rename disappears), **all** also shows every
+  stored variable. Stored values still display for referenced names.
 - **Immediate apply:** editing a variable's value writes through on `change`
   (`onSetVariable`), so the preview updates immediately — the same write-through
   UX as attribute edits, with no separate "commit" step.

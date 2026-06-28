@@ -113,13 +113,19 @@ export function StateSimulator({
     setDraftEntityValue('')
   }
 
-  // Union of stored variables and variables referenced in the payload, so
-  // scanned-but-unset variables pre-fill as empty-valued rows (mirrors the
-  // attribute pre-fill UX). Value edits apply immediately via onSetVariable.
-  const variableNames = useMemo(
-    () => [...new Set([...Object.keys(variables), ...scannedVariables])].sort(),
-    [variables, scannedVariables],
-  )
+  // Variables honor the Current/All scope exactly like entities:
+  //   - current: only variables referenced in the payload (scanned names),
+  //     so a stale stored name left over from a YAML rename disappears and the
+  //     live reference pre-fills instead.
+  //   - all: every stored variable plus referenced ones.
+  // Referenced-but-unset names pre-fill as empty-valued rows; their stored
+  // value (if any) still displays via `variables[name]`.
+  const variableNames = useMemo(() => {
+    if (scope === 'current') {
+      return [...new Set(scannedVariables)].sort()
+    }
+    return [...new Set([...Object.keys(variables), ...scannedVariables])].sort()
+  }, [variables, scannedVariables, scope])
 
   const commitVariableDraft = () => {
     const name = variableDraft.name.trim()

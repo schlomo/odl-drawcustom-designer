@@ -71,3 +71,55 @@ describe('StateSimulator variables', () => {
     expect(props.onAddVariable).toHaveBeenCalledWith('label', 'hi')
   })
 })
+
+describe('StateSimulator variables — Current/All scope (mirrors entities)', () => {
+  it('Current scope shows only payload-referenced variables, hiding stale stored ones', () => {
+    // The payload references `something2`; a stale stored `something` (left over
+    // from a YAML rename) is NOT referenced. Current scope must mirror entity
+    // behavior: surface only what the payload uses.
+    const elements: DrawElement[] = [
+      { type: 'text', value: '{{ something2 }}', x: 0, y: 0 } as unknown as DrawElement,
+    ]
+    renderSimulator({ elements, variables: { something: 'val' }, scope: 'current' })
+
+    expect(screen.getByLabelText('Value for variable something2')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Value for variable something')).toBeNull()
+  })
+
+  it('All scope shows stored variables even when not referenced in the payload', () => {
+    const elements: DrawElement[] = [
+      { type: 'text', value: '{{ something2 }}', x: 0, y: 0 } as unknown as DrawElement,
+    ]
+    renderSimulator({ elements, variables: { something: 'val' }, scope: 'all' })
+
+    expect(screen.getByLabelText('Value for variable something2')).toBeInTheDocument()
+    expect(screen.getByLabelText('Value for variable something')).toBeInTheDocument()
+  })
+
+  it('Current scope hides a stored variable that the payload never references', () => {
+    renderSimulator({ elements: [], variables: { leftover: 'x' }, scope: 'current' })
+    expect(screen.queryByLabelText('Value for variable leftover')).toBeNull()
+  })
+})
+
+describe('StateSimulator variables — renamed variable in YAML (regression #8)', () => {
+  it('surfaces the renamed reference and applies its value immediately', () => {
+    // Repro: user had `something`, renamed it to `something2` in the YAML. The
+    // pre-filled row must show `something2` (the live reference) and editing its
+    // value must write through immediately — not get shadowed by stale storage.
+    const elements: DrawElement[] = [
+      { type: 'text', value: '{{ something2 }}', x: 0, y: 0 } as unknown as DrawElement,
+    ]
+    const { props } = renderSimulator({
+      elements,
+      variables: { something: 'val' },
+      scope: 'current',
+    })
+
+    const valueInput = screen.getByLabelText('Value for variable something2')
+    expect(valueInput).toHaveValue('')
+
+    fireEvent.change(valueInput, { target: { value: 'green' } })
+    expect(props.onSetVariable).toHaveBeenCalledWith('something2', 'green')
+  })
+})

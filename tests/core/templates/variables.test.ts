@@ -67,3 +67,49 @@ describe('user-defined Simulator variables', () => {
     ).toBe('21')
   })
 })
+
+// HA renders automation/script `variables:` with `parse_result=True`, so a
+// variable's resolved value carries its NATIVE type (bool / int / float /
+// dict / list) into downstream templates — it is NOT always a string. The
+// Simulator mirrors this by inferring the literal type from the text the user
+// types, exactly like #9's mock ATTRIBUTE values (`coerceAttributeValue`).
+describe('typed literal Simulator variables (HA parse_result parity)', () => {
+  it('treats a numeric literal as a number usable in arithmetic', () => {
+    expect(
+      evaluateTemplate('{{ count + 1 }}', { states: {}, variables: { count: '5' } }).trim(),
+    ).toBe('6')
+  })
+
+  it('treats "false" as a boolean (falsy), not the truthy string "false"', () => {
+    expect(
+      evaluateTemplate("{{ iif(flag, 'yes', 'no') }}", {
+        states: {},
+        variables: { flag: 'false' },
+      }).trim(),
+    ).toBe('no')
+  })
+
+  it('treats "true" as a boolean (truthy)', () => {
+    expect(
+      evaluateTemplate("{{ iif(flag, 'yes', 'no') }}", {
+        states: {},
+        variables: { flag: 'true' },
+      }).trim(),
+    ).toBe('yes')
+  })
+
+  it('keeps a plain word as a string', () => {
+    expect(
+      evaluateTemplate('{{ label }}', { states: {}, variables: { label: 'hello' } }).trim(),
+    ).toBe('hello')
+  })
+
+  it('still injects a template-looking value verbatim (type inference never re-renders it)', () => {
+    expect(
+      evaluateTemplate('{{ b }}', {
+        states: {},
+        variables: { a: 'x', b: '{{ a }}' },
+      }).trim(),
+    ).toBe('{{ a }}')
+  })
+})

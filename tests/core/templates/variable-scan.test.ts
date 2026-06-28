@@ -57,6 +57,20 @@ describe('extractVariableReferences', () => {
 })
 
 describe('scanPayloadForTemplates — variablesReferenced', () => {
+  it('reflects a renamed variable reference (something → something2)', () => {
+    // Regression #8: renaming the variable in the YAML must re-scan to the new
+    // name so the pre-fill follows the payload (no stale `something`).
+    const before = scanPayloadForTemplates(
+      parseYamlPayload('- type: text\n  value: "{{ something }}"\n  x: 0\n  y: 0\n'),
+    )
+    expect(before.variablesReferenced).toEqual(['something'])
+
+    const after = scanPayloadForTemplates(
+      parseYamlPayload('- type: text\n  value: "{{ something2 }}"\n  x: 0\n  y: 0\n'),
+    )
+    expect(after.variablesReferenced).toEqual(['something2'])
+  })
+
   it('dedupes and sorts variables referenced across multiple fields', () => {
     const yaml = `- type: rectangle
   x_start: 0
