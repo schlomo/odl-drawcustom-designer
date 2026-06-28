@@ -49,7 +49,7 @@ Scaffold insert strings (after the user's first `{`):
 
 Statement tags offered inside `{% … %}`: `set`, `if`, `elif`, `else`, `endif`, `for`, `endfor`.
 
-Expression helpers inside `{{ … }}`: `states`, `is_state`, `state_attr`; filters `float`, `int`. Statement keywords are **not** offered inside `{{ … }}`.
+Expression helpers inside `{{ … }}`: `states`, `is_state`, `state_attr`, `is_state_attr`; filters `float`, `int`. The first argument of `state_attr`/`is_state_attr` triggers entity-id completion like `states`/`is_state`. Statement keywords are **not** offered inside `{{ … }}`.
 
 ### Spacing when applying inner completions
 

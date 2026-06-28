@@ -1014,6 +1014,26 @@ Dynamic positioning:
   anchor: "mm"
 ```
 
+Entity attributes (`state_attr`, `is_state_attr`, and dotted `states.<domain>.<object>.attributes.<attr>` access):
+
+```yaml
+- type: "icon"
+  value: "{{ iif(is_state_attr('calendar.sn_family', 'all_day', false), 'calendar', 'calendar-blank') }}"
+  x: 10
+  y: 10
+  size: 24
+- type: "text"
+  value: "{{ state_attr('weather.home', 'temperature') }}°C"
+  x: 40
+  y: 10
+- type: "text"
+  value: "{{ states.weather.home.attributes.temperature }}°C"
+  x: 40
+  y: 40
+```
+
+Attribute values keep their real types (booleans, numbers, lists) — unlike entity states, which are strings. So `is_state_attr('calendar.sn_family', 'all_day', false)` matches a boolean `false` attribute, not the string `"false"` (a string `"false"` would be truthy).
+
 ### Common Use Cases
 
 Battery status with icon:
