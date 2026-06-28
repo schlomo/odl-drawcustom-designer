@@ -93,6 +93,30 @@ describe('validatePayload', () => {
     expect(result.success).toBe(true)
   })
 
+  it('accepts blue as a named fill color', () => {
+    const result = validatePayload([
+      {
+        type: 'line',
+        x_start: 0,
+        x_end: 100,
+        fill: 'blue',
+      },
+    ])
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts green as a named fill color', () => {
+    const result = validatePayload([
+      {
+        type: 'line',
+        x_start: 0,
+        x_end: 100,
+        fill: 'green',
+      },
+    ])
+    expect(result.success).toBe(true)
+  })
+
   it('accepts Jinja template strings in color fields', () => {
     const result = validatePayload([
       {
