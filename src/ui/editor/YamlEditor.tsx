@@ -107,9 +107,13 @@ export function YamlEditor({
   const templatePreview = useMemo(
     () => ({
       enabled: templatePreviewEnabled,
-      context: { states: mockContext?.states ?? {}, attributes: mockContext?.attributes ?? {} },
+      context: {
+        states: mockContext?.states ?? {},
+        attributes: mockContext?.attributes ?? {},
+        variables: mockContext?.variables ?? {},
+      },
     }),
-    [templatePreviewEnabled, mockContext?.states, mockContext?.attributes],
+    [templatePreviewEnabled, mockContext?.states, mockContext?.attributes, mockContext?.variables],
   )
   const previewNowMs = mockContext?.now?.getTime()
 
