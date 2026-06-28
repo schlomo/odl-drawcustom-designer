@@ -146,6 +146,60 @@ describe('evaluateTemplate', () => {
     })
   })
 
+  describe('state_attr and entity attributes (issue #4)', () => {
+    const familyEventContext: HaMockContext = {
+      states: { 'sensor.sn_family_current_event': 'No event' },
+      attributes: { 'sensor.sn_family_current_event': { active: true } },
+    }
+    const familyEventInactiveContext: HaMockContext = {
+      states: { 'sensor.sn_family_current_event': 'No event' },
+      attributes: { 'sensor.sn_family_current_event': { active: false } },
+    }
+
+    it('returns a mocked attribute value', () => {
+      expect(
+        evaluateTemplate("{{ state_attr('sensor.sn_family_current_event', 'active') }}", familyEventContext),
+      ).toBe('true')
+    })
+
+    it('evaluates the issue icon template to calendar when active is true', () => {
+      expect(
+        evaluateTemplate(
+          "{{ iif(state_attr('sensor.sn_family_current_event','active'),'calendar','calendar-blank') }}",
+          familyEventContext,
+        ),
+      ).toBe('calendar')
+    })
+
+    it('evaluates the issue icon template to calendar-blank when active is false', () => {
+      expect(
+        evaluateTemplate(
+          "{{ iif(state_attr('sensor.sn_family_current_event','active'),'calendar','calendar-blank') }}",
+          familyEventInactiveContext,
+        ),
+      ).toBe('calendar-blank')
+    })
+
+    it('treats a missing attribute as falsy (None)', () => {
+      expect(
+        evaluateTemplate(
+          "{{ iif(state_attr('sensor.sn_family_current_event','missing'),'yes','no') }}",
+          familyEventContext,
+        ),
+      ).toBe('no')
+    })
+
+    it('preserves the existing states() string while exposing dotted attribute access', () => {
+      const weatherContext: HaMockContext = {
+        states: { 'weather.home': 'sunny' },
+        attributes: { 'weather.home': { temperature: 21.5 } },
+      }
+      expect(evaluateTemplate("{{ states('weather.home') }}", weatherContext)).toBe('sunny')
+      expect(evaluateTemplate('{{ states.weather.home.attributes.temperature }}', weatherContext)).toBe('21.5')
+      expect(evaluateTemplate('{{ states.weather.home.state }}', weatherContext)).toBe('sunny')
+    })
+  })
+
   describe('datetime helpers', () => {
     const clockContext: HaMockContext = {
       states: {},

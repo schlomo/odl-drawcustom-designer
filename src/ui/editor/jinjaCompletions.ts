@@ -171,6 +171,15 @@ function isFilterContext(slice: string): boolean {
   return /\|(?:\s*[\w.]*)$/.test(slice)
 }
 
+/**
+ * True when the cursor sits at a function-call argument boundary inside `{{ }}`
+ * — immediately after `(` or a `,` (whitespace allowed). Lets expression
+ * completions fire inside calls like `iif( … )` without a typed prefix.
+ */
+function isAtCallArgumentBoundary(slice: string): boolean {
+  return /[(,]\s*$/.test(slice)
+}
+
 function isTagContext(context: CompletionContext): boolean {
   const doc = context.state.sliceDoc(0, context.pos)
   const tagOpen = doc.lastIndexOf('{%')
@@ -268,7 +277,12 @@ export function resolveJinjaCompletionContext(context: CompletionContext): Resol
 
   const word = context.matchBefore(/[\w.]*/)
   const hasWord = Boolean(word && word.text.length > 0)
-  if (!hasWord && !context.explicit && !isAtJinjaTemplateStart(context)) {
+  if (
+    !hasWord &&
+    !context.explicit &&
+    !isAtJinjaTemplateStart(context) &&
+    !isAtCallArgumentBoundary(slice)
+  ) {
     return null
   }
 

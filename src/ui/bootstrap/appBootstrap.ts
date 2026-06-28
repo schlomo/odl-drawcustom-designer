@@ -13,7 +13,12 @@ import {
 } from '../../storage'
 import { SAMPLE_CANVAS, SAMPLE_ELEMENTS } from '../data/sample-elements'
 import type { DisplayConfig } from '../preferences/displayConfig'
-import { DEFAULT_MOCK_STATES, readMockStates } from '../preferences/mockStates'
+import {
+  DEFAULT_MOCK_ATTRIBUTES,
+  DEFAULT_MOCK_STATES,
+  readMockStates,
+  type MockData,
+} from '../preferences/mockStates'
 import { allowShowcaseBundledForDemo } from '../preferences/showcaseAsset'
 
 export type BootstrapImportSource = 'hash' | 'session' | 'default'
@@ -24,6 +29,7 @@ export interface AppBootstrap {
   canvas: DisplayConfig
   service: ServiceOptions | undefined
   mockStates: HaMockContext['states']
+  mockAttributes: NonNullable<HaMockContext['attributes']>
   importSource: BootstrapImportSource
   /** Restored only for `importSource: 'session'`; cleared for hash/default loads. */
   editHistory?: PersistedEditHistory
@@ -46,7 +52,7 @@ export function resolveCanvasForLoad(session: SessionSnapshot | null): DisplayCo
 
 export function buildAppBootstrap(
   session: SessionSnapshot | null,
-  mockStates: HaMockContext['states'],
+  mock: Partial<MockData> = {},
   importSource: BootstrapImportSource = 'session',
 ): AppBootstrap {
   const elements = resolveElementsForLoad(session)
@@ -59,14 +65,19 @@ export function buildAppBootstrap(
     elements,
     canvas: resolveCanvasForLoad(session),
     service: session?.service,
-    mockStates,
+    mockStates: mock.states ?? {},
+    mockAttributes: mock.attributes ?? {},
     importSource,
     editHistory: importSource === 'session' ? session?.editHistory : undefined,
   }
 }
 
 export function defaultAppBootstrap(): AppBootstrap {
-  return buildAppBootstrap(null, { ...DEFAULT_MOCK_STATES }, 'default')
+  return buildAppBootstrap(
+    null,
+    { states: { ...DEFAULT_MOCK_STATES }, attributes: structuredClone(DEFAULT_MOCK_ATTRIBUTES) },
+    'default',
+  )
 }
 
 export async function loadAppBootstrap(locationHash?: string): Promise<AppBootstrap> {
@@ -78,14 +89,14 @@ export async function loadAppBootstrap(locationHash?: string): Promise<AppBootst
   if (hashEncoded) {
     const payload = decodeShareHash(hashEncoded)
     if (payload) {
-      const mockStates = await readMockStates()
+      const mock = await readMockStates()
       if (useWindowLocation) {
         clearShareHashFromLocation()
       }
-      return sharePayloadToBootstrap(payload, mockStates)
+      return sharePayloadToBootstrap(payload, mock)
     }
   }
 
-  const [session, mockStates] = await Promise.all([readSessionFromDb(), readMockStates()])
-  return buildAppBootstrap(session, mockStates, session ? 'session' : 'default')
+  const [session, mock] = await Promise.all([readSessionFromDb(), readMockStates()])
+  return buildAppBootstrap(session, mock, session ? 'session' : 'default')
 }

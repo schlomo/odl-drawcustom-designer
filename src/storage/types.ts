@@ -13,6 +13,8 @@ export interface StoredAsset {
 export interface StoredMock {
   entityId: string
   value: string | number | boolean
+  /** Per-entity attribute map backing `state_attr` / dotted access (issue #4). */
+  attributes?: Record<string, unknown>
 }
 
 export interface SessionCanvas {

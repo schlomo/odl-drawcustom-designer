@@ -175,6 +175,36 @@ describe('resolveJinjaCompletionContext', () => {
     })
   })
 
+  it('resolves expression helpers inside an iif() argument position', () => {
+    const doc = '  value: "{{ iif('
+    const pos = doc.length
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, false))).toEqual({
+      kind: 'expression',
+      from: pos,
+      prefix: '',
+    })
+  })
+
+  it('resolves expression helpers after a comma inside iif()', () => {
+    const doc = "  value: \"{{ iif(is_state('a.b', 'on'), "
+    const pos = doc.length
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, false))).toEqual({
+      kind: 'expression',
+      from: pos,
+      prefix: '',
+    })
+  })
+
+  it('still matches a typed prefix inside an iif() argument', () => {
+    const doc = '  value: "{{ iif(stat'
+    const pos = doc.length
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, false))).toEqual({
+      kind: 'expression',
+      from: doc.indexOf('stat'),
+      prefix: 'stat',
+    })
+  })
+
   it('resolves tag keywords inside a scaffolded {% %} block', () => {
     const doc = '  size: 32 {% %}'
     const pos = doc.indexOf('{%') + 2

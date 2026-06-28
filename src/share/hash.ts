@@ -1,7 +1,7 @@
 import { deflate, inflate } from 'pako'
-import type { HaMockContext } from '../core'
 import { isTagColorMode } from '../core/display/palette'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
+import type { MockData } from '../ui/preferences/mockStates'
 import {
   buildSharePayload,
   resolvePreviewDitherFromShare,
@@ -141,7 +141,7 @@ export function buildShareUrl(encoded: string, locationParts: ShareUrlParts): st
 
 export function sharePayloadToBootstrap(
   payload: SharePayload,
-  mockStates: HaMockContext['states'],
+  mock: MockData,
 ): AppBootstrap {
   const previewDitherMode = resolvePreviewDitherFromShare(payload.service)
 
@@ -150,7 +150,8 @@ export function sharePayloadToBootstrap(
     elements: payload.elements,
     canvas: shareCanvasToDisplayConfig(payload.canvas, previewDitherMode),
     service: payload.service,
-    mockStates,
+    mockStates: mock.states,
+    mockAttributes: mock.attributes,
     importSource: 'hash',
   }
 }

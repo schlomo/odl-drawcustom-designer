@@ -125,9 +125,12 @@ export interface CanvasConfig {
   previewDitherMode: PreviewDitherMode
 }
 
+type MockEntityAttributes = NonNullable<HaMockContext['attributes']>
+
 function buildEffectiveMockContext(
   elements: DrawElement[],
   mockStates: HaMockContext['states'],
+  mockAttributes: MockEntityAttributes,
 ): HaMockContext {
   const states = { ...mockStates }
 
@@ -137,7 +140,7 @@ function buildEffectiveMockContext(
     }
   }
 
-  return { states }
+  return { states, attributes: mockAttributes }
 }
 
 export function useProjectState(bootstrap: AppBootstrap) {
@@ -148,10 +151,14 @@ export function useProjectState(bootstrap: AppBootstrap) {
   const [canvas, setCanvas] = useState<CanvasConfig>(bootstrap.canvas)
   const [service, setService] = useState<ServiceOptions | undefined>(bootstrap.service)
   const [mockStates, setMockStates] = useState<HaMockContext['states']>(bootstrap.mockStates)
+  const [mockAttributes, setMockAttributes] = useState<MockEntityAttributes>(
+    bootstrap.mockAttributes,
+  )
   const [assetRevision, setAssetRevision] = useState(0)
   const [snapGrid, setSnapGrid] = useState<SnapGridPrefs>(() => readSnapGridPrefs())
   const [showHiddenHints, setShowHiddenHints] = useState(() => readShowHiddenHintsPrefs().enabled)
   const mockStatesRef = useRef(mockStates)
+  const mockAttributesRef = useRef(mockAttributes)
   const elementsRef = useRef(elements)
   const canvasRef = useRef(canvas)
   const serviceRef = useRef(service)
@@ -167,6 +174,10 @@ export function useProjectState(bootstrap: AppBootstrap) {
   useEffect(() => {
     mockStatesRef.current = mockStates
   }, [mockStates])
+
+  useEffect(() => {
+    mockAttributesRef.current = mockAttributes
+  }, [mockAttributes])
 
   const commitElements = useCallback((value: DrawElement[] | ((current: DrawElement[]) => DrawElement[])) => {
     const next = typeof value === 'function' ? value(elementsRef.current) : value
@@ -272,12 +283,12 @@ export function useProjectState(bootstrap: AppBootstrap) {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void writeMockStates(mockStates)
+      void writeMockStates({ states: mockStates, attributes: mockAttributes })
     }, 250)
     return () => {
       window.clearTimeout(timer)
     }
-  }, [mockStates])
+  }, [mockStates, mockAttributes])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -310,8 +321,8 @@ export function useProjectState(bootstrap: AppBootstrap) {
   const previewNow = useTemplatePreviewClock(previewClockInterval)
 
   const mockContext = useMemo(
-    () => buildEffectiveMockContext(elements, mockStates),
-    [elements, mockStates],
+    () => buildEffectiveMockContext(elements, mockStates, mockAttributes),
+    [elements, mockStates, mockAttributes],
   )
 
   const previewMockContext = useMemo(
@@ -432,6 +443,69 @@ export function useProjectState(bootstrap: AppBootstrap) {
       }
       const next = { ...current }
       delete next[entityId]
+      return next
+    })
+    setMockAttributes((current) => {
+      if (!(entityId in current)) {
+        return current
+      }
+      const next = { ...current }
+      delete next[entityId]
+      return next
+    })
+  }, [])
+
+  const setMockAttribute = useCallback(
+    (entityId: string, attribute: string, value: unknown) => {
+      setMockAttributes((current) => ({
+        ...current,
+        [entityId]: { ...(current[entityId] ?? {}), [attribute]: value },
+      }))
+    },
+    [],
+  )
+
+  const renameMockAttribute = useCallback(
+    (entityId: string, previousName: string, nextName: string) => {
+      const trimmed = nextName.trim()
+      if (trimmed === previousName) {
+        return
+      }
+      setMockAttributes((current) => {
+        const entity = current[entityId]
+        if (!entity || !(previousName in entity)) {
+          return current
+        }
+        const nextEntity: Record<string, unknown> = {}
+        for (const [key, attrValue] of Object.entries(entity)) {
+          if (key === previousName) {
+            if (trimmed) {
+              nextEntity[trimmed] = attrValue
+            }
+          } else {
+            nextEntity[key] = attrValue
+          }
+        }
+        return { ...current, [entityId]: nextEntity }
+      })
+    },
+    [],
+  )
+
+  const removeMockAttribute = useCallback((entityId: string, attribute: string) => {
+    setMockAttributes((current) => {
+      const entity = current[entityId]
+      if (!entity || !(attribute in entity)) {
+        return current
+      }
+      const nextEntity = { ...entity }
+      delete nextEntity[attribute]
+      const next = { ...current }
+      if (Object.keys(nextEntity).length > 0) {
+        next[entityId] = nextEntity
+      } else {
+        delete next[entityId]
+      }
       return next
     })
   }, [])
@@ -924,6 +998,9 @@ export function useProjectState(bootstrap: AppBootstrap) {
     setMockState,
     addMockEntity,
     removeMockEntity,
+    setMockAttribute,
+    renameMockAttribute,
+    removeMockAttribute,
     extraEntityIds,
     assetRevision,
     uploadAsset,

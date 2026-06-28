@@ -37,6 +37,9 @@ interface SidebarProps {
   onSetMockState: (entityId: string, value: string) => void
   onAddMockEntity: (entityId: string, value: string) => void
   onRemoveMockEntity: (entityId: string) => void
+  onSetMockAttribute?: (entityId: string, attribute: string, value: unknown) => void
+  onRenameMockAttribute?: (entityId: string, previousName: string, nextName: string) => void
+  onRemoveMockAttribute?: (entityId: string, attribute: string) => void
   onUploadAsset: (key: string, kind: AssetKind, file: File) => Promise<AssetUploadResult>
   onClearAsset: (key: string) => void
   onReorderElement: (
@@ -83,6 +86,9 @@ export function Sidebar({
   onSetMockState,
   onAddMockEntity,
   onRemoveMockEntity,
+  onSetMockAttribute,
+  onRenameMockAttribute,
+  onRemoveMockAttribute,
   onUploadAsset,
   onClearAsset,
   onReorderElement,
@@ -260,6 +266,9 @@ export function Sidebar({
               onSetMockState={onSetMockState}
               onAddEntity={onAddMockEntity}
               onRemoveEntity={onRemoveMockEntity}
+              onSetMockAttribute={onSetMockAttribute}
+              onRenameMockAttribute={onRenameMockAttribute}
+              onRemoveMockAttribute={onRemoveMockAttribute}
               onFocusEntity={onFocusSimulatorEntity}
               embedded
             />
