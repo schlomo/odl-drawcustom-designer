@@ -22,4 +22,36 @@ describe('YamlEditor', () => {
     )
     expect(screen.getByRole('textbox').textContent).toContain('Hello')
   })
+
+  it('passes Simulator variables into inline template preview', () => {
+    const value = `- type: icon
+  fill: |-
+    {{ something2 }}
+- type: line
+  fill: |-
+    {{ 'green' if something3 == false else 'red' }}
+`
+    const { container } = render(
+      <YamlEditor
+        value={value}
+        height="160px"
+        colorScheme="dark"
+        fontSizePx={13}
+        onChange={() => {}}
+        onCursorPositionChange={() => {}}
+        mockContext={{
+          states: {},
+          variables: { something2: 'blue', something3: 'false' },
+        }}
+        templatePreviewEnabled
+      />,
+    )
+
+    const previews = [...container.querySelectorAll('.cm-templatePreview')].map(
+      (node) => node.textContent ?? '',
+    )
+    expect(previews).toHaveLength(2)
+    expect(previews[0]).toContain('blue')
+    expect(previews[1]).toContain('green')
+  })
 })

@@ -4,6 +4,7 @@ export {
   extractEntityIds,
   extractTemplateExpressions,
   extractAttributeReferences,
+  extractVariableReferences,
   type AttributeReference,
 } from './scan'
 export { evaluateTemplate, TemplateEvaluationError } from './evaluate'

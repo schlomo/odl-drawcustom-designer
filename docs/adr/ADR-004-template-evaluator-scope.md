@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (revised — research-backed)
+Accepted
 
 ## Context
 
@@ -109,6 +109,105 @@ The State Simulator collects attribute values from a plain text field, so we inf
 - Document known divergences; add fixture tests per spec template example
 - State Simulator remains required — Nunjucks does not replace mock data entry; it mocks both entity **states** and per-entity **attributes**
 - Mock states (strings) and typed attribute values persist globally in IndexedDB (ADR-003); excluded from share hash by default (ADR-005)
+
+## Per-field evaluation scope
+
+Each templated field string is evaluated **independently**. `{% set %}` /
+`namespace()` side effects **do NOT carry across element fields.** The canvas
+render path (`applyTemplateContextToPayload` in
+`src/core/templates/preview.ts`) deep-walks the payload and calls
+`evaluateTemplate` per string; the editor inline preview
+(`src/ui/editor/templatePreviewAnchors.ts`) evaluates each region
+independently. Preview and render therefore agree, and both match real HA.
+
+**Why per-field (HA behavior).** HA core wraps **each** templated string leaf as
+its **own** `Template` (`config_validation.template_complex()`) and renders each
+independently (`service.async_prepare_call_from_config` →
+`template.render_complex()`). A `namespace()` defined in one field's `fill` is
+therefore *not* visible in another field — a structured `payload:` list cannot
+share `{% set %}` state across fields. Cross-field sharing in real HA happens
+only when the **entire** payload is a single template string, or via
+**script-level `variables:`** (see below).
+
+**`namespace()` within a single field is supported.** Jinja `namespace()` is
+usable inside one template via the `haNamespace` global plus the
+`{% set obj.member = expr %}` → `__ha_setattr(...)` rewrite (whitespace-trim-marker
+aware) in `src/core/templates/evaluate.ts`. Within one field,
+`{% set n = namespace(...) %}{% set n.x = ... %}{{ n.x }}` and for-loop
+accumulation work as in Jinja. See `tests/core/templates/evaluate.test.ts`.
+
+## Cross-field value sharing — Simulator variables
+
+Because state does not cross fields, the supported way to reuse a value in
+multiple fields is **user-defined variables** in the State Simulator — the
+designer's analog of HA **script-level `variables:`**.
+
+- **Literal mock values (not templates).** A Simulator variable is a **literal
+  mock value** — the resolved runtime value the user wants during preview,
+  exactly like mock entity **states** (`on`) and typed **attributes**
+  (`false`, `21.5`). It is **not** rendered as a template: a value that happens
+  to contain template text (e.g. `{{ foo }}`) is emitted **as-is**, never
+  resolved. This matches HA's single-pass semantics — HA renders script
+  `variables:` once at the automation level and never re-parses the rendered
+  output, so the simulator captures that resolved literal.
+- **Typed values.** HA `variables:` are **not always strings**:
+  `template.render_complex` renders each leaf with `parse_result=True`, parsing
+  results into native types (`bool`, `int`, `float`, `list`, `dict`, `None`),
+  and literal YAML values keep their scalar type. Those typed values flow into
+  the downstream templates that reference the variable, so `{{ count + 1 }}` or
+  `{{ iif(flag, …) }}` see a real number / boolean. The Simulator therefore
+  infers a variable's type from the entered text using the SAME rule as mock
+  attributes (`coerceAttributeValue`): `"false"`→boolean `false` (falsy),
+  `"5"`→number, JSON `[…]`/`{…}`→list/dict, else string. Inference happens
+  **only at injection** and never re-renders the value, so `{{ … }}`-looking
+  strings (not valid number/bool/JSON) stay verbatim. Storage is a plain text
+  map (no schema change).
+- **Data shape:** a global `name → value` map (`HaMockContext.variables`,
+  `Record<string, string>` of the raw literal text), separate from entity
+  states/attributes; the type is inferred at injection. Names must be bare
+  identifiers (`/^[A-Za-z_$][\w$]*$/`) and may not shadow built-in globals
+  (`states`, `is_state`, `state_attr`, `is_state_attr`, `now`, `float`, `iif`,
+  `namespace`).
+- **Injection:** `createEnvironment` registers each valid variable as a Nunjucks
+  global with its **coerced** value (`env.addGlobal(name, coerceAttributeValue(value))`),
+  so a bare `{{ name }}` resolves in **every** field's evaluation. Variable
+  globals and the `states(...)` function occupy different namespaces, so they
+  never collide.
+- **Render/preview parity:** the canvas render and the editor inline preview
+  must build the evaluation context from the **same** full mock context — states,
+  attributes, **and** variables. Dropping `variables` (or `attributes`) from
+  either path makes the inline preview disagree with the canvas; the preview
+  extension in `src/ui/editor/YamlEditor.tsx` passes the full context for this
+  reason.
+- **Auto-population (scan):** templates are scanned for **bare variable
+  references** — identifiers used as `{{ name }}` / in expressions that are NOT
+  HA globals, entity-id string args, function calls, filters, member-access
+  roots (e.g. `n.c`), or local `{% set %}` / `{% for %}` names within the field
+  (`extractVariableReferences` → `TemplateScanResult.variablesReferenced`).
+  Discovered names surface as **empty-valued, pre-filled rows** the user just
+  fills in — mirroring how referenced **attributes** are pre-filled (issue #4).
+  Re-scanning follows YAML edits, so **renaming** a referenced variable
+  (`something` → `something2`) drops the old name and pre-fills the new one.
+- **Current/All scope (mirrors entities):** the Variables section honors the
+  State Simulator's `PanelScopeToggle` exactly like the entity list —
+  **current** shows only variables referenced in the current payload (a stale
+  stored name left over from a rename disappears), **all** also shows every
+  stored variable. Stored values still display for referenced names.
+- **Immediate apply:** editing a variable's value writes through on `change`
+  (`onSetVariable`), so the preview updates immediately — the same write-through
+  UX as attribute edits, with no separate "commit" step.
+- **Persistence:** stored globally in IndexedDB (`variables` store, **Dexie v5**,
+  added **additively** on top of the v4 attributes upgrade so existing
+  assets/mocks/session survive — ADR-003). Excluded from the share hash like
+  mocks (ADR-005).
+- **UI:** a compact "Variables" section in the State Simulator
+  (`src/ui/components/StateSimulator.tsx`), wired through
+  `useProjectState`/`src/ui/preferences/variables.ts`.
+
+Real-HA equivalents to reach for when you need cross-field sharing: script-level
+`variables:` (templated once at the automation level — the simulator captures
+the resolved result), or collapsing the data into a single whole-payload
+template string.
 
 ## Alternatives considered
 

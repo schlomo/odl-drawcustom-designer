@@ -135,7 +135,13 @@ function collectBlockScalarTemplateAnchors(
   }
 }
 
-/** Find inline preview anchors for YAML quoted strings containing Jinja templates. */
+/**
+ * Find inline preview anchors for YAML quoted strings containing Jinja
+ * templates. Each field is evaluated INDEPENDENTLY so the inline preview matches
+ * the canvas render path: a `{% set %}` / `namespace()` defined in one element's
+ * field is NOT visible to another field (ADR-004 per-field model). Cross-field
+ * values are shared via user-defined Simulator variables (`context.variables`).
+ */
 export function findTemplatePreviewAnchors(
   doc: string,
   context: HaMockContext,

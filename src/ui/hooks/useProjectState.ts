@@ -50,6 +50,8 @@ import {
   type PreviewDitherMode,
 } from '../preferences/displayConfig'
 import { writeMockStates } from '../preferences/mockStates'
+import { isValidVariableName, writeVariables } from '../preferences/variables'
+import type { StoredVariables } from '../../storage'
 import { allowShowcaseBundledForDemo, suppressShowcaseBundled } from '../preferences/showcaseAsset'
 import { readSnapGridPrefs, writeSnapGridPrefs, type SnapGridPrefs } from '../preferences/snapGrid'
 import {
@@ -131,6 +133,7 @@ function buildEffectiveMockContext(
   elements: DrawElement[],
   mockStates: HaMockContext['states'],
   mockAttributes: MockEntityAttributes,
+  variables: StoredVariables,
 ): HaMockContext {
   const states = { ...mockStates }
 
@@ -140,7 +143,7 @@ function buildEffectiveMockContext(
     }
   }
 
-  return { states, attributes: mockAttributes }
+  return { states, attributes: mockAttributes, variables }
 }
 
 export function useProjectState(bootstrap: AppBootstrap) {
@@ -154,6 +157,7 @@ export function useProjectState(bootstrap: AppBootstrap) {
   const [mockAttributes, setMockAttributes] = useState<MockEntityAttributes>(
     bootstrap.mockAttributes,
   )
+  const [variables, setVariables] = useState<StoredVariables>(bootstrap.variables)
   const [assetRevision, setAssetRevision] = useState(0)
   const [snapGrid, setSnapGrid] = useState<SnapGridPrefs>(() => readSnapGridPrefs())
   const [showHiddenHints, setShowHiddenHints] = useState(() => readShowHiddenHintsPrefs().enabled)
@@ -292,6 +296,15 @@ export function useProjectState(bootstrap: AppBootstrap) {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      void writeVariables(variables)
+    }, 250)
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [variables])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
       void writeSessionToDb({
         name: sessionName,
         canvas,
@@ -321,8 +334,8 @@ export function useProjectState(bootstrap: AppBootstrap) {
   const previewNow = useTemplatePreviewClock(previewClockInterval)
 
   const mockContext = useMemo(
-    () => buildEffectiveMockContext(elements, mockStates, mockAttributes),
-    [elements, mockStates, mockAttributes],
+    () => buildEffectiveMockContext(elements, mockStates, mockAttributes, variables),
+    [elements, mockStates, mockAttributes, variables],
   )
 
   const previewMockContext = useMemo(
@@ -506,6 +519,47 @@ export function useProjectState(bootstrap: AppBootstrap) {
       } else {
         delete next[entityId]
       }
+      return next
+    })
+  }, [])
+
+  const setVariable = useCallback((name: string, value: string) => {
+    if (!isValidVariableName(name)) {
+      return
+    }
+    setVariables((current) => ({ ...current, [name]: value }))
+  }, [])
+
+  const addVariable = useCallback((name: string, value: string) => {
+    if (!isValidVariableName(name)) {
+      return
+    }
+    setVariables((current) => ({ ...current, [name]: value }))
+  }, [])
+
+  const renameVariable = useCallback((previousName: string, nextName: string) => {
+    if (!isValidVariableName(nextName)) {
+      return
+    }
+    setVariables((current) => {
+      if (!(previousName in current) || previousName === nextName) {
+        return current
+      }
+      const next: StoredVariables = {}
+      for (const [name, value] of Object.entries(current)) {
+        next[name === previousName ? nextName : name] = value
+      }
+      return next
+    })
+  }, [])
+
+  const removeVariable = useCallback((name: string) => {
+    setVariables((current) => {
+      if (!(name in current)) {
+        return current
+      }
+      const next = { ...current }
+      delete next[name]
       return next
     })
   }, [])
@@ -1001,6 +1055,11 @@ export function useProjectState(bootstrap: AppBootstrap) {
     setMockAttribute,
     renameMockAttribute,
     removeMockAttribute,
+    variables,
+    setVariable,
+    addVariable,
+    renameVariable,
+    removeVariable,
     extraEntityIds,
     assetRevision,
     uploadAsset,

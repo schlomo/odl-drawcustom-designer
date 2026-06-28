@@ -36,7 +36,14 @@ function applyContextToValue(value: unknown, context: HaMockContext): unknown {
   return value
 }
 
-/** Returns a deep copy of the payload with template strings evaluated for preview. */
+/**
+ * Returns a deep copy of the payload with template strings evaluated for
+ * preview. Each templated field is evaluated INDEPENDENTLY — `{% set %}` /
+ * `namespace()` side effects do NOT carry across fields, matching how Home
+ * Assistant renders service-data (each string is wrapped as its own `Template`
+ * and rendered separately; see ADR-004). Cross-field value sharing is done via
+ * user-defined Simulator variables, injected through `context.variables`.
+ */
 export function applyTemplateContextToPayload(
   payload: Payload,
   context: HaMockContext,

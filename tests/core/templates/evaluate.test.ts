@@ -307,6 +307,86 @@ describe('evaluateTemplate', () => {
     })
   })
 
+  describe('Jinja namespace() in templates (issue #5)', () => {
+    // Exact template from GitHub issue #5: namespace() with member-target
+    // assignments inside a `color` field template.
+    const namespaceTemplate = `{% set ns = namespace(text='', uv=false) %}
+{% set ns.uv = is_state('binary_sensor.openuv_protection_window', 'on') %}
+{% set ns.text = iif(ns.uv, 'white', 'black') %}
+{{
+iif(
+  ns.uv,
+  'red',
+  'none' if states('sensor.openuv_current_uv_index') | float (0) < 3 else 'yellow'
+)
+}}`
+
+    it("returns 'red' when openuv protection window is on", () => {
+      expect(
+        evaluateTemplate(namespaceTemplate, {
+          states: { 'binary_sensor.openuv_protection_window': 'on' },
+        }).trim(),
+      ).toBe('red')
+    })
+
+    it("returns 'none' when protection off and uv index below 3", () => {
+      expect(
+        evaluateTemplate(namespaceTemplate, {
+          states: {
+            'binary_sensor.openuv_protection_window': 'off',
+            'sensor.openuv_current_uv_index': '1',
+          },
+        }).trim(),
+      ).toBe('none')
+    })
+
+    it("returns 'yellow' when protection off and uv index at or above 3", () => {
+      expect(
+        evaluateTemplate(namespaceTemplate, {
+          states: {
+            'binary_sensor.openuv_protection_window': 'off',
+            'sensor.openuv_current_uv_index': '5',
+          },
+        }).trim(),
+      ).toBe('yellow')
+    })
+
+    // The member-assignment rewrite must capture whatever object name the user
+    // chose — `ns` is a convention, not a requirement.
+    it('supports arbitrary namespace variable names (not just ns)', () => {
+      const template = `{% set weatherState = namespace(label='') %}
+{% set weatherState.label = iif(is_state('binary_sensor.door', 'on'), 'open', 'closed') %}
+{{ weatherState.label }}`
+      expect(evaluateTemplate(template, { states: { 'binary_sensor.door': 'on' } }).trim()).toBe(
+        'open',
+      )
+      expect(evaluateTemplate(template, { states: { 'binary_sensor.door': 'off' } }).trim()).toBe(
+        'closed',
+      )
+    })
+
+    // The canonical reason namespace() exists: mutate state across for-loop
+    // scopes so the accumulated value survives after the loop ends.
+    it('accumulates a namespace member across a for loop', () => {
+      const template = `{% set ns = namespace(total=0) %}
+{% for i in [1, 2, 3, 4] %}
+{% set ns.total = ns.total + i %}
+{% endfor %}
+{{ ns.total }}`
+      expect(evaluateTemplate(template, { states: {} }).trim()).toBe('10')
+    })
+
+    // Rewritten member assignments must keep {%- / -%} trim flags so templates
+    // that relied on trimmed statement tags do not leak extra whitespace.
+    it('preserves whitespace trim markers on rewritten member assignments', () => {
+      const template = `prefix
+{%- set ns = namespace(v='') -%}
+{%- set ns.v = 'x' -%}
+suffix`
+      expect(evaluateTemplate(template, { states: {} })).toBe('prefixsuffix')
+    })
+  })
+
   describe('datetime helpers', () => {
     const clockContext: HaMockContext = {
       states: {},

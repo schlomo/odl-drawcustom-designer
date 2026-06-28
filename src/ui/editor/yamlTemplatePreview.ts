@@ -102,7 +102,9 @@ export function showTemplatePreview() {
 
         const configChanged =
           config.enabled !== previous.enabled ||
-          config.context.states !== previous.context.states
+          config.context.states !== previous.context.states ||
+          config.context.attributes !== previous.context.attributes ||
+          config.context.variables !== previous.context.variables
 
         const nowChanged = now.getTime() !== this.now.getTime()
 

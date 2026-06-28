@@ -10,6 +10,12 @@ export {
 } from './assets'
 export { readMocksFromDb, writeMocksToDb, flushMockWrites, type PersistedMockData } from './mocks'
 export {
+  readVariablesFromDb,
+  writeVariablesToDb,
+  flushVariableWrites,
+  type StoredVariables,
+} from './variables'
+export {
   parsePersistedEditHistory,
   parseSessionSnapshot,
   readSessionFromDb,
@@ -23,5 +29,6 @@ export type {
   SessionSnapshot,
   StoredAsset,
   StoredMock,
+  StoredVariable,
 } from './types'
 export { SESSION_ROW_ID } from './types'
