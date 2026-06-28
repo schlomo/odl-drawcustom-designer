@@ -88,4 +88,19 @@ describe('mapColor', () => {
     expect(mapColor('#FFFF00', { colorMode: 'bw' })).toBe('#000000')
     expect(mapColor('#F8FAFC', { colorMode: 'bw' })).toBe('#FFFFFF')
   })
+
+  it('maps blue and green named colors to their 6-color hex', () => {
+    expect(mapColor('blue')).toBe('#0000FF')
+    expect(mapColor('green')).toBe('#00FF00')
+  })
+
+  it('keeps blue and green unchanged in six-color mode', () => {
+    expect(mapColor('blue', { colorMode: 'six' })).toBe('#0000FF')
+    expect(mapColor('green', { colorMode: 'six' })).toBe('#00FF00')
+  })
+
+  it('clamps blue and green to ink in BW mode', () => {
+    expect(mapColor('blue', { colorMode: 'bw' })).toBe('#000000')
+    expect(mapColor('green', { colorMode: 'bw' })).toBe('#000000')
+  })
 })

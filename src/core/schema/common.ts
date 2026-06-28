@@ -7,6 +7,8 @@ export const COLOR_ALIASES = [
   'black',
   'red',
   'yellow',
+  'blue',
+  'green',
   'accent',
   'half_black',
   'gray',
