@@ -1,4 +1,5 @@
 import nunjucks from 'nunjucks'
+import { attributeValueEquals } from './attribute-values'
 import { createHaDateTime } from './ha-datetime'
 import { haFloat, haIif } from './ha-globals'
 import type { HaMockContext } from './types'
@@ -30,6 +31,21 @@ function getStateAttribute(context: HaMockContext, entityId: string, attribute: 
   // HA returns None (falsy) for missing attributes; mirror with null so
   // `iif(state_attr(...), …)` and truthiness checks behave like Home Assistant.
   return value === undefined ? null : value
+}
+
+/**
+ * HA `is_state_attr(entity, attribute, value)` — true iff the entity's typed
+ * attribute equals `value`. Type-sensitive: boolean `false` does not match the
+ * string `"false"`. A missing attribute is treated as `None` (null), so
+ * `is_state_attr(e, 'missing', None)` is true.
+ */
+function isStateAttribute(
+  context: HaMockContext,
+  entityId: string,
+  attribute: string,
+  value: unknown,
+): boolean {
+  return attributeValueEquals(getStateAttribute(context, entityId, attribute), value)
 }
 
 /** State object exposed via dotted access, e.g. `states.weather.home`. */
@@ -110,6 +126,9 @@ function createEnvironment(context: HaMockContext): nunjucks.Environment {
   )
   env.addGlobal('state_attr', (entityId: string, attribute: string) =>
     getStateAttribute(context, entityId, attribute),
+  )
+  env.addGlobal('is_state_attr', (entityId: string, attribute: string, value: unknown) =>
+    isStateAttribute(context, entityId, attribute, value),
   )
   env.addGlobal('now', () => createHaDateTime(context.now ?? new Date()))
   env.addGlobal('float', haFloat)

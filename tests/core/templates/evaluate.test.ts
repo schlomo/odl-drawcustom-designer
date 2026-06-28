@@ -189,6 +189,85 @@ describe('evaluateTemplate', () => {
       ).toBe('no')
     })
 
+    it('returns the TYPED attribute value (boolean false, not the string "false")', () => {
+      const context: HaMockContext = {
+        states: { 'calendar.sn_family': 'on' },
+        attributes: { 'calendar.sn_family': { all_day: false } },
+      }
+      // A boolean false attribute must be falsy in iif (string "false" would be truthy).
+      expect(
+        evaluateTemplate(
+          "{{ iif(state_attr('calendar.sn_family', 'all_day'), 'green', 'red') }}",
+          context,
+        ),
+      ).toBe('red')
+      // Dotted access yields the typed value too.
+      expect(
+        evaluateTemplate('{{ states.calendar.sn_family.attributes.all_day }}', context),
+      ).toBe('false')
+    })
+
+    describe('is_state_attr', () => {
+      const allDayContext: HaMockContext = {
+        states: { 'calendar.sn_family': 'on' },
+        attributes: { 'calendar.sn_family': { all_day: false, count: 3, label: 'Trip' } },
+      }
+
+      it('matches a boolean attribute type-sensitively', () => {
+        expect(
+          evaluateTemplate(
+            "{{ is_state_attr('calendar.sn_family', 'all_day', false) }}",
+            allDayContext,
+          ),
+        ).toBe('true')
+        expect(
+          evaluateTemplate(
+            "{{ is_state_attr('calendar.sn_family', 'all_day', true) }}",
+            allDayContext,
+          ),
+        ).toBe('false')
+      })
+
+      it("renders the maintainer's example with correct primitives", () => {
+        expect(
+          evaluateTemplate(
+            "{{ iif(is_state_attr('calendar.sn_family', 'all_day', false), 'green', 'red') }}",
+            allDayContext,
+          ),
+        ).toBe('green')
+      })
+
+      it('matches numeric and string attributes', () => {
+        expect(
+          evaluateTemplate("{{ is_state_attr('calendar.sn_family', 'count', 3) }}", allDayContext),
+        ).toBe('true')
+        expect(
+          evaluateTemplate("{{ is_state_attr('calendar.sn_family', 'count', 4) }}", allDayContext),
+        ).toBe('false')
+        expect(
+          evaluateTemplate(
+            "{{ is_state_attr('calendar.sn_family', 'label', 'Trip') }}",
+            allDayContext,
+          ),
+        ).toBe('true')
+      })
+
+      it('treats a missing attribute as None', () => {
+        expect(
+          evaluateTemplate(
+            "{{ is_state_attr('calendar.sn_family', 'missing', None) }}",
+            allDayContext,
+          ),
+        ).toBe('true')
+        expect(
+          evaluateTemplate(
+            "{{ is_state_attr('calendar.sn_family', 'missing', false) }}",
+            allDayContext,
+          ),
+        ).toBe('false')
+      })
+    })
+
     it('preserves the existing states() string while exposing dotted attribute access', () => {
       const weatherContext: HaMockContext = {
         states: { 'weather.home': 'sunny' },

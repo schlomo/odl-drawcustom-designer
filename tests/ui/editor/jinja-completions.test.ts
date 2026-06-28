@@ -55,6 +55,13 @@ describe('HA jinja completion catalog', () => {
     expect(labels).not.toContain('string')
   })
 
+  it('offers state_attr and is_state_attr helpers', () => {
+    const labels = HA_EXPRESSION_COMPLETIONS.map((entry) => entry.label)
+    expect(labels).toEqual(expect.arrayContaining(['state_attr', 'is_state_attr']))
+    const isStateAttr = HA_EXPRESSION_COMPLETIONS.find((entry) => entry.label === 'is_state_attr')
+    expect(isStateAttr?.detail).toContain('value')
+  })
+
   it('includes now() strftime as the supported method', () => {
     const labels = HA_NOW_METHOD_COMPLETIONS.map((entry) => entry.label)
     expect(labels).toEqual(['strftime'])
@@ -122,6 +129,16 @@ describe('resolveJinjaCompletionContext', () => {
       kind: 'expression',
       from: doc.indexOf('stat'),
       prefix: 'stat',
+    })
+  })
+
+  it('offers entity-id completions inside is_state_attr() first argument', () => {
+    const doc = "  value: \"{{ is_state_attr('cal"
+    const pos = doc.length
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, false))).toEqual({
+      kind: 'entity-id',
+      from: doc.indexOf('cal'),
+      prefix: 'cal',
     })
   })
 

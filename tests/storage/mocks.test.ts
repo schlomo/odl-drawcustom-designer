@@ -36,6 +36,35 @@ describe('mock storage', () => {
     })
   })
 
+  it('round-trips typed attribute values (boolean/number/null/array/object)', async () => {
+    await writeMocksToDb({
+      states: { 'calendar.sn_family': 'on' },
+      attributes: {
+        'calendar.sn_family': {
+          all_day: false,
+          count: 3,
+          ratio: 1.5,
+          missing: null,
+          people: ['a', 'b'],
+          meta: { k: 1 },
+        },
+      },
+    })
+
+    const loaded = await readMocksFromDb()
+    expect(loaded?.attributes['calendar.sn_family']).toEqual({
+      all_day: false,
+      count: 3,
+      ratio: 1.5,
+      missing: null,
+      people: ['a', 'b'],
+      meta: { k: 1 },
+    })
+    // Types survive the round-trip, not just their string forms.
+    expect(loaded?.attributes['calendar.sn_family']?.all_day).toBe(false)
+    expect(loaded?.attributes['calendar.sn_family']?.count).toBe(3)
+  })
+
   it('replaces the full mock map on write', async () => {
     await writeMocksToDb({
       states: { 'sensor.temperature': '18', 'binary_sensor.door': 'on' },

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { DrawElement, HaMockContext } from '../../core'
-import { scanPayloadForTemplates } from '../../core'
+import { coerceAttributeValue, scanPayloadForTemplates } from '../../core'
 import { shell } from '../styles/shell'
 import { PanelScopeToggle, type PanelListScope } from './PanelScopeToggle'
 
@@ -45,21 +45,6 @@ function formatAttributeValue(value: unknown): string {
   } catch {
     return ''
   }
-}
-
-/** Coerce a typed attribute value so booleans/numbers behave like HA (not strings). */
-function coerceAttributeValue(raw: string): string | number | boolean {
-  const trimmed = raw.trim()
-  if (trimmed === 'true') {
-    return true
-  }
-  if (trimmed === 'false') {
-    return false
-  }
-  if (trimmed !== '' && Number.isFinite(Number(trimmed))) {
-    return Number(trimmed)
-  }
-  return raw
 }
 
 export function StateSimulator({

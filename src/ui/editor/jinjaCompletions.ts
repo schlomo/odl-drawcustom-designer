@@ -72,6 +72,12 @@ export const HA_EXPRESSION_COMPLETIONS: Completion[] = [
     apply: applyExpression("state_attr('', '')"),
   },
   {
+    label: 'is_state_attr',
+    type: 'function',
+    detail: "is_state_attr('entity_id', 'attribute', value)",
+    apply: applyExpression("is_state_attr('', '', '')"),
+  },
+  {
     label: 'float',
     type: 'function',
     detail: "float(states('entity_id'), default)",
@@ -240,7 +246,7 @@ function matchStrftimeFormatContext(slice: string, pos: number): { from: number;
 
 function matchEntityIdQuote(slice: string): string | null {
   const patterns = [
-    /(?:states|state_attr)\s*\(\s*['"]([\w.]*)$/,
+    /(?:states|state_attr|is_state_attr)\s*\(\s*['"]([\w.]*)$/,
     /is_state\s*\(\s*['"]([\w.]*)$/,
     /is_state\s*\(\s*['"][^'"]*['"]\s*,\s*['"]([\w.]*)$/,
   ]

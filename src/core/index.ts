@@ -154,6 +154,8 @@ export {
   extractTemplateExpressions,
   extractAttributeReferences,
   type AttributeReference,
+  coerceAttributeValue,
+  attributeValueEquals,
   TemplateEvaluationError,
   resolvePreviewClockInterval,
   templateNeedsSecondPrecision,
