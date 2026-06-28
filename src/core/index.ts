@@ -153,6 +153,7 @@ export {
   extractEntityIds,
   extractTemplateExpressions,
   extractAttributeReferences,
+  extractVariableReferences,
   type AttributeReference,
   coerceAttributeValue,
   attributeValueEquals,

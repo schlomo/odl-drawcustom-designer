@@ -110,6 +110,92 @@ The State Simulator collects attribute values from a plain text field, so we inf
 - State Simulator remains required — Nunjucks does not replace mock data entry; it mocks both entity **states** and per-entity **attributes**
 - Mock states (strings) and typed attribute values persist globally in IndexedDB (ADR-003); excluded from share hash by default (ADR-005)
 
+## Per-field evaluation scope (revision 2026-06 — PR #8, corrected)
+
+> **Supersedes** an earlier PR #8 commit that evaluated the whole payload in a
+> single shared-scope Jinja pass (`evaluateTemplatesWithSharedScope`). That was
+> based on a now-**retracted** belief about how HA shares template state across
+> fields. A live HA test disproved it (see below); the helper and both call-site
+> changes were reverted.
+
+**Decision:** Each templated field string is evaluated **independently**.
+`{% set %}` / `namespace()` side effects **do NOT carry across element fields.**
+The canvas render path (`applyTemplateContextToPayload` in
+`src/core/templates/preview.ts`) deep-walks the payload and calls
+`evaluateTemplate` per string; the editor inline preview
+(`src/ui/editor/templatePreviewAnchors.ts`) evaluates each region
+independently. Preview and render therefore agree, and both match real HA.
+
+**HA proof (live test + source).** A maintainer ran a real HA automation with a
+structured `payload:` list — each field its own template — defining
+`{%- set n = namespace(c='black') -%}` in a rectangle's `fill` and referencing
+`{{ n.c }}` in a later line's `fill`. Real HA **failed** with "n not known". This
+matches HA core source:
+
+- `homeassistant/helpers/config_validation.py` → `template_complex()` wraps
+  **each** templated string leaf as its **own** `Template` object.
+- `homeassistant/helpers/service.py` → `async_prepare_call_from_config` calls
+  `template.render_complex()`, which renders **each** `Template` independently.
+
+So `{% set %}` / `namespace()` state never crosses field boundaries. (Cross-field
+sharing in real HA happens only when the **entire** payload is a single template
+string, or via **script-level `variables:`**.)
+
+**`namespace()` is still supported _within_ a single field.** The PR #8 work that
+makes Jinja `namespace()` usable inside one template is retained: the
+`haNamespace` global plus the `{% set obj.member = expr %}` → `__ha_setattr(...)`
+rewrite (including whitespace-trim-marker handling) in
+`src/core/templates/evaluate.ts`. Within one field,
+`{% set n = namespace(...) %}{% set n.x = ... %}{{ n.x }}` and for-loop
+accumulation work as in Jinja. See `tests/core/templates/evaluate.test.ts`.
+
+## Cross-field value sharing — Simulator variables (the HA-parity mechanism)
+
+Because state does not cross fields, the supported way to reuse a value in
+multiple fields is **user-defined variables** in the State Simulator — the
+designer's analog of HA **script-level `variables:`**.
+
+- **Literal mock values (not templates).** A Simulator variable is a **literal
+  mock value** — the resolved runtime value the user wants during preview,
+  exactly like mock entity **states** (`on`) and typed **attributes**
+  (`false`, `21.5`). The value is injected **verbatim**; it is **not** rendered
+  as a template. A value that happens to contain template text (e.g.
+  `{{ foo }}`) is emitted **as-is**, not resolved. This is consistent with the
+  rest of the simulator and faithful to HA's single-pass semantics: real HA
+  renders script `variables:` once at the automation level and never re-parses
+  the rendered output, so the simulator simply captures that resolved literal.
+- **Data shape:** a global `name → value` map (`HaMockContext.variables`,
+  `Record<string, string>`), separate from entity states/attributes. Names must
+  be bare identifiers (`/^[A-Za-z_$][\w$]*$/`) and may not shadow built-in
+  globals (`states`, `is_state`, `state_attr`, `is_state_attr`, `now`, `float`,
+  `iif`, `namespace`).
+- **Injection:** `createEnvironment` registers each valid variable as a Nunjucks
+  global (`env.addGlobal(name, value)`), so a bare `{{ name }}` resolves in
+  **every** field's evaluation. Variable globals and the `states(...)` function
+  occupy different namespaces, so they never collide.
+- **Auto-population (scan):** templates are scanned for **bare variable
+  references** — identifiers used as `{{ name }}` / in expressions that are NOT
+  HA globals, entity-id string args, function calls, filters, member-access
+  roots (e.g. `n.c`), or local `{% set %}` / `{% for %}` names within the field
+  (`extractVariableReferences` → `TemplateScanResult.variablesReferenced`).
+  Discovered names surface as **empty-valued, pre-filled rows** the user just
+  fills in — mirroring how referenced **attributes** are pre-filled (issue #4).
+- **Immediate apply:** editing a variable's value writes through on `change`
+  (`onSetVariable`), so the preview updates immediately — the same write-through
+  UX as attribute edits, with no separate "commit" step.
+- **Persistence:** stored globally in IndexedDB (`variables` store, **Dexie v5**,
+  added **additively** on top of the v4 attributes upgrade so existing
+  assets/mocks/session survive — ADR-003). Excluded from the share hash like
+  mocks (ADR-005).
+- **UI:** a compact "Variables" section in the State Simulator
+  (`src/ui/components/StateSimulator.tsx`), wired through
+  `useProjectState`/`src/ui/preferences/variables.ts`.
+
+Real-HA equivalents to reach for when you need cross-field sharing: script-level
+`variables:` (templated once at the automation level — the simulator captures
+the resolved result), or collapsing the data into a single whole-payload
+template string.
+
 ## Alternatives considered
 
 See research table above. **Nunjucks + drawcustom HA globals** is the best offline compromise between bundle size and HA template compatibility.

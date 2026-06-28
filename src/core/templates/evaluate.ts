@@ -1,8 +1,39 @@
 import nunjucks from 'nunjucks'
 import { attributeValueEquals } from './attribute-values'
 import { createHaDateTime } from './ha-datetime'
-import { haFloat, haIif } from './ha-globals'
+import { haFloat, haIif, haNamespace, haSetAttr } from './ha-globals'
 import type { HaMockContext } from './types'
+
+/** Internal global name backing rewritten `{% set ns.member = … %}` assignments. */
+const SET_ATTR_GLOBAL = '__ha_setattr'
+
+/**
+ * Nunjucks does not parse member-target assignment (`{% set ns.uv = value %}`),
+ * which Jinja allows for `namespace()` objects. Rewrite that single, well-scoped
+ * pattern into an expression that mutates the object in place:
+ *
+ *   {% set ns.uv = expr %}  →  {{ __ha_setattr(ns, 'uv', expr) }}
+ *
+ * Plain `{% set x = … %}` (no member) is left untouched. Only a single-level
+ * member target (`obj.member`) is supported — the minimum needed for the HA
+ * `namespace()` pattern reported in issue #5.
+ */
+function rewriteNamespaceMemberAssignments(template: string): string {
+  const memberSet =
+    /\{%(-)?\s*set\s+([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)\s*=\s*([\s\S]*?)\s*(-)?%\}/g
+  return template.replace(
+    memberSet,
+    (
+      _match,
+      trimStart: string | undefined,
+      object: string,
+      member: string,
+      expression: string,
+      trimEnd: string | undefined,
+    ) =>
+      `{{${trimStart ?? ''} ${SET_ATTR_GLOBAL}(${object}, '${member}', ${expression}) ${trimEnd ?? ''}}}`,
+  )
+}
 
 let jinjaCompatInstalled = false
 
@@ -112,6 +143,48 @@ function buildStatesGlobal(context: HaMockContext): StatesGlobal {
   return statesFn
 }
 
+/** Globals we register ourselves — a user variable may not shadow these. */
+const RESERVED_VARIABLE_NAMES = new Set([
+  'states',
+  'is_state',
+  'state_attr',
+  'is_state_attr',
+  'now',
+  'float',
+  'iif',
+  'namespace',
+  SET_ATTR_GLOBAL,
+])
+
+/** A user variable name must be a bare identifier so `{{ name }}` resolves. */
+function isValidVariableName(name: string): boolean {
+  return /^[A-Za-z_$][\w$]*$/.test(name) && !RESERVED_VARIABLE_NAMES.has(name)
+}
+
+/**
+ * User-defined variables are LITERAL mock values — the resolved runtime value
+ * the user wants during preview, consistent with how the State Simulator mocks
+ * literal entity states and typed attributes (ADR-004). Values are injected
+ * VERBATIM as Nunjucks globals; they are NOT rendered as templates (Home
+ * Assistant renders script `variables:` once at the automation level and never
+ * re-parses the rendered output, so the simulator captures the resolved
+ * literal). A value that happens to contain `{{ … }}` is emitted as-is.
+ */
+function collectVariableGlobals(context: HaMockContext): Record<string, string> {
+  const variables = context.variables
+  if (!variables) {
+    return {}
+  }
+
+  const globals: Record<string, string> = {}
+  for (const [name, value] of Object.entries(variables)) {
+    if (isValidVariableName(name)) {
+      globals[name] = value
+    }
+  }
+  return globals
+}
+
 function createEnvironment(context: HaMockContext): nunjucks.Environment {
   ensureJinjaCompat()
 
@@ -133,6 +206,12 @@ function createEnvironment(context: HaMockContext): nunjucks.Environment {
   env.addGlobal('now', () => createHaDateTime(context.now ?? new Date()))
   env.addGlobal('float', haFloat)
   env.addGlobal('iif', haIif)
+  env.addGlobal('namespace', haNamespace)
+  env.addGlobal(SET_ATTR_GLOBAL, haSetAttr)
+
+  for (const [name, value] of Object.entries(collectVariableGlobals(context))) {
+    env.addGlobal(name, value)
+  }
 
   return env
 }
@@ -153,7 +232,8 @@ export function evaluateTemplate(template: string, context: HaMockContext): stri
   }
 
   try {
-    return createEnvironment(context).renderString(template, {})
+    const prepared = rewriteNamespaceMemberAssignments(template)
+    return createEnvironment(context).renderString(prepared, {})
   } catch (error) {
     throw new TemplateEvaluationError(
       error instanceof Error ? error.message : 'Template evaluation failed',

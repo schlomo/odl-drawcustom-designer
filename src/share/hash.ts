@@ -1,5 +1,6 @@
 import { deflate, inflate } from 'pako'
 import { isTagColorMode } from '../core/display/palette'
+import type { StoredVariables } from '../storage'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import type { MockData } from '../ui/preferences/mockStates'
 import {
@@ -142,6 +143,7 @@ export function buildShareUrl(encoded: string, locationParts: ShareUrlParts): st
 export function sharePayloadToBootstrap(
   payload: SharePayload,
   mock: MockData,
+  variables: StoredVariables = {},
 ): AppBootstrap {
   const previewDitherMode = resolvePreviewDitherFromShare(payload.service)
 
@@ -152,6 +154,7 @@ export function sharePayloadToBootstrap(
     service: payload.service,
     mockStates: mock.states,
     mockAttributes: mock.attributes,
+    variables,
     importSource: 'hash',
   }
 }

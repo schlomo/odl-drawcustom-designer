@@ -91,6 +91,11 @@ export function App({ bootstrap }: AppProps) {
     setMockAttribute,
     renameMockAttribute,
     removeMockAttribute,
+    variables,
+    setVariable,
+    addVariable,
+    renameVariable,
+    removeVariable,
     extraEntityIds,
     assetRevision,
     uploadAsset,
@@ -432,6 +437,11 @@ export function App({ bootstrap }: AppProps) {
           onSetMockAttribute={setMockAttribute}
           onRenameMockAttribute={renameMockAttribute}
           onRemoveMockAttribute={removeMockAttribute}
+          variables={variables}
+          onSetVariable={setVariable}
+          onAddVariable={addVariable}
+          onRenameVariable={renameVariable}
+          onRemoveVariable={removeVariable}
           onUploadAsset={uploadAsset}
           onClearAsset={clearAsset}
           onReorderElement={handleReorderElement}

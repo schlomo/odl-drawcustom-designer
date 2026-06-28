@@ -22,6 +22,16 @@ export interface StoredMock {
   attributes?: Record<string, unknown>
 }
 
+/**
+ * Global user-defined template variable row — one map per browser (ADR-003).
+ * The designer's analog of HA script-level `variables:`; injected into every
+ * field's template evaluation (ADR-004).
+ */
+export interface StoredVariable {
+  name: string
+  value: string
+}
+
 export interface SessionCanvas {
   width: number
   height: number

@@ -47,7 +47,12 @@ describe('Dexie schema upgrade', () => {
     expect(stored?.mime).toBe('image/png')
     expect(await stored?.blob.text()).toBe('v1-png')
     expect(await upgraded.mocks.count()).toBe(0)
-    expect(upgraded.tables.map((table) => table.name).sort()).toEqual(['assets', 'mocks', 'session'])
+    expect(upgraded.tables.map((table) => table.name).sort()).toEqual([
+      'assets',
+      'mocks',
+      'session',
+      'variables',
+    ])
     await upgraded.close()
   })
 

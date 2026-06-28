@@ -3,6 +3,7 @@ import {
   extractAttributeReferences,
   extractEntityIds,
   extractTemplateExpressions,
+  extractVariableReferences,
   hasTemplateSyntax,
   walkStringValues,
 } from './patterns'
@@ -12,6 +13,7 @@ export function scanPayloadForTemplates(payload: Payload): TemplateScanResult {
   const references: TemplateReference[] = []
   const entityIdSet = new Set<string>()
   const attributeSetByEntity = new Map<string, Set<string>>()
+  const variableSet = new Set<string>()
 
   payload.forEach((element, index) => {
     walkStringValues(element, `[${index}]`, (raw, path) => {
@@ -37,6 +39,10 @@ export function scanPayloadForTemplates(payload: Payload): TemplateScanResult {
         }
         attributes.add(attribute)
       }
+
+      for (const variable of extractVariableReferences(raw)) {
+        variableSet.add(variable)
+      }
     })
   })
 
@@ -49,6 +55,7 @@ export function scanPayloadForTemplates(payload: Payload): TemplateScanResult {
     references,
     entityIds: [...entityIdSet].sort(),
     attributesByEntity,
+    variablesReferenced: [...variableSet].sort(),
   }
 }
 
@@ -56,6 +63,7 @@ export {
   extractAttributeReferences,
   extractEntityIds,
   extractTemplateExpressions,
+  extractVariableReferences,
   hasTemplateSyntax,
 } from './patterns'
 export type { AttributeReference } from './patterns'

@@ -1,6 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import { INDEXEDDB_NAME } from '../core'
-import type { SessionSnapshot, StoredAsset, StoredMock } from './types'
+import type { SessionSnapshot, StoredAsset, StoredMock, StoredVariable } from './types'
 
 function isRecoverableOpenError(error: unknown): boolean {
   if (!(error instanceof Dexie.DexieError)) {
@@ -13,6 +13,7 @@ function isRecoverableOpenError(error: unknown): boolean {
 export class DesignerDatabase extends Dexie {
   assets!: Table<StoredAsset, string>
   mocks!: Table<StoredMock, string>
+  variables!: Table<StoredVariable, string>
   session!: Table<SessionSnapshot, string>
 
   constructor(name = INDEXEDDB_NAME) {
@@ -53,6 +54,15 @@ export class DesignerDatabase extends Dexie {
             }
           })
       })
+    // v5 adds the `variables` store additively (user-defined template variables,
+    // PR #8). Existing assets/mocks (incl. v4 attributes)/session rows are
+    // preserved — Dexie only re-keys stores it is told to change.
+    this.version(5).stores({
+      assets: 'key',
+      mocks: 'entityId',
+      variables: 'name',
+      session: 'id',
+    })
   }
 }
 
@@ -96,6 +106,7 @@ export async function clearAllStores(): Promise<void> {
   await ensureDbReady()
   await db.assets.clear()
   await db.mocks.clear()
+  await db.variables.clear()
   await db.session.clear()
 }
 
