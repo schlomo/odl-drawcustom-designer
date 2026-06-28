@@ -152,6 +152,8 @@ export {
   hasTemplateSyntax,
   extractEntityIds,
   extractTemplateExpressions,
+  extractAttributeReferences,
+  type AttributeReference,
   TemplateEvaluationError,
   resolvePreviewClockInterval,
   templateNeedsSecondPrecision,

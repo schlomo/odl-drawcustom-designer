@@ -54,6 +54,9 @@ describe('StateSimulator attribute editing', () => {
   it('adds a new attribute with a numeric value', () => {
     const { onSetMockAttribute } = renderSimulator()
 
+    // The add-attribute editor is folded by default; reveal it first.
+    fireEvent.click(screen.getByLabelText('Add attribute to sensor.sn_family_current_event'))
+
     fireEvent.change(
       screen.getByLabelText('New attribute name for sensor.sn_family_current_event'),
       { target: { value: 'temperature' } },

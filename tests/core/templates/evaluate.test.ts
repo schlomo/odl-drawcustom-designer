@@ -200,6 +200,34 @@ describe('evaluateTemplate', () => {
     })
   })
 
+  describe('prototype pollution hardening (Copilot review)', () => {
+    it('does not pollute Object.prototype and keeps dotted access working with malicious entity ids', () => {
+      const maliciousContext: HaMockContext = {
+        states: {
+          'sensor.__proto__': 'evil',
+          '__proto__.x': 'evil',
+          'sensor.constructor': 'evil',
+          'weather.home': 'sunny',
+        },
+        attributes: { 'weather.home': { temperature: 21.5 } },
+      }
+
+      // Legitimate dotted access still resolves after the malicious ids are skipped.
+      expect(
+        evaluateTemplate('{{ states.weather.home.attributes.temperature }}', maliciousContext),
+      ).toBe('21.5')
+      expect(evaluateTemplate("{{ states('weather.home') }}", maliciousContext)).toBe('sunny')
+
+      // The malicious `sensor.__proto__` id must not leak a real `sensor` bucket
+      // whose prototype carries the injected state object's fields.
+      expect(evaluateTemplate('{{ states.sensor.entity_id }}', maliciousContext)).toBe('')
+
+      // Global prototype chain is untouched by evaluation.
+      expect(Object.prototype.hasOwnProperty.call(Object.prototype, 'x')).toBe(false)
+      expect((({}) as Record<string, unknown>).entity_id).toBeUndefined()
+    })
+  })
+
   describe('datetime helpers', () => {
     const clockContext: HaMockContext = {
       states: {},

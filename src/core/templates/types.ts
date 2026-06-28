@@ -23,4 +23,10 @@ export interface TemplateScanResult {
   references: TemplateReference[]
   /** Unique entity IDs referenced via HA template helpers, sorted. */
   entityIds: string[]
+  /**
+   * Attribute names referenced per entity via `state_attr('e','a')` or dotted
+   * `states.<domain>.<object>.attributes.<attr>`, keyed by entity id. Sorted,
+   * deduplicated. Surfaced in the State Simulator as pre-filled attribute rows.
+   */
+  attributesByEntity: Record<string, string[]>
 }

@@ -1,4 +1,11 @@
-export { scanPayloadForTemplates, hasTemplateSyntax, extractEntityIds, extractTemplateExpressions } from './scan'
+export {
+  scanPayloadForTemplates,
+  hasTemplateSyntax,
+  extractEntityIds,
+  extractTemplateExpressions,
+  extractAttributeReferences,
+  type AttributeReference,
+} from './scan'
 export { evaluateTemplate, TemplateEvaluationError } from './evaluate'
 export { applyTemplateContextToPayload } from './preview'
 export {

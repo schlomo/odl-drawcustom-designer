@@ -23,14 +23,28 @@ function formatMockValue(value: string | number | boolean): string {
   return String(value)
 }
 
+/**
+ * Render an attribute value as an `<input>`-safe string. Must ALWAYS return a
+ * string (never `undefined`, which would flip the input controlled→uncontrolled)
+ * and must never throw (e.g. `JSON.stringify` on a BigInt or circular value),
+ * which would crash the simulator.
+ */
 function formatAttributeValue(value: unknown): string {
   if (typeof value === 'string') {
     return value
   }
-  if (typeof value === 'boolean' || typeof value === 'number') {
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
     return String(value)
   }
-  return JSON.stringify(value)
+  if (value === null || value === undefined) {
+    return ''
+  }
+  try {
+    const json = JSON.stringify(value)
+    return typeof json === 'string' ? json : ''
+  } catch {
+    return ''
+  }
 }
 
 /** Coerce a typed attribute value so booleans/numbers behave like HA (not strings). */
@@ -67,11 +81,11 @@ export function StateSimulator({
   const [attributeDrafts, setAttributeDrafts] = useState<Record<string, { name: string; value: string }>>(
     {},
   )
+  const [expandedAdders, setExpandedAdders] = useState<Set<string>>(() => new Set())
 
-  const scannedIds = useMemo(
-    () => new Set(scanPayloadForTemplates(elements).entityIds),
-    [elements],
-  )
+  const scan = useMemo(() => scanPayloadForTemplates(elements), [elements])
+  const scannedIds = useMemo(() => new Set(scan.entityIds), [scan])
+  const scannedAttributesByEntity = scan.attributesByEntity
 
   const attributesByEntity = mockContext.attributes ?? {}
 
@@ -111,6 +125,29 @@ export function StateSimulator({
     }
     onSetMockAttribute(entityId, name, coerceAttributeValue(draft.value))
     setAttributeDraft(entityId, { name: '', value: '' })
+    collapseAdder(entityId)
+  }
+
+  const expandAdder = (entityId: string) => {
+    setExpandedAdders((current) => {
+      if (current.has(entityId)) {
+        return current
+      }
+      const next = new Set(current)
+      next.add(entityId)
+      return next
+    })
+  }
+
+  const collapseAdder = (entityId: string) => {
+    setExpandedAdders((current) => {
+      if (!current.has(entityId)) {
+        return current
+      }
+      const next = new Set(current)
+      next.delete(entityId)
+      return next
+    })
   }
 
   const Wrapper = embedded ? 'div' : 'section'
@@ -137,8 +174,15 @@ export function StateSimulator({
       ) : (
         entityRows.map((row) => {
           const attributes = attributesByEntity[row.entityId] ?? {}
-          const attributeNames = Object.keys(attributes).sort()
+          const referencedAttributes = scannedAttributesByEntity[row.entityId] ?? []
+          const referencedAttributeSet = new Set(referencedAttributes)
+          // Union of stored attributes and attributes referenced in the payload
+          // (pre-filled with empty values so users only enter the value).
+          const attributeNames = [
+            ...new Set([...Object.keys(attributes), ...referencedAttributes]),
+          ].sort()
           const draft = getAttributeDraft(row.entityId)
+          const adderExpanded = expandedAdders.has(row.entityId)
           return (
             <li
               key={row.entityId}
@@ -176,80 +220,120 @@ export function StateSimulator({
 
               {canEditAttributes ? (
                 <div className="flex flex-col gap-1 pl-2">
-                  {attributeNames.map((attributeName) => (
-                    <div key={attributeName} className="flex items-center gap-1">
+                  {attributeNames.map((attributeName) => {
+                    const referenced = referencedAttributeSet.has(attributeName)
+                    const stored = attributeName in attributes
+                    return (
+                      <div key={attributeName} className="flex items-center gap-1">
+                        {referenced ? (
+                          <span
+                            className={`min-w-0 flex-1 truncate font-mono text-[10px] ${shell.muted}`}
+                            title={`${attributeName} · used in payload`}
+                          >
+                            {attributeName}
+                          </span>
+                        ) : (
+                          <input
+                            type="text"
+                            className={`${shell.input} min-w-0 flex-1 px-1.5 py-0.5 font-mono text-[10px]`}
+                            defaultValue={attributeName}
+                            onBlur={(event) =>
+                              onRenameMockAttribute?.(
+                                row.entityId,
+                                attributeName,
+                                event.target.value,
+                              )
+                            }
+                            aria-label={`Attribute name ${attributeName} for ${row.entityId}`}
+                          />
+                        )}
+                        <input
+                          type="text"
+                          className={`${shell.input} w-20 px-1.5 py-0.5 text-[10px]`}
+                          value={formatAttributeValue(attributes[attributeName])}
+                          placeholder={referenced && !stored ? 'value' : undefined}
+                          onChange={(event) =>
+                            onSetMockAttribute?.(
+                              row.entityId,
+                              attributeName,
+                              coerceAttributeValue(event.target.value),
+                            )
+                          }
+                          aria-label={`Attribute ${attributeName} of ${row.entityId}`}
+                        />
+                        {referenced ? (
+                          <span aria-hidden="true" className="w-7 shrink-0" />
+                        ) : (
+                          <button
+                            type="button"
+                            className={`${shell.button} w-7 shrink-0 px-0`}
+                            aria-label={`Remove attribute ${attributeName} of ${row.entityId}`}
+                            onClick={() => onRemoveMockAttribute?.(row.entityId, attributeName)}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {adderExpanded ? (
+                    <div className="flex items-center gap-1">
                       <input
                         type="text"
                         className={`${shell.input} min-w-0 flex-1 px-1.5 py-0.5 font-mono text-[10px]`}
-                        defaultValue={attributeName}
-                        onBlur={(event) =>
-                          onRenameMockAttribute?.(row.entityId, attributeName, event.target.value)
+                        placeholder="attribute"
+                        value={draft.name}
+                        autoFocus
+                        onChange={(event) =>
+                          setAttributeDraft(row.entityId, { ...draft, name: event.target.value })
                         }
-                        aria-label={`Attribute name ${attributeName} for ${row.entityId}`}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            commitAttributeDraft(row.entityId)
+                          } else if (event.key === 'Escape') {
+                            setAttributeDraft(row.entityId, { name: '', value: '' })
+                            collapseAdder(row.entityId)
+                          }
+                        }}
+                        aria-label={`New attribute name for ${row.entityId}`}
                       />
                       <input
                         type="text"
                         className={`${shell.input} w-20 px-1.5 py-0.5 text-[10px]`}
-                        value={formatAttributeValue(attributes[attributeName])}
+                        placeholder="value"
+                        value={draft.value}
                         onChange={(event) =>
-                          onSetMockAttribute?.(
-                            row.entityId,
-                            attributeName,
-                            coerceAttributeValue(event.target.value),
-                          )
+                          setAttributeDraft(row.entityId, { ...draft, value: event.target.value })
                         }
-                        aria-label={`Attribute ${attributeName} of ${row.entityId}`}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            commitAttributeDraft(row.entityId)
+                          } else if (event.key === 'Escape') {
+                            setAttributeDraft(row.entityId, { name: '', value: '' })
+                            collapseAdder(row.entityId)
+                          }
+                        }}
+                        aria-label={`New attribute value for ${row.entityId}`}
                       />
                       <button
                         type="button"
                         className={`${shell.button} w-7 shrink-0 px-0`}
-                        aria-label={`Remove attribute ${attributeName} of ${row.entityId}`}
-                        onClick={() => onRemoveMockAttribute?.(row.entityId, attributeName)}
+                        aria-label={`Add attribute to ${row.entityId}`}
+                        onClick={() => commitAttributeDraft(row.entityId)}
                       >
-                        ×
+                        +
                       </button>
                     </div>
-                  ))}
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="text"
-                      className={`${shell.input} min-w-0 flex-1 px-1.5 py-0.5 font-mono text-[10px]`}
-                      placeholder="attribute"
-                      value={draft.name}
-                      onChange={(event) =>
-                        setAttributeDraft(row.entityId, { ...draft, name: event.target.value })
-                      }
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          commitAttributeDraft(row.entityId)
-                        }
-                      }}
-                      aria-label={`New attribute name for ${row.entityId}`}
-                    />
-                    <input
-                      type="text"
-                      className={`${shell.input} w-20 px-1.5 py-0.5 text-[10px]`}
-                      placeholder="value"
-                      value={draft.value}
-                      onChange={(event) =>
-                        setAttributeDraft(row.entityId, { ...draft, value: event.target.value })
-                      }
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          commitAttributeDraft(row.entityId)
-                        }
-                      }}
-                      aria-label={`New attribute value for ${row.entityId}`}
-                    />
+                  ) : (
                     <button
                       type="button"
-                      className={`${shell.button} w-7 shrink-0 px-0`}
+                      className={`self-start text-[10px] ${shell.muted} hover:underline`}
                       aria-label={`Add attribute to ${row.entityId}`}
-                      onClick={() => commitAttributeDraft(row.entityId)}
+                      onClick={() => expandAdder(row.entityId)}
                     >
-                      +
+                      + attribute
                     </button>
-                  </div>
+                  )}
                 </div>
               ) : null}
             </li>

@@ -50,6 +50,11 @@ interface HaStateObject {
 type StatesGlobal = ((entityId: string) => string) &
   Record<string, Record<string, HaStateObject>>
 
+// Entity-id segments that must never be used as object keys: assigning them
+// would mutate the prototype chain (`__proto__`) or shadow built-in members,
+// enabling prototype pollution from user-controlled entity ids.
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
 function buildStatesGlobal(context: HaMockContext): StatesGlobal {
   const statesFn = ((entityId: string) => getStateValue(context, entityId)) as StatesGlobal
 
@@ -65,11 +70,22 @@ function buildStatesGlobal(context: HaMockContext): StatesGlobal {
     }
     const domain = entityId.slice(0, dot)
     const objectId = entityId.slice(dot + 1)
+    // Reject keys that would pollute prototypes via dotted access (e.g.
+    // `sensor.__proto__`, `__proto__.x`, `constructor`, `prototype`).
+    if (UNSAFE_KEYS.has(domain) || UNSAFE_KEYS.has(objectId)) {
+      continue
+    }
     // Skip domains that would clash with Function's own non-writable members.
     if (domain in Function.prototype || domain === 'name' || domain === 'length') {
       continue
     }
-    const bucket = (statesFn[domain] ??= {})
+    // Null-prototype buckets so dotted lookups (`states.<domain>.<object>`)
+    // can never reach Object.prototype members.
+    let bucket = statesFn[domain]
+    if (bucket === undefined) {
+      bucket = Object.create(null) as Record<string, HaStateObject>
+      statesFn[domain] = bucket
+    }
     bucket[objectId] = {
       entity_id: entityId,
       state: getStateValue(context, entityId),
