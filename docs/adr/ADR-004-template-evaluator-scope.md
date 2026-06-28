@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (revised — research-backed)
+Accepted
 
 ## Context
 
@@ -110,46 +110,33 @@ The State Simulator collects attribute values from a plain text field, so we inf
 - State Simulator remains required — Nunjucks does not replace mock data entry; it mocks both entity **states** and per-entity **attributes**
 - Mock states (strings) and typed attribute values persist globally in IndexedDB (ADR-003); excluded from share hash by default (ADR-005)
 
-## Per-field evaluation scope (revision 2026-06 — PR #8, corrected)
+## Per-field evaluation scope
 
-> **Supersedes** an earlier PR #8 commit that evaluated the whole payload in a
-> single shared-scope Jinja pass (`evaluateTemplatesWithSharedScope`). That was
-> based on a now-**retracted** belief about how HA shares template state across
-> fields. A live HA test disproved it (see below); the helper and both call-site
-> changes were reverted.
-
-**Decision:** Each templated field string is evaluated **independently**.
-`{% set %}` / `namespace()` side effects **do NOT carry across element fields.**
-The canvas render path (`applyTemplateContextToPayload` in
+Each templated field string is evaluated **independently**. `{% set %}` /
+`namespace()` side effects **do NOT carry across element fields.** The canvas
+render path (`applyTemplateContextToPayload` in
 `src/core/templates/preview.ts`) deep-walks the payload and calls
 `evaluateTemplate` per string; the editor inline preview
 (`src/ui/editor/templatePreviewAnchors.ts`) evaluates each region
 independently. Preview and render therefore agree, and both match real HA.
 
-**HA proof (live test + source).** A maintainer ran a real HA automation with a
-structured `payload:` list — each field its own template — defining
-`{%- set n = namespace(c='black') -%}` in a rectangle's `fill` and referencing
-`{{ n.c }}` in a later line's `fill`. Real HA **failed** with "n not known". This
-matches HA core source:
+**Why per-field (HA behavior).** HA core wraps **each** templated string leaf as
+its **own** `Template` (`config_validation.template_complex()`) and renders each
+independently (`service.async_prepare_call_from_config` →
+`template.render_complex()`). A `namespace()` defined in one field's `fill` is
+therefore *not* visible in another field — a structured `payload:` list cannot
+share `{% set %}` state across fields. Cross-field sharing in real HA happens
+only when the **entire** payload is a single template string, or via
+**script-level `variables:`** (see below).
 
-- `homeassistant/helpers/config_validation.py` → `template_complex()` wraps
-  **each** templated string leaf as its **own** `Template` object.
-- `homeassistant/helpers/service.py` → `async_prepare_call_from_config` calls
-  `template.render_complex()`, which renders **each** `Template` independently.
-
-So `{% set %}` / `namespace()` state never crosses field boundaries. (Cross-field
-sharing in real HA happens only when the **entire** payload is a single template
-string, or via **script-level `variables:`**.)
-
-**`namespace()` is still supported _within_ a single field.** The PR #8 work that
-makes Jinja `namespace()` usable inside one template is retained: the
-`haNamespace` global plus the `{% set obj.member = expr %}` → `__ha_setattr(...)`
-rewrite (including whitespace-trim-marker handling) in
-`src/core/templates/evaluate.ts`. Within one field,
+**`namespace()` within a single field is supported.** Jinja `namespace()` is
+usable inside one template via the `haNamespace` global plus the
+`{% set obj.member = expr %}` → `__ha_setattr(...)` rewrite (whitespace-trim-marker
+aware) in `src/core/templates/evaluate.ts`. Within one field,
 `{% set n = namespace(...) %}{% set n.x = ... %}{{ n.x }}` and for-loop
 accumulation work as in Jinja. See `tests/core/templates/evaluate.test.ts`.
 
-## Cross-field value sharing — Simulator variables (the HA-parity mechanism)
+## Cross-field value sharing — Simulator variables
 
 Because state does not cross fields, the supported way to reuse a value in
 multiple fields is **user-defined variables** in the State Simulator — the
@@ -160,26 +147,21 @@ designer's analog of HA **script-level `variables:`**.
   exactly like mock entity **states** (`on`) and typed **attributes**
   (`false`, `21.5`). It is **not** rendered as a template: a value that happens
   to contain template text (e.g. `{{ foo }}`) is emitted **as-is**, never
-  resolved. This is faithful to HA's single-pass semantics — real HA renders
-  script `variables:` once at the automation level and never re-parses the
-  rendered output, so the simulator captures that resolved literal.
-- **HA variable types — research (2026-06, PR #8).** HA automation/script
-  `variables:` are **not always strings.** Each value is run through
-  `template.render_complex` (`homeassistant/helpers/template.py`), which renders
-  every `Template` leaf with `parse_result=True`; that path parses results into
-  **native Python types** (`bool`, `int`, `float`, `list`, `dict`, `None`) via
-  `ast.literal_eval`, and a literal YAML value keeps its YAML scalar type.
-  Those typed values flow **into the downstream templates** that reference the
-  variable (arithmetic, truthiness, comparisons). So a variable can be a number
-  or boolean downstream — e.g. `{{ count + 1 }}` or `{{ iif(flag, …) }}` see a
-  real number / boolean, not a string. **Decision:** the Simulator therefore
-  infers a variable's literal type from the text the user types using the SAME
-  rule as mock attributes (`coerceAttributeValue`): `"false"`→boolean `false`
-  (falsy), `"5"`→number, JSON `[…]`/`{…}`→list/dict, else string. Type inference
-  is applied **only at injection** and never re-renders the value (the verbatim
-  guarantee above still holds for `{{ … }}`-looking strings, which are not valid
-  number/bool/JSON and stay strings). This is the consistent counterpart to #9's
-  typed attribute values; storage stays a plain text map (no schema change).
+  resolved. This matches HA's single-pass semantics — HA renders script
+  `variables:` once at the automation level and never re-parses the rendered
+  output, so the simulator captures that resolved literal.
+- **Typed values.** HA `variables:` are **not always strings**:
+  `template.render_complex` renders each leaf with `parse_result=True`, parsing
+  results into native types (`bool`, `int`, `float`, `list`, `dict`, `None`),
+  and literal YAML values keep their scalar type. Those typed values flow into
+  the downstream templates that reference the variable, so `{{ count + 1 }}` or
+  `{{ iif(flag, …) }}` see a real number / boolean. The Simulator therefore
+  infers a variable's type from the entered text using the SAME rule as mock
+  attributes (`coerceAttributeValue`): `"false"`→boolean `false` (falsy),
+  `"5"`→number, JSON `[…]`/`{…}`→list/dict, else string. Inference happens
+  **only at injection** and never re-renders the value, so `{{ … }}`-looking
+  strings (not valid number/bool/JSON) stay verbatim. Storage is a plain text
+  map (no schema change).
 - **Data shape:** a global `name → value` map (`HaMockContext.variables`,
   `Record<string, string>` of the raw literal text), separate from entity
   states/attributes; the type is inferred at injection. Names must be bare
@@ -191,6 +173,12 @@ designer's analog of HA **script-level `variables:`**.
   so a bare `{{ name }}` resolves in **every** field's evaluation. Variable
   globals and the `states(...)` function occupy different namespaces, so they
   never collide.
+- **Render/preview parity:** the canvas render and the editor inline preview
+  must build the evaluation context from the **same** full mock context — states,
+  attributes, **and** variables. Dropping `variables` (or `attributes`) from
+  either path makes the inline preview disagree with the canvas; the preview
+  extension in `src/ui/editor/YamlEditor.tsx` passes the full context for this
+  reason.
 - **Auto-population (scan):** templates are scanned for **bare variable
   references** — identifiers used as `{{ name }}` / in expressions that are NOT
   HA globals, entity-id string args, function calls, filters, member-access
