@@ -78,6 +78,26 @@ Use `npm ci` in CI. Deploy is blocked on failure (ADR-008).
 
 Only commit when the user asks, unless their task explicitly includes committing. Do not commit parity “fixes” that lack behavioral test coverage.
 
+## Parallel agents / git worktrees
+
+When several agents work on this repo at once (e.g. one PR per issue), **isolate each task in its own git worktree**. Do **not** let a subagent switch branches or stage changes in the primary checkout — that strands the user's working tree and makes other agents see a dirty/branch-switched directory (this caused real collisions: one agent had to stash and recover).
+
+Rules:
+
+- The **primary checkout stays on the user's branch** (usually `main`). No subagent branch-switches or edits files there.
+- Each task gets a dedicated worktree + branch off `main`:
+
+```bash
+git worktree add ../odl-drawcustom-designer-<task> -b <branch> origin/main
+cd ../odl-drawcustom-designer-<task>
+npm ci   # node_modules is per-worktree (not tracked); each needs its own install
+# …TDD, commit, push, open PR from here…
+```
+
+- One branch can only be checked out in one worktree (git enforces this — rely on it).
+- After the PR merges, clean up: `git worktree remove ../odl-drawcustom-designer-<task>` and `git branch -d <branch>`.
+- If two PRs touch the same core file (e.g. `src/core/templates/evaluate.ts`), state a **merge order** and rebase the second branch onto the first after it lands.
+
 ## Tool-specific files (parity)
 
 | Tool | What it reads | Role |
