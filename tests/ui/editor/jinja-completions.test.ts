@@ -55,6 +55,13 @@ describe('HA jinja completion catalog', () => {
     expect(labels).not.toContain('string')
   })
 
+  it('offers state_attr and is_state_attr helpers', () => {
+    const labels = HA_EXPRESSION_COMPLETIONS.map((entry) => entry.label)
+    expect(labels).toEqual(expect.arrayContaining(['state_attr', 'is_state_attr']))
+    const isStateAttr = HA_EXPRESSION_COMPLETIONS.find((entry) => entry.label === 'is_state_attr')
+    expect(isStateAttr?.detail).toContain('value')
+  })
+
   it('includes now() strftime as the supported method', () => {
     const labels = HA_NOW_METHOD_COMPLETIONS.map((entry) => entry.label)
     expect(labels).toEqual(['strftime'])
@@ -125,6 +132,16 @@ describe('resolveJinjaCompletionContext', () => {
     })
   })
 
+  it('offers entity-id completions inside is_state_attr() first argument', () => {
+    const doc = "  value: \"{{ is_state_attr('cal"
+    const pos = doc.length
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, false))).toEqual({
+      kind: 'entity-id',
+      from: doc.indexOf('cal'),
+      prefix: 'cal',
+    })
+  })
+
   it('resolves now() method completions after the dot', () => {
     const doc = '  value: "{{ now().str'
     const pos = doc.length
@@ -172,6 +189,36 @@ describe('resolveJinjaCompletionContext', () => {
       kind: 'strftime-format',
       from: pos - 2,
       prefix: 'M',
+    })
+  })
+
+  it('resolves expression helpers inside an iif() argument position', () => {
+    const doc = '  value: "{{ iif('
+    const pos = doc.length
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, false))).toEqual({
+      kind: 'expression',
+      from: pos,
+      prefix: '',
+    })
+  })
+
+  it('resolves expression helpers after a comma inside iif()', () => {
+    const doc = "  value: \"{{ iif(is_state('a.b', 'on'), "
+    const pos = doc.length
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, false))).toEqual({
+      kind: 'expression',
+      from: pos,
+      prefix: '',
+    })
+  })
+
+  it('still matches a typed prefix inside an iif() argument', () => {
+    const doc = '  value: "{{ iif(stat'
+    const pos = doc.length
+    expect(resolveJinjaCompletionContext(mockContext(doc, pos, false))).toEqual({
+      kind: 'expression',
+      from: doc.indexOf('stat'),
+      prefix: 'stat',
     })
   })
 

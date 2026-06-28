@@ -146,6 +146,167 @@ describe('evaluateTemplate', () => {
     })
   })
 
+  describe('state_attr and entity attributes (issue #4)', () => {
+    const familyEventContext: HaMockContext = {
+      states: { 'sensor.sn_family_current_event': 'No event' },
+      attributes: { 'sensor.sn_family_current_event': { active: true } },
+    }
+    const familyEventInactiveContext: HaMockContext = {
+      states: { 'sensor.sn_family_current_event': 'No event' },
+      attributes: { 'sensor.sn_family_current_event': { active: false } },
+    }
+
+    it('returns a mocked attribute value', () => {
+      expect(
+        evaluateTemplate("{{ state_attr('sensor.sn_family_current_event', 'active') }}", familyEventContext),
+      ).toBe('true')
+    })
+
+    it('evaluates the issue icon template to calendar when active is true', () => {
+      expect(
+        evaluateTemplate(
+          "{{ iif(state_attr('sensor.sn_family_current_event','active'),'calendar','calendar-blank') }}",
+          familyEventContext,
+        ),
+      ).toBe('calendar')
+    })
+
+    it('evaluates the issue icon template to calendar-blank when active is false', () => {
+      expect(
+        evaluateTemplate(
+          "{{ iif(state_attr('sensor.sn_family_current_event','active'),'calendar','calendar-blank') }}",
+          familyEventInactiveContext,
+        ),
+      ).toBe('calendar-blank')
+    })
+
+    it('treats a missing attribute as falsy (None)', () => {
+      expect(
+        evaluateTemplate(
+          "{{ iif(state_attr('sensor.sn_family_current_event','missing'),'yes','no') }}",
+          familyEventContext,
+        ),
+      ).toBe('no')
+    })
+
+    it('returns the TYPED attribute value (boolean false, not the string "false")', () => {
+      const context: HaMockContext = {
+        states: { 'calendar.sn_family': 'on' },
+        attributes: { 'calendar.sn_family': { all_day: false } },
+      }
+      // A boolean false attribute must be falsy in iif (string "false" would be truthy).
+      expect(
+        evaluateTemplate(
+          "{{ iif(state_attr('calendar.sn_family', 'all_day'), 'green', 'red') }}",
+          context,
+        ),
+      ).toBe('red')
+      // Dotted access yields the typed value too.
+      expect(
+        evaluateTemplate('{{ states.calendar.sn_family.attributes.all_day }}', context),
+      ).toBe('false')
+    })
+
+    describe('is_state_attr', () => {
+      const allDayContext: HaMockContext = {
+        states: { 'calendar.sn_family': 'on' },
+        attributes: { 'calendar.sn_family': { all_day: false, count: 3, label: 'Trip' } },
+      }
+
+      it('matches a boolean attribute type-sensitively', () => {
+        expect(
+          evaluateTemplate(
+            "{{ is_state_attr('calendar.sn_family', 'all_day', false) }}",
+            allDayContext,
+          ),
+        ).toBe('true')
+        expect(
+          evaluateTemplate(
+            "{{ is_state_attr('calendar.sn_family', 'all_day', true) }}",
+            allDayContext,
+          ),
+        ).toBe('false')
+      })
+
+      it("renders the maintainer's example with correct primitives", () => {
+        expect(
+          evaluateTemplate(
+            "{{ iif(is_state_attr('calendar.sn_family', 'all_day', false), 'green', 'red') }}",
+            allDayContext,
+          ),
+        ).toBe('green')
+      })
+
+      it('matches numeric and string attributes', () => {
+        expect(
+          evaluateTemplate("{{ is_state_attr('calendar.sn_family', 'count', 3) }}", allDayContext),
+        ).toBe('true')
+        expect(
+          evaluateTemplate("{{ is_state_attr('calendar.sn_family', 'count', 4) }}", allDayContext),
+        ).toBe('false')
+        expect(
+          evaluateTemplate(
+            "{{ is_state_attr('calendar.sn_family', 'label', 'Trip') }}",
+            allDayContext,
+          ),
+        ).toBe('true')
+      })
+
+      it('treats a missing attribute as None', () => {
+        expect(
+          evaluateTemplate(
+            "{{ is_state_attr('calendar.sn_family', 'missing', None) }}",
+            allDayContext,
+          ),
+        ).toBe('true')
+        expect(
+          evaluateTemplate(
+            "{{ is_state_attr('calendar.sn_family', 'missing', false) }}",
+            allDayContext,
+          ),
+        ).toBe('false')
+      })
+    })
+
+    it('preserves the existing states() string while exposing dotted attribute access', () => {
+      const weatherContext: HaMockContext = {
+        states: { 'weather.home': 'sunny' },
+        attributes: { 'weather.home': { temperature: 21.5 } },
+      }
+      expect(evaluateTemplate("{{ states('weather.home') }}", weatherContext)).toBe('sunny')
+      expect(evaluateTemplate('{{ states.weather.home.attributes.temperature }}', weatherContext)).toBe('21.5')
+      expect(evaluateTemplate('{{ states.weather.home.state }}', weatherContext)).toBe('sunny')
+    })
+  })
+
+  describe('prototype pollution hardening (Copilot review)', () => {
+    it('does not pollute Object.prototype and keeps dotted access working with malicious entity ids', () => {
+      const maliciousContext: HaMockContext = {
+        states: {
+          'sensor.__proto__': 'evil',
+          '__proto__.x': 'evil',
+          'sensor.constructor': 'evil',
+          'weather.home': 'sunny',
+        },
+        attributes: { 'weather.home': { temperature: 21.5 } },
+      }
+
+      // Legitimate dotted access still resolves after the malicious ids are skipped.
+      expect(
+        evaluateTemplate('{{ states.weather.home.attributes.temperature }}', maliciousContext),
+      ).toBe('21.5')
+      expect(evaluateTemplate("{{ states('weather.home') }}", maliciousContext)).toBe('sunny')
+
+      // The malicious `sensor.__proto__` id must not leak a real `sensor` bucket
+      // whose prototype carries the injected state object's fields.
+      expect(evaluateTemplate('{{ states.sensor.entity_id }}', maliciousContext)).toBe('')
+
+      // Global prototype chain is untouched by evaluation.
+      expect(Object.prototype.hasOwnProperty.call(Object.prototype, 'x')).toBe(false)
+      expect((({}) as Record<string, unknown>).entity_id).toBeUndefined()
+    })
+  })
+
   describe('datetime helpers', () => {
     const clockContext: HaMockContext = {
       states: {},

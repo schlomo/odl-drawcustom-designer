@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  db,
+  ensureDbReady,
   readMocksFromDb,
   writeMocksToDb,
 } from '../../src/storage'
 import {
+  DEFAULT_MOCK_ATTRIBUTES,
   DEFAULT_MOCK_STATES,
   parseMockStates,
   readMockStates,
@@ -11,29 +14,70 @@ import {
 } from '../../src/ui/preferences/mockStates'
 
 describe('mock storage', () => {
-  it('round-trips mock states globally in IndexedDB', async () => {
+  it('round-trips mock states and attributes globally in IndexedDB', async () => {
     await writeMocksToDb({
-      'sensor.temperature': '18',
-      'binary_sensor.door': 'on',
+      states: {
+        'sensor.temperature': '18',
+        'binary_sensor.door': 'on',
+      },
+      attributes: {
+        'sensor.temperature': { unit_of_measurement: '°C' },
+      },
     })
 
     expect(await readMocksFromDb()).toEqual({
-      'sensor.temperature': '18',
-      'binary_sensor.door': 'on',
+      states: {
+        'sensor.temperature': '18',
+        'binary_sensor.door': 'on',
+      },
+      attributes: {
+        'sensor.temperature': { unit_of_measurement: '°C' },
+      },
     })
+  })
+
+  it('round-trips typed attribute values (boolean/number/null/array/object)', async () => {
+    await writeMocksToDb({
+      states: { 'calendar.sn_family': 'on' },
+      attributes: {
+        'calendar.sn_family': {
+          all_day: false,
+          count: 3,
+          ratio: 1.5,
+          missing: null,
+          people: ['a', 'b'],
+          meta: { k: 1 },
+        },
+      },
+    })
+
+    const loaded = await readMocksFromDb()
+    expect(loaded?.attributes['calendar.sn_family']).toEqual({
+      all_day: false,
+      count: 3,
+      ratio: 1.5,
+      missing: null,
+      people: ['a', 'b'],
+      meta: { k: 1 },
+    })
+    // Types survive the round-trip, not just their string forms.
+    expect(loaded?.attributes['calendar.sn_family']?.all_day).toBe(false)
+    expect(loaded?.attributes['calendar.sn_family']?.count).toBe(3)
   })
 
   it('replaces the full mock map on write', async () => {
     await writeMocksToDb({
-      'sensor.temperature': '18',
-      'binary_sensor.door': 'on',
+      states: { 'sensor.temperature': '18', 'binary_sensor.door': 'on' },
+      attributes: {},
     })
     await writeMocksToDb({
-      'sensor.level': 42,
+      states: { 'sensor.level': 42 },
+      attributes: {},
     })
 
     expect(await readMocksFromDb()).toEqual({
-      'sensor.level': 42,
+      states: { 'sensor.level': 42 },
+      attributes: {},
     })
   })
 
@@ -41,19 +85,37 @@ describe('mock storage', () => {
     expect(await readMocksFromDb()).toBeNull()
   })
 
-  it('readMockStates returns defaults when IndexedDB is empty', async () => {
-    expect(await readMockStates()).toEqual(DEFAULT_MOCK_STATES)
+  it('loads legacy rows without an attributes field (migration)', async () => {
+    await ensureDbReady()
+    // Simulate rows written by the pre-attributes schema: no `attributes` key.
+    await db.mocks.clear()
+    await db.mocks.bulkPut([
+      { entityId: 'sensor.temperature', value: '20' },
+      { entityId: 'binary_sensor.door', value: 'off' },
+    ] as never)
+
+    expect(await readMocksFromDb()).toEqual({
+      states: { 'sensor.temperature': '20', 'binary_sensor.door': 'off' },
+      attributes: {},
+    })
   })
 
-  it('writeMockStates persists through the UI adapter', async () => {
+  it('readMockStates returns defaults (states + attributes) when IndexedDB is empty', async () => {
+    expect(await readMockStates()).toEqual({
+      states: DEFAULT_MOCK_STATES,
+      attributes: DEFAULT_MOCK_ATTRIBUTES,
+    })
+  })
+
+  it('writeMockStates persists states and attributes through the UI adapter', async () => {
     await writeMockStates({
-      'sensor.temperature': '99',
-      'binary_sensor.door': false,
+      states: { 'sensor.temperature': '99', 'binary_sensor.door': false },
+      attributes: { 'binary_sensor.door': { device_class: 'door' } },
     })
 
     expect(await readMockStates()).toEqual({
-      'sensor.temperature': '99',
-      'binary_sensor.door': false,
+      states: { 'sensor.temperature': '99', 'binary_sensor.door': false },
+      attributes: { 'binary_sensor.door': { device_class: 'door' } },
     })
   })
 
@@ -62,22 +124,31 @@ describe('mock storage', () => {
 
     await Promise.all([
       writeMocksToDb({
-        'sensor.temperature': '1',
-        'sensor.humidity': '2',
-        'binary_sensor.door': 'on',
+        states: {
+          'sensor.temperature': '1',
+          'sensor.humidity': '2',
+          'binary_sensor.door': 'on',
+        },
+        attributes: {},
       }),
       writeMocksToDb({
-        'sensor.temperature': '9',
-        'sensor.humidity': '8',
-        'binary_sensor.door': 'off',
+        states: {
+          'sensor.temperature': '9',
+          'sensor.humidity': '8',
+          'binary_sensor.door': 'off',
+        },
+        attributes: {},
       }),
     ])
     await flushMockWrites()
 
     expect(await readMocksFromDb()).toEqual({
-      'sensor.temperature': '9',
-      'sensor.humidity': '8',
-      'binary_sensor.door': 'off',
+      states: {
+        'sensor.temperature': '9',
+        'sensor.humidity': '8',
+        'binary_sensor.door': 'off',
+      },
+      attributes: {},
     })
   })
 

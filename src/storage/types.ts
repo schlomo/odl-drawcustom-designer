@@ -13,6 +13,13 @@ export interface StoredAsset {
 export interface StoredMock {
   entityId: string
   value: string | number | boolean
+  /**
+   * Per-entity attribute map backing `state_attr` / `is_state_attr` / dotted
+   * access (issue #4). Values are TYPED JSON (boolean/number/null/array/object/
+   * string) and round-trip via IndexedDB structured clone — no stringification,
+   * so no schema/version change is needed for typed attribute values.
+   */
+  attributes?: Record<string, unknown>
 }
 
 export interface SessionCanvas {

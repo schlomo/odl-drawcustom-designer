@@ -64,13 +64,35 @@ Use **Nunjucks** with Jinja compat mode and an injected **HA mock context**:
 
 | HA global / pattern | Mock implementation |
 |---------------------|---------------------|
-| `states('entity_id')` | State Simulator mock map |
-| `is_state('entity_id', 'state')` | Compare mock value |
+| `states('entity_id')` | State Simulator mock map (returns the state **string**) |
+| `states.<domain>.<object_id>` → `.state`, `.attributes.<attr>` | Subscriptable `states` global, materialized per evaluation from the mock map (dotted access alongside the callable form) |
+| `is_state('entity_id', 'state')` | Compare mock value (case-insensitive) |
+| `state_attr('entity_id', 'attr')` | Typed attribute value from the mock map; `None` (null) when missing |
+| `is_state_attr('entity_id', 'attr', value)` | Type-sensitive equality vs the typed attribute (boolean `false` ≠ string `"false"`); missing attribute compared as `None` |
 | `float` / `int` filters | Nunjucks built-ins + Jinja compat |
 | `if/else`, comparisons | Nunjucks |
-| Entity IDs in templates | Scanned from payload → Simulator panel |
+| Entity IDs **and attribute keys** in templates | Scanned from payload → Simulator panel (`state_attr(...)` + dotted `…attributes.<attr>` pre-fill attribute rows) |
 
 **`parse_colors`** is handled as string pre/post-processing around template evaluation, then passed to the color pipeline.
+
+### Entity attributes and typing
+
+HA entity **states** are always strings (`on`/`off`/`21.5`), but entity **attributes** carry real types — booleans, numbers, `None`, lists and dicts. Treating an attribute as a string breaks HA semantics: a boolean attribute `false` stored as the string `"false"` is *truthy*, so `iif(state_attr(...))` and `is_state_attr(...)` would take the wrong branch.
+
+The State Simulator collects attribute values from a plain text field, so we infer the intended type the same way HA/YAML scalars are parsed. The single source of truth is the pure-core helper `coerceAttributeValue` (`src/core/templates/attribute-values.ts`), applied on the trimmed input (first match wins):
+
+| Input | Coerced value |
+|-------|----------------|
+| empty / `null` / `none` (case-insensitive) | `null` (HA `None`) |
+| `true` / `false` (case-insensitive) | boolean |
+| integer / float / scientific literal | number |
+| JSON array (`[…]`) or object (`{…}`) | parsed value |
+| anything else | the original string |
+
+- **Attributes are coerced; entity states are NOT** — states stay strings to match HA. State typing is intentionally unchanged.
+- `state_attr(...)` and dotted `states.<domain>.<object_id>.attributes.<attr>` both return the **typed** value.
+- `is_state_attr(...)` equality is type-sensitive for scalars (identity) and structural for arrays/objects (`attributeValueEquals`).
+- The State Simulator mocks **per-entity attributes** (not just state), persists them as typed JSON (ADR-003), and **pre-fills attribute keys** scanned from the payload (`state_attr('e','a')` and dotted access) so the user only enters values.
 
 **Testing:** fixture YAML + mock context JSON → expected strings in Vitest (Node, no browser).
 
@@ -85,8 +107,8 @@ Use **Nunjucks** with Jinja compat mode and an injected **HA mock context**:
 
 - Syntax aligns with what HA users write and what `ha-nunjucks` targets — not identical to Python Jinja2 in every edge case (regex, some filters, Python-only methods)
 - Document known divergences; add fixture tests per spec template example
-- State Simulator remains required — Nunjucks does not replace mock data entry
-- Mock values persist globally in IndexedDB (ADR-003); excluded from share hash by default (ADR-005)
+- State Simulator remains required — Nunjucks does not replace mock data entry; it mocks both entity **states** and per-entity **attributes**
+- Mock states (strings) and typed attribute values persist globally in IndexedDB (ADR-003); excluded from share hash by default (ADR-005)
 
 ## Alternatives considered
 

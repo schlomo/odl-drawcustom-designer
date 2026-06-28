@@ -8,7 +8,7 @@ export {
   putStoredAsset,
   removePersistedAsset,
 } from './assets'
-export { readMocksFromDb, writeMocksToDb, flushMockWrites } from './mocks'
+export { readMocksFromDb, writeMocksToDb, flushMockWrites, type PersistedMockData } from './mocks'
 export {
   parsePersistedEditHistory,
   parseSessionSnapshot,

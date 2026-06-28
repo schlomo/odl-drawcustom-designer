@@ -102,6 +102,78 @@ describe('scanPayloadForTemplates', () => {
     expect(result.references).toEqual([])
   })
 
+  it('extracts attribute references from state_attr() calls', () => {
+    const payload: DrawElement[] = [
+      {
+        type: 'text',
+        value:
+          "{{ iif(state_attr('sensor.sn_family_current_event', 'active'), 'calendar', 'calendar-blank') }}",
+        x: 10,
+        y: 10,
+      },
+    ]
+
+    const result = scanPayloadForTemplates(payload)
+
+    expect(result.attributesByEntity).toEqual({
+      'sensor.sn_family_current_event': ['active'],
+    })
+  })
+
+  it('extracts attribute references from dotted states.<domain>.<object>.attributes access', () => {
+    const payload: DrawElement[] = [
+      {
+        type: 'text',
+        value: '{{ states.weather.home.attributes.temperature }}°C',
+        x: 10,
+        y: 10,
+      },
+    ]
+
+    const result = scanPayloadForTemplates(payload)
+
+    expect(result.attributesByEntity).toEqual({
+      'weather.home': ['temperature'],
+    })
+  })
+
+  it('merges, sorts and deduplicates attribute references per entity', () => {
+    const payload: DrawElement[] = [
+      {
+        type: 'text',
+        value:
+          "{{ state_attr('weather.home', 'humidity') }} {{ states.weather.home.attributes.temperature }}",
+        x: 10,
+        y: 10,
+      },
+      {
+        type: 'text',
+        value: "{{ state_attr('weather.home', 'temperature') }}",
+        x: 10,
+        y: 10,
+      },
+    ]
+
+    const result = scanPayloadForTemplates(payload)
+
+    expect(result.attributesByEntity).toEqual({
+      'weather.home': ['humidity', 'temperature'],
+    })
+  })
+
+  it('returns an empty attribute map when no attributes are referenced', () => {
+    const payload: DrawElement[] = [
+      {
+        type: 'text',
+        value: "{{ states('sensor.temperature') }}",
+        x: 10,
+        y: 10,
+      },
+    ]
+
+    expect(scanPayloadForTemplates(payload).attributesByEntity).toEqual({})
+  })
+
   it('deduplicates entity IDs across elements', () => {
     const payload: DrawElement[] = [
       {

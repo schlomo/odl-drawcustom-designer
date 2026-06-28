@@ -33,6 +33,26 @@ export class DesignerDatabase extends Dexie {
       mocks: 'entityId',
       session: 'id',
     })
+    // v4 adds a non-indexed `attributes` map to each mock row (issue #4).
+    // The primary key is unchanged, so this is a non-destructive upgrade:
+    // existing `{ entityId, value }` rows are preserved; `attributes` defaults
+    // to an empty object for legacy rows.
+    this.version(4)
+      .stores({
+        assets: 'key',
+        mocks: 'entityId',
+        session: 'id',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('mocks')
+          .toCollection()
+          .modify((row: StoredMock) => {
+            if (row.attributes === undefined) {
+              row.attributes = {}
+            }
+          })
+      })
   }
 }
 

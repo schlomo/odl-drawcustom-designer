@@ -15,18 +15,26 @@ Use **Dexie** (IndexedDB wrapper) with these logical stores:
 | Store | Contents |
 |-------|----------|
 | `assets` | Global: `key` (exact YAML path) → `{ blob, mime, updatedAt }` |
-| `mocks` | Global: `entityId` → mock value for template preview (one map per browser, like assets) |
+| `mocks` | Global: `entityId` → `{ value, attributes? }` for template preview (one map per browser, like assets). `value` is the state string/number/boolean; `attributes` is a per-entity map of **typed** attribute values (ADR-004) |
 | `session` | Single row `current` → `{ name, canvas, service, elements, editHistory?, updatedAt }` — last open design plus undo/redo stacks (50 steps max) |
 
 `localStorage` holds UI prefs only (theme, snap, panel widths).
 
-**Dexie version:** schema v3 (`DesignerDatabase.version(3)`). Version 2 drops `mocks`/`projects` stores when the primary key changes (delete/recreate). `ensureDbReady()` deletes and reopens on `UpgradeError` if upgrade is not recoverable.
+**Dexie version:** schema v4 (`DesignerDatabase.version(4)`).
+
+- **v2** drops `mocks`/`projects` stores when the primary key changes (delete/recreate).
+- **v3** establishes the current stores: `assets`, `mocks` (`entityId` key), `session` (`id` key).
+- **v4** adds the non-indexed `attributes` map to each `mocks` row (issue #4). The primary key is unchanged, so this is a **non-destructive** upgrade: existing `{ entityId, value }` rows are preserved and `attributes` defaults to `{}` for legacy rows.
+
+`ensureDbReady()` deletes and reopens on `UpgradeError` if an upgrade is not recoverable.
+
+**No further version bump for typed attributes.** Attribute values are stored as **typed JSON** (boolean/number/null/array/object/string) directly in the existing v4 `attributes` field and round-trip via IndexedDB structured clone — no stringification, no index, so no schema change is needed beyond v4. Legacy attribute values load as-is (non-destructive) and are re-typed by the simulator on edit (see `coerceAttributeValue`, ADR-004).
 
 ## Implementation
 
-- `src/storage/db.ts` — Dexie v3 stores: `assets`, `mocks` (`entityId` key), `session` (`id` key)
+- `src/storage/db.ts` — Dexie v4 stores: `assets`, `mocks` (`entityId` key, with `attributes` map), `session` (`id` key)
 - `src/storage/session.ts` — read/write single `current` row
-- `src/storage/mocks.ts` — global entity map (no `projectId`)
+- `src/storage/mocks.ts` — global entity map (no `projectId`); reads/writes `value` + typed `attributes` per entity
 - `src/ui/hooks/useProjectState.ts` — debounced auto-save for session (including `editHistory`) + mocks; hydrate on app load; clear history on hash/example/clear-all loads
 
 **Not used:**

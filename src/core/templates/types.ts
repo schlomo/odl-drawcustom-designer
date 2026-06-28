@@ -1,6 +1,11 @@
 /** Mock Home Assistant entity state map for template preview. */
 export interface HaMockContext {
   states: Record<string, string | number | boolean>
+  /**
+   * Per-entity attribute maps backing `state_attr(entity, attr)` and dotted
+   * `states.<domain>.<object_id>.attributes.<attr>` access. Keyed by entity id.
+   */
+  attributes?: Record<string, Record<string, unknown>>
   /** Fixed clock for deterministic template preview (defaults to current local time). */
   now?: Date
 }
@@ -18,4 +23,10 @@ export interface TemplateScanResult {
   references: TemplateReference[]
   /** Unique entity IDs referenced via HA template helpers, sorted. */
   entityIds: string[]
+  /**
+   * Attribute names referenced per entity via `state_attr('e','a')` or dotted
+   * `states.<domain>.<object>.attributes.<attr>`, keyed by entity id. Sorted,
+   * deduplicated. Surfaced in the State Simulator as pre-filled attribute rows.
+   */
+  attributesByEntity: Record<string, string[]>
 }

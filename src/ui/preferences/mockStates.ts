@@ -1,9 +1,26 @@
 import type { HaMockContext } from '../../core'
-import { readMocksFromDb, writeMocksToDb } from '../../storage'
+import { readMocksFromDb, writeMocksToDb, type PersistedMockData } from '../../storage'
+
+export type MockEntityAttributes = Record<string, Record<string, unknown>>
+
+/** Full mock model surfaced to the UI: entity state values + per-entity attributes. */
+export interface MockData {
+  states: HaMockContext['states']
+  attributes: MockEntityAttributes
+}
 
 export const DEFAULT_MOCK_STATES: HaMockContext['states'] = {
   'sensor.temperature': '21.5',
   'binary_sensor.door': 'off',
+  'sensor.sn_family_current_event': 'No event',
+  'weather.home': 'sunny',
+}
+
+export const DEFAULT_MOCK_ATTRIBUTES: MockEntityAttributes = {
+  // Mirrors the issue #4 example: `state_attr('sensor.sn_family_current_event', 'active')`.
+  'sensor.sn_family_current_event': { active: false },
+  // Supports the dotted form `states.weather.home.attributes.temperature`.
+  'weather.home': { temperature: 21.5 },
 }
 
 function isMockStateValue(value: unknown): value is string | number | boolean {
@@ -12,6 +29,10 @@ function isMockStateValue(value: unknown): value is string | number | boolean {
 
 function isEntityId(value: string): boolean {
   return /^[a-z_][a-z0-9_]*\.[a-z0-9_]+$/i.test(value)
+}
+
+function isAttributeMap(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
 export function parseMockStates(raw: unknown): HaMockContext['states'] | null {
@@ -31,11 +52,39 @@ export function parseMockStates(raw: unknown): HaMockContext['states'] | null {
   return Object.keys(states).length > 0 ? states : null
 }
 
-export async function readMockStates(): Promise<HaMockContext['states']> {
-  const stored = await readMocksFromDb()
-  return stored ?? { ...DEFAULT_MOCK_STATES }
+export function parseMockAttributes(raw: unknown): MockEntityAttributes {
+  if (!isAttributeMap(raw)) {
+    return {}
+  }
+
+  const attributes: MockEntityAttributes = {}
+  for (const [entityId, value] of Object.entries(raw)) {
+    if (!isEntityId(entityId) || !isAttributeMap(value)) {
+      continue
+    }
+    if (Object.keys(value).length > 0) {
+      attributes[entityId] = { ...value }
+    }
+  }
+
+  return attributes
 }
 
-export async function writeMockStates(states: HaMockContext['states']): Promise<void> {
-  await writeMocksToDb(states)
+function defaultMockData(): MockData {
+  return {
+    states: { ...DEFAULT_MOCK_STATES },
+    attributes: structuredClone(DEFAULT_MOCK_ATTRIBUTES),
+  }
+}
+
+export async function readMockStates(): Promise<MockData> {
+  const stored: PersistedMockData | null = await readMocksFromDb()
+  if (!stored) {
+    return defaultMockData()
+  }
+  return { states: stored.states, attributes: stored.attributes }
+}
+
+export async function writeMockStates(data: MockData): Promise<void> {
+  await writeMocksToDb(data)
 }

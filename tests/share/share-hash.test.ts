@@ -188,7 +188,10 @@ describe('sharePayloadToBootstrap', () => {
       elements: sampleElements,
     })
 
-    const bootstrap = sharePayloadToBootstrap(payload, { demo: 'unknown' })
+    const bootstrap = sharePayloadToBootstrap(payload, {
+      states: { demo: 'unknown' },
+      attributes: {},
+    })
     expect(bootstrap.sessionName).toBe('Shared')
     expect(bootstrap.canvas).toEqual({
       width: 200,
@@ -211,7 +214,7 @@ describe('sharePayloadToBootstrap', () => {
       elements: sampleElements,
     }
 
-    const bootstrap = sharePayloadToBootstrap(payload, {})
+    const bootstrap = sharePayloadToBootstrap(payload, { states: {}, attributes: {} })
     expect(bootstrap.canvas.colorMode).toBe('bwy')
   })
 
@@ -228,7 +231,7 @@ describe('sharePayloadToBootstrap', () => {
       elements: [],
     })
 
-    const bootstrap = sharePayloadToBootstrap(payload, {})
+    const bootstrap = sharePayloadToBootstrap(payload, { states: {}, attributes: {} })
     expect(bootstrap.canvas.colorMode).toBe('bw')
   })
 })
