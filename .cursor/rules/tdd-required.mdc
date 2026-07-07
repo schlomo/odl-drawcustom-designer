@@ -9,7 +9,7 @@ alwaysApply: true
 
 ## Before coding
 
-1. Read **relevant ADRs** in `docs/adr/` (rendering → ADR-007; tests → ADR-008, ADR-011; export → ADR-012).
+1. Read **relevant ADRs** in `docs/adr/` (full index in `AGENTS.md`; rendering → ADR-007; tests → ADR-008, ADR-011; templates → ADR-004; demo → ADR-015; export → ADR-012).
 2. Read `docs/testing.md` for layer rules and anti-patterns.
 
 ## TDD (Red → Green → Refactor)

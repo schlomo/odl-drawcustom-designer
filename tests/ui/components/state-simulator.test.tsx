@@ -54,32 +54,32 @@ describe('StateSimulator attributes', () => {
     const elements: DrawElement[] = [
       {
         type: 'text',
-        value: "{{ is_state_attr('calendar.sn_family', 'all_day', false) }}",
+        value: "{{ is_state_attr('calendar.home', 'all_day', false) }}",
         x: 0,
         y: 0,
       },
     ]
     const { props } = renderSimulator({
       elements,
-      mockContext: { states: { 'calendar.sn_family': 'on' }, attributes: {} },
+      mockContext: { states: { 'calendar.home': 'on' }, attributes: {} },
     })
 
-    fireEvent.change(screen.getByLabelText('Attribute all_day of calendar.sn_family'), {
+    fireEvent.change(screen.getByLabelText('Attribute all_day of calendar.home'), {
       target: { value: 'false' },
     })
 
-    expect(props.onSetMockAttribute).toHaveBeenCalledWith('calendar.sn_family', 'all_day', false)
+    expect(props.onSetMockAttribute).toHaveBeenCalledWith('calendar.home', 'all_day', false)
   })
 
   it('renders a stored boolean attribute back as an editable "false" string', () => {
     renderSimulator({
       mockContext: {
-        states: { 'calendar.sn_family': 'on' },
-        attributes: { 'calendar.sn_family': { all_day: false } },
+        states: { 'calendar.home': 'on' },
+        attributes: { 'calendar.home': { all_day: false } },
       },
     })
 
-    expect(screen.getByLabelText('Attribute all_day of calendar.sn_family')).toHaveValue('false')
+    expect(screen.getByLabelText('Attribute all_day of calendar.home')).toHaveValue('false')
   })
 
   it('folds the add-attribute editor behind a compact affordance for empty entities', () => {

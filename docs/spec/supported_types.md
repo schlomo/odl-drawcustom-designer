@@ -1018,7 +1018,7 @@ Entity attributes (`state_attr`, `is_state_attr`, and dotted `states.<domain>.<o
 
 ```yaml
 - type: "icon"
-  value: "{{ iif(is_state_attr('calendar.sn_family', 'all_day', false), 'calendar', 'calendar-blank') }}"
+  value: "{{ iif(is_state_attr('calendar.home', 'all_day', false), 'calendar', 'calendar-blank') }}"
   x: 10
   y: 10
   size: 24
@@ -1032,7 +1032,7 @@ Entity attributes (`state_attr`, `is_state_attr`, and dotted `states.<domain>.<o
   y: 40
 ```
 
-Attribute values keep their real types (booleans, numbers, lists) — unlike entity states, which are strings. So `is_state_attr('calendar.sn_family', 'all_day', false)` matches a boolean `false` attribute, not the string `"false"` (a string `"false"` would be truthy).
+Attribute values keep their real types (booleans, numbers, lists) — unlike entity states, which are strings. So `is_state_attr('calendar.home', 'all_day', false)` matches a boolean `false` attribute, not the string `"false"` (a string `"false"` would be truthy).
 
 ### Common Use Cases
 

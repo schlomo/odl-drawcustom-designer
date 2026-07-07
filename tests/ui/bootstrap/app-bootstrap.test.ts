@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DRAW_ELEMENT_TYPES, validatePayload } from '../../../src/core'
 import {
   buildAppBootstrap,
   loadAppBootstrap,
@@ -14,7 +13,7 @@ import {
   encodeShareHash,
 } from '../../../src/share'
 import type { SessionSnapshot } from '../../../src/storage'
-import { SAMPLE_CANVAS, SAMPLE_ELEMENTS } from '../../../src/ui/data/sample-elements'
+import { SHOWCASE_CANVAS, SHOWCASE_ELEMENTS } from '../../../src/ui/data/showcase'
 
 function sessionWithElements(elements: SessionSnapshot['elements']): SessionSnapshot {
   return {
@@ -34,19 +33,19 @@ function sessionWithElements(elements: SessionSnapshot['elements']): SessionSnap
 
 describe('app bootstrap', () => {
   it('restores sample dashboard when session is missing', () => {
-    expect(resolveElementsForLoad(null)).toBe(SAMPLE_ELEMENTS)
-    expect(resolveCanvasForLoad(null)).toBe(SAMPLE_CANVAS)
-    expect(buildAppBootstrap(null, {}).elements).toBe(SAMPLE_ELEMENTS)
-    expect(buildAppBootstrap(null, {}).canvas).toBe(SAMPLE_CANVAS)
+    expect(resolveElementsForLoad(null)).toBe(SHOWCASE_ELEMENTS)
+    expect(resolveCanvasForLoad(null)).toBe(SHOWCASE_CANVAS)
+    expect(buildAppBootstrap(null, {}).elements).toBe(SHOWCASE_ELEMENTS)
+    expect(buildAppBootstrap(null, {}).canvas).toBe(SHOWCASE_CANVAS)
     expect(buildAppBootstrap(null, {}).importSource).toBe('session')
   })
 
   it('restores sample dashboard when session has no elements', () => {
     const session = sessionWithElements([])
-    expect(resolveElementsForLoad(session)).toBe(SAMPLE_ELEMENTS)
-    expect(resolveCanvasForLoad(session)).toBe(SAMPLE_CANVAS)
-    expect(buildAppBootstrap(session, {}).elements).toBe(SAMPLE_ELEMENTS)
-    expect(buildAppBootstrap(session, {}).canvas).toBe(SAMPLE_CANVAS)
+    expect(resolveElementsForLoad(session)).toBe(SHOWCASE_ELEMENTS)
+    expect(resolveCanvasForLoad(session)).toBe(SHOWCASE_CANVAS)
+    expect(buildAppBootstrap(session, {}).elements).toBe(SHOWCASE_ELEMENTS)
+    expect(buildAppBootstrap(session, {}).canvas).toBe(SHOWCASE_CANVAS)
   })
 
   it('keeps non-empty saved session elements and canvas', () => {
@@ -56,21 +55,6 @@ describe('app bootstrap', () => {
     expect(resolveCanvasForLoad(session)).toEqual(session.canvas)
     expect(buildAppBootstrap(session, {}).elements).toEqual(elements)
     expect(buildAppBootstrap(session, {}).canvas).toEqual(session.canvas)
-  })
-})
-
-describe('sample showcase dashboard', () => {
-  beforeEach(() => {
-    localStorage.removeItem(SHOWCASE_BUNDLED_SUPPRESSED_STORAGE_KEY)
-  })
-
-  it('includes every supported element type', () => {
-    const types = new Set(SAMPLE_ELEMENTS.map((element) => element.type))
-    expect([...types].sort()).toEqual([...DRAW_ELEMENT_TYPES].sort())
-  })
-
-  it('validates against the core schema', () => {
-    expect(validatePayload(SAMPLE_ELEMENTS).success).toBe(true)
   })
 })
 

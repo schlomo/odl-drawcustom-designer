@@ -6,7 +6,7 @@ Copilot also reads root **[`AGENTS.md`](../AGENTS.md)** natively. Follow it firs
 
 ## Quick rules
 
-1. **Read ADRs** before changing renderer, YAML, templates, or export — start with `docs/adr/ADR-007-hybrid-rendering.md` and `docs/adr/ADR-011-behavior-test-policy.md`.
+1. **Read ADRs** before changing renderer, YAML, templates, export, or demo — full index in [`AGENTS.md`](../AGENTS.md); common: ADR-004, ADR-007, ADR-011, ADR-015 (showcase bundle in `src/assets/showcase/`).
 2. **TDD** — write Vitest tests that assert **user-visible or HA-visible behavior** before implementation (`docs/testing.md`).
 3. **Core boundary** — no `react` imports in `src/core/`.
 4. **HA parity** — do not commit visual/export fixes verified only by HTML/SVG attributes; use geometry or pixel/outcome tests on the render/export path.

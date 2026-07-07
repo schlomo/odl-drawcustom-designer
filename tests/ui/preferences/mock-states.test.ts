@@ -1,21 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import {
-  DEFAULT_MOCK_ATTRIBUTES,
-  DEFAULT_MOCK_STATES,
-  readMockStates,
-  writeMockStates,
-} from '../../../src/ui/preferences/mockStates'
+  SHOWCASE_MOCK_ATTRIBUTES,
+  SHOWCASE_MOCK_STATES,
+} from '../../../src/ui/data/showcase'
+import { readMockStates, writeMockStates } from '../../../src/ui/preferences/mockStates'
 
 describe('mock state preferences', () => {
-  it('returns defaults (states + attributes) when storage is empty', async () => {
+  it('returns showcase seed (states + attributes) when storage is empty', async () => {
     expect(await readMockStates()).toEqual({
-      states: DEFAULT_MOCK_STATES,
-      attributes: DEFAULT_MOCK_ATTRIBUTES,
+      states: SHOWCASE_MOCK_STATES,
+      attributes: SHOWCASE_MOCK_ATTRIBUTES,
     })
   })
 
-  it('ships a useful attribute example in the defaults', () => {
-    expect(DEFAULT_MOCK_ATTRIBUTES['sensor.sn_family_current_event']).toMatchObject({
+  it('ships a useful attribute example in the showcase seed', () => {
+    expect(SHOWCASE_MOCK_ATTRIBUTES['sensor.next_event']).toMatchObject({
       active: false,
     })
   })
@@ -28,7 +27,7 @@ describe('mock state preferences', () => {
         'sensor.level': 42,
       },
       attributes: {
-        'sensor.temperature': { unit_of_measurement: '°C' },
+        'binary_sensor.door': { device_class: 'door' },
       },
     })
 
@@ -39,7 +38,7 @@ describe('mock state preferences', () => {
         'sensor.level': 42,
       },
       attributes: {
-        'sensor.temperature': { unit_of_measurement: '°C' },
+        'binary_sensor.door': { device_class: 'door' },
       },
     })
   })

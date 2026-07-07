@@ -5,8 +5,8 @@ import type { HaMockContext } from '../../../src/core'
 import { StateSimulator } from '../../../src/ui/components/StateSimulator'
 
 const mockContext: HaMockContext = {
-  states: { 'sensor.sn_family_current_event': 'No event' },
-  attributes: { 'sensor.sn_family_current_event': { active: false } },
+  states: { 'sensor.next_event': 'No event' },
+  attributes: { 'sensor.next_event': { active: false } },
 }
 
 function renderSimulator(
@@ -40,12 +40,12 @@ describe('StateSimulator attribute editing', () => {
     const { onSetMockAttribute } = renderSimulator()
 
     fireEvent.change(
-      screen.getByLabelText('Attribute active of sensor.sn_family_current_event'),
+      screen.getByLabelText('Attribute active of sensor.next_event'),
       { target: { value: 'true' } },
     )
 
     expect(onSetMockAttribute).toHaveBeenCalledWith(
-      'sensor.sn_family_current_event',
+      'sensor.next_event',
       'active',
       true,
     )
@@ -55,20 +55,20 @@ describe('StateSimulator attribute editing', () => {
     const { onSetMockAttribute } = renderSimulator()
 
     // The add-attribute editor is folded by default; reveal it first.
-    fireEvent.click(screen.getByLabelText('Add attribute to sensor.sn_family_current_event'))
+    fireEvent.click(screen.getByLabelText('Add attribute to sensor.next_event'))
 
     fireEvent.change(
-      screen.getByLabelText('New attribute name for sensor.sn_family_current_event'),
+      screen.getByLabelText('New attribute name for sensor.next_event'),
       { target: { value: 'temperature' } },
     )
     fireEvent.change(
-      screen.getByLabelText('New attribute value for sensor.sn_family_current_event'),
+      screen.getByLabelText('New attribute value for sensor.next_event'),
       { target: { value: '21.5' } },
     )
-    fireEvent.click(screen.getByLabelText('Add attribute to sensor.sn_family_current_event'))
+    fireEvent.click(screen.getByLabelText('Add attribute to sensor.next_event'))
 
     expect(onSetMockAttribute).toHaveBeenCalledWith(
-      'sensor.sn_family_current_event',
+      'sensor.next_event',
       'temperature',
       21.5,
     )
@@ -78,11 +78,11 @@ describe('StateSimulator attribute editing', () => {
     const { onRemoveMockAttribute } = renderSimulator()
 
     fireEvent.click(
-      screen.getByLabelText('Remove attribute active of sensor.sn_family_current_event'),
+      screen.getByLabelText('Remove attribute active of sensor.next_event'),
     )
 
     expect(onRemoveMockAttribute).toHaveBeenCalledWith(
-      'sensor.sn_family_current_event',
+      'sensor.next_event',
       'active',
     )
   })

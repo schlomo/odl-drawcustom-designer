@@ -8,7 +8,6 @@ import {
   APP_TITLE,
   FONT_FAMILY_PREFIX,
   INDEXEDDB_NAME,
-  SHOWCASE_DEMO_TITLE,
   YAML_LINT_SOURCE,
   fontUploadVerifyFamily,
   storageKey,
@@ -26,7 +25,6 @@ describe('brand constants', () => {
     )
     expect(APP_PRIVACY_HEADLINE).toBe('Client-side processing only')
     expect(INDEXEDDB_NAME).toBe(APP_SLUG)
-    expect(SHOWCASE_DEMO_TITLE).toBe('ODL/OEPL drawcustom Showcase')
     expect(FONT_FAMILY_PREFIX).toBe('drawcustom-font')
     expect(YAML_LINT_SOURCE).toBe('odl-drawcustom-designer-yaml')
     expect(APP_GITHUB_REPO_URL).toBe('https://github.com/schlomo/odl-drawcustom-designer/')

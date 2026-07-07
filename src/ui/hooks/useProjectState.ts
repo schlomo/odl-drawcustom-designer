@@ -16,7 +16,7 @@ import {
 } from '../../storage'
 import type { AppBootstrap } from '../bootstrap/appBootstrap'
 import type { PersistedEditHistory, SessionEditSnapshot } from '../../storage'
-import { SAMPLE_CANVAS, SAMPLE_ELEMENTS } from '../data/sample-elements'
+import { SHOWCASE_CANVAS, cloneShowcaseElements, cloneShowcaseSimulator } from '../data/showcase'
 import { alignElementsInUnion, canAlignSelection, type ElementAlign } from '../lib/align-elements'
 import { applyElementUpdates, nudgeElementsAtIndices } from '../lib/batch-element-updates'
 import {
@@ -28,6 +28,11 @@ import {
 import { storedPropertyValueUnchanged } from '../lib/property-field-meta'
 import { createElementFromTemplate } from '../lib/create-element-from-template'
 import { moveElementInArray } from '../lib/element-geometry'
+import {
+  clearDemoMockAttributes,
+  clearDemoMockStates,
+  clearDemoVariables,
+} from '../lib/clear-demo-data'
 import { reorderSelectionBlock } from '../lib/reorder-selection'
 import { isElementCanvasSelectable, resolveElementHitBounds } from '../lib/hidden-element-hints'
 import { boundsFullyEnclosedInRect } from '../lib/marquee-selection'
@@ -766,14 +771,26 @@ export function useProjectState(bootstrap: AppBootstrap) {
     resetEditHistory()
     commitElements([])
     commitSelectedIndices([])
+    // Strip only the unmodified demo-seeded simulator entries; mocks, attributes
+    // and variables the user added or changed are preserved (persisted via the
+    // debounced writes). This gives a clean slate without deleting user data.
+    setMockStates((current) => clearDemoMockStates(current))
+    setMockAttributes((current) => clearDemoMockAttributes(current))
+    setVariables((current) => clearDemoVariables(current))
   }, [commitElements, commitSelectedIndices, resetEditHistory])
 
   const loadDemo = useCallback(() => {
     allowShowcaseBundledForDemo()
     resetEditHistory()
-    commitCanvas({ ...SAMPLE_CANVAS })
-    commitElements(SAMPLE_ELEMENTS.map((element) => ({ ...element })))
+    commitCanvas({ ...SHOWCASE_CANVAS })
+    commitElements(cloneShowcaseElements())
     commitSelectedIndices([])
+    // Seed the mock context the showcase templates rely on, so the demo renders
+    // its state/attribute/variable examples without manual Simulator setup.
+    const simulator = cloneShowcaseSimulator()
+    setMockStates(simulator.states)
+    setMockAttributes(simulator.attributes)
+    setVariables(simulator.variables)
   }, [commitCanvas, commitElements, commitSelectedIndices, resetEditHistory])
 
   const nudgeElement = useCallback(

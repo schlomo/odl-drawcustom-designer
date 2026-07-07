@@ -4,7 +4,7 @@ Read **[`AGENTS.md`](AGENTS.md)** first — it is the canonical instruction set 
 
 **Non-negotiable summary:**
 
-1. Read relevant **ADRs** (`docs/adr/`, especially ADR-007 rendering, ADR-008/011 testing) before implementing.
+1. Read relevant **ADRs** (`docs/adr/` — full index in `AGENTS.md`; common: ADR-004 templates, ADR-007 rendering, ADR-008/011 testing, ADR-015 showcase demo) before implementing.
 2. **TDD** — behavior tests in `tests/core/` or `tests/ui/` that fail before your fix; no implementation-only assertions.
 3. **HA preview parity** — renderer/export changes need outcome tests (geometry, pixels, export), not markup string checks.
 4. **No React** in `src/core/`.

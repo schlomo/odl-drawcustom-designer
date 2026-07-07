@@ -13,14 +13,47 @@ This file is the **canonical** guide for AI assistants in this repository — **
 
 ### ADR index (read when touching…)
 
-| ADR | Topic |
-|-----|--------|
-| [001](docs/adr/ADR-001-core-ui-separation.md) | `src/core/` vs `src/ui/` — no React in core |
-| [004](docs/adr/ADR-004-template-evaluator-scope.md) | Jinja / template preview |
-| [007](docs/adr/ADR-007-hybrid-rendering.md) | Hybrid SVG + canvas; **match HA Pillow output** |
-| [008](docs/adr/ADR-008-tdd-and-ci.md) | TDD + CI gates |
-| [011](docs/adr/ADR-011-behavior-test-policy.md) | **Behavior** tests, not implementation mirrors |
-| [012](docs/adr/ADR-012-odl-drawcustom-strategy.md) | ODL vs HA `drawcustom` export |
+Full set lives in [`docs/adr/`](docs/adr/). Read the rows that match your task before coding.
+
+| ADR | Topic | Touch when… |
+|-----|--------|-------------|
+| [001](docs/adr/ADR-001-core-ui-separation.md) | Core / UI boundary | Any `src/core/` work; **no React in core** |
+| [002](docs/adr/ADR-002-local-content-map.md) | Local content map | Assets, fonts, images, `/local/` paths, Content Manager |
+| [003](docs/adr/ADR-003-indexeddb-schema.md) | IndexedDB (Dexie) | Mocks, variables, session, migrations (`src/storage/`) |
+| [004](docs/adr/ADR-004-template-evaluator-scope.md) | Template evaluator | Jinja preview, `namespace()`, Simulator variables, `state_attr` |
+| [005](docs/adr/ADR-005-share-hash-format.md) | Share hash `#d=` | Share links, hash import/bootstrap |
+| [006](docs/adr/ADR-006-ui-framework-react.md) | React shell | App structure, major UI architecture |
+| [007](docs/adr/ADR-007-hybrid-rendering.md) | Hybrid rendering | Renderer, canvas, **PNG export**, HA visual parity |
+| [008](docs/adr/ADR-008-tdd-and-ci.md) | TDD + CI | **Always** before finish; CI gates |
+| [009](docs/adr/ADR-009-yaml-jinja-editor.md) | YAML / Jinja editor | CodeMirror, inline template preview, completions |
+| [010](docs/adr/ADR-010-ha-embed-mode.md) | HA embed (future) | Live HA connection, iframe / panel embed |
+| [011](docs/adr/ADR-011-behavior-test-policy.md) | Behavior tests | **Always** when writing tests |
+| [012](docs/adr/ADR-012-odl-drawcustom-strategy.md) | ODL / drawcustom | Export shape, HA vs ODL alignment, gap report |
+| [013](docs/adr/ADR-013-universal-property-templating.md) | Universal templating | Property panel, templated element fields |
+| [014](docs/adr/ADR-014-product-naming.md) | Product naming | `src/core/brand.ts`, slug, storage keys |
+| [015](docs/adr/ADR-015-showcase-demo-bundle.md) | Showcase demo bundle | Load Demo, `src/assets/showcase/`, first-run mocks |
+| [016](docs/adr/ADR-016-toolbar-chrome-layout.md) | Toolbar chrome | Responsive toolbar rows, label collapse |
+
+## Architecture
+
+- **`src/core/`** — pure TypeScript; **never** import React. Business logic lives here.
+- **`src/ui/`** — React shell; calls core via `src/core/index.ts`.
+- **`src/storage/`** — IndexedDB adapters (assets, mocks, variables, session).
+- **`src/assets/showcase/`** — built-in **Load Demo** bundle: `showcase.yml` (payload), `showcase.json` (canvas + simulator seed), `showcase.png` (bundled image). Loaded by `src/ui/data/showcase.ts` (ADR-015).
+- **`src/ui/lib/clear-demo-data.ts`** — **Clear all** strips only unmodified showcase simulator entries; user mocks survive.
+
+### Key paths (orientation)
+
+| Task | Start here |
+|------|------------|
+| Edit demo layout / templates | `src/assets/showcase/showcase.yml` |
+| Edit demo simulator seed | `src/assets/showcase/showcase.json` |
+| Template evaluation | `src/core/templates/evaluate.ts`, ADR-004 |
+| State Simulator UI | `src/ui/components/StateSimulator.tsx`, `useProjectState.ts` |
+| Element / YAML schema | `src/core/schema/`, `docs/spec/supported_types.md` |
+| Renderer / export | `src/core/renderer/`, ADR-007 |
+
+ESLint enforces the core boundary.
 
 ## TDD (non-negotiable)
 
@@ -45,14 +78,6 @@ Assert **observable outcomes** — what the user or HA integration sees — not 
 | YAML round-trip equality on golden fixtures | Duplicate “renders without error” per type |
 
 **Renderer / visual parity:** If the task is “match Home Assistant preview or PNG”, the test must exercise the **render or export path** (e.g. `renderText` + primitive geometry, or PNG finalize + pixel sample). Markup attribute checks alone are **not** sufficient.
-
-## Architecture
-
-- **`src/core/`** — pure TypeScript; **never** import React. Business logic lives here.
-- **`src/ui/`** — React shell; calls core via `src/core/index.ts`.
-- **`src/storage/`** — IndexedDB adapters.
-
-ESLint enforces the core boundary.
 
 ## Home Assistant preview parity (ADR-007)
 

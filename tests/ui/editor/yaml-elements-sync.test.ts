@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { serializeYamlPayload, type DrawElement } from '../../../src/core'
-import { SAMPLE_ELEMENTS } from '../../../src/ui/data/sample-elements'
+import { SHOWCASE_ELEMENTS } from '../../../src/ui/data/showcase'
 import {
   elementsSequenceEqual,
   getYamlElementsParseIssues,
@@ -72,8 +72,8 @@ describe('elementsSequenceEqual', () => {
   })
 
   it('matches showcase round-trip without yaml canonicalization', () => {
-    const parsed = tryParseYamlElements(serializeYamlPayload(SAMPLE_ELEMENTS))!
-    expect(elementsSequenceEqual(SAMPLE_ELEMENTS, parsed)).toBe(true)
+    const parsed = tryParseYamlElements(serializeYamlPayload(SHOWCASE_ELEMENTS))!
+    expect(elementsSequenceEqual(SHOWCASE_ELEMENTS, parsed)).toBe(true)
   })
 
   it('treats key order differences as equal', () => {

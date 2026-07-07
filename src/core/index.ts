@@ -7,7 +7,6 @@ export {
   APP_TITLE,
   FONT_FAMILY_PREFIX,
   INDEXEDDB_NAME,
-  SHOWCASE_DEMO_TITLE,
   YAML_LINT_SOURCE,
   fontUploadVerifyFamily,
   storageKey,

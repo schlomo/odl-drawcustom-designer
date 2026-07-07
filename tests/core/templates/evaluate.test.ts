@@ -147,26 +147,26 @@ describe('evaluateTemplate', () => {
   })
 
   describe('state_attr and entity attributes (issue #4)', () => {
-    const familyEventContext: HaMockContext = {
-      states: { 'sensor.sn_family_current_event': 'No event' },
-      attributes: { 'sensor.sn_family_current_event': { active: true } },
+    const eventContext: HaMockContext = {
+      states: { 'sensor.next_event': 'No event' },
+      attributes: { 'sensor.next_event': { active: true } },
     }
-    const familyEventInactiveContext: HaMockContext = {
-      states: { 'sensor.sn_family_current_event': 'No event' },
-      attributes: { 'sensor.sn_family_current_event': { active: false } },
+    const eventInactiveContext: HaMockContext = {
+      states: { 'sensor.next_event': 'No event' },
+      attributes: { 'sensor.next_event': { active: false } },
     }
 
     it('returns a mocked attribute value', () => {
       expect(
-        evaluateTemplate("{{ state_attr('sensor.sn_family_current_event', 'active') }}", familyEventContext),
+        evaluateTemplate("{{ state_attr('sensor.next_event', 'active') }}", eventContext),
       ).toBe('true')
     })
 
     it('evaluates the issue icon template to calendar when active is true', () => {
       expect(
         evaluateTemplate(
-          "{{ iif(state_attr('sensor.sn_family_current_event','active'),'calendar','calendar-blank') }}",
-          familyEventContext,
+          "{{ iif(state_attr('sensor.next_event','active'),'calendar','calendar-blank') }}",
+          eventContext,
         ),
       ).toBe('calendar')
     })
@@ -174,8 +174,8 @@ describe('evaluateTemplate', () => {
     it('evaluates the issue icon template to calendar-blank when active is false', () => {
       expect(
         evaluateTemplate(
-          "{{ iif(state_attr('sensor.sn_family_current_event','active'),'calendar','calendar-blank') }}",
-          familyEventInactiveContext,
+          "{{ iif(state_attr('sensor.next_event','active'),'calendar','calendar-blank') }}",
+          eventInactiveContext,
         ),
       ).toBe('calendar-blank')
     })
@@ -183,46 +183,46 @@ describe('evaluateTemplate', () => {
     it('treats a missing attribute as falsy (None)', () => {
       expect(
         evaluateTemplate(
-          "{{ iif(state_attr('sensor.sn_family_current_event','missing'),'yes','no') }}",
-          familyEventContext,
+          "{{ iif(state_attr('sensor.next_event','missing'),'yes','no') }}",
+          eventContext,
         ),
       ).toBe('no')
     })
 
     it('returns the TYPED attribute value (boolean false, not the string "false")', () => {
       const context: HaMockContext = {
-        states: { 'calendar.sn_family': 'on' },
-        attributes: { 'calendar.sn_family': { all_day: false } },
+        states: { 'calendar.home': 'on' },
+        attributes: { 'calendar.home': { all_day: false } },
       }
       // A boolean false attribute must be falsy in iif (string "false" would be truthy).
       expect(
         evaluateTemplate(
-          "{{ iif(state_attr('calendar.sn_family', 'all_day'), 'green', 'red') }}",
+          "{{ iif(state_attr('calendar.home', 'all_day'), 'green', 'red') }}",
           context,
         ),
       ).toBe('red')
       // Dotted access yields the typed value too.
       expect(
-        evaluateTemplate('{{ states.calendar.sn_family.attributes.all_day }}', context),
+        evaluateTemplate('{{ states.calendar.home.attributes.all_day }}', context),
       ).toBe('false')
     })
 
     describe('is_state_attr', () => {
       const allDayContext: HaMockContext = {
-        states: { 'calendar.sn_family': 'on' },
-        attributes: { 'calendar.sn_family': { all_day: false, count: 3, label: 'Trip' } },
+        states: { 'calendar.home': 'on' },
+        attributes: { 'calendar.home': { all_day: false, count: 3, label: 'Trip' } },
       }
 
       it('matches a boolean attribute type-sensitively', () => {
         expect(
           evaluateTemplate(
-            "{{ is_state_attr('calendar.sn_family', 'all_day', false) }}",
+            "{{ is_state_attr('calendar.home', 'all_day', false) }}",
             allDayContext,
           ),
         ).toBe('true')
         expect(
           evaluateTemplate(
-            "{{ is_state_attr('calendar.sn_family', 'all_day', true) }}",
+            "{{ is_state_attr('calendar.home', 'all_day', true) }}",
             allDayContext,
           ),
         ).toBe('false')
@@ -231,7 +231,7 @@ describe('evaluateTemplate', () => {
       it("renders the maintainer's example with correct primitives", () => {
         expect(
           evaluateTemplate(
-            "{{ iif(is_state_attr('calendar.sn_family', 'all_day', false), 'green', 'red') }}",
+            "{{ iif(is_state_attr('calendar.home', 'all_day', false), 'green', 'red') }}",
             allDayContext,
           ),
         ).toBe('green')
@@ -239,14 +239,14 @@ describe('evaluateTemplate', () => {
 
       it('matches numeric and string attributes', () => {
         expect(
-          evaluateTemplate("{{ is_state_attr('calendar.sn_family', 'count', 3) }}", allDayContext),
+          evaluateTemplate("{{ is_state_attr('calendar.home', 'count', 3) }}", allDayContext),
         ).toBe('true')
         expect(
-          evaluateTemplate("{{ is_state_attr('calendar.sn_family', 'count', 4) }}", allDayContext),
+          evaluateTemplate("{{ is_state_attr('calendar.home', 'count', 4) }}", allDayContext),
         ).toBe('false')
         expect(
           evaluateTemplate(
-            "{{ is_state_attr('calendar.sn_family', 'label', 'Trip') }}",
+            "{{ is_state_attr('calendar.home', 'label', 'Trip') }}",
             allDayContext,
           ),
         ).toBe('true')
@@ -255,13 +255,13 @@ describe('evaluateTemplate', () => {
       it('treats a missing attribute as None', () => {
         expect(
           evaluateTemplate(
-            "{{ is_state_attr('calendar.sn_family', 'missing', None) }}",
+            "{{ is_state_attr('calendar.home', 'missing', None) }}",
             allDayContext,
           ),
         ).toBe('true')
         expect(
           evaluateTemplate(
-            "{{ is_state_attr('calendar.sn_family', 'missing', false) }}",
+            "{{ is_state_attr('calendar.home', 'missing', false) }}",
             allDayContext,
           ),
         ).toBe('false')

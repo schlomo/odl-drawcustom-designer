@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SAMPLE_ELEMENTS } from '../../../src/ui/data/sample-elements'
+import { SHOWCASE_ELEMENTS } from '../../../src/ui/data/showcase'
 import {
   foldLinesAtDelimiter,
   foldLinesForJinjaTemplate,
@@ -121,14 +121,14 @@ describe('serializeYamlPayload block scalars', () => {
   })
 
   it('serializes showcase demo data with block scalars', () => {
-    const exported = serializeYamlPayload(SAMPLE_ELEMENTS)
+    const exported = serializeYamlPayload(SHOWCASE_ELEMENTS)
     expect(exported).toContain('value: >-')
     expect(exported).toContain('{%- set t = now() -%}')
     expect(exported).toContain("{{ t.strftime('%H:%M') }}")
     expect(exported).toContain('delimiter: /')
     expect(exported).toContain('basic support for Home\n    /Assistant template language')
     expect(parseYamlPayload(exported)).toEqual(
-      parseYamlPayload(serializeYamlPayload(SAMPLE_ELEMENTS)),
+      parseYamlPayload(serializeYamlPayload(SHOWCASE_ELEMENTS)),
     )
   })
 

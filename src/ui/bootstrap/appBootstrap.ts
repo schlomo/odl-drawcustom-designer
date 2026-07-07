@@ -12,15 +12,14 @@ import {
   type SessionSnapshot,
 } from '../../storage'
 import type { StoredVariables } from '../../storage'
-import { SAMPLE_CANVAS, SAMPLE_ELEMENTS } from '../data/sample-elements'
-import type { DisplayConfig } from '../preferences/displayConfig'
 import {
-  DEFAULT_MOCK_ATTRIBUTES,
-  DEFAULT_MOCK_STATES,
-  readMockStates,
-  type MockData,
-} from '../preferences/mockStates'
-import { DEFAULT_VARIABLES, readVariables } from '../preferences/variables'
+  SHOWCASE_CANVAS,
+  SHOWCASE_ELEMENTS,
+  cloneShowcaseSimulator,
+} from '../data/showcase'
+import type { DisplayConfig } from '../preferences/displayConfig'
+import { readMockStates, type MockData } from '../preferences/mockStates'
+import { readVariables } from '../preferences/variables'
 import { allowShowcaseBundledForDemo } from '../preferences/showcaseAsset'
 
 export type BootstrapImportSource = 'hash' | 'session' | 'default'
@@ -43,14 +42,14 @@ export function resolveElementsForLoad(session: SessionSnapshot | null): DrawEle
   if (session && session.elements.length > 0) {
     return session.elements
   }
-  return SAMPLE_ELEMENTS
+  return SHOWCASE_ELEMENTS
 }
 
 export function resolveCanvasForLoad(session: SessionSnapshot | null): DisplayConfig {
   if (session && session.elements.length > 0) {
     return session.canvas
   }
-  return SAMPLE_CANVAS
+  return SHOWCASE_CANVAS
 }
 
 export function buildAppBootstrap(
@@ -78,11 +77,12 @@ export function buildAppBootstrap(
 }
 
 export function defaultAppBootstrap(): AppBootstrap {
+  const simulator = cloneShowcaseSimulator()
   return buildAppBootstrap(
     null,
-    { states: { ...DEFAULT_MOCK_STATES }, attributes: structuredClone(DEFAULT_MOCK_ATTRIBUTES) },
+    { states: simulator.states, attributes: simulator.attributes },
     'default',
-    { ...DEFAULT_VARIABLES },
+    simulator.variables,
   )
 }
 

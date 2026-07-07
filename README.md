@@ -4,7 +4,7 @@
 
 **Client-side only** — the app runs entirely in the browser. Designs, fonts, and images stay in local storage (IndexedDB). **Share links** embed the design in the URL hash (`#d=…`) — copied to clipboard, not uploaded anywhere.
 
-Visual [feature-rich](#features) editor for **[OpenDisplay Language](https://opendisplay.org/protocol/open-display-language.html)** (ODL) and [OpenEPaperLink](https://github.com/OpenDisplay/Home_Assistant_Integration/blob/main/docs/drawcustom/supported_types.md) (OEPL) drawcustom YAML. Paste exported element lists into Home Assistant’s **`drawcustom`** service (OpenEPaperLink or OpenDisplay custom integrations below).
+Visual [feature-rich](#features) editor for **[OpenDisplay Language](https://opendisplay.org/protocol/open-display-language.html)** (ODL) and [OpenEPaperLink](https://github.com/openepaperlink/Home_Assistant_Integration/blob/main/docs/drawcustom/supported_types.md) (OEPL) drawcustom YAML. Paste exported element lists into Home Assistant’s **`drawcustom`** service (OpenEPaperLink or OpenDisplay custom integrations below).
 
 Design layouts in the browser, preview them with realistic tag palettes and dithering, export HA-clean YAML or PNG, and share designs via URL. Simulate Home Assistant entity states for template preview. Add custom fonts and images to your designs.
 
@@ -113,7 +113,7 @@ OpenDisplay uses the same payload shape with `action: opendisplay.drawcustom`.
 ### Session, demo & sharing
 
 - **Auto-save** — last design, undo history, and mocks restored on reload
-- **Load Demo** — one-click showcase layout covering every element type
+- **Load Demo** — one-click showcase bundle in [`src/assets/showcase/`](src/assets/showcase/): `showcase.yml` (payload), `showcase.json` (canvas + State Simulator seed), `showcase.png` (bundled dlimg)
 - **Share link** — `#d=eJ…<data>` URL fragment encodes name, canvas, service options (when set), and elements (pako-deflated, base64url; assets/mocks stay local)
 - **Undo / redo** — 50-step history with drag coalescing
 
@@ -177,10 +177,12 @@ npm run build
 - `src/core/` — pure TypeScript (YAML, schema, renderer, templates); **no React** imports
 - `src/core/brand.ts` — product slug, titles, IndexedDB name, storage key prefix
 - `src/ui/` — React 19 application shell
-- `src/storage/` — Dexie IndexedDB (assets, mocks, session)
+- `src/ui/data/showcase.ts` — loads the built-in demo bundle (`src/assets/showcase/`)
+- `src/storage/` — Dexie IndexedDB (assets, mocks, variables, session)
+- `src/assets/showcase/` — **demo bundle**: `showcase.yml` (payload), `showcase.json` (canvas + simulator seed), `showcase.png` (bundled image)
 - `docs/adr/` — architecture decision records
 
-Start with [ADR-001](docs/adr/ADR-001-core-ui-separation.md) (core/UI boundary), [ADR-007](docs/adr/ADR-007-hybrid-rendering.md) (HA preview parity), and [ADR-006](docs/adr/ADR-006-ui-framework-react.md) (React shell).
+Start with [ADR-001](docs/adr/ADR-001-core-ui-separation.md) (core/UI boundary), [ADR-007](docs/adr/ADR-007-hybrid-rendering.md) (HA preview parity), [ADR-015](docs/adr/ADR-015-showcase-demo-bundle.md) (file-based demo), and [ADR-006](docs/adr/ADR-006-ui-framework-react.md) (React shell).
 
 ## License
 

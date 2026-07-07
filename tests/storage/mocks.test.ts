@@ -6,8 +6,10 @@ import {
   writeMocksToDb,
 } from '../../src/storage'
 import {
-  DEFAULT_MOCK_ATTRIBUTES,
-  DEFAULT_MOCK_STATES,
+  SHOWCASE_MOCK_ATTRIBUTES,
+  SHOWCASE_MOCK_STATES,
+} from '../../src/ui/data/showcase'
+import {
   parseMockStates,
   readMockStates,
   writeMockStates,
@@ -38,9 +40,9 @@ describe('mock storage', () => {
 
   it('round-trips typed attribute values (boolean/number/null/array/object)', async () => {
     await writeMocksToDb({
-      states: { 'calendar.sn_family': 'on' },
+      states: { 'calendar.home': 'on' },
       attributes: {
-        'calendar.sn_family': {
+        'calendar.home': {
           all_day: false,
           count: 3,
           ratio: 1.5,
@@ -52,7 +54,7 @@ describe('mock storage', () => {
     })
 
     const loaded = await readMocksFromDb()
-    expect(loaded?.attributes['calendar.sn_family']).toEqual({
+    expect(loaded?.attributes['calendar.home']).toEqual({
       all_day: false,
       count: 3,
       ratio: 1.5,
@@ -61,8 +63,8 @@ describe('mock storage', () => {
       meta: { k: 1 },
     })
     // Types survive the round-trip, not just their string forms.
-    expect(loaded?.attributes['calendar.sn_family']?.all_day).toBe(false)
-    expect(loaded?.attributes['calendar.sn_family']?.count).toBe(3)
+    expect(loaded?.attributes['calendar.home']?.all_day).toBe(false)
+    expect(loaded?.attributes['calendar.home']?.count).toBe(3)
   })
 
   it('replaces the full mock map on write', async () => {
@@ -102,8 +104,8 @@ describe('mock storage', () => {
 
   it('readMockStates returns defaults (states + attributes) when IndexedDB is empty', async () => {
     expect(await readMockStates()).toEqual({
-      states: DEFAULT_MOCK_STATES,
-      attributes: DEFAULT_MOCK_ATTRIBUTES,
+      states: SHOWCASE_MOCK_STATES,
+      attributes: SHOWCASE_MOCK_ATTRIBUTES,
     })
   })
 

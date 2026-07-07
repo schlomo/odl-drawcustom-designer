@@ -32,6 +32,8 @@ Use **Dexie** (IndexedDB wrapper) with these logical stores:
 
 **No further version bump for typed attributes.** Attribute values are stored as **typed JSON** (boolean/number/null/array/object/string) directly in the v4 `attributes` field and round-trip via IndexedDB structured clone — no stringification, no index, so no schema change is needed beyond v4. Legacy attribute values load as-is (non-destructive) and are re-typed by the simulator on edit (see `coerceAttributeValue`, ADR-004). **Variable values** are likewise stored verbatim as strings (no coercion — they are literal mock values).
 
+**Showcase seed vs persisted mocks:** first-run defaults for `mocks` and `variables` come from `src/assets/showcase/showcase.json` (ADR-015), not hardcoded TypeScript. Once the user edits the State Simulator, IndexedDB holds their data; **Clear all** removes only entries that still match the unmodified showcase seed (`clear-demo-data.ts`).
+
 ## Implementation
 
 - `src/storage/db.ts` — Dexie v5 stores: `assets`, `mocks` (`entityId` key, with `attributes` map), `variables` (`name` key), `session` (`id` key)

@@ -7,8 +7,8 @@ import {
   writeVariablesToDb,
   flushVariableWrites,
 } from '../../src/storage'
+import { SHOWCASE_VARIABLES } from '../../src/ui/data/showcase'
 import {
-  DEFAULT_VARIABLES,
   parseVariables,
   readVariables,
   writeVariables,
@@ -35,8 +35,8 @@ describe('variable storage', () => {
     expect(await readVariablesFromDb()).toBeNull()
   })
 
-  it('readVariables returns defaults (empty) when IndexedDB is empty', async () => {
-    expect(await readVariables()).toEqual(DEFAULT_VARIABLES)
+  it('readVariables returns the seeded showcase defaults when IndexedDB is empty', async () => {
+    expect(await readVariables()).toEqual(SHOWCASE_VARIABLES)
   })
 
   it('writeVariables persists through the UI adapter', async () => {

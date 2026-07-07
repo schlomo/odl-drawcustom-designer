@@ -20,8 +20,6 @@ export const APP_GITHUB_REPO_URL =
 
 export const INDEXEDDB_NAME = APP_SLUG
 
-export const SHOWCASE_DEMO_TITLE = 'ODL/OEPL drawcustom Showcase' as const
-
 export const FONT_FAMILY_PREFIX = 'drawcustom-font' as const
 
 export const YAML_LINT_SOURCE = `${APP_SLUG}-yaml` as const

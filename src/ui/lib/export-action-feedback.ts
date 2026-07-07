@@ -23,7 +23,7 @@ export function getExportActionButtonClassName(
   }
 }
 
-/** Single-row toolbar chrome — labels collapse to icons when narrow (ADR-014). */
+/** Single-row toolbar chrome — labels collapse to icons when narrow (ADR-016). */
 export const toolbarGroupsRow =
   'flex min-w-0 max-w-full flex-nowrap items-center gap-x-2 overflow-visible'
 export const toolbarGroupRow = 'flex shrink-0 flex-nowrap items-center gap-1'

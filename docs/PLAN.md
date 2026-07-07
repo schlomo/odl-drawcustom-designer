@@ -15,6 +15,10 @@ Product documentation: [`README.md`](../README.md). Architecture decisions: [`do
 | Rendering | `src/core/renderer/` | ADR-007 |
 | ODL / drawcustom alignment | `docs/spec/odl-gap-report.md` | ADR-012 |
 | Universal templating | `src/core/schema/propertyEditorMeta.ts` | ADR-013 |
+| Showcase / Load Demo | `src/assets/showcase/`, `src/ui/data/showcase.ts` | ADR-015 |
+| Clear demo simulator only | `src/ui/lib/clear-demo-data.ts` | ADR-015, ADR-003 |
+| Simulator variables store | `src/storage/variables.ts`, `src/ui/preferences/variables.ts` | ADR-003, ADR-004 |
+| Toolbar chrome | `src/ui/lib/toolbar-tooltip.ts` | ADR-016 |
 
 **Specs:** HA drawcustom — `docs/spec/supported_types.md`; forward spec — [OpenDisplay Language](https://opendisplay.org/protocol/open-display-language.html); parity — `docs/spec/odl-gap-report.md`.
 

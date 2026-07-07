@@ -1,26 +1,14 @@
 import type { HaMockContext } from '../../core'
 import { readMocksFromDb, writeMocksToDb, type PersistedMockData } from '../../storage'
+import { cloneShowcaseSimulator } from '../data/showcase'
 
+/** Per-entity attribute map for the State Simulator (typed JSON values). */
 export type MockEntityAttributes = Record<string, Record<string, unknown>>
 
 /** Full mock model surfaced to the UI: entity state values + per-entity attributes. */
 export interface MockData {
   states: HaMockContext['states']
   attributes: MockEntityAttributes
-}
-
-export const DEFAULT_MOCK_STATES: HaMockContext['states'] = {
-  'sensor.temperature': '21.5',
-  'binary_sensor.door': 'off',
-  'sensor.sn_family_current_event': 'No event',
-  'weather.home': 'sunny',
-}
-
-export const DEFAULT_MOCK_ATTRIBUTES: MockEntityAttributes = {
-  // Mirrors the issue #4 example: `state_attr('sensor.sn_family_current_event', 'active')`.
-  'sensor.sn_family_current_event': { active: false },
-  // Supports the dotted form `states.weather.home.attributes.temperature`.
-  'weather.home': { temperature: 21.5 },
 }
 
 function isMockStateValue(value: unknown): value is string | number | boolean {
@@ -71,10 +59,8 @@ export function parseMockAttributes(raw: unknown): MockEntityAttributes {
 }
 
 function defaultMockData(): MockData {
-  return {
-    states: { ...DEFAULT_MOCK_STATES },
-    attributes: structuredClone(DEFAULT_MOCK_ATTRIBUTES),
-  }
+  const seed = cloneShowcaseSimulator()
+  return { states: seed.states, attributes: seed.attributes }
 }
 
 export async function readMockStates(): Promise<MockData> {

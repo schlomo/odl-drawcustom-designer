@@ -11,7 +11,7 @@ You implement the **React 19 shell** in `src/ui/` and wire it to core APIs.
 
 ## Workflow
 
-1. Read ADR-001 and ADR-006 (core/UI split, React for shell only); draw payload rules in `.cursor/rules/yaml-spec.mdc`.
+1. Read ADR-001 and ADR-006 (core/UI split, React for shell only); draw payload rules in `.cursor/rules/yaml-spec.mdc`. Load Demo / simulator seed: ADR-015 (`src/assets/showcase/`, `src/ui/data/showcase.ts`).
 2. Build or extend components under `src/ui/components/`.
 3. Connect state via `useProjectState` and core calls.
 4. Run `npm run build` and `npm run lint` after UI changes.

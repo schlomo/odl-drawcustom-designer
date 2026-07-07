@@ -18,7 +18,6 @@ OpenDisplay Language (ODL) is the canonical name for drawcustom payload YAML. Pr
 | `APP_TITLE` | ODL/OEPL Drawcustom Designer |
 | `APP_TAGLINE` | Visual editor for OpenDisplay Language YAML — Home Assistant drawcustom compatible. |
 | `INDEXEDDB_NAME` | same as `APP_SLUG` |
-| `SHOWCASE_DEMO_TITLE` | ODL/OEPL drawcustom Showcase |
 | `FONT_FAMILY_PREFIX` | `drawcustom-font` |
 | `YAML_LINT_SOURCE` | `${APP_SLUG}-yaml` |
 | `storageKey(suffix)` | `${APP_SLUG}-${suffix}` |

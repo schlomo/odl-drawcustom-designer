@@ -107,7 +107,7 @@ describe('scanPayloadForTemplates', () => {
       {
         type: 'text',
         value:
-          "{{ iif(state_attr('sensor.sn_family_current_event', 'active'), 'calendar', 'calendar-blank') }}",
+          "{{ iif(state_attr('sensor.next_event', 'active'), 'calendar', 'calendar-blank') }}",
         x: 10,
         y: 10,
       },
@@ -116,7 +116,7 @@ describe('scanPayloadForTemplates', () => {
     const result = scanPayloadForTemplates(payload)
 
     expect(result.attributesByEntity).toEqual({
-      'sensor.sn_family_current_event': ['active'],
+      'sensor.next_event': ['active'],
     })
   })
 

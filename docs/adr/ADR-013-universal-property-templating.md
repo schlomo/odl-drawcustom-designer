@@ -84,7 +84,7 @@ No expansion of Nunjucks evaluator scope (ADR-004). Templated geometry uses last
 - Templated **position** locks move/align; templated **size/content** fields lock only the relevant resize handles
 - YAML inline preview shows `[error] …` with a short evaluator message; hover shows the full text
 - Property panel tests assert mode switching without coercion
-- Toolbar chrome layout is documented separately as **ADR-014-toolbar-chrome-layout** (this ADR is **013**)
+- Toolbar chrome layout is documented separately as **ADR-016** ([toolbar-chrome-layout](ADR-016-toolbar-chrome-layout.md)).
 
 ## Alternatives considered
 

@@ -1,7 +1,5 @@
 import { readVariablesFromDb, writeVariablesToDb, type StoredVariables } from '../../storage'
-
-/** No seeded variables — the feature is opt-in per user. */
-export const DEFAULT_VARIABLES: StoredVariables = {}
+import { SHOWCASE_VARIABLES } from '../data/showcase'
 
 /** A variable name must be a bare identifier so `{{ name }}` resolves in Jinja. */
 export function isValidVariableName(name: string): boolean {
@@ -26,7 +24,7 @@ export function parseVariables(raw: unknown): StoredVariables | null {
 
 export async function readVariables(): Promise<StoredVariables> {
   const stored = await readVariablesFromDb()
-  return stored ?? { ...DEFAULT_VARIABLES }
+  return stored ?? { ...SHOWCASE_VARIABLES }
 }
 
 export async function writeVariables(variables: StoredVariables): Promise<void> {
