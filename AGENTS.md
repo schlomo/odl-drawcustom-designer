@@ -64,8 +64,15 @@ Follow **Red → Green → Refactor** (ADR-008).
 | Core | `tests/core/` | `npm test` |
 | UI | `tests/ui/` | `npm test` |
 | Storage | `tests/storage/` | `npm test` |
+| E2E (real browser wiring) | `tests/e2e/` | `npm run test:e2e` |
 
 **Do not merge or commit** core/renderer changes without tests that fail before the fix and pass after.
+
+**E2E (Playwright, ADR-011 revised 2026-07-15):** a small smoke suite for real
+CodeMirror ↔ React ↔ canvas wiring that Vitest/jsdom cannot exercise (real
+pointer events, debounce timing, real `EditorView` layout) — not a place for
+logic Vitest already covers. Runs via its own `npm run test:e2e`, separate
+from the `npm test` merge gate.
 
 ### Behavior tests only (ADR-011)
 

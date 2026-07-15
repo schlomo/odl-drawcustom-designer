@@ -126,6 +126,8 @@ export function ElementList({
             <button
               type="button"
               draggable
+              aria-pressed={selected}
+              data-testid="element-list-row"
               onDragStart={(event) => handleDragStart(event, index)}
               onDragEnd={handleDragEnd}
               className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm ${

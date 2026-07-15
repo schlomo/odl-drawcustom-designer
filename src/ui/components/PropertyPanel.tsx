@@ -88,11 +88,11 @@ export function PropertyPanel({
       <div className={`border-b ${shell.panelBorder} px-4 py-3 pl-5`}>
         <h2 className={shell.heading}>Properties</h2>
         {isMulti ? (
-          <p className="mt-1 text-sm text-[var(--shell-text)]">
+          <p data-testid="property-panel-selection" className="mt-1 text-sm text-[var(--shell-text)]">
             {elements.length} elements selected
           </p>
         ) : (
-          <p className="mt-1 text-sm text-[var(--shell-text)]">
+          <p data-testid="property-panel-selection" className="mt-1 text-sm text-[var(--shell-text)]">
             #{primaryIndex + 1} ·{' '}
             <span className="font-mono text-[var(--shell-accent)]">{primaryElement.type}</span>
           </p>

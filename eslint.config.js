@@ -89,4 +89,10 @@ export default defineConfig([
       ],
     },
   },
+  {
+    files: ['tests/e2e/**/*.ts', 'playwright.config.ts'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 ])
