@@ -33,6 +33,7 @@ import type { AddElementResult } from './hooks/useProjectState'
 import {
   APP_GITHUB_REPO_URL,
   APP_GIT_BRANCH,
+  APP_GIT_PR_NUMBER,
   APP_GIT_REVISION,
   APP_HEADER_LEGAL_HTML,
   APP_PRIVACY_HEADLINE,
@@ -359,7 +360,11 @@ export function App({ bootstrap }: AppProps) {
               target="_blank"
               rel="noopener noreferrer"
               className="shrink-0 font-mono underline-offset-2 hover:underline"
-              title={`Branch: ${APP_GIT_BRANCH}`}
+              title={
+                APP_GIT_PR_NUMBER > 0
+                  ? `PR #${APP_GIT_PR_NUMBER} · Branch: ${APP_GIT_BRANCH}`
+                  : `Branch: ${APP_GIT_BRANCH}`
+              }
             >
               {formatGitBranchLabel(APP_GIT_BRANCH)}
             </a>

@@ -11,6 +11,13 @@ export const APP_GIT_REVISION =
   (import.meta.env.VITE_GIT_REVISION ?? 'dev').trim() || 'dev'
 
 /**
+ * Pull-request number baked in at build time (`vite.config.ts` / CI).
+ * `0` means this is not a PR preview build.
+ */
+export const APP_GIT_PR_NUMBER: number =
+  Number(import.meta.env.VITE_GIT_PR_NUMBER ?? '0') || 0
+
+/**
  * Optional HTML for a second header line (e.g. Impressum / Datenschutz links).
  * Set at build time via `VITE_HEADER_LEGAL_HTML`; trusted content only.
  */
@@ -40,11 +47,14 @@ export function formatGitRevisionLabel(revision: string): string {
   return revision.length > 12 ? `${revision.slice(0, 11)}…` : revision
 }
 
-/** Link to the branch tree (or `main` history for local dev). */
-export function githubBranchUrl(branch = APP_GIT_BRANCH): string {
+/** Link to the branch tree (or PR page for PR preview builds, or `main` history for local dev). */
+export function githubBranchUrl(branch = APP_GIT_BRANCH, prNumber = APP_GIT_PR_NUMBER): string {
   const repoBase = APP_GITHUB_REPO_URL.replace(/\/$/, '')
   if (DEV_LABELS.has(branch)) {
     return `${repoBase}/commits/main`
+  }
+  if (prNumber > 0) {
+    return `${repoBase}/pull/${prNumber}`
   }
   return `${repoBase}/tree/${encodeURIComponent(branch)}`
 }
