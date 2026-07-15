@@ -1,6 +1,6 @@
 import { Compartment, Facet, RangeSetBuilder } from '@codemirror/state'
 import { Decoration, type DecorationSet, ViewPlugin, type ViewUpdate } from '@codemirror/view'
-import { findListItemSpans } from './yamlIssueRanges'
+import { findElementSpans } from '../../core'
 
 export const linkedElementIndexFacet = Facet.define<number | null, number | null>({
   combine: (values) => values[values.length - 1] ?? null,
@@ -15,7 +15,7 @@ function buildLinkedElementDecorations(doc: string, elementIndex: number | null)
     return Decoration.none
   }
 
-  const span = findListItemSpans(doc)[elementIndex]
+  const span = findElementSpans(doc)[elementIndex]
   if (!span) {
     return Decoration.none
   }

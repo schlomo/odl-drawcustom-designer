@@ -109,6 +109,18 @@ describe('locateElementFocusInYaml', () => {
     const focus = locateElementFocusInYaml(doc, 0)
     expect(focus).toBe(doc.indexOf('\n'))
   })
+
+  it('jumps into the right element for a flow-style top-level array — issue #15', () => {
+    const doc = '[{type: text, value: hi, x: 0, y: 0}, {type: circle, x: 10, y: 10, radius: 5}]'
+
+    const firstFocus = locateElementFocusInYaml(doc, 0)
+    expect(firstFocus).not.toBeNull()
+    expect(firstFocus!).toBeLessThan(doc.indexOf('{type: circle'))
+
+    const secondFocus = locateElementFocusInYaml(doc, 1)
+    expect(secondFocus).not.toBeNull()
+    expect(secondFocus!).toBeGreaterThanOrEqual(doc.indexOf('{type: circle'))
+  })
 })
 
 describe('getListItemBlockAtPosition', () => {

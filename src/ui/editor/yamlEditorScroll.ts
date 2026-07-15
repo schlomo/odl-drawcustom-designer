@@ -1,8 +1,7 @@
 import { ChangeSet } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import type { EditorView as EditorViewType } from '@codemirror/view'
-import { locateElementIndexAtPosition } from './locateElementInYaml'
-import { findListItemSpans } from './yamlIssueRanges'
+import { elementIndexAtOffset, findElementSpans } from '../../core'
 
 export interface StoredEditorSelection {
   anchor: number
@@ -26,13 +25,13 @@ export function mapPositionAcrossYamlResync(
   }
 
   const clamped = Math.max(0, Math.min(pos, oldDoc.length))
-  const elementIndex = locateElementIndexAtPosition(oldDoc, clamped)
+  const elementIndex = elementIndexAtOffset(oldDoc, clamped)
   if (elementIndex == null) {
     return Math.min(clamped, newDoc.length)
   }
 
-  const oldSpan = findListItemSpans(oldDoc)[elementIndex]
-  const newSpan = findListItemSpans(newDoc)[elementIndex]
+  const oldSpan = findElementSpans(oldDoc)[elementIndex]
+  const newSpan = findElementSpans(newDoc)[elementIndex]
   if (!oldSpan || !newSpan) {
     return Math.min(clamped, newDoc.length)
   }
