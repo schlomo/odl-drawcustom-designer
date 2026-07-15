@@ -6,6 +6,11 @@
 #
 # Actions: JamesIves/github-pages-deploy-action (production),
 #          rossjrw/pr-preview-action (PR previews + sticky comment + cleanup).
+#
+# `checks` is a read-only job (default GITHUB_TOKEN permissions) that runs
+# lint/vitest/build/Playwright for every pull_request, including forks — the
+# `preview` job below cannot do this itself because it also deploys a Pages
+# preview and needs write permissions unsafe to grant to fork PRs (#19).
 
 name: GitHub Pages
 
@@ -30,6 +35,44 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  checks:
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright e2e suite
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_number }}
+          path: playwright-report/
+          retention-days: 14
+
   production:
     if: >-
       github.event_name == 'workflow_dispatch' ||
