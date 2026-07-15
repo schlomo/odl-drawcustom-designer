@@ -1,5 +1,5 @@
 import type { DrawElement } from '../schema/elements'
-import { elementIndexAtOffset, findElementSpans } from './elementSpans'
+import { elementIndexInSpans, findElementSpans } from './elementSpans'
 
 export interface CursorSelectionResult {
   /** Element index to select, or `null` to leave the current selection untouched. */
@@ -35,12 +35,16 @@ export function resolveCursorSelection(
   committedElements: DrawElement[],
   pendingElements: DrawElement[] | null,
 ): CursorSelectionResult {
-  const liveIndex = elementIndexAtOffset(liveDoc, cursorPos)
+  // Single parse for this cursor move: both the resolved index and the live
+  // element count derive from one findElementSpans result (which itself memoizes
+  // the last source, so repeated cursor moves in an unchanged doc don't re-parse).
+  const liveSpans = findElementSpans(liveDoc)
+  const liveIndex = elementIndexInSpans(liveSpans, cursorPos)
   if (liveIndex == null) {
     return { index: null, shouldFlushPending: false }
   }
 
-  const liveElementCount = findElementSpans(liveDoc).length
+  const liveElementCount = liveSpans.length
   const structurallyInSync = committedElements.length === liveElementCount
   if (structurallyInSync) {
     return { index: liveIndex, shouldFlushPending: false }

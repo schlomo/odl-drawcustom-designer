@@ -95,9 +95,52 @@ describe('findElementSpans (AST-backed mapping)', () => {
   })
 })
 
+describe('findElementSpans on broken YAML (parseDocument is error-tolerant)', () => {
+  it('still maps the intact elements when one element has a syntax error', () => {
+    const doc = `- type: text
+  value: one
+- type: text
+  value: [unclosed
+  x: 0
+- type: circle
+  radius: 5
+`
+    const spans = findElementSpans(doc)
+    // The parser recovers: all three items get spans, including the broken one.
+    expect(spans).toHaveLength(3)
+    expect(doc.slice(spans[0]!.start, spans[0]!.end)).toContain('value: one')
+    expect(doc.slice(spans[1]!.start, spans[1]!.end)).toContain('[unclosed')
+    expect(doc.slice(spans[2]!.start, spans[2]!.end)).toContain('type: circle')
+
+    // Cursor positions in the intact elements resolve to the right indices.
+    expect(elementIndexAtOffset(doc, doc.indexOf('value: one'))).toBe(0)
+    expect(elementIndexAtOffset(doc, doc.indexOf('radius: 5'))).toBe(2)
+    // The broken element still owns its own text — no shift onto a neighbor.
+    expect(elementIndexAtOffset(doc, doc.indexOf('[unclosed'))).toBe(1)
+  })
+
+  it('returns no spans for a completely unparseable document', () => {
+    expect(findElementSpans('{: : : ::')).toEqual([])
+  })
+
+  it('returns no spans for a non-sequence document', () => {
+    expect(findElementSpans('key: value')).toEqual([])
+  })
+})
+
 describe('elementIndexAtOffset', () => {
   it('returns null for an empty or non-list document', () => {
     expect(elementIndexAtOffset('\n\n', 1)).toBeNull()
+  })
+
+  it('returns null (not a wrong index) for completely unparseable documents', () => {
+    const doc = '{: : : ::'
+    expect(elementIndexAtOffset(doc, 3)).toBeNull()
+  })
+
+  it('returns null (not a wrong index) for non-sequence documents', () => {
+    const doc = 'key: value\nother: thing\n'
+    expect(elementIndexAtOffset(doc, doc.indexOf('other'))).toBeNull()
   })
 
   it('returns null for a flow-style document before the fix would have silently no-opped', () => {

@@ -89,4 +89,42 @@ describe('resolveCursorSelection — issue #14 doc/elements-mismatch guard', () 
 
     expect(result).toEqual({ index: 1, shouldFlushPending: false })
   })
+
+  it('keeps positional selection working on a broken live doc when the element count still matches the frozen committed array', () => {
+    // Element 1 has a syntax error (unclosed flow bracket) mid-typing, so the whole-document
+    // Zod parse fails and the committed array is frozen — but parseDocument still recovers
+    // all three items, counts agree, and clicking element 2 must select element 2.
+    const doc = `- type: text
+  value: one
+- type: text
+  value: [unclosed
+  x: 0
+- type: text
+  value: two
+`
+    const committed = [textElement('one'), textElement('broken'), textElement('two')]
+    const pos = doc.indexOf('value: two')
+
+    const result = resolveCursorSelection(doc, pos, committed, null)
+
+    expect(result).toEqual({ index: 2, shouldFlushPending: false })
+  })
+
+  it('defers on a broken live doc whose recovered element count disagrees with the committed array', () => {
+    // A new (broken) element was inserted above inside the debounce window: live doc
+    // recovers 3 items but committed is frozen at 2 and nothing valid is pending.
+    const doc = `- type: text
+  value: [unclosed
+- type: text
+  value: one
+- type: text
+  value: two
+`
+    const committed = [textElement('one'), textElement('two')]
+    const pos = doc.indexOf('value: two')
+
+    const result = resolveCursorSelection(doc, pos, committed, null)
+
+    expect(result).toEqual({ index: null, shouldFlushPending: false })
+  })
 })
