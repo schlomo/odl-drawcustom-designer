@@ -128,7 +128,7 @@ npm ci   # node_modules is per-worktree (not tracked); each needs its own instal
 | Tool | What it reads | Role |
 |------|----------------|------|
 | **All** | [`AGENTS.md`](AGENTS.md) | Canonical policy — edit this first |
-| Claude Code | [`CLAUDE.md`](CLAUDE.md) | Short pointer + numbered summary |
+| Claude Code | [`CLAUDE.md`](CLAUDE.md) | Pure `@AGENTS.md` import (Claude Code inlines it) |
 | GitHub Copilot | [`AGENTS.md`](AGENTS.md) + [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | Root agent file (native) + repo-wide custom instructions |
 | **Cursor only** | [`.cursor/rules/*.mdc`](.cursor/rules/) | Auto-injected rules (`alwaysApply` or file globs) |
 | **Cursor only** | [`.cursor/agents/*.md`](.cursor/agents/) | Subagent prompts (core-implementer, spec-reviewer, ui-wirer) |
@@ -147,4 +147,4 @@ Per [GitHub Docs](https://docs.github.com/en/copilot/customizing-copilot/adding-
 
 The GitHub **“Add Copilot instructions”** button in the web UI defaults to creating a **path-specific** `*.instructions.md` under `.github/instructions/`. That is **not** a replacement for `.github/copilot-instructions.md`. For repo-wide TDD/ADR/HA parity rules, keep **`copilot-instructions.md`** (and `AGENTS.md`). Both are merged when Copilot works on matching files.
 
-When updating agent policy: **change `AGENTS.md` first**, then sync `CLAUDE.md`, `.github/copilot-instructions.md`, and `.cursor/rules/tdd-required.mdc` (and subagent files if their scope changed).
+When updating agent policy: **change `AGENTS.md` first**, then sync `.github/copilot-instructions.md` and `.cursor/rules/tdd-required.mdc` (and subagent files if their scope changed). `CLAUDE.md` is a pure `@AGENTS.md` import and never needs syncing.
