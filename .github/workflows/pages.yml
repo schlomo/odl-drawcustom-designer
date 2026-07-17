@@ -46,9 +46,9 @@ jobs:
       # from the vitest github-actions / Playwright github reporters.
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -63,7 +63,7 @@ jobs:
       - run: npm run build
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -78,7 +78,7 @@ jobs:
       # "Playwright" check runs on the PR (its default instead writes only
       # the workflow-run summary page).
       - name: Publish Vitest results
-        uses: dorny/test-reporter@v2
+        uses: dorny/test-reporter@v3
         if: always() && github.event.pull_request.head.repo.full_name == github.repository
         with:
           name: Vitest
@@ -87,7 +87,7 @@ jobs:
           use-actions-summary: 'false'
 
       - name: Publish Playwright results
-        uses: dorny/test-reporter@v2
+        uses: dorny/test-reporter@v3
         if: always() && github.event.pull_request.head.repo.full_name == github.repository
         with:
           name: Playwright
@@ -97,7 +97,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report-${{ github.run_number }}
           path: playwright-report/
@@ -123,9 +123,9 @@ jobs:
       VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || format('/{0}/', github.event.repository.name) }}
       VITE_HEADER_LEGAL_HTML: ${{ vars.VITE_HEADER_LEGAL_HTML || '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -136,7 +136,7 @@ jobs:
       - run: npm run build
 
       - name: Upload dist artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist-production-${{ github.run_number }}
           path: dist/
@@ -170,9 +170,9 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: github.event.action != 'closed'
         with:
           node-version-file: .nvmrc
@@ -193,7 +193,7 @@ jobs:
 
       - name: Upload dist artifact
         if: github.event.action != 'closed'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist-pr-${{ github.event.number }}-${{ github.run_number }}
           path: dist/
