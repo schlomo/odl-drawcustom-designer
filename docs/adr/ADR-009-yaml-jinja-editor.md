@@ -80,6 +80,33 @@ Autocomplete and lint tooltips disappeared on the **first YAML list item** while
 - Optional linked mode syncs element list and scroll/highlight between canvas selection and YAML (`yamlElementsSync.ts`, `locateElementInYaml.ts`).
 - Independent of CodeMirror tooltip positioning.
 
+### Element index ↔ YAML offset mapping (AST-backed, single source of truth)
+
+**Failure mode (fixed 2026-07, issues #14/#15/#16):** element↔text position mapping was a regex line scanner — `findListItemSpans` in `yamlIssueRanges.ts` matched `/^-\s/` at column 0 per line. This diverged from the real YAML parser (`parseYamlPayload`, which discards all source-position metadata) in ways that produced two selection-sync bugs:
+
+- **Flow-style top-level arrays** (`[{...}, {...}]`) parse to N elements via `yaml.parse`, but the regex scanner found zero `- ` lines and returned zero spans. `locateElementStartInYaml` / `locateElementFocusInYaml` returned `null` for every index, so canvas→YAML jump silently no-opped (issue #15).
+- **Comments and blank lines** between elements were folded into the *preceding* element's span (the scanner set `item[i-1].end = item[i].start`, swallowing everything between), so clicking a comment line highlighted the wrong element.
+
+**Fix:** `src/core/yaml/elementSpans.ts` is now the single source of truth for element-index ↔ source-offset mapping, backed by the `yaml` package's `parseDocument` AST node ranges (`node.range = [start, valueEnd, nodeEnd]`) — the same parser `parseYamlPayload` uses, so the two can never structurally disagree.
+
+- `findElementSpans(source)` returns `{ index, start, end }` per top-level array item. Block-style items (`- type: …`) start at the line containing the `-` marker; flow-style items (`{...}`) start at the item's own value. Comments/blank lines between items belong to **neither** element (they fall in the gap between one item's own `end` and the next item's `start`) — a cursor there resolves to `null` instead of the previous element.
+- `elementIndexAtOffset(source, offset)` is the offset→index direction.
+- `yamlIssueRanges.ts`'s `findListItemSpans` is now a thin wrapper over `findElementSpans` (kept for its existing diagnostics callers); `locateElementInYaml.ts`, `yamlEditorScroll.ts`, and `yamlLinkedElement.ts` all import the mapping from the core module (via `src/core/index.ts`, per ADR-001) rather than re-deriving it.
+
+**Tests:** `tests/core/yaml/element-spans.test.ts` (flow style both directions, comment/blank-line boundaries, multi-line Jinja block-scalar strings, duplicate elements).
+
+### Cursor→selection race with the debounced, validation-gated `elements` array
+
+**Failure mode (fixed 2026-07, issue #14):** `handleCursorPosition` in `YamlPanel.tsx` resolved a cursor position to an element index against the **live** CodeMirror doc synchronously on every cursor move, and called `onSelectElement` unconditionally. The committed `elements` array, however, only updates via `flushYamlElementsSync` behind an 80ms debounce **and** a whole-document `payloadSchema.safeParse` (`z.array(...)` fails atomically — one invalid element anywhere freezes the entire committed array at its last valid state). Mid-edit — even from an unrelated, momentarily-invalid field — the live doc's element count could disagree with the committed array's length, so `elements[selectedIndex]` pointed at the wrong element (or a shifted one, e.g. after inserting a new element above within the debounce window).
+
+**Fix:** `resolveCursorSelection(liveDoc, cursorPos, committedElements, pendingElements)` in `src/core/yaml/resolveCursorSelection.ts` is a pure function `YamlPanel.tsx` calls instead of resolving the index itself:
+
+- If the live doc's element count matches `committedElements.length`, the resolved index is trusted directly.
+- If they disagree but the debounced-but-not-yet-flushed `pendingElements` parse already matches the live doc's structure, it returns `{ index, shouldFlushPending: true }` — `YamlPanel` flushes that pending parse synchronously (skipping the remaining debounce wait) before honoring the selection, so the property panel reads the freshest valid data.
+- If neither matches, it returns `{ index: null, shouldFlushPending: false }` — the selection request is deferred rather than landing on a wrong element.
+
+**Tests:** `tests/core/yaml/resolve-cursor-selection.test.ts` (structural mismatch defers; pending-parse reconciliation flushes and trusts the index; comment-gap positions defer; matching counts short-circuit without flushing).
+
 ### Selection stability when the element list changes (layer reorder)
 
 Layer buttons (Front / Back / ↑ / ↓), drag-reorder in the layer list, and YAML block moves all change **array index** without changing element identity. Linked mode must keep the **same element** selected for the property panel, canvas handles, and YAML cursor.
@@ -106,6 +133,7 @@ Layer buttons (Front / Back / ↑ / ↓), drag-reorder in the layer list, and YA
 - HA-clean export rules unchanged (ADR-002): autocomplete must not corrupt template strings in serialized YAML.
 - Future editor work (entity ID completions from State Simulator, service-option keys) should extend existing providers, not replace the scaffolding model.
 - Any new code path that mutates element order or length must update selection with the remap helpers above; regressions show up as property-panel focus jumping to the wrong element, especially in linked YAML mode.
+- Element↔offset mapping is centralized in `src/core/yaml/elementSpans.ts` (AST-backed, ADR-001 core placement) — do not reintroduce a regex line scanner for element boundaries; extend the AST mapping instead. Regression tests: `tests/core/yaml/element-spans.test.ts`, `tests/core/yaml/resolve-cursor-selection.test.ts`.
 
 ## Alternatives considered
 

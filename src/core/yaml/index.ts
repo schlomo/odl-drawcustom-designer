@@ -1,5 +1,7 @@
 export { parseYamlDocument, parseYamlPayload } from './parse'
 export { roundTripYaml, serializeYamlPayload } from './serialize'
+export { elementIndexAtOffset, findElementSpans, type ElementSpan } from './elementSpans'
+export { resolveCursorSelection, type CursorSelectionResult } from './resolveCursorSelection'
 export {
   formatZodIssues,
   validatePayload,

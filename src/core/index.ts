@@ -33,6 +33,11 @@ export {
   isDesignerOnlyKey,
   DESIGNER_ONLY_FIELDS,
   type PayloadValidationResult,
+  elementIndexAtOffset,
+  findElementSpans,
+  type ElementSpan,
+  resolveCursorSelection,
+  type CursorSelectionResult,
 } from './yaml'
 export type { DrawElement } from './schema/elements'
 export type { ServiceOptions } from './schema/service'

@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { serializeYamlPayload, type DrawElement, type HaMockContext } from '../../core'
-import { locateElementIndexAtPosition } from '../editor/locateElementInYaml'
+import {
+  resolveCursorSelection,
+  serializeYamlPayload,
+  type DrawElement,
+  type HaMockContext,
+} from '../../core'
 import {
   elementsSequenceEqual,
   shouldApplyExternalYamlSync,
@@ -233,14 +237,24 @@ export function YamlPanel({
         return
       }
 
-      const index = locateElementIndexAtPosition(doc, position)
-      if (index == null || index === selectedIndex) {
+      const result = resolveCursorSelection(
+        doc,
+        position,
+        elementsRef.current,
+        pendingParsedRef.current,
+      )
+
+      if (result.shouldFlushPending) {
+        flushYamlElementsSync()
+      }
+
+      if (result.index == null || result.index === selectedIndex) {
         return
       }
 
-      onSelectElement(index, 'yaml')
+      onSelectElement(result.index, 'yaml')
     },
-    [couplingEnabled, onSelectElement, selectedIndex],
+    [couplingEnabled, flushYamlElementsSync, onSelectElement, selectedIndex],
   )
 
   return (

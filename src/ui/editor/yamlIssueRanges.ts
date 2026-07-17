@@ -1,15 +1,12 @@
 import type { ZodIssue } from 'zod'
+import { findElementSpans, type ElementSpan } from '../../core'
 
 export interface SourceRange {
   from: number
   to: number
 }
 
-interface ListItemSpan {
-  index: number
-  start: number
-  end: number
-}
+type ListItemSpan = ElementSpan
 
 function lineOffset(lines: string[], lineIndex: number): number {
   let offset = 0
@@ -19,29 +16,13 @@ function lineOffset(lines: string[], lineIndex: number): number {
   return offset
 }
 
+/**
+ * Thin wrapper over the AST-backed mapping in `src/core/yaml/elementSpans.ts`
+ * (single source of truth per issue #16). Retained under this name/shape for
+ * the diagnostics helpers below and their existing callers.
+ */
 export function findListItemSpans(doc: string): ListItemSpan[] {
-  const lines = doc.split('\n')
-  const items: ListItemSpan[] = []
-
-  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
-    const line = lines[lineIndex] ?? ''
-    if (!/^-\s/.test(line)) {
-      continue
-    }
-
-    const start = lineOffset(lines, lineIndex)
-    if (items.length > 0) {
-      items[items.length - 1]!.end = start
-    }
-
-    items.push({
-      index: items.length,
-      start,
-      end: doc.length,
-    })
-  }
-
-  return items
+  return findElementSpans(doc)
 }
 
 export type FieldRangeHighlight = 'key' | 'value'
