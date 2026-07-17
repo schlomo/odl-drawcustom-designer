@@ -74,6 +74,9 @@ jobs:
       - name: Run Playwright e2e suite
         run: npm run test:e2e
 
+      # use-actions-summary: false makes dorny create real "Vitest" /
+      # "Playwright" check runs on the PR (its default instead writes only
+      # the workflow-run summary page).
       - name: Publish Vitest results
         uses: dorny/test-reporter@v2
         if: always() && github.event.pull_request.head.repo.full_name == github.repository
@@ -81,6 +84,7 @@ jobs:
           name: Vitest
           path: reports/vitest-junit.xml
           reporter: java-junit
+          use-actions-summary: 'false'
 
       - name: Publish Playwright results
         uses: dorny/test-reporter@v2
@@ -89,6 +93,7 @@ jobs:
           name: Playwright
           path: reports/playwright-junit.xml
           reporter: java-junit
+          use-actions-summary: 'false'
 
       - name: Upload Playwright report
         if: always()
