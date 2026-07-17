@@ -9,11 +9,14 @@ Canonical ADR: [ADR-011](adr/ADR-011-behavior-test-policy.md). CI gates: [ADR-00
 | `tests/core/` | Node (Vitest) | Spec-visible outcomes: YAML parse/serialize equality, validation, render primitives, template strings, HA-clean export |
 | `tests/ui/` | Node or jsdom | User-visible wiring: canvas geometry, YAML↔canvas coupling, editor lint/completion, focus guards |
 | `tests/storage/` | Node + fake IndexedDB | Asset/mock persist round-trip via public storage adapters |
+| `tests/e2e/` | Real Chromium (Playwright) | Real three-panel wiring jsdom cannot exercise: canvas click ↔ property panel/element list selection, YAML click ↔ selection, property edit → canvas, YAML edit → canvas (ADR-011, revised 2026-07-15) |
 | `tests/fixtures/` | (data) | Golden YAML from `docs/spec/supported_types.md` (HA drawcustom); reconcile with [ODL](https://opendisplay.org/protocol/open-display-language.html) per `docs/spec/odl-gap-report.md` |
 
 **Core changes:** Red → Green → Refactor (`.cursor/rules/tdd-required.mdc`). Write or update `tests/core/` first.
 
 **UI changes:** Test behavior the user sees (coords after drag, selection after layer move). Do not duplicate core golden tests in UI.
+
+**E2E changes (`tests/e2e/`, Playwright):** only for wiring that requires a real browser — real pointer coordinates, real debounce timing, real `EditorView` layout (e.g. the #14/#15 selection-sync races, which jsdom structurally cannot reproduce). Keep the suite small (target 1–3 minutes); assert observable outcomes (selection state, a rendered row's text, canvas hit-test position), never markup internals. Do not add an e2e test for anything a `tests/core/` or `tests/ui/` test can already cover — see the anti-pattern below.
 
 ## Fixture layout
 
@@ -60,7 +63,7 @@ tests/fixtures/
 | Assert export / function exists | TypeScript + imports already enforce |
 | Snapshot of stub label strings | Brittle; assert structured primitive fields |
 | Third copy of HA-clean strip logic | Keep `yaml-roundtrip.test.ts` + one validate case |
-| Playwright for logic covered by Vitest | Defer E2E to optional ship smoke only |
+| Playwright for logic covered by Vitest | Still wrong after the 2026-07-15 revision — e2e (`tests/e2e/`) is scoped to real browser wiring only (pointer coords, debounce timing, `EditorView` layout), not a place to re-prove mapping/validation logic |
 
 ## Renderer HA parity tests (ADR-007)
 
@@ -84,10 +87,21 @@ When fixing **preview or PNG vs Home Assistant `imagegen`**:
 ## Running tests
 
 ```bash
-npm test              # all Vitest
+npm test              # all Vitest — the merge gate
 npm run lint          # includes core React import ban
 npm run build         # required before deploy (ADR-008)
+npm run build && npm run test:e2e   # Playwright smoke suite (tests/e2e/); build first, it runs against `vite preview`
 ```
+
+## CI test reports
+
+The `checks` job (`.github/workflows/pages.yml`) surfaces results three ways:
+
+- **Inline annotations** on the PR diff / Files tab — from vitest's `github-actions` reporter (`npm run test:ci`) and Playwright's `github` reporter. These work on fork PRs too.
+- **Check-run reports** "Vitest" and "Playwright" in the PR's Checks tab — per-test tables published by `dorny/test-reporter` from the JUnit XML in `reports/` (same-repo PRs only; fork PRs skip these because their `GITHUB_TOKEN` cannot write check runs).
+- **Playwright HTML report** — uploaded as a workflow artifact (`playwright-report-<run>`) on every run, 7-day retention; download and open `index.html` for traces and step-by-step detail.
+
+`npm run test:ci` is `npm test` plus the annotation + JUnit reporters; local runs don't need it.
 
 ## Storage tests
 

@@ -22,7 +22,7 @@ Product documentation: [`README.md`](../README.md). Architecture decisions: [`do
 
 **Specs:** HA drawcustom — `docs/spec/supported_types.md`; forward spec — [OpenDisplay Language](https://opendisplay.org/protocol/open-display-language.html); parity — `docs/spec/odl-gap-report.md`.
 
-**Testing:** `docs/testing.md`, ADR-008, ADR-011.
+**Testing:** `docs/testing.md`, ADR-008, ADR-011. `npm test` (Vitest) is the merge gate; `npm run test:e2e` (Playwright, `tests/e2e/`) is a separate smoke layer for real browser wiring (ADR-011, revised 2026-07-15).
 
 **Identity:** `src/core/brand.ts` (ADR-014).
 

@@ -21,6 +21,7 @@ export interface ScalarOrTemplateFieldProps {
 }
 
 export function ScalarOrTemplateField({
+  property,
   value,
   shape,
   label,
@@ -126,6 +127,7 @@ export function ScalarOrTemplateField({
     >
       <input
         type={useTextInput ? 'text' : 'number'}
+        data-testid={`property-input-${property}`}
         className={`w-full font-mono ${shell.input}`}
         value={scalarDisplay}
         min={typeMin ?? (allowNegative ? -1 : nonNegative || clampedPercent ? 0 : undefined)}

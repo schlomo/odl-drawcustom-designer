@@ -6,6 +6,11 @@
 #
 # Actions: JamesIves/github-pages-deploy-action (production),
 #          rossjrw/pr-preview-action (PR previews + sticky comment + cleanup).
+#
+# `checks` is a read-only job (default GITHUB_TOKEN permissions) that runs
+# lint/vitest/build/Playwright for every pull_request, including forks — the
+# `preview` job below cannot do this itself because it also deploys a Pages
+# preview and needs write permissions unsafe to grant to fork PRs (#19).
 
 name: GitHub Pages
 
@@ -30,11 +35,88 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  checks:
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # dorny/test-reporter publishes JUnit results as check runs. On fork
+      # PRs the GITHUB_TOKEN is read-only regardless, so those steps are
+      # guarded to same-repo PRs below; forks degrade to inline annotations
+      # from the vitest github-actions / Playwright github reporters.
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      # test:ci = vitest with default + github-actions (inline annotations) +
+      # junit (reports/vitest-junit.xml) reporters. Vitest only auto-enables
+      # github-actions when no reporters are configured, and junit needs
+      # explicit config — so the script lists all three.
+      - run: npm run test:ci
+      - run: npm run build
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright e2e suite
+        run: npm run test:e2e
+
+      # use-actions-summary: false makes dorny create real "Vitest" /
+      # "Playwright" check runs on the PR (its default instead writes only
+      # the workflow-run summary page).
+      - name: Publish Vitest results
+        uses: dorny/test-reporter@v2
+        if: always() && github.event.pull_request.head.repo.full_name == github.repository
+        with:
+          name: Vitest
+          path: reports/vitest-junit.xml
+          reporter: java-junit
+          use-actions-summary: 'false'
+
+      - name: Publish Playwright results
+        uses: dorny/test-reporter@v2
+        if: always() && github.event.pull_request.head.repo.full_name == github.repository
+        with:
+          name: Playwright
+          path: reports/playwright-junit.xml
+          reporter: java-junit
+          use-actions-summary: 'false'
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_number }}
+          path: playwright-report/
+          retention-days: 7
+
   production:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
+    # Serialize ALL pushes to gh-pages (shared with `preview`): when two
+    # deploys land on gh-pages within seconds, GitHub's legacy Pages build of
+    # the first commit gets superseded mid-build and reports "Page build
+    # failed", failing wait-for-pages-deployment even though the preview is
+    # live. Queuing (cancel-in-progress: false) instead of cancelling means
+    # no deploy is ever lost.
+    concurrency:
+      group: gh-pages-push
+      cancel-in-progress: false
     permissions:
       contents: write
     env:
@@ -75,6 +157,15 @@ jobs:
       github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    # See `production`: same gh-pages-push group so preview deploys from
+    # different PRs (and production deploys) queue instead of racing —
+    # rapid back-to-back gh-pages pushes make the legacy Pages build of the
+    # superseded commit error out. The workflow-level concurrency above
+    # still handles per-PR run superseding; this only serializes the
+    # actual gh-pages pushes across different PRs.
+    concurrency:
+      group: gh-pages-push
+      cancel-in-progress: false
     permissions:
       contents: write
       pull-requests: write
@@ -87,15 +178,17 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - name: Install, test, and build
+      # lint/test run in `checks` for every PR; not chained via `needs:` on
+      # purpose — a red-tests PR may still get a preview (checks stays the
+      # merge gate), keeping preview wall-time fast and the closed-event
+      # cleanup path free of needs+if complexity.
+      - name: Install and build
         if: github.event.action != 'closed'
         env:
           VITE_BASE_PATH: >-
             /${{ github.event.repository.name }}/pr-preview/pr-${{ github.event.number }}/
         run: |
           npm ci
-          npm run lint
-          npm run test
           npm run build
 
       - name: Upload dist artifact
