@@ -24,6 +24,7 @@ import { useExportActionFeedback } from './hooks/useExportActionFeedback'
 import { useProjectState } from './hooks/useProjectState'
 import { useElementSize } from './hooks/useElementSize'
 import { useThemePreference } from './hooks/useThemePreference'
+import { useYamlBlockedVisibility } from './hooks/useYamlBlockedVisibility'
 import { useYamlSelectionCoupling } from './hooks/useYamlSelectionCoupling'
 import { ExportIconButton } from './components/ExportIconButton'
 import { TextButton } from './components/TextButton'
@@ -74,6 +75,8 @@ export function App({ bootstrap }: AppProps) {
   const [yamlStatusMessages, setYamlStatusMessages] = useState<StatusMessage[]>([])
   const [canvasDragging, setCanvasDragging] = useState(false)
   const [propertyEditing, setPropertyEditing] = useState(false)
+  const [yamlBlocked, setYamlBlocked] = useState(false)
+  const yamlBlockedVisible = useYamlBlockedVisibility(yamlBlocked)
   const [elementAddNotice, setElementAddNotice] = useState<StatusMessage | null>(null)
   const { flashSuccess, flashError, getFeedback } = useExportActionFeedback()
   const {
@@ -523,6 +526,8 @@ export function App({ bootstrap }: AppProps) {
               canRedo={canRedo}
               onUndo={undo}
               onRedo={redo}
+              blocked={yamlBlocked}
+              blockedVisible={yamlBlockedVisible}
             />
           </div>
           <YamlPanel
@@ -535,6 +540,7 @@ export function App({ bootstrap }: AppProps) {
             onElementsChange={handleYamlElementsChange}
             onSelectElement={selectElement}
             onStatusMessagesChange={setYamlStatusMessages}
+            onYamlBlockedChange={setYamlBlocked}
             selectedIndex={selectedIndex}
             selectionSource={selectionSource}
             entityScrollRequest={entityScrollRequest}
@@ -559,6 +565,8 @@ export function App({ bootstrap }: AppProps) {
           onSendToBack={sendSelectionToBack}
           onMoveUp={() => moveSelectionLayer('up')}
           onMoveDown={() => moveSelectionLayer('down')}
+          blocked={yamlBlocked}
+          blockedVisible={yamlBlockedVisible}
         />
       </div>
     </div>

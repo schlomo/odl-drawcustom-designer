@@ -87,6 +87,18 @@ export function tryParseYamlElements(source: string): DrawElement[] | null {
   }
 }
 
+/**
+ * True while the live editor document currently fails to parse or validate
+ * (issue #35) — `tryParseYamlElements` returns `null` for both a YAML syntax
+ * error and a schema validation failure, and `elements` stays frozen at its
+ * last-valid state in either case. Visual editing (canvas + property panel)
+ * is blocked for as long as this holds; the YAML editor itself stays active
+ * since it is the only surface that can fix the document.
+ */
+export function isYamlDocBlocked(source: string): boolean {
+  return tryParseYamlElements(source) === null
+}
+
 export function elementsSequenceEqual(left: DrawElement[], right: DrawElement[]): boolean {
   if (left.length !== right.length) {
     return false

@@ -7,6 +7,7 @@ import {
 } from '../../core'
 import {
   elementsSequenceEqual,
+  isYamlDocBlocked,
   shouldApplyExternalYamlSync,
   tryParseYamlElements,
 } from '../editor/yamlElementsSync'
@@ -69,6 +70,12 @@ interface YamlPanelProps {
   /** True while a property panel field has focus (typing). */
   propertyEditing?: boolean
   mockContext?: HaMockContext
+  /**
+   * Reports whether the live editor document currently fails to parse or
+   * validate (issue #35) — the parent uses this to block canvas/property
+   * panel interactions while true.
+   */
+  onYamlBlockedChange?: (blocked: boolean) => void
 }
 
 export function YamlPanel({
@@ -87,6 +94,7 @@ export function YamlPanel({
   canvasDragging = false,
   propertyEditing = false,
   mockContext,
+  onYamlBlockedChange,
 }: YamlPanelProps) {
   const serialized = useMemo(() => serializeYamlPayload(elements), [elements])
   const [yamlText, setYamlText] = useState(serialized)
@@ -97,6 +105,7 @@ export function YamlPanel({
   // pointerup ending the drag) by the time YamlEditor's doc-sync effect
   // actually observes the new text.
   const [scrollLinkedElementOnSync, setScrollLinkedElementOnSync] = useState(false)
+  const yamlBlocked = useMemo(() => isYamlDocBlocked(yamlText), [yamlText])
   const skipExternalSyncRef = useRef(false)
   const yamlSelectionRef = useRef({ anchor: 0, head: 0 })
   const yamlScrollRef = useRef(0)
@@ -125,8 +134,18 @@ export function YamlPanel({
   })
 
   useEffect(() => {
+    onYamlBlockedChange?.(yamlBlocked)
+  }, [onYamlBlockedChange, yamlBlocked])
+
+  useEffect(() => {
     if (
-      shouldDeferYamlExternalSync({ propertyEditing, canvasDragging, couplingEnabled })
+      shouldDeferYamlExternalSync({ propertyEditing, canvasDragging, couplingEnabled }) ||
+      // Belt and braces (issue #35): even if some interaction slipped through
+      // while blocked, never let this effect clobber an in-progress edit —
+      // `elements` is frozen at its last-valid state while the live doc
+      // fails to parse/validate, so re-serializing it here would revert the
+      // user's edit.
+      yamlBlocked
     ) {
       return
     }
@@ -146,7 +165,7 @@ export function YamlPanel({
     // the moment of an actual text push (already triggered by the deps
     // below), not as its own trigger for extra runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canvasDragging, couplingEnabled, propertyEditing, serialized])
+  }, [canvasDragging, couplingEnabled, propertyEditing, serialized, yamlBlocked])
 
   const elementsRef = useRef(elements)
 

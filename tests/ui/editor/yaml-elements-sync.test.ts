@@ -4,6 +4,7 @@ import { SHOWCASE_ELEMENTS } from '../../../src/ui/data/showcase'
 import {
   elementsSequenceEqual,
   getYamlElementsParseIssues,
+  isYamlDocBlocked,
   remapSelectedIndex,
   resolveLinkedElementIndex,
   stableElementSignature,
@@ -58,6 +59,30 @@ describe('tryParseYamlElements', () => {
 
   it('returns an empty list for blank yaml', () => {
     expect(tryParseYamlElements('   \n')).toEqual([])
+  })
+})
+
+describe('isYamlDocBlocked', () => {
+  it('is false for valid yaml', () => {
+    expect(isYamlDocBlocked(serializeYamlPayload(elements))).toBe(false)
+  })
+
+  it('is false for blank yaml', () => {
+    expect(isYamlDocBlocked('   \n')).toBe(false)
+  })
+
+  it('is true for a schema validation failure (unrecognized key)', () => {
+    expect(isYamlDocBlocked('- type: text\n  value: hi\n  nope: 1')).toBe(true)
+  })
+
+  it('is true for a YAML syntax error', () => {
+    expect(isYamlDocBlocked('- type: text\n  value: [unclosed')).toBe(true)
+  })
+
+  it('is true when a required colon is deleted, breaking the mapping', () => {
+    // Same shape as the Playwright repro: deleting the first `:` turns
+    // `type: rectangle` into an invalid mapping key.
+    expect(isYamlDocBlocked('- type rectangle\n  x_start: 0\n  x_end: 10')).toBe(true)
   })
 })
 
