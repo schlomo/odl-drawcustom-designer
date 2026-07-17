@@ -73,3 +73,22 @@ export async function dragCanvasPoint(
   }
   await page.mouse.up()
 }
+
+/**
+ * Move the mouse to a canvas-coordinate point without pressing a button —
+ * drives the pointermove hover path (cursor affordance) in DesignerCanvas.
+ */
+export async function hoverCanvasPoint(
+  page: Page,
+  point: { x: number; y: number },
+  canvasSize: { width: number; height: number },
+): Promise<void> {
+  const paper = await canvasPaper(page)
+  const box = await paper.boundingBox()
+  if (!box) {
+    throw new Error('[data-canvas-paper] has no bounding box — is the canvas rendered?')
+  }
+
+  const target = toClientPoint(box, point, canvasSize)
+  await page.mouse.move(target.x, target.y)
+}

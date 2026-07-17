@@ -1,10 +1,12 @@
 import { expect, test } from '@playwright/test'
-import { clickCanvasPoint, dragCanvasPoint } from './fixtures/canvas'
+import { clickCanvasPoint, dragCanvasPoint, hoverCanvasPoint } from './fixtures/canvas'
 import { elementListRow } from './fixtures/element-list'
 import {
   BURIED_CIRCLE,
+  DEBUG_GRID_TYPE_LABEL,
   OCCLUDER_RECT,
   PRIORITY_CANVAS,
+  debugGridPrioritySharePath,
   selectionPrioritySharePath,
 } from './fixtures/selection-priority-payload'
 
@@ -22,14 +24,12 @@ import {
  * end — see ADR-011's 2026-07-15 revision.
  */
 
-test.beforeEach(async ({ page }) => {
-  await page.goto(selectionPrioritySharePath())
-  await expect(page.getByTestId('element-list-row')).toHaveCount(2)
-})
-
 test('selecting a buried element via the list keeps it draggable on canvas, and selection is retained', async ({
   page,
 }) => {
+  await page.goto(selectionPrioritySharePath())
+  await expect(page.getByTestId('element-list-row')).toHaveCount(2)
+
   // Select the buried circle via the element list (not the canvas, which the
   // full-canvas rectangle painted after it would otherwise always hit).
   await elementListRow(page, BURIED_CIRCLE.typeLabel).click()
@@ -81,4 +81,42 @@ test('selecting a buried element via the list keeps it draggable on canvas, and 
   const selectedRow = page.getByTestId('element-list-row').and(page.locator('[aria-pressed="true"]'))
   await expect(selectedRow).toHaveCount(1)
   await expect(selectedRow).toContainText(BURIED_CIRCLE.typeLabel)
+})
+
+test('hover cursor shows the drag affordance for a selected element buried under a non-draggable occluder', async ({
+  page,
+}) => {
+  // A debug_grid occluder is what distinguishes the pointermove (hover
+  // cursor) routing: it hit-tests across the whole canvas but is not
+  // draggable, so topmost-wins hover routing yields no grab affordance over
+  // the buried circle, while selection-priority routing does. (With a
+  // draggable occluder, both routings read `grab` and the wiring is
+  // indistinguishable — Copilot review on PR #40.)
+  await page.goto(debugGridPrioritySharePath())
+  await expect(page.getByTestId('element-list-row')).toHaveCount(2)
+
+  const viewport = page.getByTestId('canvas-viewport')
+  const circleCenter = { x: BURIED_CIRCLE.x, y: BURIED_CIRCLE.y }
+
+  // Control: with the grid itself selected, hovering the circle's position
+  // resolves to the selected non-draggable grid — no drag affordance.
+  await elementListRow(page, DEBUG_GRID_TYPE_LABEL).click()
+  // The property panel shows the raw type (`debug_grid`), the list row the
+  // spaced label (`debug grid`).
+  await expect(page.getByTestId('property-panel-selection')).toContainText('debug_grid')
+  await hoverCanvasPoint(page, circleCenter, PRIORITY_CANVAS)
+  await expect(viewport).toHaveCSS('cursor', 'default')
+
+  // With the buried circle selected, hovering its occluded position must
+  // show the drag affordance — only selection-priority hover routing does.
+  await elementListRow(page, BURIED_CIRCLE.typeLabel).click()
+  await expect(page.getByTestId('property-panel-selection')).toContainText(
+    BURIED_CIRCLE.typeLabel,
+  )
+  await hoverCanvasPoint(page, circleCenter, PRIORITY_CANVAS)
+  await expect(viewport).toHaveCSS('cursor', 'grab')
+
+  // Scope: away from the circle the non-draggable grid is the hit again.
+  await hoverCanvasPoint(page, { x: 250, y: 150 }, PRIORITY_CANVAS)
+  await expect(viewport).toHaveCSS('cursor', 'default')
 })

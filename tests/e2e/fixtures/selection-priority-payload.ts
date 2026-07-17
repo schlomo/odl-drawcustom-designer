@@ -69,3 +69,45 @@ export function buildSelectionPriorityPayload(): SharePayload {
 export function selectionPrioritySharePath(): string {
   return `/#d=${encodeShareHash(buildSelectionPriorityPayload())}`
 }
+
+/** Element list label for `debug_grid` (underscores render as spaces). */
+export const DEBUG_GRID_TYPE_LABEL = 'debug grid'
+
+/**
+ * Variant with a NON-draggable occluder: the same buried circle under a
+ * `debug_grid`, whose hit-box claims the whole canvas but which
+ * isElementDraggable rejects. This is what distinguishes the hover-cursor
+ * (pointermove) routing: over the buried selected circle, topmost-wins
+ * yields the non-draggable grid (no grab affordance), while selection
+ * priority yields the circle (grab). A draggable occluder shows grab either
+ * way and cannot pin the pointermove wiring.
+ */
+export function buildDebugGridPriorityPayload(): SharePayload {
+  return {
+    v: 1,
+    name: 'Playwright selection-priority debug-grid fixture (#36)',
+    canvas: {
+      width: PRIORITY_CANVAS.width,
+      height: PRIORITY_CANVAS.height,
+      rotation: 0,
+      accent: 'red',
+    },
+    elements: [
+      {
+        type: 'circle',
+        x: BURIED_CIRCLE.x,
+        y: BURIED_CIRCLE.y,
+        radius: BURIED_CIRCLE.radius,
+        fill: 'red',
+        outline: 'black',
+        width: 2,
+      },
+      { type: 'debug_grid' },
+    ],
+  }
+}
+
+/** Path (with `#d=` fragment) that seeds the app with {@link buildDebugGridPriorityPayload}. */
+export function debugGridPrioritySharePath(): string {
+  return `/#d=${encodeShareHash(buildDebugGridPriorityPayload())}`
+}

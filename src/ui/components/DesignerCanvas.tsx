@@ -1250,6 +1250,7 @@ export function DesignerCanvas({
         <div
           ref={containerRef}
           tabIndex={0}
+          data-testid="canvas-viewport"
           className="absolute inset-0 overflow-auto bg-[var(--shell-hover)] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--shell-accent)]"
           style={{ cursor: dragSession ? 'grabbing' : hoverCursor }}
           onPointerDown={handlePointerDown}

@@ -676,6 +676,30 @@ describe('findSelectionPriorityHit', () => {
     // Selected indices [0, 1] are not under this point; topmost wins (index 2).
     expect(findSelectionPriorityHit(stacked, { x: 300, y: 250 }, [0, 1])?.index).toBe(2)
   })
+
+  it('hover affordance: non-draggable occluder does not mask a selected draggable element', () => {
+    // The hover-cursor path (DesignerCanvas pointermove) composes the hit
+    // test with isElementDraggable to decide the grab affordance. With a
+    // non-draggable occluder (debug_grid) on top, topmost-wins yields a
+    // non-draggable hit (no affordance), while selection priority yields the
+    // buried, selected, draggable circle — the drag affordance must survive.
+    const circle = { type: 'circle' as const, x: 50, y: 50, radius: 20 }
+    const grid = { type: 'debug_grid' as const }
+    const elements = [circle, grid]
+    const stacked = [
+      { index: 0, bounds: { x: 30, y: 30, width: 40, height: 40 } },
+      { index: 1, bounds: { x: 0, y: 0, width: 300, height: 200 } },
+    ]
+    const point = { x: 50, y: 50 }
+
+    const topmost = findTopmostElementHit(stacked, point)
+    expect(topmost?.index).toBe(1)
+    expect(isElementDraggable(elements[topmost!.index]!)).toBe(false)
+
+    const priority = findSelectionPriorityHit(stacked, point, [0])
+    expect(priority?.index).toBe(0)
+    expect(isElementDraggable(elements[priority!.index]!)).toBe(true)
+  })
 })
 
 describe('snapMoveDelta', () => {
