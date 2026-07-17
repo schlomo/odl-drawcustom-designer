@@ -267,11 +267,15 @@ export function YamlEditor({
           yamlSelectionRef.current = { anchor: linkedPosition, head: linkedPosition }
         }
       } else {
+        // The pending scroll-into-view effect is an intentional jump to the
+        // newly linked element — it must win over restoring the pre-sync
+        // scrollTop, or the restore clobbers it in the same transaction.
         dispatchPreservingEditorViewState(
           view,
           { changes: syncSpec.changes, effects: scrollEffect },
           yamlSelectionRef,
           yamlScrollRef,
+          { skipScrollRestore: true },
         )
       }
     } else {

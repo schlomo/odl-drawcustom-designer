@@ -46,7 +46,7 @@ test.beforeEach(async ({ page }) => {
 // selection is correct (panel shows the circle) but the YAML pane stays at
 // the top. Reproduces at human pointer speed too (120ms press). Needs a
 // follow-up fix in the resync/scroll-restore wiring.
-test.fixme(
+test(
   'canvas click scrolls to the element even when the top-level YAML array is flow-style (#15)',
   async ({ page }) => {
     // Padding must be (a) real elements, not comments — `elements` round-trips
