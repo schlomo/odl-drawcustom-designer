@@ -40,6 +40,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # dorny/test-reporter publishes JUnit results as check runs. On fork
+      # PRs the GITHUB_TOKEN is read-only regardless, so those steps are
+      # guarded to same-repo PRs below; forks degrade to inline annotations
+      # from the vitest github-actions / Playwright github reporters.
+      checks: write
     steps:
       - uses: actions/checkout@v4
 
@@ -50,7 +55,11 @@ jobs:
 
       - run: npm ci
       - run: npm run lint
-      - run: npm test
+      # test:ci = vitest with default + github-actions (inline annotations) +
+      # junit (reports/vitest-junit.xml) reporters. Vitest only auto-enables
+      # github-actions when no reporters are configured, and junit needs
+      # explicit config — so the script lists all three.
+      - run: npm run test:ci
       - run: npm run build
 
       - name: Cache Playwright browsers
@@ -65,13 +74,29 @@ jobs:
       - name: Run Playwright e2e suite
         run: npm run test:e2e
 
+      - name: Publish Vitest results
+        uses: dorny/test-reporter@v2
+        if: always() && github.event.pull_request.head.repo.full_name == github.repository
+        with:
+          name: Vitest
+          path: reports/vitest-junit.xml
+          reporter: java-junit
+
+      - name: Publish Playwright results
+        uses: dorny/test-reporter@v2
+        if: always() && github.event.pull_request.head.repo.full_name == github.repository
+        with:
+          name: Playwright
+          path: reports/playwright-junit.xml
+          reporter: java-junit
+
       - name: Upload Playwright report
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-${{ github.run_number }}
           path: playwright-report/
-          retention-days: 14
+          retention-days: 7
 
   production:
     if: >-
@@ -148,15 +173,17 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - name: Install, test, and build
+      # lint/test run in `checks` for every PR; not chained via `needs:` on
+      # purpose — a red-tests PR may still get a preview (checks stays the
+      # merge gate), keeping preview wall-time fast and the closed-event
+      # cleanup path free of needs+if complexity.
+      - name: Install and build
         if: github.event.action != 'closed'
         env:
           VITE_BASE_PATH: >-
             /${{ github.event.repository.name }}/pr-preview/pr-${{ github.event.number }}/
         run: |
           npm ci
-          npm run lint
-          npm run test
           npm run build
 
       - name: Upload dist artifact
