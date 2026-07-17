@@ -10,11 +10,15 @@ import {
 
 /**
  * Regression specs for the two confirmed selection-sync bugs (2026-07
- * architecture review). Both are `test.fixme` — they reproduce real bugs on
- * `main` today and are expected to fail until `fix/selection-sync-mapping`
- * (a parallel PR) lands; `test.fixme` skips the body entirely so this suite
- * stays green in the meantime. Flip these to `test(...)` once that fix
- * merges (see PR description for merge order).
+ * architecture review), addressed on main by the AST-backed element↔YAML
+ * position mapping (#27: src/core/yaml/elementSpans.ts,
+ * src/core/yaml/resolveCursorSelection.ts).
+ *
+ * The #14 spec passes on main and pins the corrected behavior. The #15 spec
+ * remains `test.fixme`: #27 fixed the mapping layer (flow-style spans now
+ * resolve; block-style canvas→YAML jumps verifiably work in this harness),
+ * but the end-to-end jump for a flow-style doc still fails — see the spec's
+ * comment for the residual wiring bug.
  */
 
 const CANVAS = { width: 400, height: 300 }
@@ -24,10 +28,24 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByTestId('element-list-row')).toHaveCount(3)
 })
 
-// Issue #15: findListItemSpans (src/ui/editor/yamlIssueRanges.ts) only
-// recognizes block-style `- ` list items. A flow-style top-level array
-// parses fine but yields zero spans, so locateElementStartInYaml returns
-// null for every index and the canvas -> YAML scroll silently no-ops.
+// Issue #15: the old regex line scanner (findListItemSpans) only recognized
+// block-style `- ` list items, so a flow-style top-level array parsed fine
+// but yielded zero spans and the canvas -> YAML scroll silently no-op'd.
+// The AST-backed findElementSpans (src/core/yaml/elementSpans.ts, #27) maps
+// flow-style elements too — the scroll must land on the element.
+//
+// STILL FIXME after #27: the mapping layer is fixed (the identical scenario
+// with a block-style doc passes — the pane scrolls and stays on the circle),
+// but this flow-style case still fails end-to-end. The canvas click both
+// selects the element AND starts a drag session; the canvasDragging toggle
+// re-serializes the flow doc to block style into the editor, and that resync
+// path (YamlEditor.tsx value-sync -> dispatchPreservingEditorViewState)
+// restores the pre-click scrollTop after dispatching, clobbering its own
+// scrollLinkedElementIntoView effect (whose target position is additionally
+// mapped through the full-doc replace in the same transaction). Observed:
+// selection is correct (panel shows the circle) but the YAML pane stays at
+// the top. Reproduces at human pointer speed too (120ms press). Needs a
+// follow-up fix in the resync/scroll-restore wiring.
 test.fixme(
   'canvas click scrolls to the element even when the top-level YAML array is flow-style (#15)',
   async ({ page }) => {
@@ -37,8 +55,8 @@ test.fixme(
     // re-triggers a canvas -> YAML re-sync), and comments don't survive that
     // round-trip — and (b) each on its own physical line, so each becomes its
     // own `.cm-line` (a flow sequence can span many lines and still be
-    // "flow-style": no line may start with `- `, which is all
-    // findListItemSpans checks for).
+    // "flow-style": no line starts with the block-style `- ` marker the old
+    // regex scanner required).
     const padding = Array.from(
       { length: 40 },
       () => '  {type: line, x_start: 0, x_end: 1},',
@@ -72,15 +90,17 @@ test.fixme(
   },
 )
 
-// Issue #14: handleCursorPosition (src/ui/components/YamlPanel.tsx) resolves
-// cursor -> element index against the *live* CodeMirror doc synchronously,
-// while the committed `elements` array only updates via a debounced,
-// whole-document `payloadSchema.safeParse` that fails atomically. While one
-// element is mid-invalid-edit, a structural edit elsewhere (inserting a new
-// element) shifts live-doc line positions out from under the frozen
-// `elements` array, so clicking a later element's YAML block can select the
-// wrong element in the property panel / element list.
-test.fixme(
+// Issue #14: handleCursorPosition used to resolve cursor -> element index
+// against the *live* CodeMirror doc synchronously, while the committed
+// `elements` array only updates via a debounced, whole-document schema parse
+// that fails atomically. Mid-invalid-edit, a structural edit elsewhere
+// (inserting a new element) shifted live-doc positions out from under the
+// frozen `elements` array, so clicking a later element's block selected the
+// wrong element (or none). resolveCursorSelection (#27) now defers instead
+// of trusting a mismatched index — the click below must leave the circle
+// shown in the property panel, whether it selects fresh or defers while the
+// circle stays selected.
+test(
   'clicking an element block selects that element even mid-invalid-edit elsewhere (#14)',
   async ({ page }) => {
     await replaceYamlDocument(
