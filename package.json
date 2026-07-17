@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:ci": "vitest run --reporter=default --reporter=github-actions --reporter=junit --outputFile.junit=reports/vitest-junit.xml",
     "test:watch": "vitest",
     "test:e2e": "playwright test"
   },

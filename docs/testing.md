@@ -93,6 +93,16 @@ npm run build         # required before deploy (ADR-008)
 npm run build && npm run test:e2e   # Playwright smoke suite (tests/e2e/); build first, it runs against `vite preview`
 ```
 
+## CI test reports
+
+The `checks` job (`.github/workflows/pages.yml`) surfaces results three ways:
+
+- **Inline annotations** on the PR diff / Files tab — from vitest's `github-actions` reporter (`npm run test:ci`) and Playwright's `github` reporter. These work on fork PRs too.
+- **Check-run reports** "Vitest" and "Playwright" in the PR's Checks tab — per-test tables published by `dorny/test-reporter` from the JUnit XML in `reports/` (same-repo PRs only; fork PRs skip these because their `GITHUB_TOKEN` cannot write check runs).
+- **Playwright HTML report** — uploaded as a workflow artifact (`playwright-report-<run>`) on every run, 7-day retention; download and open `index.html` for traces and step-by-step detail.
+
+`npm run test:ci` is `npm test` plus the annotation + JUnit reporters; local runs don't need it.
+
 ## Storage tests
 
 Dexie schema upgrades wipe dev data on failure (ADR-003). Keep adapter-level behavior assertions, not internal version numbers.

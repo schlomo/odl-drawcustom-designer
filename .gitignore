@@ -32,3 +32,6 @@ coverage
 /playwright-report
 /blob-report
 /playwright/.cache
+
+# CI test reports (JUnit XML from vitest + playwright)
+/reports

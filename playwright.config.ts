@@ -19,7 +19,18 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
+  // CI adds: `github` (inline PR annotations), `html` (browsable artifact),
+  // `junit` (published as a check-run report by dorny/test-reporter). The
+  // JUnit file lives in reports/ — NOT test-results/, which Playwright wipes
+  // at run start (it would delete the vitest JUnit written by `test:ci`).
+  reporter: process.env.CI
+    ? [
+        ['list'],
+        ['github'],
+        ['html', { open: 'never' }],
+        ['junit', { outputFile: 'reports/playwright-junit.xml' }],
+      ]
+    : 'list',
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'on-first-retry',
