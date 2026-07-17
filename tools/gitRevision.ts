@@ -9,6 +9,8 @@ export interface GitBranchSource {
   vitest?: boolean
   viteGitBranch?: string
   githubRefName?: string
+  /** GITHUB_HEAD_REF — the real source-branch name on pull-request builds. */
+  githubHeadRef?: string
   gitBranch?: string
 }
 
@@ -40,12 +42,30 @@ export function resolveGitBranch(source: GitBranchSource = {}): string {
   if (fromEnv) {
     return fromEnv
   }
-  if (source.githubRefName?.trim()) {
-    return source.githubRefName.trim()
+  const refName = source.githubRefName?.trim()
+  if (refName) {
+    // GitHub sets GITHUB_REF_NAME to "<n>/merge" for pull-request builds.
+    // Prefer the real source-branch name (GITHUB_HEAD_REF) when available.
+    if (/^\d+\/merge$/.test(refName)) {
+      const headRef = source.githubHeadRef?.trim()
+      if (headRef) {
+        return headRef
+      }
+    }
+    return refName
   }
   const branch = source.gitBranch?.trim()
   if (branch) {
     return branch
   }
   return 'dev'
+}
+
+/**
+ * Extract the pull-request number from a GitHub merge ref (e.g. `"11/merge"` → `11`).
+ * Returns `undefined` when the ref is not a PR merge ref.
+ */
+export function resolveGitPrNumber(source: { githubRefName?: string } = {}): number | undefined {
+  const match = /^(\d+)\/merge$/.exec(source.githubRefName?.trim() ?? '')
+  return match ? Number(match[1]) : undefined
 }

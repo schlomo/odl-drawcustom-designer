@@ -3,7 +3,7 @@ import { execSync } from 'node:child_process'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { resolveGitBranch, resolveGitRevision } from './tools/gitRevision.ts'
+import { resolveGitBranch, resolveGitPrNumber, resolveGitRevision } from './tools/gitRevision.ts'
 
 const isVitest = Boolean(process.env.VITEST)
 
@@ -37,8 +37,13 @@ function gitBranch(): string {
     vitest: isVitest,
     viteGitBranch: process.env.VITE_GIT_BRANCH,
     githubRefName: process.env.GITHUB_REF_NAME,
+    githubHeadRef: process.env.GITHUB_HEAD_REF,
     gitBranch: readGitBranch(),
   })
+}
+
+function gitPrNumber(): number {
+  return resolveGitPrNumber({ githubRefName: process.env.GITHUB_REF_NAME }) ?? 0
 }
 
 export default defineConfig({
@@ -47,6 +52,7 @@ export default defineConfig({
   define: {
     'import.meta.env.VITE_GIT_BRANCH': JSON.stringify(gitBranch()),
     'import.meta.env.VITE_GIT_REVISION': JSON.stringify(gitRevision()),
+    'import.meta.env.VITE_GIT_PR_NUMBER': JSON.stringify(String(gitPrNumber())),
   },
   build: {
     rollupOptions: {

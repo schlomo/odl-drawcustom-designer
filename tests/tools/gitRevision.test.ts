@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveGitBranch, resolveGitRevision } from '../../tools/gitRevision'
+import { resolveGitBranch, resolveGitPrNumber, resolveGitRevision } from '../../tools/gitRevision'
 
 describe('resolveGitRevision', () => {
   it('returns test under Vitest', () => {
@@ -48,11 +48,39 @@ describe('resolveGitBranch', () => {
     expect(resolveGitBranch({ githubRefName: 'main' })).toBe('main')
   })
 
+  it('uses GITHUB_HEAD_REF instead of a PR merge ref', () => {
+    expect(
+      resolveGitBranch({ githubRefName: '11/merge', githubHeadRef: 'feature/foo' }),
+    ).toBe('feature/foo')
+  })
+
+  it('falls back to the merge ref when GITHUB_HEAD_REF is absent', () => {
+    expect(resolveGitBranch({ githubRefName: '11/merge' })).toBe('11/merge')
+  })
+
   it('uses git branch when env vars are absent', () => {
     expect(resolveGitBranch({ gitBranch: 'main' })).toBe('main')
   })
 
   it('returns dev when no branch source is available', () => {
     expect(resolveGitBranch({})).toBe('dev')
+  })
+})
+
+describe('resolveGitPrNumber', () => {
+  it('extracts the PR number from a merge ref', () => {
+    expect(resolveGitPrNumber({ githubRefName: '11/merge' })).toBe(11)
+    expect(resolveGitPrNumber({ githubRefName: '1/merge' })).toBe(1)
+    expect(resolveGitPrNumber({ githubRefName: '123/merge' })).toBe(123)
+  })
+
+  it('returns undefined for non-PR refs', () => {
+    expect(resolveGitPrNumber({ githubRefName: 'main' })).toBeUndefined()
+    expect(resolveGitPrNumber({ githubRefName: 'feature/foo' })).toBeUndefined()
+    expect(resolveGitPrNumber({})).toBeUndefined()
+  })
+
+  it('trims whitespace before matching', () => {
+    expect(resolveGitPrNumber({ githubRefName: '  11/merge  ' })).toBe(11)
   })
 })
