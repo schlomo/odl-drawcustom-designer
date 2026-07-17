@@ -16,7 +16,7 @@ import {
   translateElement,
 } from '../../../src/ui/lib/element-geometry'
 import { createQrModuleGrid, qrRenderedSize } from '../../../src/core'
-import { findTopmostElementHit } from '../../../src/ui/lib/canvas-hit-test'
+import { findSelectionPriorityHit, findTopmostElementHit } from '../../../src/ui/lib/canvas-hit-test'
 import { snapMoveDelta, snapToGrid } from '../../../src/ui/lib/snap-to-grid'
 import {
   getBooleanPropertyValue,
@@ -621,6 +621,60 @@ describe('findTopmostElementHit', () => {
 
     expect(findTopmostElementHit(targets, { x: 120, y: 210 })?.index).toBe(1)
     expect(findTopmostElementHit(targets, { x: 20, y: 20 })?.index).toBe(0)
+  })
+})
+
+describe('findSelectionPriorityHit', () => {
+  // Issue #36: a full-canvas occluding element (e.g. a background rectangle
+  // or debug grid) paints last and wins ordinary topmost-wins hit-testing,
+  // permanently locking out anything selected underneath it. The selected
+  // element should win hit-testing within its own bounds so it stays
+  // draggable/resizable even when buried.
+  const buried = { index: 0, bounds: { x: 20, y: 20, width: 40, height: 40 } }
+  const occluder = { index: 1, bounds: { x: 0, y: 0, width: 400, height: 300 } }
+  const targets = [buried, occluder]
+  const pointOnBuried = { x: 30, y: 30 }
+  const pointOnEmptyOccluderArea = { x: 300, y: 250 }
+
+  it('prefers the selected element under the point over the topmost element', () => {
+    expect(findSelectionPriorityHit(targets, pointOnBuried, [0])?.index).toBe(0)
+  })
+
+  it('falls back to topmost-wins when the point is outside the selected element', () => {
+    expect(findSelectionPriorityHit(targets, pointOnEmptyOccluderArea, [0])?.index).toBe(1)
+  })
+
+  it('falls back to topmost-wins when nothing is selected (unselected behavior unchanged)', () => {
+    expect(findSelectionPriorityHit(targets, pointOnBuried, [])?.index).toBe(1)
+  })
+
+  it('matches plain findTopmostElementHit when nothing is selected', () => {
+    for (const point of [pointOnBuried, pointOnEmptyOccluderArea]) {
+      expect(findSelectionPriorityHit(targets, point, [])?.index).toBe(
+        findTopmostElementHit(targets, point)?.index,
+      )
+    }
+  })
+
+  it('multi-select: prefers the topmost selected element under the point', () => {
+    const stacked = [
+      { index: 0, bounds: { x: 10, y: 10, width: 30, height: 30 } },
+      { index: 1, bounds: { x: 10, y: 10, width: 30, height: 30 } },
+      { index: 2, bounds: { x: 0, y: 0, width: 400, height: 300 } },
+    ]
+    const point = { x: 20, y: 20 }
+    // Both 0 and 1 are selected and under the point; 1 is topmost among them.
+    expect(findSelectionPriorityHit(stacked, point, [0, 1])?.index).toBe(1)
+  })
+
+  it('multi-select: falls back to topmost-wins when no selected element is under the point', () => {
+    const stacked = [
+      { index: 0, bounds: { x: 10, y: 10, width: 30, height: 30 } },
+      { index: 1, bounds: { x: 200, y: 200, width: 30, height: 30 } },
+      { index: 2, bounds: { x: 0, y: 0, width: 400, height: 300 } },
+    ]
+    // Selected indices [0, 1] are not under this point; topmost wins (index 2).
+    expect(findSelectionPriorityHit(stacked, { x: 300, y: 250 }, [0, 1])?.index).toBe(2)
   })
 })
 

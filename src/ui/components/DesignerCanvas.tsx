@@ -42,7 +42,7 @@ import {
   loadOpentypeFontMapWithOutcomes,
 } from '../lib/load-opentype-fonts'
 import { StatusBanner } from './StatusBanner'
-import { findTopmostElementHit } from '../lib/canvas-hit-test'
+import { findSelectionPriorityHit } from '../lib/canvas-hit-test'
 import {
   HANDLE_VISUAL_SIZE,
   handlePosition,
@@ -657,14 +657,14 @@ export function DesignerCanvas({
           if (handle && !shouldPreferMoveOverResize(point, selectionBounds, handle, lineCoords)) {
             cursor = resizeHandleCursor(handle)
           } else if (isElementDraggable(selectedEditElement)) {
-            const hit = findTopmostElementHit(hitTargets, point)
+            const hit = findSelectionPriorityHit(hitTargets, point, selectedIndices)
             const hitElement = hit ? editElements[hit.index] : undefined
             if (hitElement && isElementDraggable(hitElement)) {
               cursor = 'grab'
             }
           }
         } else {
-          const hit = findTopmostElementHit(hitTargets, point)
+          const hit = findSelectionPriorityHit(hitTargets, point, selectedIndices)
           const hitElement = hit ? editElements[hit.index] : undefined
           if (hitElement && isElementDraggable(hitElement)) {
             cursor = 'grab'
@@ -836,6 +836,7 @@ export function DesignerCanvas({
       renderContext.width,
       selectedEditElement,
       selectedIndex,
+      selectedIndices,
       selectionBounds,
       snapGrid,
       updateBulkMoveVisual,
@@ -903,7 +904,14 @@ export function DesignerCanvas({
 
       const onPaper = paperPoint != null
       const interactionPoint = paperPoint ?? canvasPoint
-      const topHit = onPaper ? findTopmostElementHit(hitTargets, interactionPoint) : null
+      // Selection-priority hit-testing (issue #36): a selected element under
+      // the point wins over plain topmost-wins stacking order, so a buried
+      // selected element (e.g. under a full-canvas background/debug grid)
+      // stays draggable. Falls back to findTopmostElementHit otherwise, so
+      // unselected-canvas behavior is unchanged.
+      const topHit = onPaper
+        ? findSelectionPriorityHit(hitTargets, interactionPoint, selectedIndices)
+        : null
       const additive = event.shiftKey
       const forceMarquee = event.altKey
 
