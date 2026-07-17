@@ -86,12 +86,25 @@ function restoreScrollPosition(
   requestAnimationFrame(apply)
 }
 
+export interface DispatchPreservingEditorViewStateOptions {
+  /**
+   * Set when `spec` carries its own intentional scroll target (e.g. a
+   * `scrollLinkedElementIntoView` effect for a fresh canvas selection).
+   * An intentional scroll always wins over restoring the pre-dispatch
+   * scrollTop — otherwise the restore fires synchronously (and again next
+   * rAF) and clobbers the scroll-into-view effect dispatched in the same
+   * transaction.
+   */
+  skipScrollRestore?: boolean
+}
+
 /** Keep YAML scroll and selection when syncing canvas edits without linked scroll. */
 export function dispatchPreservingEditorViewState(
   view: EditorViewType,
   spec: Parameters<EditorViewType['dispatch']>[0],
   selectionStore?: { current: StoredEditorSelection },
   scrollStore?: { current: number },
+  options?: DispatchPreservingEditorViewStateOptions,
 ): void {
   const scrollTop = scrollStore?.current ?? view.scrollDOM.scrollTop
   const scrollLeft = view.scrollDOM.scrollLeft
@@ -115,7 +128,9 @@ export function dispatchPreservingEditorViewState(
   }
 
   view.dispatch(merged)
-  restoreScrollPosition(view, scrollTop, scrollLeft)
+  if (!options?.skipScrollRestore) {
+    restoreScrollPosition(view, scrollTop, scrollLeft)
+  }
 }
 
 export function scrollLinkedElementIntoView(position: number) {

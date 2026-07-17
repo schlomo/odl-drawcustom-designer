@@ -12,6 +12,7 @@ import {
 } from '../editor/yamlElementsSync'
 import {
   shouldDeferYamlExternalSync,
+  shouldScrollLinkedElementOnSync,
   yamlTextForExternalSync,
 } from '../editor/yamlExternalSync'
 import { getYamlStatusMessages } from '../lib/yaml-status-messages'
@@ -81,6 +82,13 @@ export function YamlPanel({
 }: YamlPanelProps) {
   const serialized = useMemo(() => serializeYamlPayload(elements), [elements])
   const [yamlText, setYamlText] = useState(serialized)
+  // Whether the *current* yamlText was pushed in while a canvas-driven scroll
+  // to the linked element was intended. Decided once, alongside setYamlText,
+  // in the same external-sync effect run — not re-derived later from live
+  // `canvasDragging`/`selectionSource`, which can already have reverted (e.g.
+  // pointerup ending the drag) by the time YamlEditor's doc-sync effect
+  // actually observes the new text.
+  const [scrollLinkedElementOnSync, setScrollLinkedElementOnSync] = useState(false)
   const skipExternalSyncRef = useRef(false)
   const yamlSelectionRef = useRef({ anchor: 0, head: 0 })
   const yamlScrollRef = useRef(0)
@@ -117,8 +125,19 @@ export function YamlPanel({
 
     if (shouldApplyExternalYamlSync(skipExternalSyncRef.current)) {
       setYamlText(yamlTextForExternalSync(serialized))
+      // canvasDragging is the live signal that *this* sync originates from a
+      // canvas interaction (drag-session start/move) — capture it now, since
+      // it can revert to false (drag end) before YamlEditor's doc-sync effect
+      // reacts to the new text a render or two later.
+      setScrollLinkedElementOnSync(
+        shouldScrollLinkedElementOnSync({ couplingEnabled, canvasDragging, selectionSource }),
+      )
     }
     skipExternalSyncRef.current = false
+    // selectionSource is read but deliberately not a dep: it only matters at
+    // the moment of an actual text push (already triggered by the deps
+    // below), not as its own trigger for extra runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasDragging, couplingEnabled, propertyEditing, serialized])
 
   const elementsRef = useRef(elements)
@@ -301,7 +320,7 @@ export function YamlPanel({
           templatePreviewEnabled={templatePreviewEnabled}
           scrollCommand={scrollCommand}
           preserveLinkedElementIndex={couplingEnabled ? selectedIndex : null}
-          scrollLinkedElementOnSync={couplingEnabled && selectionSource !== 'yaml'}
+          scrollLinkedElementOnSync={scrollLinkedElementOnSync}
           yamlSelectionRef={yamlSelectionRef}
           yamlScrollRef={yamlScrollRef}
           onCursorPositionChange={handleCursorPosition}
