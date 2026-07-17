@@ -1056,6 +1056,16 @@ export function DesignerCanvas({
       const step = event.shiftKey ? 10 : snapGrid.enabled ? snapGrid.size : 1
 
       switch (event.key) {
+        // Escape hatch for selection-priority hit-testing (#36): with a
+        // full-canvas element (e.g. the demo's debug_grid) there is no empty
+        // canvas spot to click for deselection. Runs after the empty-selection
+        // early return, so Escape without a selection stays untouched, and
+        // shouldHandleCanvasKeyboard already yields to CodeMirror and form
+        // fields.
+        case 'Escape':
+          event.preventDefault()
+          onSelectElement(null)
+          break
         case 'Delete':
         case 'Backspace':
           event.preventDefault()
@@ -1088,6 +1098,7 @@ export function DesignerCanvas({
     onDeleteSelected,
     onNudgeSelected,
     onRedo,
+    onSelectElement,
     onUndo,
     selectedIndices,
     snapGrid.enabled,

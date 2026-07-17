@@ -120,3 +120,39 @@ test('hover cursor shows the drag affordance for a selected element buried under
   await hoverCanvasPoint(page, { x: 250, y: 150 }, PRIORITY_CANVAS)
   await expect(viewport).toHaveCSS('cursor', 'default')
 })
+
+test('Escape clears the selection and releases selection-priority routing', async ({ page }) => {
+  // With a full-canvas occluder (the demo's debug_grid) there is no empty
+  // canvas spot to click for deselection, and selection priority keeps
+  // routing clicks within the selected element's bounds to it — Escape is
+  // the escape hatch (maintainer request on PR #40).
+  await page.goto(debugGridPrioritySharePath())
+  await expect(page.getByTestId('element-list-row')).toHaveCount(2)
+
+  const selectedRow = page.getByTestId('element-list-row').and(page.locator('[aria-pressed="true"]'))
+  const circleCenter = { x: BURIED_CIRCLE.x, y: BURIED_CIRCLE.y }
+
+  await elementListRow(page, BURIED_CIRCLE.typeLabel).click()
+  await expect(selectedRow).toHaveCount(1)
+
+  // Scope control: Escape while the YAML editor has focus belongs to
+  // CodeMirror, not the canvas — selection must survive. Click inside the
+  // circle's own YAML block so the linked-mode cursor sync keeps the circle
+  // selected.
+  await page.locator('.cm-line', { hasText: 'radius' }).click()
+  await expect(selectedRow).toContainText(BURIED_CIRCLE.typeLabel)
+  await page.keyboard.press('Escape')
+  await expect(selectedRow).toHaveCount(1)
+  await expect(selectedRow).toContainText(BURIED_CIRCLE.typeLabel)
+
+  // Escape from canvas/app scope clears the selection.
+  await page.getByTestId('canvas-viewport').focus()
+  await page.keyboard.press('Escape')
+  await expect(selectedRow).toHaveCount(0)
+  await expect(page.getByText('Select an element from the list or canvas.')).toBeVisible()
+
+  // Priority routing released: the same click point now selects the
+  // topmost occluder (the grid), not the previously selected circle.
+  await clickCanvasPoint(page, circleCenter, PRIORITY_CANVAS)
+  await expect(page.getByTestId('property-panel-selection')).toContainText('debug_grid')
+})
