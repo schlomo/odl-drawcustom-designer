@@ -107,6 +107,21 @@ Autocomplete and lint tooltips disappeared on the **first YAML list item** while
 
 **Tests:** `tests/core/yaml/resolve-cursor-selection.test.ts` (structural mismatch defers; pending-parse reconciliation flushes and trusts the index; comment-gap positions defer; matching counts short-circuit without flushing).
 
+### Blocked visual editing while the YAML doc is broken (issue #35)
+
+**Failure mode (fixed 2026-07, issue #35):** while the live editor document was broken (e.g. a deleted `:`), `elements` stayed frozen at its last-valid state (atomic Zod gate), but the external-sync effect in `YamlPanel.tsx` re-ran on *any* dependency change (`canvasDragging`, `propertyEditing`, `couplingEnabled`, `serialized`) and unconditionally rewrote the editor with the stale serialization. A canvas pointerdown (toggles `canvasDragging`) or a property-field focus/blur (toggles `propertyEditing`) silently replaced the user's in-progress edit with the last-valid YAML — data loss.
+
+**Maintainer ruling (2026-07-17):** rather than only guarding the overwrite, **visual editing is visibly blocked while the YAML is broken.** The YAML editor stays fully active (it is the only surface that can fix the document); the canvas and property panel show a clear blocked state and accept no interactions until the document parses again. This also settles the reconciliation policy: canvas edits can never race a broken doc, so nobody's edit has to lose.
+
+Contract:
+
+- **Derived signal:** `yamlBlocked` = the live editor doc currently fails `tryParseYamlElements` (`isYamlDocBlocked` in `yamlElementsSync.ts`) — parse errors *and* schema validation failures both freeze `elements`, so both block. Derived in `YamlPanel` from the live `yamlText` and bubbled to `App` via `onYamlBlockedChange`.
+- **Interaction blocking is immediate:** while `yamlBlocked`, `DesignerCanvas` ignores pointer-down and canvas keyboard shortcuts (`blocked` prop), and the property panel's controls are disabled (`<fieldset disabled>`).
+- **The visual blocked state is debounced:** the overlay appears only after `yamlBlocked` has held for `YAML_BLOCKED_GRACE_MS` (400 ms, `useYamlBlockedVisibility.ts`) so normal typing through transient-invalid states doesn't flicker it; it clears immediately when the doc parses again. Canvas shows a dimmed overlay with "YAML has errors — fix to continue editing visually"; the property panel shows the same message.
+- **Belt and braces:** the external-sync effect in `YamlPanel.tsx` additionally skips while `yamlBlocked` — even if some interaction slips through, no dependency toggle can rewrite the editor with the stale serialization while the doc is broken.
+
+**Tests:** `tests/ui/components/yaml-panel-blocked-sync.test.tsx` (real `EditorView` mount: dep toggles never rewrite a broken doc; blocked-state bubbling), `tests/ui/hooks/use-yaml-blocked-visibility.test.ts` (grace-period timing, fake timers), `isYamlDocBlocked` cases in `tests/ui/editor/yaml-elements-sync.test.ts`, and the e2e flow `tests/e2e/yaml-blocked-state.spec.ts` (break YAML → overlays appear, canvas clicks inert, edit not reverted → fix YAML → editing resumes).
+
 ### Selection stability when the element list changes (layer reorder)
 
 Layer buttons (Front / Back / ↑ / ↓), drag-reorder in the layer list, and YAML block moves all change **array index** without changing element identity. Linked mode must keep the **same element** selected for the property panel, canvas handles, and YAML cursor.

@@ -140,6 +140,10 @@ interface DesignerCanvasProps {
   canRedo?: boolean
   onUndo?: () => void
   onRedo?: () => void
+  /** True while the live YAML doc fails to parse/validate (issue #35) — ignore pointer/keyboard interactions. */
+  blocked?: boolean
+  /** True once {@link blocked} has held past the visual grace period — show the blocked overlay. */
+  blockedVisible?: boolean
 }
 
 interface DragOverlay {
@@ -223,6 +227,8 @@ export function DesignerCanvas({
   canRedo = false,
   onUndo,
   onRedo,
+  blocked = false,
+  blockedVisible = false,
 }: DesignerCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const dragSessionRef = useRef<DragSession | null>(null)
@@ -897,6 +903,10 @@ export function DesignerCanvas({
 
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
+      if (blocked) {
+        return
+      }
+
       const paperPoint = mapClientToCanvas(event.clientX, event.clientY, false)
       const canvasPoint = paperPoint ?? mapClientToCanvas(event.clientX, event.clientY, true)
       if (!canvasPoint) {
@@ -1010,6 +1020,7 @@ export function DesignerCanvas({
     [
       beginDragSession,
       beginMarqueeSession,
+      blocked,
       buildMoveStarts,
       hitTargets,
       isMultiSelect,
@@ -1045,6 +1056,10 @@ export function DesignerCanvas({
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!shouldHandleCanvasKeyboard(event)) {
+        return
+      }
+
+      if (blocked) {
         return
       }
 
@@ -1105,6 +1120,7 @@ export function DesignerCanvas({
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [
+    blocked,
     onDeleteSelected,
     onNudgeSelected,
     onRedo,
@@ -1266,6 +1282,20 @@ export function DesignerCanvas({
             aria-hidden
           >
             {formatCanvasPointerCoords(pointer, renderContext.width, renderContext.height)}
+          </div>
+        ) : null}
+        {blockedVisible ? (
+          <div
+            data-testid="canvas-blocked-overlay"
+            role="status"
+            aria-live="polite"
+            className={`pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-[var(--shell-bg)]/70 p-4 text-center backdrop-blur-[1px]`}
+          >
+            <p
+              className={`rounded-md border ${shell.panelBorder} ${shell.panel} px-3 py-1.5 text-sm ${shell.muted}`}
+            >
+              YAML has errors — fix to continue editing visually
+            </p>
           </div>
         ) : null}
         <div

@@ -25,6 +25,25 @@ interface PropertyPanelProps {
   onSendToBack: () => void
   onMoveUp: () => void
   onMoveDown: () => void
+  /** True while the live YAML doc fails to parse/validate (issue #35) — disable all property controls. */
+  blocked?: boolean
+  /** True once {@link blocked} has held past the visual grace period — show the blocked overlay. */
+  blockedVisible?: boolean
+}
+
+const BLOCKED_MESSAGE = 'YAML has errors — fix to continue editing visually'
+
+function PropertyPanelBlockedOverlay() {
+  return (
+    <div
+      data-testid="property-panel-blocked-overlay"
+      role="status"
+      aria-live="polite"
+      className={`pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[var(--shell-bg)]/80 p-4 text-center`}
+    >
+      <p className={`text-sm ${shell.muted}`}>{BLOCKED_MESSAGE}</p>
+    </div>
+  )
 }
 
 export function PropertyPanel({
@@ -42,6 +61,8 @@ export function PropertyPanel({
   onSendToBack,
   onMoveUp,
   onMoveDown,
+  blocked = false,
+  blockedVisible = false,
 }: PropertyPanelProps) {
   const { width, startResize } = useResizablePanelWidth({
     storageKey: PROPERTY_PANEL_WIDTH_STORAGE_KEY,
@@ -85,51 +106,54 @@ export function PropertyPanel({
       className={`relative flex shrink-0 flex-col border-l ${shell.panelBorder} ${shell.panel}`}
     >
       {resizeHandle}
-      <div className={`border-b ${shell.panelBorder} px-4 py-3 pl-5`}>
-        <h2 className={shell.heading}>Properties</h2>
-        {isMulti ? (
-          <p data-testid="property-panel-selection" className="mt-1 text-sm text-[var(--shell-text)]">
-            {elements.length} elements selected
-          </p>
-        ) : (
-          <p data-testid="property-panel-selection" className="mt-1 text-sm text-[var(--shell-text)]">
-            #{primaryIndex + 1} ·{' '}
-            <span className="font-mono text-[var(--shell-accent)]">{primaryElement.type}</span>
-          </p>
-        )}
-        <LayerActionBar
-          canMoveUp={canMoveUp}
-          canMoveDown={canMoveDown}
-          onBringToFront={onBringToFront}
-          onSendToBack={onSendToBack}
-          onMoveUp={onMoveUp}
-          onMoveDown={onMoveDown}
-          onDelete={onDelete}
-        />
-      </div>
-      <div className="flex-1 overflow-y-auto p-4 pl-5">
-        {isMulti ? (
-          <SharedPropertyForm
-            elements={elements}
-            fontKeys={fontKeys}
-            onPropertyChange={onPropertyChange}
-            onUploadFont={onUploadFont}
-            onUploadImageForUrl={onUploadImageForUrl}
-            onBeginEdit={onBeginPropertyEdit}
-            onEndEdit={onEndPropertyEdit}
+      <fieldset disabled={blocked} className="contents border-0 p-0 m-0">
+        <div className={`border-b ${shell.panelBorder} px-4 py-3 pl-5`}>
+          <h2 className={shell.heading}>Properties</h2>
+          {isMulti ? (
+            <p data-testid="property-panel-selection" className="mt-1 text-sm text-[var(--shell-text)]">
+              {elements.length} elements selected
+            </p>
+          ) : (
+            <p data-testid="property-panel-selection" className="mt-1 text-sm text-[var(--shell-text)]">
+              #{primaryIndex + 1} ·{' '}
+              <span className="font-mono text-[var(--shell-accent)]">{primaryElement.type}</span>
+            </p>
+          )}
+          <LayerActionBar
+            canMoveUp={canMoveUp}
+            canMoveDown={canMoveDown}
+            onBringToFront={onBringToFront}
+            onSendToBack={onSendToBack}
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            onDelete={onDelete}
           />
-        ) : (
-          <ElementPropertyForm
-            element={primaryElement}
-            fontKeys={fontKeys}
-            onPropertyChange={onPropertyChange}
-            onUploadFont={onUploadFont}
-            onUploadImageForUrl={onUploadImageForUrl}
-            onBeginEdit={onBeginPropertyEdit}
-            onEndEdit={onEndPropertyEdit}
-          />
-        )}
-      </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 pl-5">
+          {isMulti ? (
+            <SharedPropertyForm
+              elements={elements}
+              fontKeys={fontKeys}
+              onPropertyChange={onPropertyChange}
+              onUploadFont={onUploadFont}
+              onUploadImageForUrl={onUploadImageForUrl}
+              onBeginEdit={onBeginPropertyEdit}
+              onEndEdit={onEndPropertyEdit}
+            />
+          ) : (
+            <ElementPropertyForm
+              element={primaryElement}
+              fontKeys={fontKeys}
+              onPropertyChange={onPropertyChange}
+              onUploadFont={onUploadFont}
+              onUploadImageForUrl={onUploadImageForUrl}
+              onBeginEdit={onBeginPropertyEdit}
+              onEndEdit={onEndPropertyEdit}
+            />
+          )}
+        </div>
+      </fieldset>
+      {blockedVisible ? <PropertyPanelBlockedOverlay /> : null}
     </aside>
   )
 }
