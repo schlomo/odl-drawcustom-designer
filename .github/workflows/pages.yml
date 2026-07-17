@@ -78,6 +78,15 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
+    # Serialize ALL pushes to gh-pages (shared with `preview`): when two
+    # deploys land on gh-pages within seconds, GitHub's legacy Pages build of
+    # the first commit gets superseded mid-build and reports "Page build
+    # failed", failing wait-for-pages-deployment even though the preview is
+    # live. Queuing (cancel-in-progress: false) instead of cancelling means
+    # no deploy is ever lost.
+    concurrency:
+      group: gh-pages-push
+      cancel-in-progress: false
     permissions:
       contents: write
     env:
@@ -118,6 +127,15 @@ jobs:
       github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    # See `production`: same gh-pages-push group so preview deploys from
+    # different PRs (and production deploys) queue instead of racing —
+    # rapid back-to-back gh-pages pushes make the legacy Pages build of the
+    # superseded commit error out. The workflow-level concurrency above
+    # still handles per-PR run superseding; this only serializes the
+    # actual gh-pages pushes across different PRs.
+    concurrency:
+      group: gh-pages-push
+      cancel-in-progress: false
     permissions:
       contents: write
       pull-requests: write
