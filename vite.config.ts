@@ -43,7 +43,12 @@ function gitBranch(): string {
 }
 
 function gitPrNumber(): number {
-  return resolveGitPrNumber({ githubRefName: process.env.GITHUB_REF_NAME }) ?? 0
+  return (
+    resolveGitPrNumber({
+      vitest: isVitest,
+      githubRefName: process.env.GITHUB_REF_NAME,
+    }) ?? 0
+  )
 }
 
 export default defineConfig({

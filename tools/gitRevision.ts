@@ -61,11 +61,19 @@ export function resolveGitBranch(source: GitBranchSource = {}): string {
   return 'dev'
 }
 
+export interface GitPrNumberSource {
+  vitest?: boolean
+  githubRefName?: string
+}
+
 /**
  * Extract the pull-request number from a GitHub merge ref (e.g. `"11/merge"` → `11`).
- * Returns `undefined` when the ref is not a PR merge ref.
+ * Returns `undefined` when the ref is not a PR merge ref, or when running under Vitest.
  */
-export function resolveGitPrNumber(source: { githubRefName?: string } = {}): number | undefined {
+export function resolveGitPrNumber(source: GitPrNumberSource = {}): number | undefined {
+  if (source.vitest) {
+    return undefined
+  }
   const match = /^(\d+)\/merge$/.exec(source.githubRefName?.trim() ?? '')
   return match ? Number(match[1]) : undefined
 }

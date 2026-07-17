@@ -68,6 +68,10 @@ describe('resolveGitBranch', () => {
 })
 
 describe('resolveGitPrNumber', () => {
+  it('returns undefined under Vitest even for a merge ref', () => {
+    expect(resolveGitPrNumber({ vitest: true, githubRefName: '11/merge' })).toBeUndefined()
+  })
+
   it('extracts the PR number from a merge ref', () => {
     expect(resolveGitPrNumber({ githubRefName: '11/merge' })).toBe(11)
     expect(resolveGitPrNumber({ githubRefName: '1/merge' })).toBe(1)
