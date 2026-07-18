@@ -700,6 +700,66 @@ describe('findSelectionPriorityHit', () => {
     expect(priority?.index).toBe(0)
     expect(isElementDraggable(elements[priority!.index]!)).toBe(true)
   })
+
+  // Issue #45 maintainer ruling: priority applies only when the selected
+  // element is (1) draggable AND (3) occluded at the click point by a
+  // topmost candidate whose bounds area is >= its own — priority digs DOWN
+  // to buried elements, never UP. A selected full-canvas element (e.g.
+  // debug_grid) must not lock out clicks on smaller elements painted on top
+  // of it.
+  const alwaysDraggable = () => true
+
+  it('lockout fixed: a selected full-canvas element does not capture a click on a smaller element on top', () => {
+    const fullCanvasSelected = { index: 0, bounds: { x: 0, y: 0, width: 400, height: 300 } }
+    const smallOnTop = { index: 1, bounds: { x: 100, y: 100, width: 20, height: 20 } }
+    const targets = [fullCanvasSelected, smallOnTop]
+    const point = { x: 105, y: 105 }
+
+    // Sanity: the small element is indeed on top per plain topmost-wins.
+    expect(findTopmostElementHit(targets, point)?.index).toBe(1)
+
+    expect(findSelectionPriorityHit(targets, point, [0], alwaysDraggable)?.index).toBe(1)
+  })
+
+  it('#36 regression intact: a selected small element buried under a full-canvas occluder still wins priority', () => {
+    const buriedSelected = { index: 0, bounds: { x: 20, y: 20, width: 40, height: 40 } }
+    const occluder = { index: 1, bounds: { x: 0, y: 0, width: 400, height: 300 } }
+    const targets = [buriedSelected, occluder]
+    const point = { x: 30, y: 30 }
+
+    expect(findSelectionPriorityHit(targets, point, [0], alwaysDraggable)?.index).toBe(0)
+  })
+
+  it('same-size duplicates: priority still digs down when the occluder matches the selected element size exactly', () => {
+    const buriedSelected = { index: 0, bounds: { x: 20, y: 20, width: 40, height: 40 } }
+    const identicalOccluder = { index: 1, bounds: { x: 20, y: 20, width: 40, height: 40 } }
+    const targets = [buriedSelected, identicalOccluder]
+    const point = { x: 30, y: 30 }
+
+    expect(findSelectionPriorityHit(targets, point, [0], alwaysDraggable)?.index).toBe(0)
+  })
+
+  it('rule 1: a non-draggable selected element never captures the click via priority', () => {
+    const buriedSelected = { index: 0, bounds: { x: 20, y: 20, width: 40, height: 40 } }
+    const occluder = { index: 1, bounds: { x: 0, y: 0, width: 400, height: 300 } }
+    const targets = [buriedSelected, occluder]
+    const point = { x: 30, y: 30 }
+    const nonDraggable = () => false
+
+    // Even though the occluder is >= the selected element's size (rule 3
+    // would allow digging down), rule 1 blocks priority outright.
+    expect(findSelectionPriorityHit(targets, point, [0], nonDraggable)?.index).toBe(1)
+  })
+
+  it('trivial case: the selected element is itself topmost at the point', () => {
+    const selected = { index: 0, bounds: { x: 20, y: 20, width: 40, height: 40 } }
+    const other = { index: 1, bounds: { x: 200, y: 150, width: 40, height: 40 } }
+    const targets = [selected, other]
+    const point = { x: 30, y: 30 }
+
+    expect(findTopmostElementHit(targets, point)?.index).toBe(0)
+    expect(findSelectionPriorityHit(targets, point, [0], alwaysDraggable)?.index).toBe(0)
+  })
 })
 
 describe('snapMoveDelta', () => {

@@ -6,6 +6,7 @@ import {
   DEBUG_GRID_TYPE_LABEL,
   OCCLUDER_RECT,
   PRIORITY_CANVAS,
+  debugGridLockoutSharePath,
   debugGridPrioritySharePath,
   selectionPrioritySharePath,
 } from './fixtures/selection-priority-payload'
@@ -155,4 +156,30 @@ test('Escape clears the selection and releases selection-priority routing', asyn
   // topmost occluder (the grid), not the previously selected circle.
   await clickCanvasPoint(page, circleCenter, PRIORITY_CANVAS)
   await expect(page.getByTestId('property-panel-selection')).toContainText('debug_grid')
+})
+
+test('issue #45: a selected full-canvas debug_grid does not lock out clicks on a smaller element on top', async ({
+  page,
+}) => {
+  // Maintainer's exact lockout repro: unlike the debugGridPrioritySharePath
+  // fixture above (grid painted last, as an occluder over a buried circle),
+  // here the grid is element 0 — buried, matching the showcase demo where
+  // it's the default selection — and the circle is painted on top of it.
+  // Before the #45 fix, selecting the grid claimed every pointer-down since
+  // its full-canvas bounds always contained the click point, so no other
+  // element could ever be selected from the canvas.
+  await page.goto(debugGridLockoutSharePath())
+  await expect(page.getByTestId('element-list-row')).toHaveCount(2)
+
+  await elementListRow(page, DEBUG_GRID_TYPE_LABEL).click()
+  await expect(page.getByTestId('property-panel-selection')).toContainText('debug_grid')
+
+  const circleCenter = { x: BURIED_CIRCLE.x, y: BURIED_CIRCLE.y }
+  await clickCanvasPoint(page, circleCenter, PRIORITY_CANVAS)
+  await expect(page.getByTestId('property-panel-selection')).toContainText(
+    BURIED_CIRCLE.typeLabel,
+  )
+  const selectedRow = page.getByTestId('element-list-row').and(page.locator('[aria-pressed="true"]'))
+  await expect(selectedRow).toHaveCount(1)
+  await expect(selectedRow).toContainText(BURIED_CIRCLE.typeLabel)
 })
