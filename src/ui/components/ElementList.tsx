@@ -1,10 +1,19 @@
-import { useCallback, useMemo, useRef, useState, type DragEvent, type MouseEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type MouseEvent,
+} from 'react'
 import type { DrawElement, TagColorMode } from '../../core'
 import { layerPanelDisplayOrder } from '../lib/draw-order'
 import {
   elementListDragIndices,
   normalizeElementListDropIndex,
 } from '../lib/element-list-drag'
+import { primaryElementListIndex, shouldScrollListRow } from '../lib/element-list-scroll'
 import { elementHasColorClampLoss } from '../lib/color-clamp-status-messages'
 import { elementListRowMeta } from '../lib/element-list-row'
 import { statusRowClassName } from '../lib/status-styles'
@@ -44,6 +53,39 @@ export function ElementList({
   const [dropIndex, setDropIndex] = useState<number | null>(null)
   const [movingIndices, setMovingIndices] = useState<number[]>([])
   const didDragRef = useRef(false)
+  const rowRefs = useRef(new Map<number, HTMLButtonElement>())
+
+  const setRowRef = useCallback((index: number, node: HTMLButtonElement | null) => {
+    if (node) {
+      rowRefs.current.set(index, node)
+    } else {
+      rowRefs.current.delete(index)
+    }
+  }, [])
+
+  const primarySelectedIndex = primaryElementListIndex(selectedIndices)
+
+  // Scroll the selected row into view on a selection change (canvas click,
+  // YAML cursor move, keyboard nav — anything that changes `selectedIndices`
+  // upstream). `block: 'nearest'` makes an already-visible row a zero-
+  // movement no-op. Selection highlighting already ignores the YAML
+  // coupling toggle (rows highlight from `selectedIndices` unconditionally),
+  // so this mirrors that: it is not gated on `useYamlSelectionCoupling`.
+  useEffect(() => {
+    if (!shouldScrollListRow(primarySelectedIndex, dragIndex)) {
+      return
+    }
+    const row = rowRefs.current.get(primarySelectedIndex!)
+    if (typeof row?.scrollIntoView === 'function') {
+      row.scrollIntoView({ block: 'nearest' })
+    }
+    // dragIndex is deliberately not a dep: only an actual selection change
+    // should trigger a scroll attempt; a drag starting or ending must not
+    // itself re-fire this effect — it only gates whether an already-
+    // triggered selection change is honored (mirrors the YAML-pane scroll
+    // wiring's use of refs for signals that must not retrigger the effect).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primarySelectedIndex])
 
   const handleDragStart = useCallback(
     (event: DragEvent<HTMLButtonElement>, index: number) => {
@@ -128,6 +170,7 @@ export function ElementList({
           >
             <button
               type="button"
+              ref={(node) => setRowRef(index, node)}
               draggable={!blocked}
               aria-pressed={selected}
               data-testid="element-list-row"
