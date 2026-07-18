@@ -187,6 +187,12 @@ jobs:
         env:
           VITE_BASE_PATH: >-
             /${{ github.event.repository.name }}/pr-preview/pr-${{ github.event.number }}/
+          # GITHUB_SHA on pull_request events is the synthetic merge commit,
+          # which exists on no branch and has confused reviewers (looks like
+          # a lost/orphaned commit). tools/gitRevision.ts prefers this real
+          # PR head SHA for the header label; the merge SHA stays available
+          # in the tooltip.
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           npm ci
           npm run build

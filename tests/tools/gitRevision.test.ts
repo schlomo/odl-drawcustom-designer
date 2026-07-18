@@ -29,6 +29,39 @@ describe('resolveGitRevision', () => {
   it('returns dev when no revision source is available', () => {
     expect(resolveGitRevision({})).toBe('dev')
   })
+
+  it('prefers GITHUB_HEAD_SHA over GITHUB_SHA on PR builds', () => {
+    expect(
+      resolveGitRevision({
+        githubHeadSha: 'aaaaaaa1111111111111111111111111111111',
+        githubSha: 'bbbbbbb2222222222222222222222222222222',
+      }),
+    ).toBe('aaaaaaa')
+  })
+
+  it('falls back to GITHUB_SHA when GITHUB_HEAD_SHA is absent (non-PR build unchanged)', () => {
+    expect(resolveGitRevision({ githubSha: 'bbbbbbb2222222222222222222222222222222' })).toBe(
+      'bbbbbbb',
+    )
+  })
+
+  it('ignores a blank GITHUB_HEAD_SHA and falls back to GITHUB_SHA', () => {
+    expect(
+      resolveGitRevision({
+        githubHeadSha: '   ',
+        githubSha: 'bbbbbbb2222222222222222222222222222222',
+      }),
+    ).toBe('bbbbbbb')
+  })
+
+  it('remains vitest-hermetic even when GITHUB_HEAD_SHA is set', () => {
+    expect(
+      resolveGitRevision({
+        vitest: true,
+        githubHeadSha: 'aaaaaaa1111111111111111111111111111111',
+      }),
+    ).toBe('test')
+  })
 })
 
 describe('resolveGitBranch', () => {

@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   APP_GIT_BRANCH,
+  APP_GIT_MERGE_REVISION,
   APP_GIT_PR_NUMBER,
   APP_GIT_REVISION,
   APP_HEADER_LEGAL_HTML,
   formatGitBranchLabel,
   formatGitRevisionLabel,
+  formatRevisionTooltip,
   githubBranchUrl,
   githubCommitUrl,
 } from '../../src/core/buildInfo'
@@ -19,6 +21,12 @@ describe('APP_GIT_REVISION', () => {
 describe('APP_GIT_BRANCH', () => {
   it('is injected by Vitest as test', () => {
     expect(APP_GIT_BRANCH).toBe('test')
+  })
+})
+
+describe('APP_GIT_MERGE_REVISION', () => {
+  it('is injected by Vitest as test (vitest-hermetic)', () => {
+    expect(APP_GIT_MERGE_REVISION).toBe('test')
   })
 })
 
@@ -59,6 +67,23 @@ describe('formatGitRevisionLabel', () => {
     expect(formatGitRevisionLabel('abc1234')).toBe('abc1234')
     expect(formatGitRevisionLabel('dev')).toBe('dev')
     expect(formatGitRevisionLabel('test')).toBe('test')
+  })
+})
+
+describe('formatRevisionTooltip', () => {
+  it('shows only the revision when the merge SHA matches it', () => {
+    expect(formatRevisionTooltip('abc1234', 'abc1234')).toBe('Revision: abc1234')
+  })
+
+  it('shows only the revision when the merge SHA is a dev/test label', () => {
+    expect(formatRevisionTooltip('abc1234', 'dev')).toBe('Revision: abc1234')
+    expect(formatRevisionTooltip('abc1234', 'test')).toBe('Revision: abc1234')
+  })
+
+  it('appends the merge SHA when it differs from the shown (PR head) revision', () => {
+    expect(
+      formatRevisionTooltip('feedbee', '895142a1b2c3d4e5f678901234567890abcd'),
+    ).toBe('Revision: feedbee · built from merge 895142a')
   })
 })
 

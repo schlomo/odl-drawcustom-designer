@@ -27,8 +27,22 @@ function gitRevision(): string {
   return resolveGitRevision({
     vitest: isVitest,
     viteGitRevision: process.env.VITE_GIT_REVISION,
+    githubHeadSha: process.env.GITHUB_HEAD_SHA,
     githubSha: process.env.GITHUB_SHA,
     gitShortHead: readGitShortHead(),
+  })
+}
+
+/**
+ * The merge-ref SHA (GITHUB_SHA on PR builds), independent of the PR head
+ * preference in `gitRevision()`. Baked separately so the header tooltip can
+ * still show it for build honesty even though it's no longer the primary
+ * revision label.
+ */
+function gitMergeRevision(): string {
+  return resolveGitRevision({
+    vitest: isVitest,
+    githubSha: process.env.GITHUB_SHA,
   })
 }
 
@@ -57,6 +71,7 @@ export default defineConfig({
   define: {
     'import.meta.env.VITE_GIT_BRANCH': JSON.stringify(gitBranch()),
     'import.meta.env.VITE_GIT_REVISION': JSON.stringify(gitRevision()),
+    'import.meta.env.VITE_GIT_MERGE_REVISION': JSON.stringify(gitMergeRevision()),
     'import.meta.env.VITE_GIT_PR_NUMBER': JSON.stringify(String(gitPrNumber())),
   },
   build: {
