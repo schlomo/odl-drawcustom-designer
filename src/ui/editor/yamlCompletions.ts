@@ -268,7 +268,12 @@ function toCodemirrorCompletion(
       const charBefore = from > 0 ? view.state.doc.sliceString(from - 1, from) : ''
       const existingBlock = getListItemBlockAtPosition(view.state.doc.toString(), from)
       const insertion = formatElementTypeApplyText(elementType, charBefore, existingBlock)
-      view.dispatch({ changes: { from, to, insert: insertion } })
+      // `userEvent` is required: the editor's update listener
+      // (shouldReportYamlDocChange) only reports annotated transactions to
+      // React, so an unannotated completion apply would leave yamlText —
+      // and everything derived from it (elements sync, lint banner, the
+      // #35 blocked state) — frozen at the pre-completion document.
+      view.dispatch({ changes: { from, to, insert: insertion }, userEvent: 'input.complete' })
     }
   }
 
