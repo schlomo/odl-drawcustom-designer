@@ -65,7 +65,7 @@
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "~6.0.2",
+    "typescript": "~7.0.2",
     "typescript-eslint": "^8.60.1",
     "vite": "^8.1.5",
     "vitest": "^4.1.8"
