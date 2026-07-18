@@ -1,6 +1,8 @@
 export interface GitRevisionSource {
   vitest?: boolean
   viteGitRevision?: string
+  /** GITHUB_HEAD_SHA — the PR head commit SHA, wired only for pull_request builds. */
+  githubHeadSha?: string
   githubSha?: string
   gitShortHead?: string
 }
@@ -22,6 +24,15 @@ export function resolveGitRevision(source: GitRevisionSource = {}): string {
   const fromEnv = source.viteGitRevision?.trim()
   if (fromEnv) {
     return fromEnv.length > 7 ? fromEnv.slice(0, 7) : fromEnv
+  }
+  // GITHUB_SHA on pull_request builds points at a synthetic merge commit
+  // that exists on no branch, which has confused reviewers into thinking
+  // the build came from an orphaned/lost commit. Prefer the real PR head
+  // SHA when it's available; the merge SHA is still surfaced elsewhere for
+  // build honesty.
+  const headSha = source.githubHeadSha?.trim()
+  if (headSha) {
+    return headSha.slice(0, 7)
   }
   if (source.githubSha) {
     return source.githubSha.slice(0, 7)

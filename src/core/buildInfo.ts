@@ -11,6 +11,17 @@ export const APP_GIT_REVISION =
   (import.meta.env.VITE_GIT_REVISION ?? 'dev').trim() || 'dev'
 
 /**
+ * Merge-ref SHA baked in at build time (`vite.config.ts` / CI). On PR preview
+ * builds this is GITHUB_SHA — the synthetic merge commit GitHub builds for
+ * `pull_request` events, which exists on no branch. `APP_GIT_REVISION` shows
+ * the PR head SHA instead (see ADR history / tools/gitRevision.ts); this
+ * value is kept around so the header tooltip can still disclose it for
+ * build honesty.
+ */
+export const APP_GIT_MERGE_REVISION =
+  (import.meta.env.VITE_GIT_MERGE_REVISION ?? 'dev').trim() || 'dev'
+
+/**
  * Pull-request number baked in at build time (`vite.config.ts` / CI).
  * `0` means this is not a PR preview build.
  */
@@ -45,6 +56,22 @@ export function formatGitRevisionLabel(revision: string): string {
     return revision.slice(0, 7)
   }
   return revision.length > 12 ? `${revision.slice(0, 11)}…` : revision
+}
+
+/**
+ * Tooltip text for the revision link. Shows only the displayed revision
+ * (the PR head SHA on preview builds), plus the merge SHA when it differs
+ * and isn't a dev/test placeholder — build honesty without confusing the
+ * primary label.
+ */
+export function formatRevisionTooltip(
+  revision = APP_GIT_REVISION,
+  mergeRevision = APP_GIT_MERGE_REVISION,
+): string {
+  if (mergeRevision === revision || DEV_LABELS.has(mergeRevision)) {
+    return `Revision: ${revision}`
+  }
+  return `Revision: ${revision} · built from merge ${formatGitRevisionLabel(mergeRevision)}`
 }
 
 /** Link to the branch tree (or PR page for PR preview builds, or `main` history for local dev). */

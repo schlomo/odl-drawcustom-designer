@@ -41,6 +41,7 @@ import {
   APP_TITLE,
   formatGitBranchLabel,
   formatGitRevisionLabel,
+  formatRevisionTooltip,
   githubBranchUrl,
   githubCommitUrl,
 } from '../core'
@@ -402,7 +403,7 @@ export function App({ bootstrap }: AppProps) {
               target="_blank"
               rel="noopener noreferrer"
               className="shrink-0 font-mono underline-offset-2 hover:underline"
-              title={`Revision: ${APP_GIT_REVISION}`}
+              title={formatRevisionTooltip(APP_GIT_REVISION)}
             >
               {formatGitRevisionLabel(APP_GIT_REVISION)}
             </a>
