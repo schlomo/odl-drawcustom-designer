@@ -32,6 +32,12 @@ function applyJinjaSnippet(insert: string): Completion['apply'] {
     view.dispatch({
       changes: { from, to, insert },
       scrollIntoView: true,
+      // `userEvent` is required: the editor's update listener
+      // (shouldReportYamlDocChange) only reports annotated transactions to
+      // React, so an unannotated completion apply would leave yamlText —
+      // and everything derived from it (elements sync, lint banner, the
+      // #35 blocked state) — frozen at the pre-completion document.
+      userEvent: 'input.complete',
     })
   }
 }
@@ -48,6 +54,12 @@ function applyExpression(insert: string): Completion['apply'] {
     view.dispatch({
       changes: { from, to, insert: value },
       scrollIntoView: true,
+      // `userEvent` is required: the editor's update listener
+      // (shouldReportYamlDocChange) only reports annotated transactions to
+      // React, so an unannotated completion apply would leave yamlText —
+      // and everything derived from it (elements sync, lint banner, the
+      // #35 blocked state) — frozen at the pre-completion document.
+      userEvent: 'input.complete',
     })
   }
 }
