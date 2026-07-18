@@ -53,6 +53,8 @@ interface SidebarProps {
     movingIndices?: readonly number[],
   ) => void
   onFocusSimulatorEntity?: (entityId: string) => void
+  /** Issue #35: no element mutation while the YAML doc is blocked — disables element drag-reorder. */
+  yamlBlocked?: boolean
 }
 
 const ROTATION_OPTIONS: CanvasRotation[] = [0, 90, 180, 270]
@@ -103,6 +105,7 @@ export function Sidebar({
   onClearAsset,
   onReorderElement,
   onFocusSimulatorEntity,
+  yamlBlocked = false,
 }: SidebarProps) {
   const [tab, setTab] = useState<SidebarTab>('elements')
   const [panelScope, setPanelScope] = useState<PanelListScope>('current')
@@ -262,6 +265,7 @@ export function Sidebar({
                 previewDitherMode={canvas.previewDitherMode}
                 onSelectElement={onSelectElement}
                 onReorderElement={onReorderElement}
+                blocked={yamlBlocked}
               />
             </div>
           </>

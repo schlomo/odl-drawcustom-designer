@@ -33,6 +33,8 @@ interface CanvasSelectionToolbarProps {
   onSendToBack: () => void
   onMoveUp: () => void
   onMoveDown: () => void
+  /** Issue #35: no element mutation while the YAML doc is blocked — disables all buttons. */
+  blocked?: boolean
 }
 
 export function CanvasSelectionToolbar({
@@ -46,6 +48,7 @@ export function CanvasSelectionToolbar({
   onSendToBack,
   onMoveUp,
   onMoveDown,
+  blocked = false,
 }: CanvasSelectionToolbarProps) {
   if (selectionCount < 2) {
     return null
@@ -71,7 +74,7 @@ export function CanvasSelectionToolbar({
             compact
             iconPath={TOOL_ICONS[icon]}
             tooltip={alignTooltip(title)}
-            disabled={!canAlign}
+            disabled={!canAlign || blocked}
             onClick={() => onAlign(align, boundsByIndex)}
           />
         ))}
@@ -84,7 +87,7 @@ export function CanvasSelectionToolbar({
             compact
             iconPath={TOOL_ICONS[icon]}
             tooltip={alignTooltip(title)}
-            disabled={!canAlign}
+            disabled={!canAlign || blocked}
             onClick={() => onAlign(align, boundsByIndex)}
           />
         ))}
@@ -95,28 +98,28 @@ export function CanvasSelectionToolbar({
           compact
           iconPath={TOOL_ICONS.bringToFront}
           tooltip="Bring to front"
-          disabled={!canMoveUp}
+          disabled={!canMoveUp || blocked}
           onClick={onBringToFront}
         />
         <IconButton
           compact
           iconPath={TOOL_ICONS.sendToBack}
           tooltip="Send to back"
-          disabled={!canMoveDown}
+          disabled={!canMoveDown || blocked}
           onClick={onSendToBack}
         />
         <IconButton
           compact
           iconPath={TOOL_ICONS.layerUp}
           tooltip="Move layer up"
-          disabled={!canMoveUp}
+          disabled={!canMoveUp || blocked}
           onClick={onMoveUp}
         />
         <IconButton
           compact
           iconPath={TOOL_ICONS.layerDown}
           tooltip="Move layer down"
-          disabled={!canMoveDown}
+          disabled={!canMoveDown || blocked}
           onClick={onMoveDown}
         />
       </div>

@@ -27,6 +27,8 @@ interface ElementListProps {
     toIndex: number,
     movingIndices?: readonly number[],
   ) => void
+  /** Issue #35: no element mutation while the YAML doc is blocked — disables drag-reorder (row click still selects). */
+  blocked?: boolean
 }
 
 export function ElementList({
@@ -36,6 +38,7 @@ export function ElementList({
   previewDitherMode = 0,
   onSelectElement,
   onReorderElement,
+  blocked = false,
 }: ElementListProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [dropIndex, setDropIndex] = useState<number | null>(null)
@@ -65,14 +68,14 @@ export function ElementList({
       event.preventDefault()
       const fromIndex = dragIndex ?? Number(event.dataTransfer.getData('text/plain'))
       const dropTarget = normalizeElementListDropIndex(fromIndex, index, movingIndices)
-      if (Number.isInteger(fromIndex) && dropTarget != null) {
+      if (!blocked && Number.isInteger(fromIndex) && dropTarget != null) {
         onReorderElement(fromIndex, dropTarget, movingIndices)
       }
       setDragIndex(null)
       setDropIndex(null)
       setMovingIndices([])
     },
-    [dragIndex, movingIndices, onReorderElement],
+    [blocked, dragIndex, movingIndices, onReorderElement],
   )
 
   const handleDragEnd = useCallback(() => {
@@ -125,7 +128,7 @@ export function ElementList({
           >
             <button
               type="button"
-              draggable
+              draggable={!blocked}
               aria-pressed={selected}
               data-testid="element-list-row"
               onDragStart={(event) => handleDragStart(event, index)}

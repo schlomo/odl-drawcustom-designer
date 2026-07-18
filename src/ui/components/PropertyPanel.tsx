@@ -90,6 +90,7 @@ export function PropertyPanel({
         {resizeHandle}
         <h2 className={shell.heading}>Properties</h2>
         <p className={`mt-4 text-sm ${shell.muted}`}>Select an element from the list or canvas.</p>
+        {blockedVisible ? <PropertyPanelBlockedOverlay /> : null}
       </aside>
     )
   }

@@ -1234,6 +1234,7 @@ export function DesignerCanvas({
     onToggleSnap,
     previewDitherMode,
     onTogglePreviewDither,
+    blocked,
   }
 
   return (
@@ -1265,6 +1266,7 @@ export function DesignerCanvas({
       ))}
       <div className="relative min-h-0 flex-1">
         <CanvasSelectionToolbar
+          blocked={blocked}
           selectionCount={selectedIndices.length}
           canAlign={canAlignMultiSelection}
           canMoveUp={canMoveSelectionUp}

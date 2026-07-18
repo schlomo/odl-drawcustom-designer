@@ -13,6 +13,8 @@ import { shell } from '../styles/shell'
 interface ElementToolbarProps {
   elements: readonly DrawElement[]
   onAddElement: (type: DrawElement['type']) => AddElementResult
+  /** Issue #35: no element mutation while the YAML doc is blocked — disables all add buttons. */
+  blocked?: boolean
 }
 
 function formatTypeTitle(type: DrawElement['type']): string {
@@ -22,7 +24,7 @@ function formatTypeTitle(type: DrawElement['type']): string {
 const elementButtonClassName =
   'text-[11px] hover:border-[var(--shell-accent)] hover:text-[var(--shell-accent)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[var(--shell-border)] disabled:hover:bg-[var(--shell-surface-2)] disabled:hover:text-[var(--shell-text)]'
 
-export function ElementToolbar({ elements, onAddElement }: ElementToolbarProps) {
+export function ElementToolbar({ elements, onAddElement, blocked = false }: ElementToolbarProps) {
   const { toolbarRef, showLabels } = useElementToolbarLabels()
 
   return (
@@ -49,7 +51,7 @@ export function ElementToolbar({ elements, onAddElement }: ElementToolbarProps) 
             tooltip={shortLabel}
             title={tooltip}
             aria-label={addTitle}
-            disabled={!allowed}
+            disabled={!allowed || blocked}
             className={`${elementButtonClassName} ${showLabels ? '' : 'px-1'}`}
             onClick={() => onAddElement(type)}
             data-element-toolbar
