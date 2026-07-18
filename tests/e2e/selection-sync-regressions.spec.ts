@@ -9,16 +9,18 @@ import {
 } from './fixtures/yaml-editor'
 
 /**
- * Regression specs for the two confirmed selection-sync bugs (2026-07
- * architecture review), addressed on main by the AST-backed element↔YAML
- * position mapping (#27: src/core/yaml/elementSpans.ts,
- * src/core/yaml/resolveCursorSelection.ts).
+ * Regression specs for the confirmed selection-sync bugs (2026-07
+ * architecture review). The mapping layer was fixed by the AST-backed
+ * element↔YAML position mapping (#27: src/core/yaml/elementSpans.ts,
+ * src/core/yaml/resolveCursorSelection.ts); the residual scroll wiring by
+ * #37 (src/ui/editor/yamlEditorScroll.ts, yamlExternalSync.ts,
+ * yamlScrollCommand.ts).
  *
- * The #14 spec passes on main and pins the corrected behavior. The #15 spec
- * remains `test.fixme`: #27 fixed the mapping layer (flow-style spans now
- * resolve; block-style canvas→YAML jumps verifiably work in this harness),
- * but the end-to-end jump for a flow-style doc still fails — see the spec's
- * comment for the residual wiring bug.
+ * All specs are live and pin the corrected behavior:
+ * - #14: cursor→element resolution stays correct mid-invalid-edit.
+ * - #15/#37: canvas click on a flow-style element scrolls the YAML pane to
+ *   it (selection was already correct after #27; the scroll needed #37).
+ * - #37 follow-up: re-clicking the already-selected element re-scrolls.
  */
 
 const CANVAS = { width: 400, height: 300 }
@@ -34,18 +36,17 @@ test.beforeEach(async ({ page }) => {
 // The AST-backed findElementSpans (src/core/yaml/elementSpans.ts, #27) maps
 // flow-style elements too — the scroll must land on the element.
 //
-// STILL FIXME after #27: the mapping layer is fixed (the identical scenario
-// with a block-style doc passes — the pane scrolls and stays on the circle),
-// but this flow-style case still fails end-to-end. The canvas click both
-// selects the element AND starts a drag session; the canvasDragging toggle
-// re-serializes the flow doc to block style into the editor, and that resync
-// path (YamlEditor.tsx value-sync -> dispatchPreservingEditorViewState)
-// restores the pre-click scrollTop after dispatching, clobbering its own
-// scrollLinkedElementIntoView effect (whose target position is additionally
-// mapped through the full-doc replace in the same transaction). Observed:
-// selection is correct (panel shows the circle) but the YAML pane stays at
-// the top. Reproduces at human pointer speed too (120ms press). Needs a
-// follow-up fix in the resync/scroll-restore wiring.
+// The end-to-end flow-style jump additionally needed #37: the canvas click
+// both selects the element AND starts a drag session; the canvasDragging
+// toggle re-serializes the flow doc to block style into the editor, and that
+// resync path (YamlEditor.tsx value-sync -> dispatchPreservingEditorViewState)
+// used to restore the pre-click scrollTop after dispatching, clobbering its
+// own scrollLinkedElementIntoView effect. Fixed by #37: the intentional
+// linked-element scroll now wins over the view-state restore
+// (skipScrollRestore in yamlEditorScroll.ts), and the scroll intent is
+// captured when the sync pushes the text (shouldScrollLinkedElementOnSync in
+// yamlExternalSync.ts) instead of being re-derived from already-reverted
+// live state.
 test(
   'canvas click scrolls to the element even when the top-level YAML array is flow-style (#15)',
   async ({ page }) => {
@@ -96,8 +97,9 @@ test(
 // selection changes. A re-click produces no external text sync (serialized ==
 // editor text) and no selection change (DesignerCanvas skips onSelectElement
 // for an already-selected hit), so neither the sync-carried linked scroll nor
-// the selectedIndex-keyed scroll command re-fires; the user's manual scroll
-// away just sticks.
+// the selectedIndex-keyed scroll command would re-fire on its own. Covered by
+// the fresh-token elementScrollRequest path (DesignerCanvas
+// onSelectedElementPointerDown -> App -> createYamlScrollCommand).
 test(
   're-clicking the already-selected element on canvas scrolls its YAML back into view',
   async ({ page }) => {
