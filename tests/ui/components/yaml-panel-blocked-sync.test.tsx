@@ -1,10 +1,12 @@
 /** @vitest-environment jsdom */
+import { CompletionContext } from '@codemirror/autocomplete'
 import { Transaction } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { act, render } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DrawElement } from '../../../src/core'
 import { YamlPanel } from '../../../src/ui/components/YamlPanel'
+import { yamlSchemaCompletionSource } from '../../../src/ui/editor/yamlCompletionSource'
 
 /**
  * Issue #35 — repro: while the live YAML document is broken (parse or
@@ -27,6 +29,10 @@ class ResizeObserverMock {
 
 beforeEach(() => {
   vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 const elements: DrawElement[] = [
@@ -140,5 +146,126 @@ describe('YamlPanel external-sync while the live YAML doc is broken (issue #35)'
       <YamlPanel {...panelProps({ onYamlBlockedChange: (blocked) => blockedStates.push(blocked) })} />,
     )
     expect(blockedStates.at(-1)).toBe(false)
+  })
+})
+
+describe('YamlPanel autocomplete accept reaches React state (issue #35 follow-up, bug A)', () => {
+  it('unblocks and syncs elements after accepting a type completion', () => {
+    vi.useFakeTimers()
+    const blockedStates: boolean[] = []
+    const elementsChanges: DrawElement[][] = []
+    const { container } = render(
+      <YamlPanel
+        {...panelProps({
+          onYamlBlockedChange: (blocked) => blockedStates.push(blocked),
+          onElementsChange: (next) => elementsChanges.push(next),
+        })}
+      />,
+    )
+    const view = findMountedView(container)
+
+    // Start a new list item by hand: `- type: t` — invalid (not a known
+    // type), so the doc blocks.
+    const doc = view.state.doc.toString()
+    const insertPos = doc.length
+    const typed = `${doc.endsWith('\n') ? '' : '\n'}- type: t`
+    dispatchUserEdit(view, { from: insertPos, to: insertPos, insert: typed })
+    expect(blockedStates.at(-1)).toBe(true)
+
+    // Accept the `text` completion exactly the way the editor does: through
+    // the schema completion source's own apply function (which inserts the
+    // type name plus its required properties).
+    const cursor = insertPos + typed.length
+    const completionResult = yamlSchemaCompletionSource(
+      new CompletionContext(view.state, cursor, true),
+    )
+    expect(completionResult).not.toBeNull()
+    const textOption = completionResult!.options.find((option) => option.label === 'text')
+    expect(textOption).toBeDefined()
+    expect(typeof textOption!.apply).toBe('function')
+    act(() => {
+      ;(textOption!.apply as (view: EditorView, completion: unknown, from: number, to: number) => void)(
+        view,
+        textOption!,
+        completionResult!.from,
+        cursor,
+      )
+    })
+
+    // The completion produced a valid document — the blocked state must
+    // clear (the maintainer repro: it stayed locked because the completion's
+    // transaction never reached handleYamlChange)...
+    expect(view.state.doc.toString()).toContain('value: Hello World!')
+    expect(blockedStates.at(-1)).toBe(false)
+
+    // ...and the new element must reach the canvas after the sync debounce.
+    act(() => {
+      vi.advanceTimersByTime(80)
+    })
+    const lastElements = elementsChanges.at(-1)
+    expect(lastElements).toBeDefined()
+    expect(lastElements).toHaveLength(3)
+    expect(lastElements![2]).toMatchObject({ type: 'text', value: 'Hello World!' })
+  })
+})
+
+describe('YamlPanel never echoes stale YAML over newer editor text (issue #35 follow-up, bug B)', () => {
+  it('typing through a transient invalid state keeps the typed text (y: 0 -> 30, not 00)', () => {
+    vi.useFakeTimers()
+    const elementsChanges: DrawElement[][] = []
+    const { container } = render(
+      <YamlPanel
+        {...panelProps({
+          elements: [{ type: 'text', value: 'A', x: 0, y: 0 }],
+          onElementsChange: (next) => elementsChanges.push(next),
+        })}
+      />,
+    )
+    const view = findMountedView(container)
+
+    // `y: 0` -> erase the `0` (doc momentarily invalid: y becomes null)...
+    const zeroPos = view.state.doc.toString().indexOf('y: 0') + 'y: '.length
+    expect(zeroPos).toBeGreaterThan('y: '.length - 1)
+    dispatchUserEdit(view, { from: zeroPos, to: zeroPos + 1, insert: '' })
+
+    // ...then type `3` (doc valid again, debounce pending). The maintainer
+    // regression: the blocked->unblocked flip re-ran the external-sync
+    // effect, which echoed the STALE serialization (y: 0) over the editor.
+    dispatchUserEdit(view, { from: zeroPos, to: zeroPos, insert: '3' })
+    expect(view.state.doc.toString()).toContain('y: 3')
+
+    // ...then type `0` — the doc must show the user's `30`, never `00`.
+    dispatchUserEdit(view, { from: zeroPos + 1, to: zeroPos + 1, insert: '0' })
+    expect(view.state.doc.toString()).toContain('y: 30')
+    expect(view.state.doc.toString()).not.toContain('y: 00')
+
+    // The debounced sync commits the typed value.
+    act(() => {
+      vi.advanceTimersByTime(80)
+    })
+    expect(elementsChanges.at(-1)?.[0]).toMatchObject({ y: 30 })
+  })
+
+  it('a canvas-drag toggle during the sync debounce does not rewrite newer editor text', () => {
+    vi.useFakeTimers()
+    const { container, rerender } = render(
+      <YamlPanel {...panelProps({ elements: [{ type: 'text', value: 'A', x: 0, y: 0 }] })} />,
+    )
+    const view = findMountedView(container)
+
+    // Valid -> valid edit: `y: 0` -> `y: 9`; the 80ms sync debounce is
+    // still pending, so `elements` (and `serialized`) lag the editor.
+    const zeroPos = view.state.doc.toString().indexOf('y: 0') + 'y: '.length
+    dispatchUserEdit(view, { from: zeroPos, to: zeroPos + 1, insert: '9' })
+    expect(view.state.doc.toString()).toContain('y: 9')
+
+    // A canvas pointerdown toggles canvasDragging inside that window — it
+    // must not clobber the newer editor text with the stale serialization.
+    rerender(
+      <YamlPanel
+        {...panelProps({ elements: [{ type: 'text', value: 'A', x: 0, y: 0 }], canvasDragging: true })}
+      />,
+    )
+    expect(view.state.doc.toString()).toContain('y: 9')
   })
 })

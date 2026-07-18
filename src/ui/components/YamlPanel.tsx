@@ -106,7 +106,11 @@ export function YamlPanel({
   // actually observes the new text.
   const [scrollLinkedElementOnSync, setScrollLinkedElementOnSync] = useState(false)
   const yamlBlocked = useMemo(() => isYamlDocBlocked(yamlText), [yamlText])
+  const yamlBlockedRef = useRef(yamlBlocked)
   const skipExternalSyncRef = useRef(false)
+  /** Parse of the live doc awaiting the debounced flush — set/cleared by handleYamlChange. */
+  const pendingParsedRef = useRef<DrawElement[] | null>(null)
+  const syncTimerRef = useRef<number | null>(null)
   const yamlSelectionRef = useRef({ anchor: 0, head: 0 })
   const yamlScrollRef = useRef(0)
   const { fontSize, increase, decrease } = useYamlFontSize()
@@ -134,19 +138,27 @@ export function YamlPanel({
   })
 
   useEffect(() => {
+    yamlBlockedRef.current = yamlBlocked
     onYamlBlockedChange?.(yamlBlocked)
   }, [onYamlBlockedChange, yamlBlocked])
 
   useEffect(() => {
     if (
-      shouldDeferYamlExternalSync({ propertyEditing, canvasDragging, couplingEnabled }) ||
-      // Belt and braces (issue #35): even if some interaction slipped through
-      // while blocked, never let this effect clobber an in-progress edit —
-      // `elements` is frozen at its last-valid state while the live doc
-      // fails to parse/validate, so re-serializing it here would revert the
-      // user's edit.
-      yamlBlocked
+      shouldDeferYamlExternalSync({ propertyEditing, canvasDragging, couplingEnabled })
     ) {
+      return
+    }
+
+    // Never rewrite newer editor text (issue #35 and follow-up):
+    // - while the live doc is broken, `elements` is frozen at last-valid, so
+    //   re-serializing it here would revert the user's in-progress edit;
+    // - while a parse is pending the 80ms debounce, the editor is *ahead* of
+    //   `elements`, so the echo would clobber freshly typed text.
+    // Both are read via refs — NOT effect dependencies — because their flips
+    // must never re-trigger this effect: the blocked->unblocked transition
+    // mid-typing previously fired the echo with a stale `serialized` right
+    // after the doc turned valid again (typing `30` over `y: 0` became `00`).
+    if (yamlBlockedRef.current || pendingParsedRef.current != null) {
       return
     }
 
@@ -165,7 +177,7 @@ export function YamlPanel({
     // the moment of an actual text push (already triggered by the deps
     // below), not as its own trigger for extra runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canvasDragging, couplingEnabled, propertyEditing, serialized, yamlBlocked])
+  }, [canvasDragging, couplingEnabled, propertyEditing, serialized])
 
   const elementsRef = useRef(elements)
 
@@ -215,9 +227,6 @@ export function YamlPanel({
     onDecreaseFontSize: decrease,
     onIncreaseFontSize: increase,
   }
-
-  const pendingParsedRef = useRef<DrawElement[] | null>(null)
-  const syncTimerRef = useRef<number | null>(null)
 
   const flushYamlElementsSync = useCallback(() => {
     if (syncTimerRef.current != null) {
