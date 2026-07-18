@@ -22,6 +22,42 @@ describe('createYamlScrollCommand', () => {
       token: 'ui:2',
     })
   })
+
+  // Maintainer expectation (follow-up to #37): a canvas click on the
+  // already-selected element must re-scroll the YAML pane even though neither
+  // selection nor document changes. The request's per-click token is what
+  // makes the otherwise-stable `ui:<index>` navigation re-fire.
+  describe('with a canvas element scroll request', () => {
+    it('uses the request token so a re-click re-fires the scroll', () => {
+      expect(
+        createYamlScrollCommand(true, 2, 'ui', { elementIndex: 2, token: 'canvas:2:1000' }),
+      ).toEqual({ kind: 'element', elementIndex: 2, token: 'canvas:2:1000' })
+    })
+
+    it('overrides the yaml selection-source suppression — a canvas click is an explicit navigation', () => {
+      expect(
+        createYamlScrollCommand(true, 2, 'yaml', { elementIndex: 2, token: 'canvas:2:1000' }),
+      ).toEqual({ kind: 'element', elementIndex: 2, token: 'canvas:2:1000' })
+    })
+
+    it('ignores a stale request that targets a different element than the selection', () => {
+      expect(
+        createYamlScrollCommand(true, 3, 'ui', { elementIndex: 2, token: 'canvas:2:1000' }),
+      ).toEqual({ kind: 'element', elementIndex: 3, token: 'ui:3' })
+    })
+
+    it('does not let a stale request lift the yaml suppression for another element', () => {
+      expect(
+        createYamlScrollCommand(true, 3, 'yaml', { elementIndex: 2, token: 'canvas:2:1000' }),
+      ).toBeNull()
+    })
+
+    it('still returns null when coupling is off', () => {
+      expect(
+        createYamlScrollCommand(false, 2, 'ui', { elementIndex: 2, token: 'canvas:2:1000' }),
+      ).toBeNull()
+    })
+  })
 })
 
 describe('createEntityScrollCommand', () => {

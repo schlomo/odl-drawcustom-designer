@@ -61,6 +61,14 @@ export function App({ bootstrap }: AppProps) {
     entityId: string
     token: string
   } | null>(null)
+  // Canvas click on the already-selected element: neither the selection nor
+  // the document changes, so this fresh-token request is the only signal that
+  // re-scrolls the YAML pane to the element (maintainer expectation: a canvas
+  // element click always brings its YAML into view while coupling is on).
+  const [elementScrollRequest, setElementScrollRequest] = useState<{
+    elementIndex: number
+    token: string
+  } | null>(null)
   const [yamlStatusMessages, setYamlStatusMessages] = useState<StatusMessage[]>([])
   const [canvasDragging, setCanvasDragging] = useState(false)
   const [propertyEditing, setPropertyEditing] = useState(false)
@@ -312,6 +320,24 @@ export function App({ bootstrap }: AppProps) {
     [couplingEnabled],
   )
 
+  const handleSelectedElementPointerDown = useCallback(
+    (elementIndex: number) => {
+      if (!couplingEnabled) {
+        return
+      }
+      setElementScrollRequest({ elementIndex, token: `canvas:${elementIndex}:${Date.now()}` })
+    },
+    [couplingEnabled],
+  )
+
+  // Drop the request as soon as the selection moves on (render-time state
+  // adjustment): a stale request must never shadow a later navigation's
+  // scroll command, nor re-fire when the selection later returns to its
+  // element via a YAML cursor move.
+  if (elementScrollRequest && elementScrollRequest.elementIndex !== selectedIndex) {
+    setElementScrollRequest(null)
+  }
+
   return (
     <div className={shell.app}>
       <header className={`${shell.header} flex items-center gap-4`}>
@@ -488,6 +514,7 @@ export function App({ bootstrap }: AppProps) {
               previewDitherMode={canvas.previewDitherMode}
               onTogglePreviewDither={togglePreviewDither}
               onDragActiveChange={setCanvasDragging}
+              onSelectedElementPointerDown={handleSelectedElementPointerDown}
               onBeginEditCoalesce={beginEditCoalesce}
               onEndEditCoalesce={endEditCoalesce}
               canUndo={canUndo}
@@ -509,6 +536,7 @@ export function App({ bootstrap }: AppProps) {
             selectedIndex={selectedIndex}
             selectionSource={selectionSource}
             entityScrollRequest={entityScrollRequest}
+            elementScrollRequest={elementScrollRequest}
             canvasDragging={canvasDragging}
             propertyEditing={propertyEditing}
           />

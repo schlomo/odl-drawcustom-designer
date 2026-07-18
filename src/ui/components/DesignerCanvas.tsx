@@ -128,6 +128,12 @@ interface DesignerCanvasProps {
   previewDitherMode: 0 | 2
   onTogglePreviewDither: () => void
   onDragActiveChange?: (active: boolean) => void
+  /**
+   * Pointerdown landed on the already-selected element (non-additive click) —
+   * the one case where no onSelectElement call is made, so listeners that
+   * react to selection changes never hear about the click.
+   */
+  onSelectedElementPointerDown?: (index: number) => void
   onBeginEditCoalesce?: () => void
   onEndEditCoalesce?: () => void
   canUndo?: boolean
@@ -210,6 +216,7 @@ export function DesignerCanvas({
   previewDitherMode,
   onTogglePreviewDither,
   onDragActiveChange,
+  onSelectedElementPointerDown,
   onBeginEditCoalesce,
   onEndEditCoalesce,
   canUndo = false,
@@ -964,6 +971,8 @@ export function DesignerCanvas({
           }
         } else if (!wasSelected) {
           onSelectElement(topHit.index)
+        } else {
+          onSelectedElementPointerDown?.(topHit.index)
         }
 
         const moveIndices =
@@ -1007,6 +1016,7 @@ export function DesignerCanvas({
       lineCoords,
       mapClientToCanvas,
       onSelectElement,
+      onSelectedElementPointerDown,
       selectedEditElement,
       selectedIndex,
       selectedIndices,

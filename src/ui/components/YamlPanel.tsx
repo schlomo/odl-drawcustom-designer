@@ -17,7 +17,12 @@ import {
 } from '../editor/yamlExternalSync'
 import { getYamlStatusMessages } from '../lib/yaml-status-messages'
 import { YamlEditor } from '../editor/YamlEditor'
-import { createYamlScrollCommand, createEntityScrollCommand, mergeYamlScrollCommands } from '../editor/yamlScrollCommand'
+import {
+  createYamlScrollCommand,
+  createEntityScrollCommand,
+  mergeYamlScrollCommands,
+  type ElementScrollRequest,
+} from '../editor/yamlScrollCommand'
 import {
   MIN_CANVAS_PREVIEW_HEIGHT,
   useResizablePanelHeight,
@@ -56,6 +61,8 @@ interface YamlPanelProps {
   containerRef: RefObject<HTMLDivElement | null>
   extraEntityIds?: readonly string[]
   entityScrollRequest?: { entityId: string; token: string } | null
+  /** Canvas click on the already-selected element — re-scroll to it (fresh token per click). */
+  elementScrollRequest?: ElementScrollRequest | null
   onStatusMessagesChange?: (messages: StatusMessage[]) => void
   /** True while the canvas is in an active pointer drag (move/resize). */
   canvasDragging?: boolean
@@ -75,6 +82,7 @@ export function YamlPanel({
   containerRef,
   extraEntityIds = [],
   entityScrollRequest = null,
+  elementScrollRequest = null,
   onStatusMessagesChange,
   canvasDragging = false,
   propertyEditing = false,
@@ -149,10 +157,10 @@ export function YamlPanel({
   const scrollCommand = useMemo(
     () =>
       mergeYamlScrollCommands(
-        createYamlScrollCommand(couplingEnabled, selectedIndex, selectionSource),
+        createYamlScrollCommand(couplingEnabled, selectedIndex, selectionSource, elementScrollRequest),
         createEntityScrollCommand(couplingEnabled, entityScrollRequest),
       ),
-    [couplingEnabled, entityScrollRequest, selectedIndex, selectionSource],
+    [couplingEnabled, elementScrollRequest, entityScrollRequest, selectedIndex, selectionSource],
   )
 
   const yamlStatusMessages = useMemo(() => getYamlStatusMessages(yamlText), [yamlText])
