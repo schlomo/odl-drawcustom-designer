@@ -33,6 +33,7 @@ import type { AddElementResult } from './hooks/useProjectState'
 import {
   APP_GITHUB_REPO_URL,
   APP_GIT_BRANCH,
+  APP_GIT_MERGE_REVISION,
   APP_GIT_PR_NUMBER,
   APP_GIT_REVISION,
   APP_HEADER_LEGAL_HTML,
@@ -403,7 +404,7 @@ export function App({ bootstrap }: AppProps) {
               target="_blank"
               rel="noopener noreferrer"
               className="shrink-0 font-mono underline-offset-2 hover:underline"
-              title={formatRevisionTooltip(APP_GIT_REVISION)}
+              title={formatRevisionTooltip(APP_GIT_REVISION, APP_GIT_MERGE_REVISION)}
             >
               {formatGitRevisionLabel(APP_GIT_REVISION)}
             </a>
