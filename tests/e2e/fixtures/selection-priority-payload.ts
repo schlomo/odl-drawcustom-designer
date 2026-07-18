@@ -111,3 +111,42 @@ export function buildDebugGridPriorityPayload(): SharePayload {
 export function debugGridPrioritySharePath(): string {
   return `/#d=${encodeShareHash(buildDebugGridPriorityPayload())}`
 }
+
+/**
+ * Fixture for issue #45's maintainer-confirmed lockout repro: `debug_grid`
+ * as element 0 (bottom of the paint order, matching the showcase demo where
+ * it's the default selection), with the circle painted on top of it at
+ * element 1. Selecting the grid must not lock out clicks on the circle —
+ * unlike {@link buildDebugGridPriorityPayload} (grid on top, standing in for
+ * an occluder over a buried *circle*), here the grid itself is the buried,
+ * selected, full-canvas element and the circle is the reachable one on top.
+ */
+export function buildDebugGridLockoutPayload(): SharePayload {
+  return {
+    v: 1,
+    name: 'Playwright selection-priority lockout fixture (#45)',
+    canvas: {
+      width: PRIORITY_CANVAS.width,
+      height: PRIORITY_CANVAS.height,
+      rotation: 0,
+      accent: 'red',
+    },
+    elements: [
+      { type: 'debug_grid' },
+      {
+        type: 'circle',
+        x: BURIED_CIRCLE.x,
+        y: BURIED_CIRCLE.y,
+        radius: BURIED_CIRCLE.radius,
+        fill: 'red',
+        outline: 'black',
+        width: 2,
+      },
+    ],
+  }
+}
+
+/** Path (with `#d=` fragment) that seeds the app with {@link buildDebugGridLockoutPayload}. */
+export function debugGridLockoutSharePath(): string {
+  return `/#d=${encodeShareHash(buildDebugGridLockoutPayload())}`
+}

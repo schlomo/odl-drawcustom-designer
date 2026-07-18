@@ -365,6 +365,20 @@ export function DesignerCanvas({
     })
   }, [elements, fontAssetKeys, renderContext, opentypeFonts])
 
+  // Selection-priority hit-testing (issue #45 ruling) needs to know whether
+  // the *selected* candidate at a given index is draggable — keyed by index
+  // so canvas-hit-test.ts stays free of the element domain model (see its
+  // doc comment). Draggability is judged from editElements, matching every
+  // other drag-eligibility check in this component (buildMoveStarts, the
+  // resize/move gating below).
+  const isHitDraggable = useCallback(
+    (index: number) => {
+      const element = editElements[index]
+      return element != null && isElementDraggable(element)
+    },
+    [editElements],
+  )
+
   const dlimgAssetKeys = useMemo(
     () => collectDlimgAssetKeysFromElements(elements),
     [elements],
@@ -659,6 +673,7 @@ export function DesignerCanvas({
 
       if (!dragging && !marqueing && point) {
         let cursor = 'default'
+        let resolvedByResizeHandle = false
         if (
           !isMultiSelect &&
           selectedIndex != null &&
@@ -669,15 +684,17 @@ export function DesignerCanvas({
           const handle = hitResizeHandle(point, selectionBounds, handles, lineCoords)
           if (handle && !shouldPreferMoveOverResize(point, selectionBounds, handle, lineCoords)) {
             cursor = resizeHandleCursor(handle)
-          } else if (isElementDraggable(selectedEditElement)) {
-            const hit = findSelectionPriorityHit(hitTargets, point, selectedIndices)
-            const hitElement = hit ? editElements[hit.index] : undefined
-            if (hitElement && isElementDraggable(hitElement)) {
-              cursor = 'grab'
-            }
+            resolvedByResizeHandle = true
           }
-        } else {
-          const hit = findSelectionPriorityHit(hitTargets, point, selectedIndices)
+        }
+        if (!resolvedByResizeHandle) {
+          // Selection-priority routing (issue #45 ruling) must drive the
+          // hover affordance the same way it drives pointerdown below, so a
+          // selected element that is draggable and buried under a
+          // same-or-larger occluder still shows `grab`, while a selected
+          // full-canvas element never masks the grab affordance of a
+          // smaller element painted on top of it.
+          const hit = findSelectionPriorityHit(hitTargets, point, selectedIndices, isHitDraggable)
           const hitElement = hit ? editElements[hit.index] : undefined
           if (hitElement && isElementDraggable(hitElement)) {
             cursor = 'grab'
@@ -842,6 +859,7 @@ export function DesignerCanvas({
     [
       editElements,
       hitTargets,
+      isHitDraggable,
       isMultiSelect,
       lineCoords,
       mapClientToCanvas,
@@ -921,13 +939,16 @@ export function DesignerCanvas({
 
       const onPaper = paperPoint != null
       const interactionPoint = paperPoint ?? canvasPoint
-      // Selection-priority hit-testing (issue #36): a selected element under
-      // the point wins over plain topmost-wins stacking order, so a buried
-      // selected element (e.g. under a full-canvas background/debug grid)
-      // stays draggable. Falls back to findTopmostElementHit otherwise, so
-      // unselected-canvas behavior is unchanged.
+      // Selection-priority hit-testing (issue #36, refined by #45's ruling):
+      // a selected, draggable element under the point wins over plain
+      // topmost-wins stacking order when it's occluded by a same-or-larger
+      // topmost candidate there — so a buried selected element (e.g. under a
+      // full-canvas background) stays draggable, but a selected full-canvas
+      // element (e.g. debug_grid) never locks out clicks on smaller elements
+      // painted on top of it. Falls back to findTopmostElementHit otherwise,
+      // so unselected-canvas behavior is unchanged.
       const topHit = onPaper
-        ? findSelectionPriorityHit(hitTargets, interactionPoint, selectedIndices)
+        ? findSelectionPriorityHit(hitTargets, interactionPoint, selectedIndices, isHitDraggable)
         : null
       const additive = event.shiftKey
       const forceMarquee = event.altKey
@@ -1023,6 +1044,7 @@ export function DesignerCanvas({
       blocked,
       buildMoveStarts,
       hitTargets,
+      isHitDraggable,
       isMultiSelect,
       lineCoords,
       mapClientToCanvas,
