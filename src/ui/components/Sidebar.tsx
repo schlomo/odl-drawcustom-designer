@@ -257,7 +257,7 @@ export function Sidebar({
             <p className={`mb-2 text-[10px] ${shell.muted}`}>
               Top = front (drawn last in YAML)
             </p>
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto" data-testid="element-list-scroll">
               <ElementList
                 previewElements={previewElements}
                 selectedIndices={selectedIndices}
