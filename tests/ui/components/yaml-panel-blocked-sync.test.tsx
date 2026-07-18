@@ -246,6 +246,41 @@ describe('YamlPanel never echoes stale YAML over newer editor text (issue #35 fo
     expect(elementsChanges.at(-1)?.[0]).toMatchObject({ y: 30 })
   })
 
+  it('edits made while broken survive repairing the document (delete colon -> edit -> restore)', () => {
+    // Exact repro from the PR #42 review: delete the `type` colon, change
+    // ANOTHER value while the doc is broken, then restore the colon. The
+    // blocked->unblocked flip must not echo the stale serialization over
+    // either edit.
+    vi.useFakeTimers()
+    const elementsChanges: DrawElement[][] = []
+    const { container } = render(
+      <YamlPanel
+        {...panelProps({
+          elements: [{ type: 'text', value: 'A', x: 0, y: 0 }],
+          onElementsChange: (next) => elementsChanges.push(next),
+        })}
+      />,
+    )
+    const view = findMountedView(container)
+
+    const colonIndex = view.state.doc.toString().indexOf(':')
+    dispatchUserEdit(view, { from: colonIndex, to: colonIndex + 1, insert: '' })
+
+    // While broken: change `value: A` to `value: AZ`.
+    const valuePos = view.state.doc.toString().indexOf('value: A') + 'value: A'.length
+    dispatchUserEdit(view, { from: valuePos, to: valuePos, insert: 'Z' })
+
+    // Repair the colon — doc valid again; the mid-broken edit must survive.
+    dispatchUserEdit(view, { from: colonIndex, to: colonIndex, insert: ':' })
+    expect(view.state.doc.toString()).toContain('value: AZ')
+
+    act(() => {
+      vi.advanceTimersByTime(80)
+    })
+    expect(elementsChanges.at(-1)?.[0]).toMatchObject({ value: 'AZ' })
+    expect(view.state.doc.toString()).toContain('value: AZ')
+  })
+
   it('a canvas-drag toggle during the sync debounce does not rewrite newer editor text', () => {
     vi.useFakeTimers()
     const { container, rerender } = render(

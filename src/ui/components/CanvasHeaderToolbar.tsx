@@ -34,6 +34,8 @@ export interface CanvasHeaderToolbarProps {
   onTogglePreviewDither: () => void
   /** Off-screen width probe — always labeled, non-interactive. */
   measureOnly?: boolean
+  /** Issue #35: no element mutation while the YAML doc is blocked — disables undo/redo. */
+  blocked?: boolean
 }
 
 export function CanvasHeaderToolbar({
@@ -54,6 +56,7 @@ export function CanvasHeaderToolbar({
   previewDitherMode,
   onTogglePreviewDither,
   measureOnly = false,
+  blocked = false,
 }: CanvasHeaderToolbarProps) {
   const labelsVisible = measureOnly || showLabels
   const ditherLabel = `Dither ${previewDitherMode === 2 ? 'd=2' : 'flat'}`
@@ -88,7 +91,7 @@ export function CanvasHeaderToolbar({
           iconPath={TOOL_ICONS.undo}
           tooltip="Undo"
           label={labelsVisible ? 'Undo' : undefined}
-          disabled={measureOnly || !canUndo}
+          disabled={measureOnly || !canUndo || blocked}
           onClick={measureOnly ? noop : onUndo}
           data-canvas-toolbar
         />
@@ -98,7 +101,7 @@ export function CanvasHeaderToolbar({
           iconPath={TOOL_ICONS.redo}
           tooltip="Redo"
           label={labelsVisible ? 'Redo' : undefined}
-          disabled={measureOnly || !canRedo}
+          disabled={measureOnly || !canRedo || blocked}
           onClick={measureOnly ? noop : onRedo}
           data-canvas-toolbar
         />

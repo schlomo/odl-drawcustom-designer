@@ -423,12 +423,14 @@ export function App({ bootstrap }: AppProps) {
         </div>
         <div className={`${toolbarGroupsRow} shrink-0`}>
           <div className={toolbarGroupRow} role="group" aria-label="Session">
-            <TextButton variant="destructive" onClick={clearElements}>
+            <TextButton variant="destructive" onClick={clearElements} disabled={yamlBlocked}>
               Clear all
             </TextButton>
           </div>
           <div className={toolbarGroupRow} role="group" aria-label="Demo">
-            <TextButton onClick={handleLoadDemo}>Load Demo</TextButton>
+            <TextButton onClick={handleLoadDemo} disabled={yamlBlocked}>
+              Load Demo
+            </TextButton>
           </div>
           <div className={toolbarGroupRow} role="group" aria-label="Copy share link">
             <ExportIconButton
@@ -482,10 +484,11 @@ export function App({ bootstrap }: AppProps) {
           onClearAsset={clearAsset}
           onReorderElement={handleReorderElement}
           onFocusSimulatorEntity={handleSimulatorEntityFocus}
+          yamlBlocked={yamlBlocked}
         />
 
         <div ref={columnRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <ElementToolbar elements={elements} onAddElement={handleAddElement} />
+          <ElementToolbar elements={elements} onAddElement={handleAddElement} blocked={yamlBlocked} />
           <div
             ref={canvasAllocationRef}
             data-canvas-allocation
