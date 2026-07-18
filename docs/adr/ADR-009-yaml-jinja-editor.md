@@ -140,6 +140,12 @@ Layer buttons (Front / Back / ↑ / ↓), drag-reorder in the layer list, and YA
 
 **Tests:** `tests/ui/lib/selection-remap.test.ts`, `tests/ui/editor/yaml-elements-sync.test.ts` (layer-down and duplicate-element cases).
 
+**Failure mode (fixed 2026-07-18, issue #17):** `findSingleLayerMove` only detects a *single* from→to move. A YAML edit that moves **more than one** element at once (hand-edited block moves, multi-drag reorder) makes it return `null`, so `remapSelectedIndex` fell through to the `stableElementSignature` + `findIndex` fallback — which returned the **first** structurally identical element in `nextElements`, regardless of position. With two or more duplicate elements, this could silently reattach selection to the wrong duplicate, including one that never moved (an unrelated multi-element change elsewhere in the array was enough to trigger the fallback).
+
+**Fix:** the fallback in `remapSelectedIndex` (`yamlElementsSync.ts`) now scans **all** `nextElements` indices matching the selected element's signature and picks the one **closest by index distance** to the old `selectedIndex` (ties broken toward the lower index, preserving prior first-match behavior when there is only one candidate or the distances tie). This keeps a duplicate that never moved pinned in place, and follows the most plausible instance for typical local reorders. Note: `findSingleLayerMove` itself still only compares by structural signature (`elementsSequenceEqual`), so a reorder that happens to be expressible as one array-level move that also relocates duplicate elements can still pick an arbitrary — but self-consistent — mapping between duplicate slots; this is an inherent limitation without a stable per-element identity and is unchanged by this fix.
+
+**Tests:** `tests/ui/editor/yaml-elements-sync.test.ts` → `remapSelectedIndex > multi-element reorders with duplicates (issue #17)` (stationary duplicate survives an unrelated pair swap, a 3-way rotation elsewhere, and a distant pair swap).
+
 **Deferred:** full `useProjectState` batching via `useReducer` for undo/redo — selection+elements pairing above is the minimum contract for now.
 
 ## Consequences
