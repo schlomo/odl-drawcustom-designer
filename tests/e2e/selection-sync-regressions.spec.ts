@@ -90,6 +90,50 @@ test(
   },
 )
 
+// Follow-up to #37 (maintainer manual test of PR #41): clicking an element on
+// the canvas must ALWAYS bring its YAML into view while coupling is on — even
+// when the element is already selected and nothing about the document or the
+// selection changes. A re-click produces no external text sync (serialized ==
+// editor text) and no selection change (DesignerCanvas skips onSelectElement
+// for an already-selected hit), so neither the sync-carried linked scroll nor
+// the selectedIndex-keyed scroll command re-fires; the user's manual scroll
+// away just sticks.
+test(
+  're-clicking the already-selected element on canvas scrolls its YAML back into view',
+  async ({ page }) => {
+    const padding = Array.from({ length: 40 }, () =>
+      ['- type: line', '  x_start: 0', '  x_end: 1'].join('\n'),
+    ).join('\n')
+    await replaceYamlDocument(
+      page,
+      [padding, '- type: circle', '  x: 200', '  y: 100', '  radius: 40', ''].join('\n'),
+    )
+    await blurYamlEditor(page)
+    await expect(page.getByTestId('element-list-row')).toHaveCount(41)
+
+    // Cursor to the document start so the circle is below the fold and the
+    // first canvas click is a real selection change (element 0 -> circle).
+    await yamlContent(page).click()
+    await page.keyboard.press('ControlOrMeta+Home')
+    const circleLine = yamlLineContaining(page, 'radius: 40')
+    await expect(circleLine).not.toBeInViewport()
+
+    await clickCanvasPoint(page, { x: 200, y: 100 }, CANVAS)
+    await expect(circleLine).toBeInViewport()
+
+    // The user scrolls the YAML pane somewhere else...
+    await page.locator('.cm-scroller').evaluate((el) => {
+      el.scrollTop = 0
+    })
+    await expect(circleLine).not.toBeInViewport()
+
+    // ...then clicks the SAME element on the canvas again: selection does not
+    // change, the document does not change — the pane must still jump back.
+    await clickCanvasPoint(page, { x: 200, y: 100 }, CANVAS)
+    await expect(circleLine).toBeInViewport()
+  },
+)
+
 // Issue #14: handleCursorPosition used to resolve cursor -> element index
 // against the *live* CodeMirror doc synchronously, while the committed
 // `elements` array only updates via a debounced, whole-document schema parse
