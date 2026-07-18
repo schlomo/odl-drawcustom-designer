@@ -6,6 +6,7 @@ import { act, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DrawElement } from '../../../src/core'
 import { YamlPanel } from '../../../src/ui/components/YamlPanel'
+import { haJinjaCompletionSource } from '../../../src/ui/editor/jinjaCompletions'
 import { yamlSchemaCompletionSource } from '../../../src/ui/editor/yamlCompletionSource'
 
 /**
@@ -27,8 +28,23 @@ class ResizeObserverMock {
   unobserve() {}
 }
 
+// jsdom has no layout engine, so `Range.getClientRects` is unimplemented.
+// CodeMirror's `scrollIntoView: true` dispatch effect (used by the Jinja
+// completion `apply` functions under test below) measures the document via
+// this API — stub it so mounting a real `EditorView` and accepting one of
+// those completions doesn't throw.
+const emptyClientRects = (): DOMRectList =>
+  ({ length: 0, item: () => null, [Symbol.iterator]: () => [][Symbol.iterator]() }) as unknown as DOMRectList
+
 beforeEach(() => {
   vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+  if (!Range.prototype.getClientRects) {
+    Range.prototype.getClientRects = emptyClientRects
+  }
+  if (!Range.prototype.getBoundingClientRect) {
+    Range.prototype.getBoundingClientRect = () =>
+      ({ top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => '' }) as DOMRect
+  }
 })
 
 afterEach(() => {
@@ -302,5 +318,129 @@ describe('YamlPanel never echoes stale YAML over newer editor text (issue #35 fo
       />,
     )
     expect(view.state.doc.toString()).toContain('y: 9')
+  })
+})
+
+/**
+ * PR #42 fixed this exact bug for the element-type completion
+ * (`yamlCompletions.ts`): its `apply` dispatched without a `userEvent`
+ * annotation, so `shouldReportYamlDocChange` — which only reports annotated
+ * transactions to React — silently dropped the change. The identical bug
+ * exists in `jinjaCompletions.ts`'s `applyJinjaSnippet` (used by the `{%
+ * tag %}` completions) and `applyExpression` (used by the `states`,
+ * `is_state`, etc. helpers): both dispatch unannotated, so accepting a
+ * Jinja completion leaves `elements` — and everything derived from it,
+ * including the lint banner and the #35 blocked state — frozen until a
+ * later real keystroke re-syncs the (by then already-combined) text.
+ */
+describe('YamlPanel Jinja completions reach React state (issue #35 follow-up, jinjaCompletions.ts)', () => {
+  it('applyExpression (states helper) syncs to elements', () => {
+    vi.useFakeTimers()
+    const elementsChanges: DrawElement[][] = []
+    const { container } = render(
+      <YamlPanel
+        {...panelProps({
+          elements: [{ type: 'text', value: 'A', x: 0, y: 0 }],
+          onElementsChange: (next) => elementsChanges.push(next),
+        })}
+      />,
+    )
+    const view = findMountedView(container)
+
+    // Seed a partial Jinja expression inside the `value` field, exactly as
+    // typing it would leave the doc: `value: "{{ s"`.
+    const doc = view.state.doc.toString()
+    const valueFrom = doc.indexOf('value: A')
+    expect(valueFrom).toBeGreaterThan(-1)
+    dispatchUserEdit(view, { from: valueFrom, to: valueFrom + 'value: A'.length, insert: 'value: "{{ s"' })
+    act(() => {
+      vi.advanceTimersByTime(80)
+    })
+    const baseline = elementsChanges.length
+    expect(elementsChanges.at(-1)?.[0]).toMatchObject({ value: '{{ s' })
+
+    // Accept the `states` expression completion exactly the way the editor
+    // does: through the real Jinja completion source's own apply function.
+    const cursor = view.state.doc.toString().indexOf('{{ s') + '{{ s'.length
+    const completionResult = haJinjaCompletionSource([])(new CompletionContext(view.state, cursor, true))
+    expect(completionResult).not.toBeNull()
+    const statesOption = completionResult!.options.find((option) => option.label === 'states')
+    expect(statesOption).toBeDefined()
+    expect(typeof statesOption!.apply).toBe('function')
+
+    act(() => {
+      ;(statesOption!.apply as (view: EditorView, completion: unknown, from: number, to: number) => void)(
+        view,
+        statesOption!,
+        completionResult!.from,
+        cursor,
+      )
+    })
+    expect(view.state.doc.toString()).toContain("states('')")
+
+    act(() => {
+      vi.advanceTimersByTime(80)
+    })
+
+    // Bug: without `userEvent` on the completion's dispatch, the update
+    // listener's `shouldReportYamlDocChange` check ignores the transaction,
+    // so `onElementsChange` never fires for this edit.
+    expect(elementsChanges.length).toBeGreaterThan(baseline)
+    expect(elementsChanges.at(-1)?.[0]).toMatchObject({ value: expect.stringContaining("states('')") })
+  })
+
+  it('applyJinjaSnippet (tag completion) syncs to elements', () => {
+    vi.useFakeTimers()
+    const elementsChanges: DrawElement[][] = []
+    const { container } = render(
+      <YamlPanel
+        {...panelProps({
+          elements: [{ type: 'text', value: 'A', x: 0, y: 0 }],
+          onElementsChange: (next) => elementsChanges.push(next),
+        })}
+      />,
+    )
+    const view = findMountedView(container)
+
+    // Seed a partial Jinja statement tag inside the `value` field:
+    // `value: "{% i"`.
+    const doc = view.state.doc.toString()
+    const valueFrom = doc.indexOf('value: A')
+    expect(valueFrom).toBeGreaterThan(-1)
+    dispatchUserEdit(view, { from: valueFrom, to: valueFrom + 'value: A'.length, insert: 'value: "{% i"' })
+    act(() => {
+      vi.advanceTimersByTime(80)
+    })
+    const baseline = elementsChanges.length
+    expect(elementsChanges.at(-1)?.[0]).toMatchObject({ value: '{% i' })
+
+    // Accept the `if` tag completion exactly the way the editor does:
+    // through the real Jinja completion source's own apply function.
+    const cursor = view.state.doc.toString().indexOf('{% i') + '{% i'.length
+    const completionResult = haJinjaCompletionSource([])(new CompletionContext(view.state, cursor, true))
+    expect(completionResult).not.toBeNull()
+    const ifOption = completionResult!.options.find((option) => option.label === 'if')
+    expect(ifOption).toBeDefined()
+    expect(typeof ifOption!.apply).toBe('function')
+
+    act(() => {
+      ;(ifOption!.apply as (view: EditorView, completion: unknown, from: number, to: number) => void)(
+        view,
+        ifOption!,
+        completionResult!.from,
+        cursor,
+      )
+    })
+    expect(view.state.doc.toString()).toContain('if condition')
+
+    act(() => {
+      vi.advanceTimersByTime(80)
+    })
+
+    // Bug: without `userEvent` on the completion's dispatch, the update
+    // listener's `shouldReportYamlDocChange` check ignores the transaction,
+    // so `onElementsChange` never fires for this edit.
+    expect(elementsChanges.length).toBeGreaterThan(baseline)
+    expect(elementsChanges.at(-1)?.[0]).toMatchObject({ value: expect.stringContaining('if condition') })
   })
 })
