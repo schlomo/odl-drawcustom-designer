@@ -148,6 +148,38 @@ describe('remapSelectedIndex', () => {
     const removed = [elements[0]!, elements[1]!]
     expect(remapSelectedIndex(elements, removed, 2)).toBeNull()
   })
+
+  describe('multi-element reorders with duplicates (issue #17)', () => {
+    // Two structurally identical "Same" elements at indices 0 and 2; B/C are
+    // distinct fillers. `findSingleLayerMove` only detects a single
+    // from->to move, so any of these reorders that change *two or more*
+    // elements at once fall through to the signature-match fallback.
+    const A = { type: 'text' as const, value: 'Same', x: 0, y: 0 }
+    const A2 = { type: 'text' as const, value: 'Same', x: 0, y: 0 }
+    const B = { type: 'text' as const, value: 'B', x: 1, y: 1 }
+    const C = { type: 'text' as const, value: 'C', x: 2, y: 2 }
+    const D = { type: 'text' as const, value: 'D', x: 3, y: 3 }
+
+    it('keeps a stationary duplicate selected while unrelated elements swap', () => {
+      const prev = [A, B, A2, C]
+      // B and C swap; A/A2 never move. Not a single from->to move.
+      const next = [A, C, A2, B]
+      expect(remapSelectedIndex(prev, next, 2)).toBe(2)
+    })
+
+    it('keeps a stationary duplicate selected through a 3-way rotation elsewhere', () => {
+      const prev = [A, B, A2, C, D]
+      // B, C, D rotate (B->C's slot, C->D's slot, D->B's slot); A/A2 untouched.
+      const next = [A, D, A2, B, C]
+      expect(remapSelectedIndex(prev, next, 2)).toBe(2)
+    })
+
+    it('keeps a stationary duplicate selected when a distant pair swaps far away', () => {
+      const prev = [A, B, A2, C, D]
+      const next = [A, D, A2, C, B]
+      expect(remapSelectedIndex(prev, next, 2)).toBe(2)
+    })
+  })
 })
 
 describe('resolveLinkedElementIndex', () => {

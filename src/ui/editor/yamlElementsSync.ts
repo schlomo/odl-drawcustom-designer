@@ -182,15 +182,34 @@ export function remapSelectedIndex(
     return remapIndexAfterMove(selectedIndex, layerMove.fromIndex, layerMove.toIndex)
   }
 
+  // Fallback: match by structural signature. With two or more identical
+  // elements (issue #17), several indices in `nextElements` can share the
+  // selected element's signature — a reorder that moves more than one
+  // element at once isn't a "single layer move", so it reaches this branch.
+  // Picking the *first* match unconditionally is wrong whenever the
+  // originally-selected instance is a later duplicate (or didn't move at
+  // all while unrelated elements elsewhere did): selection would silently
+  // reattach to a different, unrelated copy. Instead, prefer whichever
+  // matching index is positionally closest to the old selection — this
+  // keeps a duplicate that never moved pinned in place, and is the most
+  // plausible instance to follow for typical local reorders. Ties (equal
+  // distance on both sides) resolve to the lower index, matching the prior
+  // first-match behavior for the common single-duplicate case.
   const selectedSignature = stableElementSignature(selected)
-  const exactMatch = nextElements.findIndex(
-    (element) => stableElementSignature(element) === selectedSignature,
-  )
-  if (exactMatch >= 0) {
-    return exactMatch
+  let bestIndex = -1
+  let bestDistance = Infinity
+  for (let index = 0; index < nextElements.length; index += 1) {
+    if (stableElementSignature(nextElements[index]!) !== selectedSignature) {
+      continue
+    }
+    const distance = Math.abs(index - selectedIndex)
+    if (distance < bestDistance) {
+      bestDistance = distance
+      bestIndex = index
+    }
   }
 
-  return null
+  return bestIndex >= 0 ? bestIndex : null
 }
 
 export function shouldApplyExternalYamlSync(skipBecauseYamlEdit: boolean): boolean {
