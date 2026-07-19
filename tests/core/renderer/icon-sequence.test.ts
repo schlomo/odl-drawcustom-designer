@@ -85,4 +85,95 @@ describe('renderIconSequence', () => {
       ),
     ).toThrow(/not-a-real-mdi-icon/)
   })
+
+  // A templated `icons` field (jsonOrTemplateSchema) reaches the renderer as
+  // a STRING once the preview evaluator has run (applyTemplateContextToPayload),
+  // not as an array — see ADR-013 point 1 ("a single template string that HA
+  // evaluates to JSON at runtime"). Home Assistant's own template engine
+  // preserves the NATIVE type (a real list) for a template that is a single
+  // pure `{{ expr }}` expression, so production never actually stringifies the
+  // list at all. The designer's Nunjucks-based preview evaluator has no
+  // equivalent native-type channel (`renderString` always stringifies), so a
+  // templated icons list arrives here as a plain string — these cases recover
+  // the intended icon list from that string on a best-effort basis instead of
+  // silently substituting the unrelated `help-circle` preview placeholder
+  // (issue #56 follow-up: a plausible-looking wrong icon is exactly the kind
+  // of "could pass for genuine content" render the render-error contract
+  // exists to avoid).
+  it('recovers icon names from a JSON-array template result (e.g. a `tojson`-equivalent filter)', () => {
+    const result = renderIconSequence(
+      {
+        type: 'icon_sequence',
+        x: 10,
+        y: 10,
+        icons: '["home","arrow-right"]',
+        size: 24,
+      },
+      context,
+    )
+
+    expect(result?.primitive.icons.map((icon) => icon.name)).toEqual(['home', 'arrow-right'])
+    expect(result?.primitive.icons.every((icon) => icon.path)).toBe(true)
+  })
+
+  it('recovers icon names from a comma-joined template result (Nunjucks\' default array-to-string coercion)', () => {
+    const result = renderIconSequence(
+      {
+        type: 'icon_sequence',
+        x: 10,
+        y: 10,
+        icons: 'home,arrow-right',
+        size: 24,
+      },
+      context,
+    )
+
+    expect(result?.primitive.icons.map((icon) => icon.name)).toEqual(['home', 'arrow-right'])
+    expect(result?.primitive.icons.every((icon) => icon.path)).toBe(true)
+  })
+
+  it('throws when the icons template still contains unevaluated {{ }} syntax (evaluation did not run or failed)', () => {
+    expect(() =>
+      renderIconSequence(
+        {
+          type: 'icon_sequence',
+          x: 10,
+          y: 10,
+          icons: "{{ ['home', 'home2'] }}",
+          size: 24,
+        },
+        context,
+      ),
+    ).toThrow(/icons/i)
+  })
+
+  it('throws when the icons template resolves to an empty value', () => {
+    expect(() =>
+      renderIconSequence(
+        {
+          type: 'icon_sequence',
+          x: 10,
+          y: 10,
+          icons: '',
+          size: 24,
+        },
+        context,
+      ),
+    ).toThrow(/icons/i)
+  })
+
+  it('still throws naming an unknown icon recovered from a templated list', () => {
+    expect(() =>
+      renderIconSequence(
+        {
+          type: 'icon_sequence',
+          x: 10,
+          y: 10,
+          icons: 'home,not-a-real-mdi-icon',
+          size: 24,
+        },
+        context,
+      ),
+    ).toThrow(/not-a-real-mdi-icon/)
+  })
 })
