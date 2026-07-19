@@ -1,6 +1,11 @@
 import type opentype from 'opentype.js'
 import { getDominantTextDirection, toVisualText } from './bidi-text'
 import type { AnchoredBox } from './anchors'
+import {
+  naiveTextBoundingBox,
+  shapedBoundingBoxNoVariation,
+  type SimpleBoundingBox,
+} from './glyph-shaping'
 import { getFontMetrics, type TextBlockLayout } from './text-layout'
 import type { TextDrawLine } from './types'
 
@@ -13,6 +18,23 @@ export interface InkBoundingBox {
   height: number
 }
 
+/**
+ * Ink bounds via `font.forEachGlyph` + per-glyph `getPath()` without a
+ * `font` argument (see `glyph-shaping.ts`) — preserves ligature/contextual
+ * shaping while never engaging variable-font instancing (default instance,
+ * matching Pillow — ADR-007 / issue #10). Falls back to a naive (cmap-only,
+ * unshaped) glyph walk if the font's own shaping throws, which some
+ * real-world fonts trigger regardless of variable-ness (a GSUB lookup type
+ * opentype.js 2.0.0 cannot parse — see issue #10).
+ */
+function measureBoundingBox(font: opentype.Font, text: string, fontSize: number): SimpleBoundingBox {
+  try {
+    return shapedBoundingBoxNoVariation(font, text, fontSize)
+  } catch {
+    return naiveTextBoundingBox(font, text, fontSize)
+  }
+}
+
 export function measureInkBoundingBox(
   font: opentype.Font,
   text: string,
@@ -23,8 +45,7 @@ export function measureInkBoundingBox(
     return { x1: 0, y1: 0, x2: 0, y2: 0, width: 0, height: 0 }
   }
 
-  const path = font.getPath(visualText, 0, 0, fontSize)
-  const bbox = path.getBoundingBox()
+  const bbox = measureBoundingBox(font, visualText, fontSize)
   return {
     x1: bbox.x1,
     y1: bbox.y1,

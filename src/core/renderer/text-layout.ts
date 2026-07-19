@@ -1,5 +1,6 @@
 import type opentype from 'opentype.js'
 import { getFont } from './fonts'
+import { measureNaiveAdvanceWidth } from './glyph-shaping'
 import { positionTextBlockAtAnchor } from './text-ink-bounds'
 import type { TextDrawLine } from './types'
 
@@ -45,11 +46,23 @@ export function getFontMetrics(font: opentype.Font, fontSize: number): FontMetri
   }
 }
 
+/**
+ * `font.getAdvanceWidth` never engages variable-font instancing itself (its
+ * internal glyph-walk never calls `glyph.getPath`, only reads the glyph's
+ * static hmtx advance width) — so no "no variation" wrapper is needed here,
+ * unlike `measureInkBoundingBox`. It can still throw for fonts whose GSUB
+ * tables opentype.js cannot parse (see `glyph-shaping.ts`), so fall back to
+ * a naive (cmap-only) advance-width sum in that case.
+ */
 export function measureTextWidth(font: opentype.Font, text: string, fontSize: number): number {
   if (text.length === 0) {
     return 0
   }
-  return font.getAdvanceWidth(text, fontSize)
+  try {
+    return font.getAdvanceWidth(text, fontSize)
+  } catch {
+    return measureNaiveAdvanceWidth(font, text, fontSize)
+  }
 }
 
 function truncateToWidth(
