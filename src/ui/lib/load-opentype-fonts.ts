@@ -77,6 +77,20 @@ async function loadOpentypeFont(key: string): Promise<FontLoadOutcome> {
     return unavailableOutcome(key, 'failed', unsupportedFontFormatMessage(key))
   }
 
+  // Clear a stale "confirmed unavailable" mark from a previous failed
+  // attempt as soon as we know the asset now resolves — before any `await`
+  // below. Without this, a font that was missing and then got uploaded would
+  // keep showing the render-error placeholder for the *entire* fetch/parse
+  // window of the retry, not just until the previous outcome was recorded
+  // (PR #54 review comment 3610491466). A still-missing key must keep its
+  // mark: `isFontAssetAvailable` is false for it, so this is a no-op there —
+  // clearing unconditionally would introduce the opposite flicker (error
+  // briefly disappears, wrong-metrics fallback shows, until the load
+  // re-settles to missing).
+  if (isFontAssetAvailable(key)) {
+    clearFontUnavailable(key)
+  }
+
   const cached = opentypeFontCache.get(key)
   if (cached) {
     if (isFontAssetAvailable(key)) {
