@@ -1,6 +1,6 @@
 import type { AssetEntry, AssetResolution } from './types'
 
-/** Bundled fonts shipped under `public/fonts/` — resolved without upload. */
+/** Bundled fonts shipped under `src/assets/fonts/` — resolved without upload. */
 export const BUNDLED_FONT_KEYS = ['ppb.ttf', 'rbm.ttf'] as const
 
 /** Bundled demo image for the showcase dashboard dlimg element. */
