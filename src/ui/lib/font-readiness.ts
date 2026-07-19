@@ -8,7 +8,7 @@ import {
 import type { FontLoadOutcome } from './font-load-outcome'
 import type { StatusMessage } from './status-messages'
 
-function formatKeyList(keys: readonly string[]): string {
+export function formatKeyList(keys: readonly string[]): string {
   if (keys.length === 0) {
     return ''
   }
@@ -21,7 +21,7 @@ function formatKeyList(keys: readonly string[]): string {
   return `${keys.slice(0, -1).join(', ')}, and ${keys.at(-1)}`
 }
 
-function formatElementIndexList(indices: readonly number[]): string {
+export function formatElementIndexList(indices: readonly number[]): string {
   const labels = indices.map((index) => String(index + 1))
   return formatKeyList(labels)
 }
