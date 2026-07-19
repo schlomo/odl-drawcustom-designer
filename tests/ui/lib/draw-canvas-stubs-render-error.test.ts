@@ -106,17 +106,12 @@ describe('drawCanvasStub — paint-time font failures never crash the canvas', (
     expect(calls.strokeRect.length).toBeGreaterThan(0)
   })
 
-  // NOTE for whoever rebases PR #52 (variable-font Pillow parity) onto this
-  // branch after this one lands: PR #52 adds a naive-shaping fallback that
-  // makes computeOpentypeGlyphPositions() stop throwing for Inter entirely
-  // (it renders the font correctly instead). At that point this specific
-  // test will start failing — not because the never-throw contract broke,
-  // but because Inter no longer *needs* the error-marker path here. When
-  // that happens, loosen the final assertion to accept either outcome
-  // (error marker drawn, or real glyph paint calls happened) instead of
-  // requiring the marker specifically — the `.not.toThrow()` above is the
-  // part of this test that must keep passing regardless.
-  it('degrades to an error marker instead of throwing for the real Inter variable font', () => {
+  // Inter exercises the real-font path end to end. Since the variable-font
+  // Pillow-parity fix (PR #52) its shaping no longer throws — it paints real
+  // glyphs via the naive fallback — so this test accepts either outcome
+  // (real glyph paint, or the error marker if shaping ever regresses to
+  // throwing). The `.not.toThrow()` is the invariant that must always hold.
+  it('paints the real Inter variable font (or degrades to an error marker) without throwing', () => {
     const buffer = readFileSync(fixturePath)
     const font = parseFont(
       buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength),
@@ -133,6 +128,9 @@ describe('drawCanvasStub — paint-time font failures never crash the canvas', (
       )
     }).not.toThrow()
 
-    expect(calls.strokeRect.length).toBeGreaterThan(0)
+    // Either real glyph paint happened (post-PR-#52 fallback) or the error
+    // marker was drawn — never silently nothing.
+    const fillCalls = (ctx.fill as ReturnType<typeof vi.fn>).mock.calls.length
+    expect(fillCalls + calls.strokeRect.length).toBeGreaterThan(0)
   })
 })
