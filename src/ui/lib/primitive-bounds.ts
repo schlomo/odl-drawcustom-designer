@@ -107,6 +107,8 @@ export function getPrimitiveBounds(primitive: RenderPrimitive): ElementBounds {
       }
     case 'debug-grid-stub':
       return { x: 0, y: 0, width: primitive.width, height: primitive.height }
+    case 'render-error':
+      return { x: primitive.x, y: primitive.y, width: primitive.width, height: primitive.height }
     case 'text-stub':
     case 'multiline-stub':
     case 'dlimg-stub':

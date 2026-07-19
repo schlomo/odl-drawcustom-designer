@@ -316,6 +316,44 @@ export function SvgPrimitive({ primitive, fontFamilies = new Map() }: SvgPrimiti
         </g>
       )
     }
+    case 'render-error':
+      // Deliberately NOT a plausible shape/text render: a dashed box with a
+      // diagonal cross is a dedicated "broken" glyph, unmistakable for real
+      // element content, so it's never confused with the element's intended
+      // rendering (issue #10). The message is also surfaced via a status
+      // banner (see src/ui/lib/render-error-messages.ts); this <title> gives
+      // an inline hover hint too.
+      return (
+        <g>
+          <title>{`Render error: ${primitive.message}`}</title>
+          <rect
+            x={primitive.x}
+            y={primitive.y}
+            width={primitive.width}
+            height={primitive.height}
+            fill="#fff5f5"
+            stroke="#c81e1e"
+            strokeWidth={2}
+            strokeDasharray="4 3"
+          />
+          <line
+            x1={primitive.x}
+            y1={primitive.y}
+            x2={primitive.x + primitive.width}
+            y2={primitive.y + primitive.height}
+            stroke="#c81e1e"
+            strokeWidth={2}
+          />
+          <line
+            x1={primitive.x + primitive.width}
+            y1={primitive.y}
+            x2={primitive.x}
+            y2={primitive.y + primitive.height}
+            stroke="#c81e1e"
+            strokeWidth={2}
+          />
+        </g>
+      )
     default: {
       const _exhaustive: never = primitive
       return _exhaustive

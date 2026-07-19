@@ -45,6 +45,23 @@ export interface SvgRectPrimitive {
   radius?: number
 }
 
+/**
+ * Placeholder shown when an element's renderer threw (see `safeRenderElement`
+ * in `src/core/renderer/index.ts`). Deliberately NOT a plain shape: a dashed
+ * box with a diagonal cross is a dedicated "broken" glyph that must never be
+ * mistaken for real element content — if in doubt between showing
+ * approximate content and showing an error, this renderer always shows the
+ * error (issue #10).
+ */
+export interface SvgRenderErrorPrimitive {
+  kind: 'render-error'
+  x: number
+  y: number
+  width: number
+  height: number
+  message: string
+}
+
 export interface SvgCirclePrimitive {
   kind: 'circle'
   cx: number
@@ -306,6 +323,7 @@ export type SvgPrimitive =
   | SvgRectanglePatternStubPrimitive
   | SvgProgressBarStubPrimitive
   | SvgDebugGridStubPrimitive
+  | SvgRenderErrorPrimitive
 
 export type CanvasPrimitive =
   | CanvasTextStubPrimitive
