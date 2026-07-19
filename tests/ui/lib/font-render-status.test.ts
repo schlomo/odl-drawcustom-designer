@@ -94,3 +94,22 @@ describe('one font-unavailable failure produces exactly one banner', () => {
     }
   })
 })
+
+describe('font-bearing element types beyond text/multiline also merge into one attributed banner', () => {
+  const ctx: RenderContext = { width: 200, height: 100, colorMode: 'bw' }
+  const KEY = 'issue53-plot-dup-banner.ttf'
+
+  afterEach(() => clearFontRegistry())
+
+  it('a plot with a confirmed-missing font gets one banner naming the element (not the old unattributed font-only banner)', () => {
+    markFontUnavailable(KEY, `${KEY} is not uploaded.`)
+    const outcomes = new Map([[KEY, { key: KEY, status: 'missing' as const, message: `${KEY} is not uploaded.` }]])
+    const element: DrawElement = { type: 'plot', data: [{ entity: 'sensor.x' }], font: KEY }
+
+    const messages = getMergedStatusMessages([element], ctx, outcomes, false)
+    const matches = messages.filter((message) => message.summary.includes(KEY))
+
+    expect(matches).toHaveLength(1)
+    expect(matches[0]?.summary).toMatch(/element 1/i)
+  })
+})

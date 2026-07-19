@@ -1,6 +1,6 @@
 import type { DrawElement } from '../schema/elements'
 import { effectiveBool, effectiveNumber, effectiveString, resolveShapePaintFallback } from './element-defaults'
-import { DEFAULT_FONT_KEY } from './fonts'
+import { DEFAULT_FONT_KEY, fontUnavailableMessage, getFont } from './fonts'
 import { paintOptionsFromContext } from './preview-paint'
 import type { RenderContext, RenderResult } from './types'
 import { isVisible } from './visibility'
@@ -19,6 +19,25 @@ export function renderDebugGrid(
   }
 
   const paintOptions = paintOptionsFromContext(ctx)
+  const showLabels = effectiveBool(element, 'show_labels')
+
+  if (showLabels) {
+    // Unlike text/multiline, debug_grid never needed a real opentype.Font
+    // object for its own layout — coordinate labels are painted via a CSS
+    // font-family fallback at the UI layer, not opentype.js. A
+    // confirmed-missing font was previously silently ignored: the whole
+    // grid kept rendering fine, just with labels in a fallback font
+    // (issue #53 follow-up, maintainer manual test). Only check when labels
+    // are actually shown — the font is genuinely unused otherwise, and
+    // spuriously erroring on an unrelated/unused key would be its own bug.
+    const labelFontKey = effectiveString(element, 'font', DEFAULT_FONT_KEY)
+    if (!getFont(labelFontKey)) {
+      const unavailableMessage = fontUnavailableMessage(labelFontKey)
+      if (unavailableMessage) {
+        throw new Error(unavailableMessage)
+      }
+    }
+  }
 
   return {
     layer: 'svg',
