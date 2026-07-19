@@ -59,6 +59,16 @@ function rowsFromScan(scan: AssetScanResult): ContentAssetRow[] {
   return [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key))
 }
 
+/**
+ * "All" scope: a true superset of every stored asset (uploaded, whether
+ * referenced or not) UNION every referenced asset (whether uploaded or not).
+ * Before this, "All" only listed stored assets — a font referenced by an
+ * element but never uploaded showed under "Current" with a MISSING badge,
+ * then vanished entirely when switching to "All" (maintainer manual-test
+ * finding on PR #54). "All" reading as a superset of "Current" is the
+ * natural expectation, so a referenced-but-missing key must still appear
+ * here, with the same MISSING badge "Current" already gives it.
+ */
 function rowsFromStored(scan: AssetScanResult): ContentAssetRow[] {
   const refsByKey = new Map<string, { kind: AssetKind; paths: string[] }>()
 
@@ -74,8 +84,13 @@ function rowsFromStored(scan: AssetScanResult): ContentAssetRow[] {
     refsByKey.set(ref.key, { kind: ref.kind, paths: [ref.path] })
   }
 
-  return listContentMapKeys()
-    .filter((key) => !bundledFontKeys.has(key))
+  const storedKeys = listContentMapKeys().filter((key) => !bundledFontKeys.has(key))
+  const allKeys = new Set<string>(storedKeys)
+  for (const key of refsByKey.keys()) {
+    allKeys.add(key)
+  }
+
+  return [...allKeys]
     .map((key) => {
       const fromScan = refsByKey.get(key)
       return {

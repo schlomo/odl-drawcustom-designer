@@ -35,8 +35,7 @@ import {
 } from '../lib/load-font-faces'
 import { areFontLoadOutcomeMapsEqual, type FontLoadOutcome } from '../lib/font-load-outcome'
 import { fontLayoutTokenForKeys } from '../lib/font-layout-token'
-import { getFontStatusMessages } from '../lib/font-readiness'
-import { getRenderErrorStatusMessages } from '../lib/render-error-messages'
+import { getMergedStatusMessages } from '../lib/font-render-status'
 import { sortStatusMessages, type StatusMessage } from '../lib/status-messages'
 import {
   areOpentypeFontMapsEqual,
@@ -401,33 +400,26 @@ export function DesignerCanvas({
     })
   }, [fontAssetKeys, fontLoadOutcomes])
 
-  const fontStatusMessages = useMemo(
-    () => getFontStatusMessages(elements, fontLoadOutcomes, fontsLoading),
-    [elements, fontLoadOutcomes, fontsLoading],
-  )
-
-  // getRenderErrorStatusMessages re-invokes safeRenderElement, whose result
-  // depends on the core opentype.js font registry (a module-level Map
+  // getMergedStatusMessages re-invokes safeRenderElement internally, whose
+  // result depends on the core opentype.js font registry (a module-level Map
   // outside React state). opentypeFonts/fontLoadOutcomes are the only
   // React-visible signals that registry changed, so they must stay as
   // dependencies below even though the callback body doesn't reference them
-  // directly — otherwise a font that finishes loading asynchronously (with
-  // no corresponding `elements` change) would leave a stale banner even
-  // though the canvas placeholder already updated.
-  const renderErrorStatusMessages = useMemo(
-    () => getRenderErrorStatusMessages(elements, renderContext),
+  // directly — otherwise a font that finishes loading (or is confirmed
+  // missing/failed) asynchronously, with no corresponding `elements` change,
+  // would leave a stale banner even though the canvas placeholder already
+  // updated. One failure = one banner (maintainer ruling): this also merges
+  // a font-unavailable render-error banner with its font-status banner
+  // instead of showing both — see font-render-status.ts.
+  const fontAndRenderStatusMessages = useMemo(
+    () => getMergedStatusMessages(elements, renderContext, fontLoadOutcomes, fontsLoading),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
-    [elements, renderContext, opentypeFonts, fontLoadOutcomes],
+    [elements, renderContext, fontLoadOutcomes, fontsLoading, opentypeFonts],
   )
 
   const statusMessages = useMemo(
-    () =>
-      sortStatusMessages([
-        ...extraStatusMessages,
-        ...fontStatusMessages,
-        ...renderErrorStatusMessages,
-      ]),
-    [extraStatusMessages, fontStatusMessages, renderErrorStatusMessages],
+    () => sortStatusMessages([...extraStatusMessages, ...fontAndRenderStatusMessages]),
+    [extraStatusMessages, fontAndRenderStatusMessages],
   )
 
   useEffect(() => {
@@ -1419,6 +1411,7 @@ export function DesignerCanvas({
               assetImages={displayAssetImages}
               fontFamilies={fontFamilies}
               opentypeFonts={opentypeFonts}
+              fontLoadOutcomes={fontLoadOutcomes}
             />
           ))}
           {dragOverlays.map((overlay) => (
@@ -1431,6 +1424,7 @@ export function DesignerCanvas({
               assetImages={displayAssetImages}
               fontFamilies={fontFamilies}
               opentypeFonts={opentypeFonts}
+              fontLoadOutcomes={fontLoadOutcomes}
             />
           ))}
           <svg
