@@ -2,7 +2,7 @@ import type { DrawElement } from '../schema/elements'
 import { getDominantTextDirection, toVisualText } from './bidi-text'
 import { resolveX, resolveY } from './coordinates'
 import { effectiveBool, effectiveFontSize, effectiveNumber, effectiveString } from './element-defaults'
-import { DEFAULT_FONT_KEY, getFont } from './fonts'
+import { DEFAULT_FONT_KEY, fontUnavailableMessage, getFont } from './fonts'
 import { stripColorMarkup } from './parse-colors'
 import { buildColoredMultilineDrawLines } from './text-color-lines'
 import { layoutMultilineBlock } from './text-layout'
@@ -31,6 +31,15 @@ export function renderMultiline(
     ? lineTexts.map((line) => stripColorMarkup(line))
     : lineTexts
   const font = getFont(fontKey)
+  if (!font) {
+    // See renderText's identical check (text.ts) for the full rationale —
+    // issue #53: a confirmed-unavailable font must never fall back to
+    // estimated (wrong) metrics, only a still-loading one may.
+    const unavailableMessage = fontUnavailableMessage(fontKey)
+    if (unavailableMessage) {
+      throw new Error(unavailableMessage)
+    }
+  }
 
   const layout = font
     ? layoutMultilineBlock(font, layoutLineTexts, fontSize, lineSpacing)
