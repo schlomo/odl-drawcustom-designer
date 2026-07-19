@@ -32,6 +32,15 @@ export function renderIconSequence(
   const size = effectiveFontSize(element, 'size', 20)
   const spacing = effectiveNumber(element, 'spacing', size / 4, 0)
   const icons = resolveJsonFieldValue(element.icons, [...ICON_SEQUENCE_ICONS_PREVIEW])
+  const unknownIcon = icons.find((name) => resolveMdiPath(name) === null)
+  if (unknownIcon !== undefined) {
+    // Unknown icon name anywhere in the list fails the WHOLE element rather
+    // than silently dropping just that one icon slot (issue #56) — consistent
+    // with the no-partial-error-UX ruling: safeRenderElement replaces the
+    // entire element with one render-error placeholder, never a mix of good
+    // icons and a silently-invisible one.
+    throw new Error(`Unknown Material Design icon name: "${unknownIcon}"`)
+  }
   const { width, height } = iconSequenceBoxSize(size, icons.length, spacing, direction)
   const anchored = resolveAnchoredBox(
     effectiveString(element, 'anchor', ICON_DEFAULT_ANCHOR),

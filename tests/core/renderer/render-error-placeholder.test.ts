@@ -206,4 +206,50 @@ describe('render-error placeholder geometry matches the element\'s declared posi
     expect(result.primitive.x).toBe(60)
     expect(result.primitive.y).toBe(70)
   })
+
+  it('icon (point-anchored, unknown icon name — issue #56): placeholder sits at the element\'s real x/y, not (0, 0)', () => {
+    const element: DrawElement = {
+      type: 'icon',
+      value: 'not-a-real-mdi-icon',
+      x: 60,
+      y: 70,
+      size: 24,
+    }
+
+    const result = safeRenderElement(element, ctx)
+    if (result?.layer !== 'svg' || result.primitive.kind !== 'render-error') {
+      throw new Error(`expected the dedicated render-error marker, got ${JSON.stringify(result)}`)
+    }
+
+    expect(result.primitive.x).toBe(60)
+    expect(result.primitive.y).toBe(70)
+    expect(result.error).toMatch(/not-a-real-mdi-icon/)
+  })
+
+  it('icon_sequence (point-anchored, unknown icon name among valid ones — issue #56): placeholder sits at the element\'s real x/y, not (0, 0)', () => {
+    const element: DrawElement = {
+      type: 'icon_sequence',
+      x: 45,
+      y: 55,
+      icons: ['home', 'not-a-real-mdi-icon'],
+      size: 24,
+    }
+
+    const result = safeRenderElement(element, ctx)
+    if (result?.layer !== 'svg' || result.primitive.kind !== 'render-error') {
+      throw new Error(`expected the dedicated render-error marker, got ${JSON.stringify(result)}`)
+    }
+
+    expect(result.primitive.x).toBe(45)
+    expect(result.primitive.y).toBe(55)
+    expect(result.error).toMatch(/not-a-real-mdi-icon/)
+  })
+
+  it('icon (known icon name): still a real icon render, never an error (regression lock)', () => {
+    const element: DrawElement = { type: 'icon', value: 'home', x: 10, y: 10, size: 24 }
+    const result = safeRenderElement(element, ctx)
+
+    expect(result?.error).toBeUndefined()
+    expect(result?.primitive.kind).toBe('icon')
+  })
 })

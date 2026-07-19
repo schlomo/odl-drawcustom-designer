@@ -55,7 +55,10 @@ describe('anchor rendering', () => {
 
   it('offsets icon_sequence bounds for mm anchor', () => {
     const size = 24
-    const icons = ['a', 'b', 'c']
+    // Real MDI names — a fake placeholder ('a', 'b', 'c') would now throw
+    // (issue #56: unknown icon names are a render error, not silent). Only
+    // the count (3) matters for this geometry assertion.
+    const icons = ['home', 'account', 'office-building']
     const spacing = 8
     const { width, height } = iconSequenceBoxSize(size, icons.length, spacing, 'right')
     const result = renderIconSequence(

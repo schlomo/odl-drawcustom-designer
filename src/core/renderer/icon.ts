@@ -14,6 +14,16 @@ export function renderIcon(element: IconElement, ctx: RenderContext): RenderResu
     return null
   }
 
+  const path = resolveMdiPath(element.value)
+  if (path === null) {
+    // Unknown icon name: don't pass a null path through to an invisible SVG
+    // (issue #56). Throwing here hands off to safeRenderElement, which turns
+    // this into the standard render-error placeholder + status banner naming
+    // the element, matching the "clear error over wrong render" ruling used
+    // for missing fonts (issue #53) and issue #10.
+    throw new Error(`Unknown Material Design icon name: "${element.value}"`)
+  }
+
   const paintOptions = paintOptionsFromContext(ctx)
   const size = effectiveFontSize(element, 'size', 20)
   const anchored = resolveAnchoredBox(
@@ -33,7 +43,7 @@ export function renderIcon(element: IconElement, ctx: RenderContext): RenderResu
       y: anchored.y,
       size,
       value: element.value,
-      path: resolveMdiPath(element.value),
+      path,
       fill: resolveIconPaint(element, 'fill', 'black', paintOptions),
     },
   }
