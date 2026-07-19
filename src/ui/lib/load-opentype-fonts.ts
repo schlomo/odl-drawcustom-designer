@@ -1,6 +1,8 @@
 import opentype from 'opentype.js'
 import {
   BUNDLED_FONT_KEYS,
+  clearFontUnavailable,
+  markFontUnavailable,
   parseFont,
   registerFont,
   resolveAsset,
@@ -49,7 +51,22 @@ export function areOpentypeFontMapsEqual(
 }
 
 function readyOutcome(key: string): FontLoadOutcome {
+  // A font that just became ready is, by definition, no longer confirmed
+  // unavailable — clear any stale mark from a previous failed attempt so
+  // renderText/renderMultiline (fonts.ts) stop treating it as an error.
+  clearFontUnavailable(key)
   return { key, status: 'ready' }
+}
+
+/**
+ * Every non-ready outcome below is a confirmed, settled failure (not a
+ * transient "still loading" state) — mark it unavailable in the core font
+ * registry so renderText/renderMultiline switch from their wrong-metrics
+ * fallback render to the explicit render-error placeholder (issue #53).
+ */
+function unavailableOutcome(key: string, status: 'missing' | 'failed', message: string): FontLoadOutcome {
+  markFontUnavailable(key, message)
+  return { key, status, message }
 }
 
 async function loadOpentypeFont(key: string): Promise<FontLoadOutcome> {
@@ -57,11 +74,7 @@ async function loadOpentypeFont(key: string): Promise<FontLoadOutcome> {
     !BUNDLED_FONT_KEYS.includes(key as (typeof BUNDLED_FONT_KEYS)[number]) &&
     !isSupportedFontKey(key)
   ) {
-    return {
-      key,
-      status: 'failed',
-      message: unsupportedFontFormatMessage(key),
-    }
+    return unavailableOutcome(key, 'failed', unsupportedFontFormatMessage(key))
   }
 
   const cached = opentypeFontCache.get(key)
@@ -84,19 +97,19 @@ async function loadOpentypeFont(key: string): Promise<FontLoadOutcome> {
     ) {
       const response = await fetch(bundledFontUrl(key))
       if (!response.ok) {
-        return {
+        return unavailableOutcome(
           key,
-          status: 'failed',
-          message: `${key} could not be fetched (${response.status} ${response.statusText}).`,
-        }
+          'failed',
+          `${key} could not be fetched (${response.status} ${response.statusText}).`,
+        )
       }
       font = parseFont(await response.arrayBuffer())
     } else {
-      return {
+      return unavailableOutcome(
         key,
-        status: 'missing',
-        message: `${key} is not uploaded — add it in Content Manager or use ppb.ttf / rbm.ttf.`,
-      }
+        'missing',
+        `${key} is not uploaded — add it in Content Manager or use ppb.ttf / rbm.ttf.`,
+      )
     }
 
     opentypeFontCache.set(key, font)
@@ -104,11 +117,7 @@ async function loadOpentypeFont(key: string): Promise<FontLoadOutcome> {
     return readyOutcome(key)
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Unknown error'
-    return {
-      key,
-      status: 'failed',
-      message: `${key} could not be parsed (${detail}).`,
-    }
+    return unavailableOutcome(key, 'failed', `${key} could not be parsed (${detail}).`)
   }
 }
 

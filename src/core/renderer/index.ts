@@ -145,8 +145,11 @@ export {
 export { fontFamilyNameForKey } from './font-family-name'
 export {
   clearFontRegistry,
+  clearFontUnavailable,
   DEFAULT_FONT_KEY,
+  fontUnavailableMessage,
   getFont,
+  markFontUnavailable,
   parseFont,
   registerFont,
   unregisterFont,

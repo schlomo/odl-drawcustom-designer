@@ -3,7 +3,7 @@ import { getDominantTextDirection, toVisualText } from './bidi-text'
 import { TEXT_DEFAULT_ANCHOR } from './anchors'
 import { resolveCoordinate, resolveX, resolveY } from './coordinates'
 import { effectiveBool, effectiveFontSize, effectiveNumber, effectiveString } from './element-defaults'
-import { DEFAULT_FONT_KEY, getFont } from './fonts'
+import { DEFAULT_FONT_KEY, fontUnavailableMessage, getFont } from './fonts'
 import { stripColorMarkup } from './parse-colors'
 import { buildColoredDrawLines } from './text-color-lines'
 import { layoutTextBlock } from './text-layout'
@@ -23,6 +23,19 @@ export function renderText(element: TextElement, ctx: RenderContext): RenderResu
   const fontKey = effectiveString(element, 'font', DEFAULT_FONT_KEY)
   const fontSize = effectiveFontSize(element, 'size', 20)
   const font = getFont(fontKey)
+  if (!font) {
+    // No point falling back to estimated (wrong) metrics once the font is
+    // confirmed unavailable — that's exactly the "plausible but wrong"
+    // render the maintainer's ruling forbids (issue #53). Throwing here
+    // routes through safeRenderElement's existing render-error placeholder
+    // (issue #10/#51) instead of a second, bespoke error path. A font that's
+    // merely still loading has no `fontUnavailableMessage` entry yet, so
+    // this is a no-op for that case — see fonts.ts.
+    const unavailableMessage = fontUnavailableMessage(fontKey)
+    if (unavailableMessage) {
+      throw new Error(unavailableMessage)
+    }
+  }
   const parseColors = effectiveBool(element, 'parse_colors')
   const layoutText = parseColors ? stripColorMarkup(element.value) : element.value
   const maxWidth =
