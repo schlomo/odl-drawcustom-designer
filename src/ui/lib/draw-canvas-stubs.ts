@@ -22,6 +22,38 @@ export interface CanvasDrawColorContext {
   ditherMode?: DitherMode
 }
 
+/**
+ * Canvas-drawn twin of `SvgRenderErrorPrimitive` (src/core/renderer/types.ts)
+ * — same dashed-box-plus-diagonal-cross marker, deliberately unmistakable
+ * for real content. Drawn directly on this element's own canvas layer when
+ * paint-time glyph shaping throws (issue #10): `safeRenderElement` only
+ * guards CORE's render, not this UI-side paint stage, and an uncaught
+ * exception here (thrown from inside a React effect, with no error
+ * boundary) unmounts the whole app.
+ */
+function drawCanvasRenderErrorMarker(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): void {
+  ctx.save()
+  ctx.setLineDash([4, 3])
+  ctx.fillStyle = '#fff5f5'
+  ctx.strokeStyle = '#c81e1e'
+  ctx.lineWidth = 2
+  ctx.fillRect(x, y, width, height)
+  ctx.strokeRect(x, y, width, height)
+  ctx.beginPath()
+  ctx.moveTo(x, y)
+  ctx.lineTo(x + width, y + height)
+  ctx.moveTo(x + width, y)
+  ctx.lineTo(x, y + height)
+  ctx.stroke()
+  ctx.restore()
+}
+
 function resolveDrawFont(
   fontKey: string | undefined,
   opentypeFonts: ReadonlyMap<string, opentype.Font>,
@@ -282,51 +314,65 @@ export function drawCanvasStub(
     case 'text-stub': {
       const font = resolveDrawFont(primitive.font, opentypeFonts)
       const fontFamily = resolveCanvasFontFamily(primitive.font, fontFamilies)
-      if (font) {
-        for (const line of primitive.drawLines) {
-          drawTextLineContent(
-            ctx,
-            font,
-            line,
-            primitive.fontSize,
-            primitive.defaultColor,
-            drawColor,
-            fontFamily,
-          )
+      try {
+        if (font) {
+          for (const line of primitive.drawLines) {
+            drawTextLineContent(
+              ctx,
+              font,
+              line,
+              primitive.fontSize,
+              primitive.defaultColor,
+              drawColor,
+              fontFamily,
+            )
+          }
+        } else {
+          drawTextFallback(ctx, primitive, fontFamilies, drawColor)
         }
-      } else {
-        drawTextFallback(ctx, primitive, fontFamilies, drawColor)
+      } catch (error) {
+        // Paint-time glyph shaping threw (issue #10) — safeRenderElement only
+        // guards CORE's render, not this UI-side paint call. An uncaught
+        // exception here (inside a React effect) unmounts the whole app, so
+        // this must never escape: degrade to the same error marker instead.
+        console.error('[draw-canvas-stubs] text-stub paint failed:', error)
+        drawCanvasRenderErrorMarker(ctx, primitive.x, primitive.y, primitive.width, primitive.height)
       }
       break
     }
     case 'multiline-stub': {
       const font = resolveDrawFont(primitive.font, opentypeFonts)
       const fontFamily = resolveCanvasFontFamily(primitive.font, fontFamilies)
-      if (font) {
-        for (const line of primitive.drawLines) {
-          drawTextLineContent(
-            ctx,
-            font,
-            line,
-            primitive.fontSize,
-            primitive.defaultColor,
-            drawColor,
-            fontFamily,
-          )
+      try {
+        if (font) {
+          for (const line of primitive.drawLines) {
+            drawTextLineContent(
+              ctx,
+              font,
+              line,
+              primitive.fontSize,
+              primitive.defaultColor,
+              drawColor,
+              fontFamily,
+            )
+          }
+        } else {
+          ctx.font = `${primitive.fontSize}px ${fontFamily}, sans-serif`
+          for (const line of primitive.drawLines) {
+            drawTextLineContent(
+              ctx,
+              undefined,
+              line,
+              primitive.fontSize,
+              primitive.defaultColor,
+              drawColor,
+              fontFamily,
+            )
+          }
         }
-      } else {
-        ctx.font = `${primitive.fontSize}px ${fontFamily}, sans-serif`
-        for (const line of primitive.drawLines) {
-          drawTextLineContent(
-            ctx,
-            undefined,
-            line,
-            primitive.fontSize,
-            primitive.defaultColor,
-            drawColor,
-            fontFamily,
-          )
-        }
+      } catch (error) {
+        console.error('[draw-canvas-stubs] multiline-stub paint failed:', error)
+        drawCanvasRenderErrorMarker(ctx, primitive.x, primitive.y, primitive.width, primitive.height)
       }
       break
     }
