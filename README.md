@@ -172,6 +172,8 @@ npm run build
 
 **Deployment, GitHub Pages, and build-time environment variables** (base path, legal header HTML, git metadata): [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
+**Embedding the designer in a host application** (mount API, host data contract, library build, demo host page): [`docs/embedding.md`](docs/embedding.md).
+
 ## Architecture
 
 - `src/core/` — pure TypeScript (YAML, schema, renderer, templates); **no React** imports
@@ -179,6 +181,7 @@ npm run build
 - `src/ui/` — React 19 application shell
 - `src/ui/data/showcase.ts` — loads the built-in demo bundle (`src/assets/showcase/`)
 - `src/storage/` — Dexie IndexedDB (assets, mocks, variables, session)
+- `src/embed/` — embeddable `mount()` API + host data contract ([`docs/embedding.md`](docs/embedding.md))
 - `src/assets/showcase/` — **demo bundle**: `showcase.yml` (payload), `showcase.json` (canvas + simulator seed), `showcase.png` (bundled image)
 - `docs/adr/` — architecture decision records
 

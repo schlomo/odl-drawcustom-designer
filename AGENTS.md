@@ -39,6 +39,7 @@ Full set lives in [`docs/adr/`](docs/adr/). Read the rows that match your task b
 - **`src/core/`** — pure TypeScript; **never** import React. Business logic lives here.
 - **`src/ui/`** — React shell; calls core via `src/core/index.ts`.
 - **`src/storage/`** — IndexedDB adapters (assets, mocks, variables, session).
+- **`src/embed/`** — embeddable `mount()` API, host data contract, standalone entry helper (issue #20, ADR-010; library build via `npm run build:lib`, docs in [`docs/embedding.md`](docs/embedding.md)).
 - **`src/assets/showcase/`** — built-in **Load Demo** bundle: `showcase.yml` (payload), `showcase.json` (canvas + simulator seed), `showcase.png` (bundled image). Loaded by `src/ui/data/showcase.ts` (ADR-015).
 - **`src/ui/lib/clear-demo-data.ts`** — **Clear all** strips only unmodified showcase simulator entries; user mocks survive.
 

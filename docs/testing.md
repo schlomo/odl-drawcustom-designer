@@ -9,6 +9,7 @@ Canonical ADR: [ADR-011](adr/ADR-011-behavior-test-policy.md). CI gates: [ADR-00
 | `tests/core/` | Node (Vitest) | Spec-visible outcomes: YAML parse/serialize equality, validation, render primitives, template strings, HA-clean export |
 | `tests/ui/` | Node or jsdom | User-visible wiring: canvas geometry, YAML↔canvas coupling, editor lint/completion, focus guards |
 | `tests/storage/` | Node + fake IndexedDB | Asset/mock persist round-trip via public storage adapters |
+| `tests/embed/` | Node or jsdom (Vitest) | Embed contract outcomes: capabilities → canvas/palette, host states → template preview, mount/destroy/theme/save behavior (`docs/embedding.md`) |
 | `tests/e2e/` | Real Chromium (Playwright) | Real three-panel wiring jsdom cannot exercise: canvas click ↔ property panel/element list selection, YAML click ↔ selection, property edit → canvas, YAML edit → canvas (ADR-011, revised 2026-07-15) |
 | `tests/fixtures/` | (data) | Golden YAML from `docs/spec/supported_types.md` (HA drawcustom); reconcile with [ODL](https://opendisplay.org/protocol/open-display-language.html) per `docs/spec/odl-gap-report.md` |
 
