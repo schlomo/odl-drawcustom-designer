@@ -1,5 +1,4 @@
 import type { DrawElement } from '../schema/elements'
-import { PLOT_DATA_PREVIEW, resolveJsonFieldValue } from '../schema/propertyEditorMeta'
 import { resolveBounds } from './bounds'
 import {
   effectiveBool,
@@ -25,8 +24,54 @@ type PlotLegend = NonNullable<PlotElement['ylegend']>
 type PlotAxis = NonNullable<PlotElement['yaxis']>
 type PlotDataLine = PlotElement['data'] extends (infer T)[] | string ? T : never
 
+function isPlotDataLineArray(value: unknown): value is PlotDataLine[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every(
+      (line) =>
+        typeof line === 'object' &&
+        line !== null &&
+        typeof (line as Record<string, unknown>).entity === 'string',
+    )
+  )
+}
+
+/**
+ * Resolve the `data` field (`jsonOrTemplateSchema`) to a real list of data
+ * series. By render time this is either the structured array (unchanged) or —
+ * once the preview evaluator has run — a STRING, because a whole-field
+ * template only ever produces a string in the designer's Nunjucks evaluator.
+ * Production is unaffected: Home Assistant's `Template.async_render()`
+ * preserves the native list for a single pure `{{ expr }}` expression
+ * (issue #56 follow-up).
+ *
+ * Only a valid JSON array of series objects (e.g. a `tojson`-style filter) is
+ * recoverable. Unlike icon names or coordinate pairs, Nunjucks' default
+ * Array→String coercion of a list of OBJECTS is "[object Object],…" — the
+ * original data is gone, so everything else throws into the standard
+ * render-error placeholder instead of silently substituting the unrelated
+ * fixed preview series — a plausible-looking wrong chart is worse than an
+ * honest failure indicator (issue #10).
+ */
 function plotDataLines(element: PlotElement): PlotDataLine[] {
-  return resolveJsonFieldValue(element.data, [...PLOT_DATA_PREVIEW]) as PlotDataLine[]
+  const value = element.data
+  if (Array.isArray(value)) {
+    return value
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(value)
+    if (isPlotDataLineArray(parsed)) {
+      return parsed
+    }
+  } catch {
+    // Not JSON — nothing else can recover object series; throw below.
+  }
+
+  throw new Error(
+    `Plot "data" template did not resolve to a list of data series: "${value}"`,
+  )
 }
 
 const DEFAULT_POINT_COUNT = 24
