@@ -157,7 +157,7 @@ npm ci   # node_modules is per-worktree (not tracked); each needs its own instal
 - One branch can only be checked out in one worktree (git enforces this — rely on it).
 - After the PR merges, clean up: `git worktree remove ../odl-drawcustom-designer-<task>` and `git branch -d <branch>`.
 - If two PRs touch the same core file (e.g. `src/core/templates/evaluate.ts`), state a **merge order** and rebase the second branch onto the first after it lands.
-- Playwright's preview server defaults to port 4173 and collides across concurrent worktrees — use a per-worktree port override or serialize e2e runs.
+- Playwright picks a free preview port automatically per run — concurrent worktrees can't collide; set `PW_PORT` for a fixed port.
 - Cost-effective orchestration: run a read-only investigation before dispatching fixes; keep one PR per concern with file-disjoint territories and a declared merge order when territories touch; for small follow-ups (comment fixes, doc tweaks) prefer a fresh agent with a self-contained brief over resuming a long-lived agent transcript.
 
 ## Tool-specific files (parity)
