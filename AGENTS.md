@@ -55,6 +55,18 @@ Full set lives in [`docs/adr/`](docs/adr/). Read the rows that match your task b
 
 ESLint enforces the core boundary.
 
+### Editor sync invariants (ADR-009)
+
+Full contract: [ADR-009](docs/adr/ADR-009-yaml-jinja-editor.md).
+
+- User-initiated CodeMirror changes must carry a `userEvent` annotation (e.g. `input.complete`, `input.type`); `shouldReportYamlDocChange` (`src/ui/editor/yamlEditorSelection.ts`) ignores unannotated transactions **by design**.
+- External programmatic syncs (elements → editor text) must stay **unannotated** — annotating them makes the sync loop mistake its own echo for a user edit.
+- **Echo contract:** an external sync must never rewrite newer editor text; blocked/pending state is read via **refs**, never effect dependencies (a state flip must not re-trigger the sync effect). Violations of either rule shipped real bugs (canvas lockup after autocomplete; typed text corrupted).
+
+## Build-time defines
+
+Any env-derived value baked via `define` in `vite.config.ts` must short-circuit under Vitest — follow the `vitest:` source-flag pattern in `tools/gitRevision.ts` (keyed off `process.env.VITEST` in `vite.config.ts`). GitHub Actions sets `GITHUB_REF_NAME='<n>/merge'` etc. on `pull_request` runs; an unguarded define once leaked that into the Vitest runtime and broke CI for every open PR at once.
+
 ## TDD (non-negotiable)
 
 Follow **Red → Green → Refactor** (ADR-008).
@@ -106,9 +118,25 @@ npm test && npm run lint && npm run build
 
 Use `npm ci` in CI. Deploy is blocked on failure (ADR-008).
 
+## CI notes
+
+`.github/workflows/pages.yml`:
+
+- The **`checks`** job is the merge gate: lint, `test:ci` (vitest), build, Playwright, JUnit check-run publishing.
+- The **`preview`** job is deliberately build+deploy only — do **not** re-add lint/test there (a red-tests PR still gets a preview; `checks` is what blocks merge).
+- All gh-pages pushes (production + every PR preview) share one serializing concurrency group. If Pages reports "Page build failed" right after rapid consecutive merges, it's almost always the superseded-legacy-build race — **rerun the failed job**, don't debug content.
+- Fork PRs run with a read-only token: check-run publishing (`dorny/test-reporter`) is skipped there; inline annotations and artifacts still work.
+
 ## Commits
 
 Only commit when the user asks, unless their task explicitly includes committing. Do not commit parity “fixes” that lack behavioral test coverage.
+
+## Process rules
+
+- Roadmap and planning live in **GitHub milestones + issues only** — never create `ROADMAP.md` or a backlog document.
+- Only the maintainer merges PRs. AI agents/assistants never merge and never enable auto-merge.
+- **TDD red-first means proving the new test can fail:** run it against pre-fix code (or a deliberate revert) and record the failure before claiming red→green.
+- Review-bot comments (e.g. Copilot) may target a stale revision — verify each claim against the current pushed commit before acting; reply-and-resolve with evidence when a finding is already fixed or refuted.
 
 ## Parallel agents / git worktrees
 
@@ -129,6 +157,8 @@ npm ci   # node_modules is per-worktree (not tracked); each needs its own instal
 - One branch can only be checked out in one worktree (git enforces this — rely on it).
 - After the PR merges, clean up: `git worktree remove ../odl-drawcustom-designer-<task>` and `git branch -d <branch>`.
 - If two PRs touch the same core file (e.g. `src/core/templates/evaluate.ts`), state a **merge order** and rebase the second branch onto the first after it lands.
+- Playwright's preview server defaults to port 4173 and collides across concurrent worktrees — use a per-worktree port override or serialize e2e runs.
+- Cost-effective orchestration: run a read-only investigation before dispatching fixes; keep one PR per concern with file-disjoint territories and a declared merge order when territories touch; for small follow-ups (comment fixes, doc tweaks) prefer a fresh agent with a self-contained brief over resuming a long-lived agent transcript.
 
 ## Tool-specific files (parity)
 

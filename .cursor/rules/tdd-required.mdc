@@ -16,6 +16,7 @@ alwaysApply: true
 
 - Core: `tests/core/` mirroring `src/core/`
 - UI: `tests/ui/` for wiring and user-visible behavior
+- Red means **proving** the test can fail: run it against pre-fix code (or a deliberate revert) and record the failure before claiming red→green
 - Run `npm test` before finishing
 
 ## Behavior tests only (ADR-011)
