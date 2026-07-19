@@ -27,8 +27,9 @@ Text on the canvas path must follow Pillow semantics where we can approximate th
 
 - **Anchors** — use glyph **ink bounds** (`text-ink-bounds.ts`), not font-table ascender/descender alone, so `lb` / `mb` / `rb` align like Pillow `textbbox`.
 - **Edges** — apply a hard-alpha canvas filter when filling opentype paths (`draw-canvas-stubs.ts`), approximating Pillow `fontmode = "1"`.
+- **Variable fonts render at their default instance** — HA imagegen's Pillow rendering (`ImageFont.truetype()` used without `set_variation_by_axes`/`set_variation_by_name`) never touches variable-font axes, and never applies OpenType Layout (GSUB/GPOS) shaping (ligatures, contextual substitution) either. The designer matches this: glyph outlines are fetched via `glyph.getPath()` **without** a `font` argument (`text-ink-bounds.ts`, `opentype-glyphs.ts` / `draw-canvas-stubs.ts`, see `glyph-shaping.ts`), so `opentype.js`'s `font.variation` instancing machinery is never engaged — the `glyf` table's stored outline (the font's default instance) is used as-is. Text metrics/shaping still prefer the font's own `forEachGlyph`-based feature application (ligatures, bidi contextual forms) when it works, falling back to a naive cmap-only glyph walk (`glyph-shaping.ts`) when it throws — some real-world fonts (e.g. Inter, static or variable) use a GSUB lookup type `opentype.js` 2.0.0 cannot parse, which throws for any 2+ character string regardless of whether the font is variable (issue #10).
 
-These are tested in `tests/core/renderer/text-ink-bounds.test.ts` and `tests/core/renderer/text-anchor.test.ts`.
+These are tested in `tests/core/renderer/text-ink-bounds.test.ts`, `tests/core/renderer/text-anchor.test.ts`, and `tests/core/renderer/variable-font-parity.test.ts`.
 
 ### SVG trade-offs (known parity gaps)
 
@@ -48,6 +49,7 @@ SVG elements also take an extra step at export: serialize → rasterize via `dat
 - `@mdi/js` tree-shaken for full icon library
 - Dither modes: ordered (d=2 default), optional Floyd-Steinberg (d=1)
 - Text anchor and hard-edge behaviour are regression-tested; SVG shape parity is tracked separately
+- **Known gap:** when a font's shaping throws (naive-fallback path, see above), ligatures/contextual substitution are lost for that font — this is closer to Pillow's own default (non-raqm) layout engine than to `opentype.js`'s normal ligature-shaped output, but a real HA install running with `raqm`/HarfBuzz could still diverge slightly for such fonts.
 
 ## Future direction (not yet implemented)
 
