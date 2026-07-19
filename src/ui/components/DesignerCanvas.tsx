@@ -36,6 +36,7 @@ import {
 import { areFontLoadOutcomeMapsEqual, type FontLoadOutcome } from '../lib/font-load-outcome'
 import { fontLayoutTokenForKeys } from '../lib/font-layout-token'
 import { getFontStatusMessages } from '../lib/font-readiness'
+import { getRenderErrorStatusMessages } from '../lib/render-error-messages'
 import { sortStatusMessages, type StatusMessage } from '../lib/status-messages'
 import {
   areOpentypeFontMapsEqual,
@@ -405,9 +406,19 @@ export function DesignerCanvas({
     [elements, fontLoadOutcomes, fontsLoading],
   )
 
+  const renderErrorStatusMessages = useMemo(
+    () => getRenderErrorStatusMessages(elements, renderContext),
+    [elements, renderContext],
+  )
+
   const statusMessages = useMemo(
-    () => sortStatusMessages([...extraStatusMessages, ...fontStatusMessages]),
-    [extraStatusMessages, fontStatusMessages],
+    () =>
+      sortStatusMessages([
+        ...extraStatusMessages,
+        ...fontStatusMessages,
+        ...renderErrorStatusMessages,
+      ]),
+    [extraStatusMessages, fontStatusMessages, renderErrorStatusMessages],
   )
 
   useEffect(() => {

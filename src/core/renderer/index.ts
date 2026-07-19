@@ -15,6 +15,7 @@ import { renderQrcode } from './qrcode'
 import { renderRectangle } from './rectangle'
 import { renderRectanglePattern } from './rectangle-pattern'
 import { renderText } from './text'
+import { buildRenderErrorPlaceholder } from './render-error'
 import type { RenderContext, RenderResult } from './types'
 
 export function renderElement(element: DrawElement, ctx: RenderContext): RenderResult | null {
@@ -58,12 +59,18 @@ export function renderElement(element: DrawElement, ctx: RenderContext): RenderR
   }
 }
 
-/** Best-effort render — never throws (templated/incomplete values must not crash the UI). */
+/**
+ * Best-effort render — never throws (templated/incomplete values must not crash the UI)
+ * and never vanishes an element completely: a render-time exception still returns a
+ * placeholder RenderResult (bounds/outline + `.error`) so the element stays visible and
+ * findable instead of disappearing with no trace (issue #10). A `null` return only ever
+ * means the element is legitimately invisible (e.g. `visible: false`), not that it failed.
+ */
 export function safeRenderElement(element: DrawElement, ctx: RenderContext): RenderResult | null {
   try {
     return renderElement(element, ctx)
-  } catch {
-    return null
+  } catch (error) {
+    return buildRenderErrorPlaceholder(element, ctx, error)
   }
 }
 
