@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import net from 'node:net'
 
 /**
  * Playwright e2e harness (ADR-011, 2026-07-15 revision): a small smoke suite for
@@ -11,7 +12,48 @@ import { defineConfig, devices } from '@playwright/test'
  * mean `npm run build` must run before `npx playwright test` (CI does this as a
  * separate gate step already; locally run `npm run build && npm run test:e2e`).
  */
-const PORT = 4173
+
+/**
+ * Find a free TCP port by asking the OS for one (bind to port 0), then
+ * releasing it immediately. There's a theoretical race between closing the
+ * probe socket and `vite preview` binding the same port, but in practice the
+ * OS won't hand the same ephemeral port back out immediately, so this is
+ * reliable enough for local dev and CI alike — and it's what lets concurrent
+ * git worktrees run `npx playwright test` at the same time without colliding.
+ *
+ * Set `PW_PORT` to pin a fixed port instead (e.g. to reuse an already-running
+ * preview server across repeated local runs).
+ */
+async function findFreePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer()
+    server.unref()
+    server.on('error', reject)
+    server.listen(0, () => {
+      const address = server.address()
+      if (address === null || typeof address === 'string') {
+        server.close()
+        reject(new Error('Could not determine a free port'))
+        return
+      }
+      const { port } = address
+      server.close(() => resolve(port))
+    })
+  })
+}
+
+// Playwright's test runner loads this config once in the main process (to
+// start `webServer`) and again in every worker subprocess (to resolve
+// `baseURL`). Each load must agree on the same port. Worker subprocesses
+// inherit `process.env` from the main process, so: resolve the port once,
+// stash it back into `process.env.PW_PORT`, and every later load — whether
+// PW_PORT was already set by the caller or just set by us — reads the same
+// value instead of each independently probing for (and getting) a different
+// free port.
+if (!process.env.PW_PORT) {
+  process.env.PW_PORT = String(await findFreePort())
+}
+const PORT = Number(process.env.PW_PORT)
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -41,6 +83,9 @@ export default defineConfig({
   webServer: {
     command: `npm run preview -- --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
+    // Unchanged from before: false in CI (always start fresh). Locally this
+    // only matters when PW_PORT pins a fixed port — a random port is unique
+    // per run, so there's never an existing server on it to reuse.
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
   },
