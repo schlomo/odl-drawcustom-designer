@@ -27,8 +27,13 @@ describe('safeRenderElement — render failures never vanish the element', () =>
   })
 
   it('returns a non-null render-error marker (never content-shaped) with visible bounds and a surfaced message', () => {
-    // Not a real opentype.Font — renderText's layout code will throw
-    // (font.getAdvanceWidth is not a function) once it tries to measure text.
+    // Not a real opentype.Font — renderText's layout/metrics code will throw
+    // once it tries to measure text. The exact method that throws first
+    // (getAdvanceWidth, charToGlyph, ...) is an opentype.js implementation
+    // detail that can shift as the renderer's font-handling evolves (e.g.
+    // the separate variable-font-parity fix adds a fallback path that
+    // throws from a different method for a fake object like this one) —
+    // assert only the stable contract: some non-empty error message.
     registerFont(BROKEN_FONT_KEY, {} as never)
 
     const element: DrawElement = {
@@ -43,7 +48,7 @@ describe('safeRenderElement — render failures never vanish the element', () =>
 
     expect(result).not.toBeNull()
     expect(result?.error).toBeTruthy()
-    expect(result?.error).toContain('getAdvanceWidth')
+    expect(typeof result?.error).toBe('string')
 
     if (result?.layer !== 'svg' || result.primitive.kind !== 'render-error') {
       throw new Error(
@@ -54,7 +59,7 @@ describe('safeRenderElement — render failures never vanish the element', () =>
     expect(result.primitive.kind).not.toBe('text-stub')
     expect(result.primitive.kind).not.toBe('rect')
     // It carries the failure message directly too (not just RenderResult.error).
-    expect(result.primitive.message).toContain('getAdvanceWidth')
+    expect(result.primitive.message).toBe(result.error)
     // Bounds must be a real, hit-testable box — not zero-area / NaN — so the
     // user can still click the errored element to fix it.
     expect(Number.isFinite(result.primitive.x)).toBe(true)
