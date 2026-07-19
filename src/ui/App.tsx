@@ -29,7 +29,8 @@ import { useYamlSelectionCoupling } from './hooks/useYamlSelectionCoupling'
 import { ExportIconButton } from './components/ExportIconButton'
 import { TextButton } from './components/TextButton'
 import { shell } from './styles/shell'
-import type { DrawElement } from '../core'
+import type { EmbedHostBridge } from '../embed/types'
+import { serializeYamlPayload, type DrawElement } from '../core'
 import type { AddElementResult } from './hooks/useProjectState'
 import {
   APP_GITHUB_REPO_URL,
@@ -52,13 +53,21 @@ import { toolIconPath } from './lib/mdi-tool-icons'
 
 interface AppProps {
   bootstrap: AppBootstrap
+  /**
+   * Present when mounted through the embed API (issue #20, ADR-010): the
+   * host pushes states/capabilities/payload and owns persistence + theme.
+   */
+  host?: EmbedHostBridge | null
 }
 
-export function App({ bootstrap }: AppProps) {
+export function App({ bootstrap, host = null }: AppProps) {
+  const embedded = host != null
   const columnRef = useRef<HTMLDivElement>(null)
   const canvasAllocationRef = useRef<HTMLDivElement>(null)
   const canvasAllocationSize = useElementSize(canvasAllocationRef)
-  const { mode, resolvedTheme, cycleMode } = useThemePreference()
+  const themePreference = useThemePreference({ applyToDocument: !embedded })
+  const { mode, cycleMode } = themePreference
+  const resolvedTheme = embedded ? host.theme : themePreference.resolvedTheme
   const { couplingEnabled } = useYamlSelectionCoupling()
   const [entityScrollRequest, setEntityScrollRequest] = useState<{
     entityId: string
@@ -141,7 +150,7 @@ export function App({ bootstrap }: AppProps) {
     canRedo,
     beginEditCoalesce,
     endEditCoalesce,
-  } = useProjectState(bootstrap)
+  } = useProjectState(bootstrap, host)
 
   const elementsRef = useRef(elements)
 
@@ -196,6 +205,10 @@ export function App({ bootstrap }: AppProps) {
     }
     loadDemo()
   }, [elements.length, loadDemo])
+
+  const handleSaveRequest = useCallback(() => {
+    host?.onSaveRequest?.(serializeYamlPayload(elements))
+  }, [elements, host])
 
   const handleShare = useCallback(async () => {
     const payload = buildSharePayload({
@@ -344,7 +357,7 @@ export function App({ bootstrap }: AppProps) {
   }
 
   return (
-    <div className={shell.app}>
+    <div className={embedded ? shell.appEmbedded : shell.app}>
       <header className={`${shell.header} flex items-center gap-4`}>
         <div className="flex shrink-0 items-center gap-2.5">
           <a
@@ -432,19 +445,32 @@ export function App({ bootstrap }: AppProps) {
               Load Demo
             </TextButton>
           </div>
-          <div className={toolbarGroupRow} role="group" aria-label="Copy share link">
-            <ExportIconButton
-              actionId="share-link"
-              feedback={getFeedback('share-link')}
-              iconPath={toolIconPath('share')}
-              tooltip="Copy share link"
-              label="Copy share link"
-              onClick={() => void handleShare()}
-            />
-          </div>
-          <div className={toolbarGroupRow} role="group" aria-label="Appearance">
-            <ThemeToggle mode={mode} resolvedTheme={resolvedTheme} onCycle={cycleMode} />
-          </div>
+          {embedded && host.onSaveRequest ? (
+            <div className={toolbarGroupRow} role="group" aria-label="Save">
+              <TextButton onClick={handleSaveRequest} disabled={yamlBlocked}>
+                Save
+              </TextButton>
+            </div>
+          ) : null}
+          {/* Share links and the theme toggle are standalone concerns: the
+              embedding parent owns the payload and the page theme (#20). */}
+          {!embedded ? (
+            <div className={toolbarGroupRow} role="group" aria-label="Copy share link">
+              <ExportIconButton
+                actionId="share-link"
+                feedback={getFeedback('share-link')}
+                iconPath={toolIconPath('share')}
+                tooltip="Copy share link"
+                label="Copy share link"
+                onClick={() => void handleShare()}
+              />
+            </div>
+          ) : null}
+          {!embedded ? (
+            <div className={toolbarGroupRow} role="group" aria-label="Appearance">
+              <ThemeToggle mode={mode} resolvedTheme={resolvedTheme} onCycle={cycleMode} />
+            </div>
+          ) : null}
         </div>
       </header>
 
