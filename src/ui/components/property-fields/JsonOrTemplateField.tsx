@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import type { DrawElement } from '../../../core'
 import { isTemplateStoredValue, resolveEditorMode } from '../../../core'
 import { parsePropertyInput } from '../../lib/property-field-meta'
@@ -13,6 +13,11 @@ export interface JsonOrTemplateFieldProps {
   value: unknown
   label: ReactNode
   sampleValue?: unknown[] | Record<string, unknown>
+  /** Literal restored when leaving template mode with no known prior literal.
+   * Every `json`-shaped field (points/icons/data) is REQUIRED by its element
+   * schema — committing `undefined` deletes the field and leaves the element
+   * invalid (once white-screening the whole app via element-list-row). */
+  literalFallback?: unknown
   onChange: (value: unknown) => void
   onBeginEdit?: () => void
   onEndEdit?: () => void
@@ -24,6 +29,7 @@ export function JsonOrTemplateField({
   value,
   label,
   sampleValue,
+  literalFallback,
   onChange,
   onBeginEdit,
   onEndEdit,
@@ -32,12 +38,22 @@ export function JsonOrTemplateField({
     resolveEditorMode(value, 'json') === 'template' ||
     (typeof value === 'string' && isTemplateStoredValue(value))
 
+  // Remember the most recent structured literal so "Back to JSON" can restore
+  // it after a template was committed in this session.
+  const lastLiteral = useRef<unknown>(undefined)
+  useEffect(() => {
+    if (typeof value !== 'string' && value !== undefined && value !== null) {
+      lastLiteral.current = value
+    }
+  }, [value])
+
   const displayValue = formatPropertyValue(value)
 
   const commitJsonScalar = (raw: string) => {
     const trimmed = raw.trim()
     if (!trimmed) {
-      onChange(undefined)
+      // Required field: an emptied textarea must not delete the value —
+      // leave the stored literal in place (the display reverts on blur).
       return
     }
     onChange(parsePropertyInput('json', raw))
@@ -63,7 +79,11 @@ export function JsonOrTemplateField({
             literalLabel="JSON"
             onClick={() => {
               cancelTemplate()
-              onChange(undefined)
+              if (isStoredTemplate) {
+                onChange(lastLiteral.current ?? literalFallback)
+              }
+              // Pending-only template mode never committed anything — the
+              // stored literal is still intact, nothing to change.
             }}
           />
         }

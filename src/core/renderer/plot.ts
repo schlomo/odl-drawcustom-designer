@@ -60,6 +60,12 @@ function plotDataLines(element: PlotElement): PlotDataLine[] {
     return value
   }
 
+  // Schema requires the field, but a schema-invalid element (e.g. mid-edit
+  // in the property panel) must produce a clean render error, not a TypeError.
+  if (typeof value !== 'string') {
+    throw new Error(`Plot "data" is missing or not a list of data series`)
+  }
+
   try {
     const parsed: unknown = JSON.parse(value)
     if (isPlotDataLineArray(parsed)) {

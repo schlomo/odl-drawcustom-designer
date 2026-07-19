@@ -126,6 +126,11 @@ export function elementListRowMeta(element: DrawElement): ElementListRowMeta {
           thumbnail: { kind: 'badge', label: '…' },
         }
       }
+      // Required field, but a schema-invalid element (e.g. mid-edit) must
+      // degrade to a plain row, never crash the whole list.
+      if (!Array.isArray(element.icons)) {
+        return { ...rowBase, detail: null, thumbnail: { kind: 'badge', label: '…' } }
+      }
       return {
         ...rowBase,
         detail: `${element.icons.length} icons`,
@@ -203,6 +208,9 @@ export function elementListRowMeta(element: DrawElement): ElementListRowMeta {
           thumbnail: { kind: 'badge', label: '📈' },
         }
       }
+      if (!Array.isArray(element.data)) {
+        return { ...rowBase, detail: null, thumbnail: { kind: 'badge', label: '📈' } }
+      }
       return {
         ...rowBase,
         detail: `${element.data.length} series`,
@@ -215,6 +223,9 @@ export function elementListRowMeta(element: DrawElement): ElementListRowMeta {
           detail: isTemplateStoredValue(element.points) ? 'templated points' : element.points,
           thumbnail: { kind: 'badge', label: '▱' },
         }
+      }
+      if (!Array.isArray(element.points)) {
+        return { ...rowBase, detail: null, thumbnail: { kind: 'badge', label: '▱' } }
       }
       return {
         ...rowBase,

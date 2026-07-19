@@ -103,6 +103,24 @@ describe('elementListRowMeta', () => {
     })
     expect(meta.hiddenOnTag).toBe(true)
   })
+
+  it('survives a polygon whose required points went missing instead of crashing the list', () => {
+    const meta = elementListRowMeta({ type: 'polygon', points: undefined } as never)
+    expect(meta.typeLabel).toBe('polygon')
+    expect(typeof meta.detail === 'string' || meta.detail === null).toBe(true)
+  })
+
+  it('survives a plot whose required data went missing instead of crashing the list', () => {
+    const meta = elementListRowMeta({ type: 'plot', data: undefined } as never)
+    expect(meta.typeLabel).toBe('plot')
+    expect(typeof meta.detail === 'string' || meta.detail === null).toBe(true)
+  })
+
+  it('survives an icon_sequence whose required icons went missing instead of crashing the list', () => {
+    const meta = elementListRowMeta({ type: 'icon_sequence', x: 0, y: 0, icons: undefined } as never)
+    expect(meta.typeLabel).toBe('icon sequence')
+    expect(typeof meta.detail === 'string' || meta.detail === null).toBe(true)
+  })
 })
 
 describe('firstLinePreview', () => {
