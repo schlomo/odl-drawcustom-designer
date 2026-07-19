@@ -68,6 +68,32 @@ describe('safeRenderElement — render failures never vanish the element', () =>
     expect(result.primitive.height).toBeGreaterThan(0)
   })
 
+  it('clamps the placeholder origin so a canvas-edge-anchored element stays visible (issue #10 follow-up)', () => {
+    // Right/bottom-anchored elements commonly set x/y to the canvas edge
+    // (e.g. x = ctx.width for a right-anchored element). The placeholder's
+    // fixed 32px size must not be allowed to start there and clip fully
+    // outside the canvas — that vanishes the failed element all over again.
+    registerFont(BROKEN_FONT_KEY, {} as never)
+
+    const element: DrawElement = {
+      type: 'text',
+      value: 'Hello',
+      x: ctx.width,
+      y: ctx.height,
+      font: BROKEN_FONT_KEY,
+    }
+
+    const result = safeRenderElement(element, ctx)
+
+    if (result?.layer !== 'svg' || result.primitive.kind !== 'render-error') {
+      throw new Error(`expected the dedicated render-error marker, got ${JSON.stringify(result)}`)
+    }
+
+    const { x, y, width, height } = result.primitive
+    const intersectsCanvas = x < ctx.width && x + width > 0 && y < ctx.height && y + height > 0
+    expect(intersectsCanvas).toBe(true)
+  })
+
   it('still returns null for a deliberately invisible element (visible: false) — not an error case', () => {
     const element: DrawElement = {
       type: 'text',

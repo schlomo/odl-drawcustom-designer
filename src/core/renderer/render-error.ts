@@ -43,9 +43,16 @@ export function buildRenderErrorPlaceholder(
   ctx: RenderContext,
   error: unknown,
 ): RenderResult {
-  const { x, y } = elementAnchor(element)
+  const anchor = elementAnchor(element)
   const width = Math.max(1, Math.min(PLACEHOLDER_SIZE, ctx.width))
   const height = Math.max(1, Math.min(PLACEHOLDER_SIZE, ctx.height))
+  // Clamp the origin *after* sizing so the marker always lies fully within
+  // the canvas. Right/bottom-anchored elements commonly set x/y to the
+  // canvas edge (e.g. x = ctx.width) — starting the fixed-size placeholder
+  // there would clip it entirely off-canvas, vanishing the failed element
+  // all over again (see the "canvas-edge-anchored element" test).
+  const x = Math.min(Math.max(anchor.x, 0), Math.max(ctx.width - width, 0))
+  const y = Math.min(Math.max(anchor.y, 0), Math.max(ctx.height - height, 0))
   const message = renderErrorMessage(error)
 
   return {
