@@ -190,4 +190,36 @@ describe('one image-unavailable failure produces exactly one banner (issue #55)'
     const messages = getMergedStatusMessages([element], ctx, new Map(), false, imageOutcomes)
     expect(messages).toHaveLength(0)
   })
+
+  /**
+   * Independent review finding on PR #58 (cheap hardening): `mergeAssetFailures`
+   * must keep skipping any outcome status other than 'missing'/'failed' even
+   * as the status unions grow in the future, so a hypothetical new status
+   * never silently flows into `buildMessage` (which only knows how to label
+   * exactly those two cases) and gets mislabeled.
+   */
+  it('never merges or mislabels an outcome whose status is neither missing nor failed, even with a matching render error', () => {
+    markImageUnavailable(URL, `${URL} is not uploaded.`)
+    // A deliberately out-of-union status value, simulating a future addition
+    // nobody has taught mergeAssetFailures about yet.
+    const weirdOutcomes = new Map([
+      [URL, { key: URL, status: 'not-a-real-status' } as unknown as { key: string; status: 'missing' | 'failed' | 'ready' | 'suppressed' }],
+    ])
+    const element: DrawElement = { type: 'dlimg', url: URL, x: 0, y: 0, xsize: 10, ysize: 10 }
+
+    const messages = getMergedStatusMessages(
+      [element],
+      ctx,
+      new Map(),
+      false,
+      weirdOutcomes as never,
+    )
+
+    // No "Image not available"/"Image failed to load" banner was fabricated
+    // for the unrecognized status — at most the generic standalone
+    // render-error banner (from the element's own render exception) may
+    // appear, never a mislabeled asset-status one.
+    expect(messages.some((message) => message.title === 'Image not available')).toBe(false)
+    expect(messages.some((message) => message.title === 'Image failed to load')).toBe(false)
+  })
 })
