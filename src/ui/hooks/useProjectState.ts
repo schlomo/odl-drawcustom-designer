@@ -63,6 +63,8 @@ import {
   readShowHiddenHintsPrefs,
   writeShowHiddenHintsPrefs,
 } from '../preferences/hiddenHints'
+import { capabilitiesToCanvas, hostStatesToMockData } from '../../embed/hostContract'
+import type { EmbedHostBridge } from '../../embed/types'
 import { useTemplatePreviewClock } from './useTemplatePreviewClock'
 
 export type { AddElementResult } from '../lib/add-element-guards'
@@ -151,7 +153,7 @@ function buildEffectiveMockContext(
   return { states, attributes: mockAttributes, variables }
 }
 
-export function useProjectState(bootstrap: AppBootstrap) {
+export function useProjectState(bootstrap: AppBootstrap, host: EmbedHostBridge | null = null) {
   const [sessionName, setSessionName] = useState(bootstrap.sessionName)
   const [elements, setElements] = useState<DrawElement[]>(bootstrap.elements)
   const [selectedIndices, setSelectedIndices] = useState<number[]>([])
@@ -290,25 +292,39 @@ export function useProjectState(bootstrap: AppBootstrap) {
     }
   }, [captureSnapshot, restoreSnapshot, syncHistoryUi])
 
+  // Embedded mode (ADR-010): the parent owns persistence — no local session
+  // autosave, and host-pushed states/variables never overwrite the standalone
+  // Simulator's persisted mocks.
+  const persistLocally = host == null
+
   useEffect(() => {
+    if (!persistLocally) {
+      return
+    }
     const timer = window.setTimeout(() => {
       void writeMockStates({ states: mockStates, attributes: mockAttributes })
     }, 250)
     return () => {
       window.clearTimeout(timer)
     }
-  }, [mockStates, mockAttributes])
+  }, [persistLocally, mockStates, mockAttributes])
 
   useEffect(() => {
+    if (!persistLocally) {
+      return
+    }
     const timer = window.setTimeout(() => {
       void writeVariables(variables)
     }, 250)
     return () => {
       window.clearTimeout(timer)
     }
-  }, [variables])
+  }, [persistLocally, variables])
 
   useEffect(() => {
+    if (!persistLocally) {
+      return
+    }
     const timer = window.setTimeout(() => {
       void writeSessionToDb({
         name: sessionName,
@@ -321,7 +337,33 @@ export function useProjectState(bootstrap: AppBootstrap) {
     return () => {
       window.clearTimeout(timer)
     }
-  }, [canvas, elements, historyUi, service, sessionName])
+  }, [persistLocally, canvas, elements, historyUi, service, sessionName])
+
+  // Host pushes (embedded mode): register the appliers with the mount bridge.
+  // Each applier runs from a MountHandle setter call — an external host event,
+  // which is exactly where React wants external-state-driven setState to live.
+  useEffect(() => {
+    if (!host) {
+      return
+    }
+    return host.registerPushTarget({
+      applyStates: (states) => {
+        const mock = hostStatesToMockData(states)
+        setMockStates(mock.states)
+        setMockAttributes(mock.attributes)
+      },
+      applyCapabilities: (capabilities) => {
+        commitCanvas((current) => capabilitiesToCanvas(capabilities, current))
+      },
+      applyPayload: (nextElements) => {
+        // The parent replaced the payload wholesale — undo history from the
+        // previous payload no longer applies.
+        resetEditHistory()
+        commitElements(structuredClone(nextElements))
+        commitSelectedIndices([])
+      },
+    })
+  }, [host, commitCanvas, commitElements, commitSelectedIndices, resetEditHistory])
 
   useEffect(() => {
     writeSnapGridPrefs(snapGrid)

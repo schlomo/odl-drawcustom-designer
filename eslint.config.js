@@ -70,7 +70,7 @@ export default defineConfig([
     rules: coreBoundaryRule,
   },
   {
-    files: ['src/ui/**/*.{ts,tsx}'],
+    files: ['src/ui/**/*.{ts,tsx}', 'src/embed/**/*.{ts,tsx}'],
     rules: uiCoreBoundaryRule,
   },
   {

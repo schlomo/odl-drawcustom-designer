@@ -17,14 +17,26 @@ function applyResolvedTheme(theme: ResolvedTheme): void {
   document.documentElement.dataset.theme = theme
 }
 
-export function useThemePreference() {
+export interface ThemePreferenceOptions {
+  /**
+   * Standalone mode applies the resolved theme to `document.documentElement`.
+   * Embedded mounts pass `false`: the host page's globals are not ours to
+   * touch — the mount container carries the theme instead (issue #20).
+   */
+  applyToDocument?: boolean
+}
+
+export function useThemePreference({ applyToDocument = true }: ThemePreferenceOptions = {}) {
   const [mode, setMode] = useState<ThemeMode>(() => readThemeMode())
   const [systemPrefersDark, setSystemPrefersDark] = useState(() => getSystemPrefersDark())
   const resolvedTheme = resolveThemeMode(mode, systemPrefersDark)
 
   useEffect(() => {
+    if (!applyToDocument) {
+      return
+    }
     applyResolvedTheme(resolvedTheme)
-  }, [resolvedTheme])
+  }, [applyToDocument, resolvedTheme])
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)')
