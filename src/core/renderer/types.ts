@@ -319,11 +319,19 @@ export type RenderPrimitive = SvgPrimitive | CanvasPrimitive
 export interface SvgRenderResult {
   layer: 'svg'
   primitive: SvgPrimitive
+  /**
+   * Present when this result is a degraded placeholder produced after the
+   * element's real renderer threw (see `safeRenderElement`). Absent on a
+   * normal successful render.
+   */
+  error?: string
 }
 
 export interface CanvasRenderResult {
   layer: 'canvas'
   primitive: CanvasPrimitive
+  /** See `SvgRenderResult.error`. */
+  error?: string
 }
 
 export type RenderResult = SvgRenderResult | CanvasRenderResult
