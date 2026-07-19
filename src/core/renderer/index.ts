@@ -155,6 +155,12 @@ export {
   unregisterFont,
 } from './fonts'
 export {
+  clearImageAvailabilityRegistry,
+  clearImageUnavailable,
+  imageUnavailableMessage,
+  markImageUnavailable,
+} from './image-availability'
+export {
   layoutMultilineBlock,
   layoutTextBlock,
   measureTextWidth,

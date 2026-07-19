@@ -1,5 +1,6 @@
 import type { DrawElement } from '../schema/elements'
 import { effectiveNumber } from './element-defaults'
+import { imageUnavailableMessage } from './image-availability'
 import type { RenderContext, RenderResult } from './types'
 import { isVisible } from './visibility'
 
@@ -9,6 +10,24 @@ export function renderDlimg(element: DlimgElement, _ctx: RenderContext): RenderR
   void _ctx
   if (!isVisible(element.visible)) {
     return null
+  }
+
+  // Unlike font metrics, core never needed to know whether an image asset
+  // resolved — image decoding is a browser/UI concern (draw-canvas-stubs.ts
+  // draws a placeholder when the decoded image isn't available). A
+  // confirmed-missing/failed image was previously silently ignored: the
+  // element kept "rendering" (a dlimg-stub primitive referencing a URL with
+  // nothing behind it), with no error marker or banner attribution (issue
+  // #55, following the same #53 ruling for fonts). If the loader has
+  // settled this URL as unavailable, throw here — safeRenderElement's
+  // existing catch (issue #10) turns that into the render-error placeholder
+  // + surfaced message automatically, at the element's own declared
+  // rectangle (see render-error.ts's elementDeclaredBounds).
+  if (element.url) {
+    const unavailableMessage = imageUnavailableMessage(element.url)
+    if (unavailableMessage) {
+      throw new Error(unavailableMessage)
+    }
   }
 
   const primitive = {

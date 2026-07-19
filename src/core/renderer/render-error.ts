@@ -1,5 +1,6 @@
 import type { DrawElement } from '../schema/elements'
 import { resolveBounds, type ResolvedBounds } from './bounds'
+import { effectiveNumber } from './element-defaults'
 import type { RenderContext, RenderResult } from './types'
 
 /** Fixed placeholder size (px) for point-anchored elements (plain x/y, no
@@ -37,9 +38,10 @@ function elementAnchor(element: DrawElement): { x: number; y: number } {
  *
  * Scoped to the element types that can actually reach this function today
  * (`plot`/`progress_bar`/`debug_grid` via issue #53's font-unavailable
- * throw; `text`/`multiline` are point-anchored) rather than speculatively
- * covering every schema shape with untested geometry — see the render-error
- * placeholder tests for the exact cases this is verified against.
+ * throw; `dlimg` via issue #55's image-unavailable throw; `text`/`multiline`
+ * are point-anchored) rather than speculatively covering every schema shape
+ * with untested geometry — see the render-error placeholder tests for the
+ * exact cases this is verified against.
  */
 function elementDeclaredBounds(element: DrawElement, ctx: RenderContext): ResolvedBounds | null {
   switch (element.type) {
@@ -58,6 +60,19 @@ function elementDeclaredBounds(element: DrawElement, ctx: RenderContext): Resolv
         element.y_end ?? ctx.height,
         ctx,
       )
+    case 'dlimg':
+      // Mirrors renderDlimg's own primitive geometry exactly (x/y + declared
+      // xsize/ysize, top-left anchored) — not point + fixed size, so a
+      // missing/failed image's marker occupies the image's real declared
+      // rectangle (maintainer ruling on issue #55: same principle as
+      // plot/progress_bar — the element stays selectable/draggable/
+      // resizable at its own bounds; the marker is only what paints inside).
+      return {
+        x: effectiveNumber(element, 'x', 0),
+        y: effectiveNumber(element, 'y', 0),
+        width: effectiveNumber(element, 'xsize', 1, 1),
+        height: effectiveNumber(element, 'ysize', 1, 1),
+      }
     default:
       return null
   }

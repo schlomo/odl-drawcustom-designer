@@ -25,9 +25,10 @@ import {
 import {
   areAssetImageMapsEqual,
   collectDlimgAssetKeysFromElements,
-  loadAssetImageMap,
+  loadAssetImageMapWithOutcomes,
   pruneAssetImagesForKeys,
 } from '../lib/load-asset-images'
+import { areImageLoadOutcomeMapsEqual, type ImageLoadOutcome } from '../lib/image-load-outcome'
 import {
   areFontFamilyMapsEqual,
   collectFontKeysFromElements,
@@ -253,6 +254,9 @@ export function DesignerCanvas({
     },
   )
   const [assetImages, setAssetImages] = useState<Map<string, HTMLImageElement>>(() => new Map())
+  const [imageLoadOutcomes, setImageLoadOutcomes] = useState<Map<string, ImageLoadOutcome>>(
+    () => new Map(),
+  )
   const [fontFamilies, setFontFamilies] = useState<Map<string, string>>(() => new Map())
   const [opentypeFonts, setOpentypeFonts] = useState<Map<string, import('opentype.js').Font>>(
     () => new Map(),
@@ -355,16 +359,17 @@ export function DesignerCanvas({
   const fontAssetKeys = useMemo(() => collectFontKeysFromElements(elements), [elements])
 
   // resolveElementHitBounds re-invokes safeRenderElement, so its result
-  // depends on the core opentype.js font registry (a module-level Map
-  // outside React state) — same as CanvasElementSlot's render memo and
-  // fontAndRenderStatusMessages below. fontLoadOutcomes must stay a
-  // dependency even though the callback body doesn't reference it directly:
-  // without it, a font settling to missing/failed left hit-testing and the
-  // selection frame computing bounds against the STALE pre-error render
-  // (maintainer manual-test finding — the blue selection frame stayed at the
-  // element's real position while the marker jumped elsewhere, and errored
-  // elements couldn't be dragged because clicking the visible marker missed
-  // the stale hit-test region entirely).
+  // depends on the core opentype.js font registry AND the core image
+  // (dlimg) availability registry — both module-level Maps outside React
+  // state — same as CanvasElementSlot's render memo and
+  // assetAndRenderStatusMessages below. fontLoadOutcomes/imageLoadOutcomes
+  // must stay dependencies even though the callback body doesn't reference
+  // them directly: without them, a font/image settling to missing/failed
+  // left hit-testing and the selection frame computing bounds against the
+  // STALE pre-error render (maintainer manual-test finding — the blue
+  // selection frame stayed at the element's real position while the marker
+  // jumped elsewhere, and errored elements couldn't be dragged because
+  // clicking the visible marker missed the stale hit-test region entirely).
   const hitTargets = useMemo(() => {
     void fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts)
     return elements.flatMap((element, index) => {
@@ -375,7 +380,7 @@ export function DesignerCanvas({
       return bounds ? [{ index, bounds }] : []
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
-  }, [elements, fontAssetKeys, renderContext, opentypeFonts, fontLoadOutcomes])
+  }, [elements, fontAssetKeys, renderContext, opentypeFonts, fontLoadOutcomes, imageLoadOutcomes])
 
   // Selection-priority hit-testing (issue #45 ruling) needs to know whether
   // the *selected* candidate at a given index is draggable — keyed by index
@@ -413,33 +418,40 @@ export function DesignerCanvas({
   }, [fontAssetKeys, fontLoadOutcomes])
 
   // getMergedStatusMessages re-invokes safeRenderElement internally, whose
-  // result depends on the core opentype.js font registry (a module-level Map
-  // outside React state). opentypeFonts/fontLoadOutcomes are the only
-  // React-visible signals that registry changed, so they must stay as
+  // result depends on the core opentype.js font registry AND the core image
+  // availability registry (both module-level Maps outside React state).
+  // opentypeFonts/fontLoadOutcomes/imageLoadOutcomes are the only
+  // React-visible signals those registries changed, so they must stay as
   // dependencies below even though the callback body doesn't reference them
-  // directly — otherwise a font that finishes loading (or is confirmed
+  // directly — otherwise a font/image that finishes loading (or is confirmed
   // missing/failed) asynchronously, with no corresponding `elements` change,
   // would leave a stale banner even though the canvas placeholder already
   // updated. One failure = one banner (maintainer ruling): this also merges
-  // a font-unavailable render-error banner with its font-status banner
-  // instead of showing both — see font-render-status.ts.
-  const fontAndRenderStatusMessages = useMemo(
-    () => getMergedStatusMessages(elements, renderContext, fontLoadOutcomes, fontsLoading),
+  // a font/image-unavailable render-error banner with its asset-status
+  // banner instead of showing both — see font-render-status.ts.
+  const assetAndRenderStatusMessages = useMemo(
+    () =>
+      getMergedStatusMessages(elements, renderContext, fontLoadOutcomes, fontsLoading, imageLoadOutcomes),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
-    [elements, renderContext, fontLoadOutcomes, fontsLoading, opentypeFonts],
+    [elements, renderContext, fontLoadOutcomes, fontsLoading, opentypeFonts, imageLoadOutcomes],
   )
 
   const statusMessages = useMemo(
-    () => sortStatusMessages([...extraStatusMessages, ...fontAndRenderStatusMessages]),
-    [extraStatusMessages, fontAndRenderStatusMessages],
+    () => sortStatusMessages([...extraStatusMessages, ...assetAndRenderStatusMessages]),
+    [extraStatusMessages, assetAndRenderStatusMessages],
   )
 
   useEffect(() => {
     let cancelled = false
 
-    void loadAssetImageMap(dlimgAssetKeys).then((images) => {
+    void loadAssetImageMapWithOutcomes(dlimgAssetKeys).then((batch) => {
       if (!cancelled) {
-        setAssetImages((current) => (areAssetImageMapsEqual(current, images) ? current : images))
+        setAssetImages((current) =>
+          areAssetImageMapsEqual(current, batch.images) ? current : batch.images,
+        )
+        setImageLoadOutcomes((current) =>
+          areImageLoadOutcomeMapsEqual(current, batch.outcomes) ? current : batch.outcomes,
+        )
       }
     })
 
@@ -490,9 +502,10 @@ export function DesignerCanvas({
 
   const baseElements = frozenElements ?? elements
 
-  // See hitTargets above for why fontLoadOutcomes must stay a dependency
-  // even though it's not read in the body — resolveElementHitBounds's
-  // result depends on it via the core font registry.
+  // See hitTargets above for why fontLoadOutcomes/imageLoadOutcomes must
+  // stay dependencies even though they're not read in the body —
+  // resolveElementHitBounds's result depends on them via the core font and
+  // image availability registries.
   const selectionBoundsByIndex = useMemo(() => {
     void fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts)
     const map = new Map<number, ElementBounds>()
@@ -508,7 +521,15 @@ export function DesignerCanvas({
     }
     return map
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
-  }, [elements, fontAssetKeys, opentypeFonts, renderContext, selectedIndices, fontLoadOutcomes])
+  }, [
+    elements,
+    fontAssetKeys,
+    opentypeFonts,
+    renderContext,
+    selectedIndices,
+    fontLoadOutcomes,
+    imageLoadOutcomes,
+  ])
 
   const overlayElementForSelection = useMemo(() => {
     if (selectedIndex == null || isMultiSelect) {
@@ -539,6 +560,7 @@ export function DesignerCanvas({
     renderContext,
     selectionBoundsByIndex,
     fontLoadOutcomes,
+    imageLoadOutcomes,
   ])
 
   const selectionRenderResult = useMemo(() => {
@@ -1430,6 +1452,7 @@ export function DesignerCanvas({
               fontFamilies={fontFamilies}
               opentypeFonts={opentypeFonts}
               fontLoadOutcomes={fontLoadOutcomes}
+              imageLoadOutcomes={imageLoadOutcomes}
             />
           ))}
           {dragOverlays.map((overlay) => (
@@ -1443,6 +1466,7 @@ export function DesignerCanvas({
               fontFamilies={fontFamilies}
               opentypeFonts={opentypeFonts}
               fontLoadOutcomes={fontLoadOutcomes}
+              imageLoadOutcomes={imageLoadOutcomes}
             />
           ))}
           <svg

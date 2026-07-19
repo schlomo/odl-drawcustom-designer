@@ -46,6 +46,7 @@ describe('CanvasElementSlot re-renders when a font outcome settles, without an e
         fontFamilies={new Map()}
         opentypeFonts={opentypeFonts}
         fontLoadOutcomes={new Map()}
+        imageLoadOutcomes={new Map()}
       />,
     )
 
@@ -74,6 +75,7 @@ describe('CanvasElementSlot re-renders when a font outcome settles, without an e
         fontLoadOutcomes={
           new Map([[FONT_KEY, { key: FONT_KEY, status: 'missing', message: 'x' } as FontLoadOutcome]])
         }
+        imageLoadOutcomes={new Map()}
       />,
     )
 

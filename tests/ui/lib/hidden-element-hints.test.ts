@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   applyTemplateContextToPayload,
   clearFontRegistry,
+  clearImageAvailabilityRegistry,
   markFontUnavailable,
+  markImageUnavailable,
   renderElement,
   safeRenderElement,
   type DrawElement,
@@ -267,5 +269,29 @@ describe('render-error bounds agreement — hit-test bounds must exactly match t
     // Also pins down the actual expectation from the bug report: this must
     // be the plot's real declared rectangle, not (0, 0).
     expect(hitBounds).toMatchObject({ x: 40, y: 20, width: 100, height: 70 })
+  })
+
+  it('dlimg (box-declared, issue #55): resolveElementHitBounds matches the drawn render-error primitive exactly', () => {
+    const url = '/local/missing-hidden-hints-issue55.png'
+    markImageUnavailable(url, `${url} is not uploaded.`)
+    const element: DrawElement = { type: 'dlimg', url, x: 25, y: 35, xsize: 60, ysize: 45 }
+
+    const rendered = safeRenderElement(element, ctx)
+    if (rendered?.layer !== 'svg' || rendered.primitive.kind !== 'render-error') {
+      throw new Error(`expected the dedicated render-error marker, got ${JSON.stringify(rendered)}`)
+    }
+
+    const hitBounds = resolveElementHitBounds(element, ctx)
+    expect(hitBounds).toEqual({
+      x: rendered.primitive.x,
+      y: rendered.primitive.y,
+      width: rendered.primitive.width,
+      height: rendered.primitive.height,
+    })
+    // Pins down the actual expectation: the image's real declared rectangle
+    // (x/y/xsize/ysize), not (0, 0).
+    expect(hitBounds).toMatchObject({ x: 25, y: 35, width: 60, height: 45 })
+
+    clearImageAvailabilityRegistry()
   })
 })
