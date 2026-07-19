@@ -406,9 +406,18 @@ export function DesignerCanvas({
     [elements, fontLoadOutcomes, fontsLoading],
   )
 
+  // getRenderErrorStatusMessages re-invokes safeRenderElement, whose result
+  // depends on the core opentype.js font registry (a module-level Map
+  // outside React state). opentypeFonts/fontLoadOutcomes are the only
+  // React-visible signals that registry changed, so they must stay as
+  // dependencies below even though the callback body doesn't reference them
+  // directly — otherwise a font that finishes loading asynchronously (with
+  // no corresponding `elements` change) would leave a stale banner even
+  // though the canvas placeholder already updated.
   const renderErrorStatusMessages = useMemo(
     () => getRenderErrorStatusMessages(elements, renderContext),
-    [elements, renderContext],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
+    [elements, renderContext, opentypeFonts, fontLoadOutcomes],
   )
 
   const statusMessages = useMemo(
