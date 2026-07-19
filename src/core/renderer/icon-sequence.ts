@@ -40,6 +40,12 @@ function resolveIconSequenceIconNames(value: string[] | string): string[] {
     return value
   }
 
+  // Schema requires the field, but a schema-invalid element (e.g. mid-edit
+  // in the property panel) must produce a clean render error, not a TypeError.
+  if (typeof value !== 'string') {
+    throw new Error(`Icon sequence "icons" is missing or not a list of icon names`)
+  }
+
   // Valid JSON array (e.g. a `tojson`/`dump`-equivalent filter in the
   // template) — the unambiguous case.
   try {
