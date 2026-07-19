@@ -63,19 +63,25 @@ export function ElementList({
     }
   }, [])
 
-  const primarySelectedIndex = primaryElementListIndex(selectedIndices)
+  const previousSelectedIndicesRef = useRef<readonly number[]>([])
 
   // Scroll the selected row into view on a selection change (canvas click,
   // YAML cursor move, keyboard nav — anything that changes `selectedIndices`
-  // upstream). `block: 'nearest'` makes an already-visible row a zero-
-  // movement no-op. Selection highlighting already ignores the YAML
-  // coupling toggle (rows highlight from `selectedIndices` unconditionally),
-  // so this mirrors that: it is not gated on `useYamlSelectionCoupling`.
+  // upstream). The target is derived by diffing against the previous
+  // selection because `selectedIndices` is numerically sorted, not
+  // selection-ordered (see primaryElementListIndex). `block: 'nearest'`
+  // makes an already-visible row a zero-movement no-op. Selection
+  // highlighting already ignores the YAML coupling toggle (rows highlight
+  // from `selectedIndices` unconditionally), so this mirrors that: it is
+  // not gated on `useYamlSelectionCoupling`.
   useEffect(() => {
-    if (!shouldScrollListRow(primarySelectedIndex, dragIndex)) {
+    const previous = previousSelectedIndicesRef.current
+    previousSelectedIndicesRef.current = selectedIndices
+    const targetIndex = primaryElementListIndex(previous, selectedIndices)
+    if (!shouldScrollListRow(targetIndex, dragIndex)) {
       return
     }
-    const row = rowRefs.current.get(primarySelectedIndex!)
+    const row = rowRefs.current.get(targetIndex!)
     if (typeof row?.scrollIntoView === 'function') {
       row.scrollIntoView({ block: 'nearest' })
     }
@@ -85,7 +91,7 @@ export function ElementList({
     // triggered selection change is honored (mirrors the YAML-pane scroll
     // wiring's use of refs for signals that must not retrigger the effect).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [primarySelectedIndex])
+  }, [selectedIndices])
 
   const handleDragStart = useCallback(
     (event: DragEvent<HTMLButtonElement>, index: number) => {

@@ -54,7 +54,7 @@ describe('ElementList selection scroll', () => {
     )
   })
 
-  it('scrolls to the last (most-recently selected) index on multi-select', () => {
+  it('scrolls to the last (primary) index when several rows are selected at once', () => {
     const scrollIntoView = vi.fn()
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       configurable: true,
@@ -74,6 +74,44 @@ describe('ElementList selection scroll', () => {
 
     expect(scrollIntoView.mock.instances[0]).toBe(
       screen.getByRole('button', { name: /Row 4/i }),
+    )
+  })
+
+  it('scrolls to the newly shift-selected row, not the highest index', () => {
+    // useProjectState numerically sorts additive selections, so [5] plus a
+    // shift-click on 2 arrives as [2, 5] — the row the user just clicked
+    // (2) must be the scroll target, not the highest index (5).
+    const scrollIntoView = vi.fn()
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    })
+
+    const elements = makeElements(6)
+    const { rerender } = render(
+      <ElementList
+        previewElements={elements}
+        selectedIndices={[5]}
+        colorMode="bwr"
+        onSelectElement={() => {}}
+        onReorderElement={() => {}}
+      />,
+    )
+    scrollIntoView.mockClear()
+
+    rerender(
+      <ElementList
+        previewElements={elements}
+        selectedIndices={[2, 5]}
+        colorMode="bwr"
+        onSelectElement={() => {}}
+        onReorderElement={() => {}}
+      />,
+    )
+
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(scrollIntoView.mock.instances[0]).toBe(
+      screen.getByRole('button', { name: /Row 2/i }),
     )
   })
 
