@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { renderPlot } from '../../../src/core/renderer/plot'
+import { safeRenderElement } from '../../../src/core/renderer'
 import { parseYamlPayload } from '../../../src/core/yaml'
 import type { RenderContext } from '../../../src/core/renderer/types'
 
@@ -130,5 +131,49 @@ describe('renderPlot', () => {
     expect(primitive.xAxisTicks[0]?.lineWidth).toBe(2)
     expect(primitive.series[0]?.showPoints).toBe(true)
     expect(primitive.series[0]?.lineWidth).toBe(2)
+  })
+
+  describe('templated data evaluated to a string (issue #56 follow-up)', () => {
+    it('recovers a JSON array string (e.g. tojson filter output)', () => {
+      const result = renderPlot(
+        {
+          type: 'plot',
+          data: '[{"entity": "sensor.temperature", "color": "red"}]',
+        },
+        context,
+      )
+
+      const primitive = result?.primitive
+      if (!primitive || primitive.kind !== 'plot') {
+        throw new Error('expected plot primitive')
+      }
+      expect(primitive.series.length).toBe(1)
+      expect(primitive.series[0]?.entity).toBe('sensor.temperature')
+      expect(primitive.series[0]?.color).toBe('red')
+    })
+
+    it('throws instead of silently rendering the fixed placeholder series for an unresolved template', () => {
+      expect(() =>
+        renderPlot({ type: 'plot', data: '{{ my_series }}' }, context),
+      ).toThrow(/data/i)
+    })
+
+    it('throws for a string that is not recoverable as data series', () => {
+      // Nunjucks stringifies a native list of objects to "[object Object]" —
+      // unrecoverable, unlike icon names or coordinate pairs.
+      expect(() =>
+        renderPlot({ type: 'plot', data: '[object Object]' }, context),
+      ).toThrow(/data/i)
+    })
+
+    it('surfaces the failure as a render-error placeholder via safeRenderElement', () => {
+      const result = safeRenderElement(
+        { type: 'plot', data: '{{ my_series }}' },
+        context,
+      )
+
+      expect(result?.primitive.kind).toBe('render-error')
+      expect(result?.error).toMatch(/data/i)
+    })
   })
 })
