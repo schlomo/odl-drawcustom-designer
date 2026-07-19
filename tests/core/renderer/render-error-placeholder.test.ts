@@ -9,6 +9,12 @@ import type { DrawElement, RenderContext } from '../../../src/core'
  * layout math, etc.) was swallowed and the element disappeared with no trace —
  * not even a bounding box or selection outline (issue #10).
  *
+ * The fix must show an honest, unmistakable error indicator — never an
+ * approximation of the element's real content. A wrong-looking render that
+ * could pass for genuine output is worse than a clearly-marked failure, so
+ * the result must NOT be a content-shaped primitive (e.g. 'text-stub',
+ * 'rect') and MUST be the dedicated 'render-error' marker.
+ *
  * We force a throw generically (a font registered with no opentype.Font API)
  * rather than reproducing the variable-font bug — that's a separate fix.
  */
@@ -20,7 +26,7 @@ describe('safeRenderElement — render failures never vanish the element', () =>
     unregisterFont(BROKEN_FONT_KEY)
   })
 
-  it('returns a non-null placeholder result with visible bounds and a surfaced error when render throws', () => {
+  it('returns a non-null render-error marker (never content-shaped) with visible bounds and a surfaced message', () => {
     // Not a real opentype.Font — renderText's layout code will throw
     // (font.getAdvanceWidth is not a function) once it tries to measure text.
     registerFont(BROKEN_FONT_KEY, {} as never)
@@ -39,10 +45,18 @@ describe('safeRenderElement — render failures never vanish the element', () =>
     expect(result?.error).toBeTruthy()
     expect(result?.error).toContain('getAdvanceWidth')
 
-    if (result?.layer !== 'svg' || result.primitive.kind !== 'rect') {
-      throw new Error(`expected an svg rect placeholder, got ${JSON.stringify(result)}`)
+    if (result?.layer !== 'svg' || result.primitive.kind !== 'render-error') {
+      throw new Error(
+        `expected the dedicated render-error marker, not a content-shaped primitive, got ${JSON.stringify(result)}`,
+      )
     }
-    // Bounds must be a real, visible box — not zero-area / NaN.
+    // The primitive itself must never be any of the "real content" kinds.
+    expect(result.primitive.kind).not.toBe('text-stub')
+    expect(result.primitive.kind).not.toBe('rect')
+    // It carries the failure message directly too (not just RenderResult.error).
+    expect(result.primitive.message).toContain('getAdvanceWidth')
+    // Bounds must be a real, hit-testable box — not zero-area / NaN — so the
+    // user can still click the errored element to fix it.
     expect(Number.isFinite(result.primitive.x)).toBe(true)
     expect(Number.isFinite(result.primitive.y)).toBe(true)
     expect(result.primitive.width).toBeGreaterThan(0)

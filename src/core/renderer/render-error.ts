@@ -30,8 +30,13 @@ export function renderErrorMessage(error: unknown): string {
 
 /**
  * Placeholder shown in place of an element whose renderer threw. Keeps the
- * element visible (bounds/outline) instead of vanishing entirely — see
+ * element visible (bounds, hit-testable) instead of vanishing entirely — see
  * `safeRenderElement` and issue #10.
+ *
+ * Deliberately an explicit `render-error` marker, not an approximation of the
+ * element's real content: a wrong-looking render that could pass for genuine
+ * output is worse than an honest, unmistakable failure indicator. If in
+ * doubt between "show approximate content" and "show error", show error.
  */
 export function buildRenderErrorPlaceholder(
   element: DrawElement,
@@ -41,19 +46,18 @@ export function buildRenderErrorPlaceholder(
   const { x, y } = elementAnchor(element)
   const width = Math.max(1, Math.min(PLACEHOLDER_SIZE, ctx.width))
   const height = Math.max(1, Math.min(PLACEHOLDER_SIZE, ctx.height))
+  const message = renderErrorMessage(error)
 
   return {
     layer: 'svg',
     primitive: {
-      kind: 'rect',
+      kind: 'render-error',
       x,
       y,
       width,
       height,
-      fill: null,
-      stroke: '#d92626',
-      strokeWidth: 2,
+      message,
     },
-    error: renderErrorMessage(error),
+    error: message,
   }
 }

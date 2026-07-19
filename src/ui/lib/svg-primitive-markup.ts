@@ -143,6 +143,10 @@ function renderSvgPrimitiveBody(
       }
       return `<g>${lines.join('')}${labels.join('')}</g>`
     }
+    case 'render-error':
+      // See SvgPrimitive.tsx: a dashed box + diagonal cross, deliberately not
+      // a plausible render of the element's real content (issue #10).
+      return `<g><rect x="${primitive.x}" y="${primitive.y}" width="${primitive.width}" height="${primitive.height}" fill="#fff5f5" stroke="#c81e1e" stroke-width="2" stroke-dasharray="4 3"/><line x1="${primitive.x}" y1="${primitive.y}" x2="${primitive.x + primitive.width}" y2="${primitive.y + primitive.height}" stroke="#c81e1e" stroke-width="2"/><line x1="${primitive.x + primitive.width}" y1="${primitive.y}" x2="${primitive.x}" y2="${primitive.y + primitive.height}" stroke="#c81e1e" stroke-width="2"/></g>`
     default: {
       const _exhaustive: never = primitive
       return _exhaustive
