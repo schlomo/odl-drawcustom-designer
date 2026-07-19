@@ -176,4 +176,19 @@ describe('renderIconSequence', () => {
       ),
     ).toThrow(/not-a-real-mdi-icon/)
   })
+
+  it('reports a clean error when icons went missing entirely (UI regression, not a TypeError)', () => {
+    expect(() =>
+      renderIconSequence(
+        {
+          type: 'icon_sequence',
+          x: 10,
+          y: 10,
+          icons: undefined,
+          size: 24,
+        } as never,
+        context,
+      ),
+    ).toThrow(/icons.*(missing|list)/i)
+  })
 })
