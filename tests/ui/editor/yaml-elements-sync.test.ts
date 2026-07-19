@@ -179,6 +179,37 @@ describe('remapSelectedIndex', () => {
       const next = [A, D, A2, C, B]
       expect(remapSelectedIndex(prev, next, 2)).toBe(2)
     })
+
+    it('follows a moved duplicate to the nearest matching slot', () => {
+      const prev = [A, B, A2, C, D]
+      // Multi-element scramble (no single splice reproduces it): duplicates
+      // land at indices 0 and 3, nothing matches at the old index 2.
+      // |3 - 2| = 1 beats |0 - 2| = 2, so the nearest match wins — a
+      // first-match fallback would wrongly return 0.
+      const next = [A, C, D, A2, B]
+      expect(remapSelectedIndex(prev, next, 2)).toBe(3)
+    })
+
+    it('breaks an equal-distance tie toward the lower index', () => {
+      const A3 = { type: 'text' as const, value: 'Same', x: 0, y: 0 }
+      const prev = [B, A, A2, C, A3]
+      // Multi-element scramble (no single splice reproduces it): three
+      // duplicates land at indices 0, 1, and 3; old index 2 matches none.
+      // Distances are 2, 1, 1 — indices 1 and 3 tie, and the tie resolves
+      // to the lower index 1. A first-match fallback would wrongly return
+      // 0 (the farther duplicate).
+      const next = [A, A2, B, A3, C]
+      expect(remapSelectedIndex(prev, next, 2)).toBe(1)
+    })
+
+    it('still finds a single remaining duplicate far from the old index', () => {
+      const prev = [A, B, A2, C]
+      // One duplicate deleted (the length change skips the earlier
+      // heuristics); the only surviving match sits at distance 2 and must
+      // still be found rather than dropped for being far away.
+      const next = [A, B, C]
+      expect(remapSelectedIndex(prev, next, 2)).toBe(0)
+    })
   })
 })
 
