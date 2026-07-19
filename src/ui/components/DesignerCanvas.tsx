@@ -354,6 +354,17 @@ export function DesignerCanvas({
 
   const fontAssetKeys = useMemo(() => collectFontKeysFromElements(elements), [elements])
 
+  // resolveElementHitBounds re-invokes safeRenderElement, so its result
+  // depends on the core opentype.js font registry (a module-level Map
+  // outside React state) — same as CanvasElementSlot's render memo and
+  // fontAndRenderStatusMessages below. fontLoadOutcomes must stay a
+  // dependency even though the callback body doesn't reference it directly:
+  // without it, a font settling to missing/failed left hit-testing and the
+  // selection frame computing bounds against the STALE pre-error render
+  // (maintainer manual-test finding — the blue selection frame stayed at the
+  // element's real position while the marker jumped elsewhere, and errored
+  // elements couldn't be dragged because clicking the visible marker missed
+  // the stale hit-test region entirely).
   const hitTargets = useMemo(() => {
     void fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts)
     return elements.flatMap((element, index) => {
@@ -363,7 +374,8 @@ export function DesignerCanvas({
       const bounds = resolveElementHitBounds(element, renderContext)
       return bounds ? [{ index, bounds }] : []
     })
-  }, [elements, fontAssetKeys, renderContext, opentypeFonts])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
+  }, [elements, fontAssetKeys, renderContext, opentypeFonts, fontLoadOutcomes])
 
   // Selection-priority hit-testing (issue #45 ruling) needs to know whether
   // the *selected* candidate at a given index is draggable — keyed by index
@@ -478,6 +490,9 @@ export function DesignerCanvas({
 
   const baseElements = frozenElements ?? elements
 
+  // See hitTargets above for why fontLoadOutcomes must stay a dependency
+  // even though it's not read in the body — resolveElementHitBounds's
+  // result depends on it via the core font registry.
   const selectionBoundsByIndex = useMemo(() => {
     void fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts)
     const map = new Map<number, ElementBounds>()
@@ -492,7 +507,8 @@ export function DesignerCanvas({
       }
     }
     return map
-  }, [elements, fontAssetKeys, opentypeFonts, renderContext, selectedIndices])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
+  }, [elements, fontAssetKeys, opentypeFonts, renderContext, selectedIndices, fontLoadOutcomes])
 
   const overlayElementForSelection = useMemo(() => {
     if (selectedIndex == null || isMultiSelect) {
@@ -514,6 +530,7 @@ export function DesignerCanvas({
     }
     void fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts)
     return resolveElementHitBounds(overlayElementForSelection, renderContext)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see hitTargets above
   }, [
     fontAssetKeys,
     isMultiSelect,
@@ -521,6 +538,7 @@ export function DesignerCanvas({
     overlayElementForSelection,
     renderContext,
     selectionBoundsByIndex,
+    fontLoadOutcomes,
   ])
 
   const selectionRenderResult = useMemo(() => {

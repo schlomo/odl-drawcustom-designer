@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { registerFont, unregisterFont } from '../../../src/core/renderer/fonts'
+import { clearFontRegistry, markFontUnavailable, registerFont, unregisterFont } from '../../../src/core/renderer/fonts'
+import { resolveBounds } from '../../../src/core/renderer/bounds'
 import { safeRenderElement } from '../../../src/core/renderer'
 import type { DrawElement, RenderContext } from '../../../src/core'
 
@@ -106,5 +107,103 @@ describe('safeRenderElement — render failures never vanish the element', () =>
     const result = safeRenderElement(element, ctx)
 
     expect(result).toBeNull()
+  })
+})
+
+/**
+ * Maintainer manual-test finding on ba7912f: the placeholder for a `plot`/
+ * `progress_bar` (box-declared elements, using x_start/x_end/y_start/y_end
+ * rather than a single x/y point) was drawn at the canvas origin (0, 0)
+ * instead of the element's real, declared position — because
+ * `elementAnchor` (render-error.ts) only ever reads `element.x`/`element.y`,
+ * which box-declared elements don't have. The screenshot also showed the
+ * blue selection frame at the CORRECT location while the red marker sat at
+ * (0, 0) — two different bounds computations disagreeing.
+ *
+ * The fix must make the placeholder type-aware: box-declared elements get
+ * their full declared rectangle (clamped to canvas), not a fixed 32px box
+ * at (0, 0).
+ */
+describe('render-error placeholder geometry matches the element\'s declared position (not (0, 0))', () => {
+  const ctx: RenderContext = { width: 200, height: 200, colorMode: 'bw' }
+  const BROKEN_FONT_KEY = 'broken-render-error-geometry.ttf'
+
+  afterEach(() => {
+    unregisterFont(BROKEN_FONT_KEY)
+    clearFontRegistry()
+  })
+
+  it('plot: placeholder occupies the plot\'s declared rectangle, not (0, 0)', () => {
+    const key = 'missing-font-plot-geometry.ttf'
+    markFontUnavailable(key, `${key} is not uploaded.`)
+
+    const element: DrawElement = {
+      type: 'plot',
+      data: [{ entity: 'sensor.temperature' }],
+      x_start: 40,
+      x_end: 140,
+      y_start: 20,
+      y_end: 90,
+      font: key,
+    }
+
+    const result = safeRenderElement(element, ctx)
+    if (result?.layer !== 'svg' || result.primitive.kind !== 'render-error') {
+      throw new Error(`expected the dedicated render-error marker, got ${JSON.stringify(result)}`)
+    }
+
+    const expected = resolveBounds(40, 140, 20, 90, ctx)
+    expect(result.primitive).toMatchObject(expected)
+  })
+
+  it('progress_bar: placeholder occupies the bar\'s declared rectangle, not (0, 0)', () => {
+    const key = 'missing-font-progressbar-geometry.ttf'
+    markFontUnavailable(key, `${key} is not uploaded.`)
+
+    const element: DrawElement = {
+      type: 'progress_bar',
+      x_start: 50,
+      y_start: 60,
+      x_end: 150,
+      y_end: 90,
+      progress: 50,
+      show_percentage: true,
+      font: key,
+    }
+
+    const result = safeRenderElement(element, ctx)
+    if (result?.layer !== 'svg' || result.primitive.kind !== 'render-error') {
+      throw new Error(`expected the dedicated render-error marker, got ${JSON.stringify(result)}`)
+    }
+
+    const expected = resolveBounds(50, 150, 60, 90, ctx)
+    expect(result.primitive).toMatchObject(expected)
+  })
+
+  it('debug_grid: placeholder spans the full canvas — the grid has no x/y of its own', () => {
+    const key = 'missing-font-debuggrid-geometry.ttf'
+    markFontUnavailable(key, `${key} is not uploaded.`)
+
+    const element: DrawElement = { type: 'debug_grid', show_labels: true, font: key }
+
+    const result = safeRenderElement(element, ctx)
+    if (result?.layer !== 'svg' || result.primitive.kind !== 'render-error') {
+      throw new Error(`expected the dedicated render-error marker, got ${JSON.stringify(result)}`)
+    }
+
+    expect(result.primitive).toMatchObject({ x: 0, y: 0, width: ctx.width, height: ctx.height })
+  })
+
+  it('text (point-anchored): unchanged — fixed-size box at the real x/y anchor', () => {
+    registerFont(BROKEN_FONT_KEY, {} as never)
+
+    const element: DrawElement = { type: 'text', value: 'Hello', x: 60, y: 70, font: BROKEN_FONT_KEY }
+    const result = safeRenderElement(element, ctx)
+    if (result?.layer !== 'svg' || result.primitive.kind !== 'render-error') {
+      throw new Error(`expected the dedicated render-error marker, got ${JSON.stringify(result)}`)
+    }
+
+    expect(result.primitive.x).toBe(60)
+    expect(result.primitive.y).toBe(70)
   })
 })
