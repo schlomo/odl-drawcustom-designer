@@ -1,6 +1,6 @@
 # Contributor notes
 
-Product documentation: [`README.md`](../README.md). Architecture decisions: [`docs/adr/`](adr/).
+Product documentation: [`README.md`](../README.md). Architecture decisions: [`docs/adr/`](adr/). Roadmap and planning: GitHub milestones + issues only — not this file.
 
 ## Code map
 
