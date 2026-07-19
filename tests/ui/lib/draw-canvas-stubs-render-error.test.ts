@@ -106,6 +106,16 @@ describe('drawCanvasStub — paint-time font failures never crash the canvas', (
     expect(calls.strokeRect.length).toBeGreaterThan(0)
   })
 
+  // NOTE for whoever rebases PR #52 (variable-font Pillow parity) onto this
+  // branch after this one lands: PR #52 adds a naive-shaping fallback that
+  // makes computeOpentypeGlyphPositions() stop throwing for Inter entirely
+  // (it renders the font correctly instead). At that point this specific
+  // test will start failing — not because the never-throw contract broke,
+  // but because Inter no longer *needs* the error-marker path here. When
+  // that happens, loosen the final assertion to accept either outcome
+  // (error marker drawn, or real glyph paint calls happened) instead of
+  // requiring the marker specifically — the `.not.toThrow()` above is the
+  // part of this test that must keep passing regardless.
   it('degrades to an error marker instead of throwing for the real Inter variable font', () => {
     const buffer = readFileSync(fixturePath)
     const font = parseFont(
