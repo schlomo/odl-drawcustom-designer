@@ -55,6 +55,20 @@ if (!process.env.PW_PORT) {
 }
 const PORT = Number(process.env.PW_PORT)
 
+// Second server: the embed demo host page (tests/e2e/embed-mount.spec.ts).
+// Serves dist-lib — the library build output plus the demo/ host page — the
+// way docs/embedding.md tells humans to (`python3 -m http.server -d dist-lib`).
+// Same resolve-once-and-stash pattern as PW_PORT above; the loop guards the
+// (unlikely) case of the OS handing back the port PW_PORT already claimed.
+if (!process.env.PW_EMBED_PORT) {
+  let embedPort = await findFreePort()
+  while (embedPort === PORT) {
+    embedPort = await findFreePort()
+  }
+  process.env.PW_EMBED_PORT = String(embedPort)
+}
+const EMBED_PORT = Number(process.env.PW_EMBED_PORT)
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -80,13 +94,25 @@ export default defineConfig({
   // Chromium only — keep the harness lean (ADR-011); this suite tests wiring,
   // not cross-browser rendering quirks.
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: {
-    command: `npm run preview -- --port ${PORT} --strictPort`,
-    url: `http://localhost:${PORT}`,
-    // Unchanged from before: false in CI (always start fresh). Locally this
-    // only matters when PW_PORT pins a fixed port — a random port is unique
-    // per run, so there's never an existing server on it to reuse.
-    reuseExistingServer: !process.env.CI,
-    timeout: 30_000,
-  },
+  webServer: [
+    {
+      command: `npm run preview -- --port ${PORT} --strictPort`,
+      url: `http://localhost:${PORT}`,
+      // Unchanged from before: false in CI (always start fresh). Locally this
+      // only matters when PW_PORT pins a fixed port — a random port is unique
+      // per run, so there's never an existing server on it to reuse.
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+    },
+    {
+      // Build the library bundle fresh, then serve it plus the demo host
+      // page. Building inside the command keeps `npm run test:e2e`
+      // self-sufficient for the embed suite (the app build stays a separate
+      // explicit step, as before); the timeout covers the build.
+      command: `npm run build:lib && python3 -m http.server ${EMBED_PORT} --bind 127.0.0.1 --directory dist-lib`,
+      url: `http://localhost:${EMBED_PORT}`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
 })

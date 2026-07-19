@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:ci": "vitest run --reporter=default --reporter=github-actions --reporter=junit --outputFile.junit=reports/vitest-junit.xml",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:lib": "vite build --config vite.lib.config.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

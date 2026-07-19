@@ -6,7 +6,7 @@ import { clearFontRegistry, parseFont, registerFont } from '../../../src/core/re
 const fixtureRoot = join(dirname(fileURLToPath(import.meta.url)), '../../..')
 
 export function bundledFontPath(key: string): string {
-  return join(fixtureRoot, 'public/fonts', key)
+  return join(fixtureRoot, 'src/assets/fonts', key)
 }
 
 export function loadBundledTestFont(key = 'ppb.ttf') {
