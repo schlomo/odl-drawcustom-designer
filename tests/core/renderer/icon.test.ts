@@ -66,22 +66,23 @@ describe('renderIcon', () => {
     })
   })
 
-  it('returns null path for unknown icons', () => {
-    const result = renderIcon(
-      {
-        type: 'icon',
-        value: 'not-a-real-mdi-icon',
-        x: 0,
-        y: 0,
-        size: 24,
-      },
-      context,
-    )
-
-    expect(result?.primitive).toMatchObject({
-      kind: 'icon',
-      path: null,
-      value: 'not-a-real-mdi-icon',
-    })
+  it('throws a descriptive error naming the unknown icon instead of rendering an invisible icon (issue #56)', () => {
+    // Before the fix, renderIcon silently produced primitive.path === null,
+    // giving an empty/invisible SVG with no indication anything was wrong.
+    // safeRenderElement relies on renderers throwing to surface the standard
+    // render-error placeholder + status banner (see render-error.ts), so an
+    // unknown icon name must throw here rather than degrade silently.
+    expect(() =>
+      renderIcon(
+        {
+          type: 'icon',
+          value: 'not-a-real-mdi-icon',
+          x: 0,
+          y: 0,
+          size: 24,
+        },
+        context,
+      ),
+    ).toThrow(/not-a-real-mdi-icon/)
   })
 })

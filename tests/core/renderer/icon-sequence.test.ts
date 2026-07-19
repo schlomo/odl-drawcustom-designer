@@ -65,4 +65,24 @@ describe('renderIconSequence', () => {
     expect(second.x).toBe(5)
     expect(second.y).toBe(35)
   })
+
+  it('throws naming the unknown icon when one name in the list is unrecognized (issue #56)', () => {
+    // Decision: a single unknown name fails the WHOLE element, not just that
+    // one icon slot — consistent with the no-partial-error-UX ruling used
+    // elsewhere (safeRenderElement replaces the entire element with one
+    // render-error placeholder, never a partially-rendered mix of good icons
+    // and a silently-empty one).
+    expect(() =>
+      renderIconSequence(
+        {
+          type: 'icon_sequence',
+          x: 0,
+          y: 0,
+          icons: ['home', 'not-a-real-mdi-icon', 'office-building'],
+          size: 24,
+        },
+        context,
+      ),
+    ).toThrow(/not-a-real-mdi-icon/)
+  })
 })
