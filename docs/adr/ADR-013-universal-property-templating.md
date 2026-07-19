@@ -78,6 +78,8 @@ Implemented in `resolvePreviewClockInterval` + `useTemplatePreviewClock`. Never 
 
 No expansion of Nunjucks evaluator scope (ADR-004). Templated geometry uses last-known or placeholder bounds where the renderer already supports template placeholders.
 
+**`icon_sequence.icons` templated-list recovery (issue #56 follow-up):** Home Assistant's `Template.async_render()` preserves the NATIVE type for a template that is a single pure `{{ expr }}` expression, so `open_epaper_link.drawcustom` receives a real list directly — production never stringifies it. The designer's Nunjucks evaluator has no equivalent channel (`renderString` always stringifies), so a templated `icons` field reaches `renderIconSequence` as plain text once evaluated (e.g. `{{ ['home', 'arrow-right'] }}` → `"home,arrow-right"`, Nunjucks' default Array→String join — not Python's quoted `repr()`, and not JSON). `resolveIconSequenceIconNames` (`src/core/renderer/icon-sequence.ts`) recovers the intended list on a best-effort basis: valid JSON array first, then comma-split (safe — MDI names are plain kebab-case, never containing commas). If the string still contains unevaluated `{{ }}`/`{% %}` syntax, or recovery yields nothing, the element throws into the standard render-error placeholder (ADR-011 behavior tests) instead of silently substituting the unrelated `help-circle` preview icon — a plausible-looking wrong render is worse than an honest failure indicator (issue #10).
+
 ## Consequences
 
 - Paste YAML with templated `x`, `progress`, `points` → validates, property panel shows template mode

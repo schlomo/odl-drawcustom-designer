@@ -252,4 +252,47 @@ describe('render-error placeholder geometry matches the element\'s declared posi
     expect(result?.error).toBeUndefined()
     expect(result?.primitive.kind).toBe('icon')
   })
+
+  it('icon_sequence (templated icons list that did not resolve — issue #56 follow-up): placeholder at the real x/y, never the unrelated help-circle stand-in', () => {
+    // Simulates what the preview evaluator hands the renderer once a
+    // templated `icons` field (jsonOrTemplateSchema) still contains
+    // unevaluated `{{ }}` syntax (evaluation never ran, or threw and fell
+    // back to the raw text) — there is no real icon list to show.
+    const element: DrawElement = {
+      type: 'icon_sequence',
+      x: 80,
+      y: 90,
+      icons: "{{ ['home', 'home2'] }}",
+      size: 24,
+    }
+
+    const result = safeRenderElement(element, ctx)
+    if (result?.layer !== 'svg' || result.primitive.kind !== 'render-error') {
+      throw new Error(`expected the dedicated render-error marker, got ${JSON.stringify(result)}`)
+    }
+
+    expect(result.primitive.x).toBe(80)
+    expect(result.primitive.y).toBe(90)
+    expect(result.error).toMatch(/icons/i)
+  })
+
+  it('icon_sequence (templated icons list recovered as real names): renders the actual icons, not a generic help-circle placeholder', () => {
+    // What the preview evaluator's Nunjucks renderString produces for
+    // `{{ ['home', 'arrow-right'] }}` today: a comma-joined string.
+    const element: DrawElement = {
+      type: 'icon_sequence',
+      x: 10,
+      y: 10,
+      icons: 'home,arrow-right',
+      size: 24,
+    }
+
+    const result = safeRenderElement(element, ctx)
+
+    expect(result?.error).toBeUndefined()
+    if (result?.layer !== 'svg' || result.primitive.kind !== 'icon_sequence') {
+      throw new Error(`expected a real icon_sequence render, got ${JSON.stringify(result)}`)
+    }
+    expect(result.primitive.icons.map((icon) => icon.name)).toEqual(['home', 'arrow-right'])
+  })
 })
