@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   clearFontRegistry,
+  clearImageAvailabilityRegistry,
   markFontUnavailable,
+  markImageUnavailable,
   registerFont,
   unregisterFont,
   type DrawElement,
@@ -9,6 +11,7 @@ import {
 } from '../../../src/core'
 import type { FontLoadOutcome } from '../../../src/ui/lib/font-load-outcome'
 import { getFontStatusMessages } from '../../../src/ui/lib/font-readiness'
+import { getImageStatusMessages } from '../../../src/ui/lib/image-readiness'
 import { getRenderErrorStatusMessages } from '../../../src/ui/lib/render-error-messages'
 import { getMergedStatusMessages } from '../../../src/ui/lib/font-render-status'
 
@@ -111,5 +114,80 @@ describe('font-bearing element types beyond text/multiline also merge into one a
 
     expect(matches).toHaveLength(1)
     expect(matches[0]?.summary).toMatch(/element 1/i)
+  })
+})
+
+/**
+ * Issue #55: same "one failure = one banner" ruling, for dlimg images. A
+ * confirmed-missing/failed image now throws in renderDlimg (mirroring the
+ * font fix), so the same duplicate-banner risk exists: an "Image not
+ * available"/"Image failed to load" banner (image-readiness.ts) plus a
+ * separate "Element N could not be rendered" banner, for the same failure.
+ */
+describe('one image-unavailable failure produces exactly one banner (issue #55)', () => {
+  const ctx: RenderContext = { width: 200, height: 100, colorMode: 'bw' }
+  const URL = '/local/issue55-dup-banner.png'
+
+  afterEach(() => clearImageAvailabilityRegistry())
+
+  it("[documents today's shape] a missing image's own status banner and its render-error banner are two separate entries when not merged", () => {
+    markImageUnavailable(URL, `${URL} is not uploaded.`)
+    const imageOutcomes = new Map([
+      [URL, { key: URL, status: 'missing' as const, message: `${URL} is not uploaded.` }],
+    ])
+    const element: DrawElement = { type: 'dlimg', url: URL, x: 0, y: 0, xsize: 10, ysize: 10 }
+
+    const imageMessages = getImageStatusMessages([element], imageOutcomes)
+    const renderMessages = getRenderErrorStatusMessages([element], ctx)
+    const mentionsUrl = (message: { summary: string }) => message.summary.includes(URL)
+
+    expect([...imageMessages, ...renderMessages].filter(mentionsUrl)).toHaveLength(2)
+  })
+
+  it('the merged builder collapses a missing image into exactly one banner naming the asset and the element', () => {
+    markImageUnavailable(URL, `${URL} is not uploaded.`)
+    const imageOutcomes = new Map([
+      [URL, { key: URL, status: 'missing' as const, message: `${URL} is not uploaded.` }],
+    ])
+    const element: DrawElement = { type: 'dlimg', url: URL, x: 0, y: 0, xsize: 10, ysize: 10 }
+
+    const messages = getMergedStatusMessages(
+      [element],
+      ctx,
+      new Map(),
+      false,
+      imageOutcomes,
+    )
+    const matches = messages.filter((message) => message.summary.includes(URL))
+
+    expect(matches).toHaveLength(1)
+    // Pre-fix, getMergedStatusMessages never consults image outcomes at all,
+    // so this would surface only as the generic standalone "Element failed
+    // to render" banner (the render-error message happens to contain the
+    // URL too) — not the richer, dedicated "Image not available" banner
+    // that names the asset explicitly, mirroring the font case.
+    expect(matches[0]?.title).toBe('Image not available')
+    expect(matches[0]?.summary).toMatch(/element 1/i)
+    expect(matches[0]?.severity).toBe('error')
+    // The generic standalone banner must NOT also be present — genuinely
+    // one banner, not the fallback title dressed up.
+    expect(messages.some((message) => message.title === 'Element failed to render')).toBe(false)
+  })
+
+  it('does not touch a suppressed (dismissed bundled demo) image outcome — no banner, no merge', () => {
+    const element: DrawElement = {
+      type: 'dlimg',
+      url: '/local/showcase.png',
+      x: 0,
+      y: 0,
+      xsize: 10,
+      ysize: 10,
+    }
+    const imageOutcomes = new Map([
+      ['/local/showcase.png', { key: '/local/showcase.png', status: 'suppressed' as const }],
+    ])
+
+    const messages = getMergedStatusMessages([element], ctx, new Map(), false, imageOutcomes)
+    expect(messages).toHaveLength(0)
   })
 })

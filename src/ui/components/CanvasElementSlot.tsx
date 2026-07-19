@@ -3,6 +3,7 @@ import type opentype from 'opentype.js'
 import { safeRenderElement, renderHalftonePatternDefs, type DrawElement, type RenderContext } from '../../core'
 import { collectFontKeysFromElements } from '../lib/load-font-faces'
 import type { FontLoadOutcome } from '../lib/font-load-outcome'
+import type { ImageLoadOutcome } from '../lib/image-load-outcome'
 import { fontLayoutTokenForKeys } from '../lib/font-layout-token'
 import { resolveHiddenElementHint } from '../lib/hidden-element-hints'
 import { CanvasElementLayer } from './CanvasElementLayer'
@@ -28,6 +29,12 @@ interface CanvasElementSlotProps {
    * changing is the signal.
    */
   fontLoadOutcomes: ReadonlyMap<string, FontLoadOutcome>
+  /**
+   * Same settlement-signal role as `fontLoadOutcomes` above, for the core
+   * image (dlimg) availability registry (issue #55). Not read directly in
+   * the body below — its identity changing is the signal.
+   */
+  imageLoadOutcomes: ReadonlyMap<string, ImageLoadOutcome>
   /** Hide the base layer while a drag overlay shows the same element. */
   hidden?: boolean
   /** Override z-index (drag overlay sits above the static stack). */
@@ -43,6 +50,7 @@ export const CanvasElementSlot = memo(function CanvasElementSlot({
   fontFamilies,
   opentypeFonts,
   fontLoadOutcomes,
+  imageLoadOutcomes,
   hidden = false,
   layerZIndex,
 }: CanvasElementSlotProps) {
@@ -50,10 +58,10 @@ export const CanvasElementSlot = memo(function CanvasElementSlot({
     // renderElement reads font metrics via getFont(); token ties layout to loaded fonts.
     void fontLayoutTokenForKeys(collectFontKeysFromElements([element]), opentypeFonts)
     return safeRenderElement(element, renderContext)
-    // fontLoadOutcomes is a settlement signal only (see the prop doc above),
-    // not read here — it must stay a dependency anyway.
+    // fontLoadOutcomes/imageLoadOutcomes are settlement signals only (see the
+    // prop docs above), not read here — they must stay dependencies anyway.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [element, renderContext, opentypeFonts, fontLoadOutcomes])
+  }, [element, renderContext, opentypeFonts, fontLoadOutcomes, imageLoadOutcomes])
 
   const hiddenHint = useMemo(
     () => resolveHiddenElementHint(element, result, renderContext),

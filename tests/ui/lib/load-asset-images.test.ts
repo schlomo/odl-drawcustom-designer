@@ -1,6 +1,13 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { BUNDLED_SHOWCASE_IMAGE_KEY, resetContentMap, setAsset } from '../../../src/core'
+import {
+  BUNDLED_SHOWCASE_IMAGE_KEY,
+  clearImageAvailabilityRegistry,
+  imageUnavailableMessage,
+  markImageUnavailable,
+  resetContentMap,
+  setAsset,
+} from '../../../src/core'
 import { SHOWCASE_BUNDLED_SUPPRESSED_STORAGE_KEY } from '../../../src/ui/preferences/keys'
 import { suppressShowcaseBundled } from '../../../src/ui/preferences/showcaseAsset'
 import { drawCanvasStub } from '../../../src/ui/lib/draw-canvas-stubs'
@@ -9,6 +16,7 @@ import {
   collectDlimgAssetKeys,
   collectDlimgAssetKeysFromElements,
   loadAssetImageMap,
+  loadAssetImageMapWithOutcomes,
   pruneAssetImagesForKeys,
 } from '../../../src/ui/lib/load-asset-images'
 
@@ -160,6 +168,117 @@ describe('loadAssetImageMap', () => {
       const images = await loadAssetImageMap([BUNDLED_SHOWCASE_IMAGE_KEY])
       expect(images.size).toBe(0)
     })
+  })
+})
+
+function withFailingImageLoad(run: () => Promise<void> | void): Promise<void> {
+  const OriginalImage = globalThis.Image
+
+  class FailingMockImage {
+    onload: (() => void) | null = null
+    onerror: (() => void) | null = null
+    private _src = ''
+
+    set src(value: string) {
+      this._src = value
+      this.onerror?.()
+    }
+
+    get src(): string {
+      return this._src
+    }
+  }
+
+  // @ts-expect-error test double
+  globalThis.Image = FailingMockImage
+
+  return Promise.resolve(run()).finally(() => {
+    globalThis.Image = OriginalImage
+  })
+}
+
+/**
+ * Issue #55: `loadAssetImageMap` recorded only successes; there was no image
+ * equivalent of `FontLoadOutcome`. `loadAssetImageMapWithOutcomes` settles
+ * each key to 'ready' | 'missing' | 'failed', mirroring the font loader
+ * exactly (including marking the core `image-availability` registry so
+ * `renderDlimg` can throw into the render-error placeholder — see
+ * tests/ui/lib/missing-image-render-error.test.ts for that half).
+ */
+describe('loadAssetImageMapWithOutcomes', () => {
+  beforeEach(() => {
+    localStorage.removeItem(SHOWCASE_BUNDLED_SUPPRESSED_STORAGE_KEY)
+  })
+
+  afterEach(() => {
+    resetContentMap()
+    clearImageAvailabilityRegistry()
+  })
+
+  it('reports missing for images that were never uploaded', async () => {
+    const url = '/local/never-uploaded.png'
+    const result = await loadAssetImageMapWithOutcomes([url])
+
+    expect(result.outcomes.get(url)).toMatchObject({
+      status: 'missing',
+      message: expect.stringContaining('not uploaded'),
+    })
+    expect(result.images.has(url)).toBe(false)
+  })
+
+  it('reports failed when the blob fails to decode', async () => {
+    await withFailingImageLoad(async () => {
+      const url = '/local/corrupt.png'
+      setAsset(url, { blob: pngBlob(), mime: 'image/png' })
+
+      const result = await loadAssetImageMapWithOutcomes([url])
+
+      expect(result.outcomes.get(url)).toMatchObject({ status: 'failed' })
+      expect(result.images.has(url)).toBe(false)
+    })
+  })
+
+  it('reports ready for a successfully decoded image', async () => {
+    await withImmediateImageLoad(async () => {
+      const url = '/local/logo-outcome.png'
+      setAsset(url, { blob: pngBlob(), mime: 'image/png' })
+
+      const result = await loadAssetImageMapWithOutcomes([url])
+
+      expect(result.outcomes.get(url)).toMatchObject({ status: 'ready' })
+      expect(result.images.has(url)).toBe(true)
+    })
+  })
+
+  /**
+   * Mirrors the font fix (PR #54, Copilot review 3610491466): the stale
+   * "confirmed unavailable" mark from a previous failure must clear as soon
+   * as the asset is known to resolve, BEFORE any await — not only once the
+   * load fully settles. Otherwise a missing → upload → reload sequence would
+   * keep the render-error marker up for the entire decode window of the
+   * retry, violating the "no error while merely loading" contract.
+   */
+  it('clears a stale unavailable mark during the in-flight window once the asset resolves (missing -> upload -> reload)', () => {
+    return withImmediateImageLoad(() => {
+      const url = '/local/issue55-stale-mark-upload.png'
+      markImageUnavailable(url, 'stale: previously missing')
+      setAsset(url, { blob: pngBlob(), mime: 'image/png' })
+
+      const pending = loadAssetImageMapWithOutcomes([url])
+      expect(imageUnavailableMessage(url)).toBeUndefined()
+
+      return pending
+    })
+  })
+
+  it('keeps the mark for an image that is still missing at load start (no reverse flicker)', () => {
+    const url = '/local/issue55-stale-mark-still-missing.png'
+    markImageUnavailable(url, 'stale: previously missing')
+
+    const pending = loadAssetImageMapWithOutcomes([url])
+    expect(imageUnavailableMessage(url)).toBeTruthy()
+
+    return pending
   })
 })
 

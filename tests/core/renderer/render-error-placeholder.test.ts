@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { clearFontRegistry, markFontUnavailable, registerFont, unregisterFont } from '../../../src/core/renderer/fonts'
+import {
+  clearImageAvailabilityRegistry,
+  markImageUnavailable,
+} from '../../../src/core/renderer/image-availability'
 import { resolveBounds } from '../../../src/core/renderer/bounds'
 import { safeRenderElement } from '../../../src/core/renderer'
 import type { DrawElement, RenderContext } from '../../../src/core'
@@ -294,5 +298,28 @@ describe('render-error placeholder geometry matches the element\'s declared posi
       throw new Error(`expected a real icon_sequence render, got ${JSON.stringify(result)}`)
     }
     expect(result.primitive.icons.map((icon) => icon.name)).toEqual(['home', 'arrow-right'])
+  })
+
+  it('dlimg: placeholder occupies the image\'s declared rectangle (x/y/xsize/ysize), not (0, 0) (issue #55)', () => {
+    const url = '/local/missing-issue55.png'
+    markImageUnavailable(url, `${url} is not uploaded.`)
+
+    const element: DrawElement = {
+      type: 'dlimg',
+      url,
+      x: 30,
+      y: 45,
+      xsize: 80,
+      ysize: 60,
+    }
+
+    const result = safeRenderElement(element, ctx)
+    if (result?.layer !== 'svg' || result.primitive.kind !== 'render-error') {
+      throw new Error(`expected the dedicated render-error marker, got ${JSON.stringify(result)}`)
+    }
+
+    expect(result.primitive).toMatchObject({ x: 30, y: 45, width: 80, height: 60 })
+
+    clearImageAvailabilityRegistry()
   })
 })
