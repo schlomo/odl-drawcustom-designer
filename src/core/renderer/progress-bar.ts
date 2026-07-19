@@ -2,7 +2,7 @@ import type { DrawElement } from '../schema/elements'
 import { resolveDirection } from './anchors'
 import { resolveBounds } from './bounds'
 import { effectiveBool, effectiveProgress, effectiveString, effectiveStrokeWidth, resolveShapePaint, resolveShapePaintFallback } from './element-defaults'
-import { DEFAULT_FONT_KEY } from './fonts'
+import { DEFAULT_FONT_KEY, fontUnavailableMessage, getFont } from './fonts'
 import { paintOptionsFromContext } from './preview-paint'
 import type { RenderContext, RenderResult, SvgRectPrimitive } from './types'
 import { isVisible } from './visibility'
@@ -87,6 +87,26 @@ export function renderProgressBar(
   }
 
   const fill = buildFillRect(bounds, effectiveProgress(element, 'progress'), direction, progressFill)
+  const showPercentage = effectiveBool(element, 'show_percentage')
+
+  if (showPercentage) {
+    // Unlike text/multiline, progress_bar never needed a real opentype.Font
+    // object for its own layout — the percentage label is painted via a CSS
+    // font-family fallback at the UI layer, not opentype.js. A
+    // confirmed-missing font was previously silently ignored: the whole bar
+    // kept rendering fine, just with the label in a fallback font (issue
+    // #53 follow-up, maintainer manual test). Only check when the
+    // percentage label is actually shown — the font is genuinely unused
+    // otherwise, and spuriously erroring on an unrelated/unused key would
+    // be its own bug.
+    const percentageFontKey = effectiveString(element, 'font', DEFAULT_FONT_KEY)
+    if (!getFont(percentageFontKey)) {
+      const unavailableMessage = fontUnavailableMessage(percentageFontKey)
+      if (unavailableMessage) {
+        throw new Error(unavailableMessage)
+      }
+    }
+  }
 
   return {
     layer: 'svg',
@@ -95,7 +115,7 @@ export function renderProgressBar(
       background,
       fill,
       progress: effectiveProgress(element, 'progress'),
-      ...(effectiveBool(element, 'show_percentage')
+      ...(showPercentage
         ? {
             showPercentage: true,
             percentageColor: resolveShapePaintFallback(

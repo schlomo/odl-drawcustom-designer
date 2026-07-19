@@ -7,6 +7,7 @@ import {
   effectiveNumber,
   effectiveString,
 } from './element-defaults'
+import { fontUnavailableMessage, getFont } from './fonts'
 import { generateSampleSeriesValues, resolvePlotValueRange } from './plot-sample-data'
 import type {
   PlotAxisLine,
@@ -338,6 +339,23 @@ export function renderPlot(element: PlotElement, ctx: RenderContext): RenderResu
   const low = roundValues ? Math.floor(range.low) : range.low
   const high = roundValues ? Math.ceil(range.high) : range.high
   const legendFont = effectiveString(element, 'font', 'ppb.ttf')
+  if (!getFont(legendFont)) {
+    // Unlike text/multiline, plot never needed a real opentype.Font object
+    // for its own layout — legend/tick label positions are computed from
+    // chart geometry, not glyph metrics, and painting happens via a CSS
+    // font-family fallback at the UI layer. That meant a confirmed-missing
+    // font was previously silently ignored: the whole chart kept rendering
+    // fine, just with labels in a fallback font — "plausible but wrong" per
+    // the maintainer's ruling (issue #53 follow-up). The font always
+    // affects this element (legend/tick labels have no show/hide toggle),
+    // so replace the WHOLE chart with the render-error marker, exactly like
+    // text/multiline, rather than inventing a "partial error" presentation
+    // for just the labels.
+    const unavailableMessage = fontUnavailableMessage(legendFont)
+    if (unavailableMessage) {
+      throw new Error(unavailableMessage)
+    }
+  }
   const yLegendFontSize = legendFontSize(element.ylegend, element)
   const xLegendFontSize = legendFontSize(element.xlegend, element)
 
