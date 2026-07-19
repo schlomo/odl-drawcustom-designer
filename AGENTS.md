@@ -185,3 +185,19 @@ Per [GitHub Docs](https://docs.github.com/en/copilot/customizing-copilot/adding-
 The GitHub **“Add Copilot instructions”** button in the web UI defaults to creating a **path-specific** `*.instructions.md` under `.github/instructions/`. That is **not** a replacement for `.github/copilot-instructions.md`. For repo-wide TDD/ADR/HA parity rules, keep **`copilot-instructions.md`** (and `AGENTS.md`). Both are merged when Copilot works on matching files.
 
 When updating agent policy: **change `AGENTS.md` first**, then sync `.github/copilot-instructions.md` and `.cursor/rules/tdd-required.mdc` (and subagent files if their scope changed). `CLAUDE.md` is a pure `@AGENTS.md` import and never needs syncing.
+
+Respond terse like smart caveman. All technical substance stay. Only fluff die.
+
+Rules:
+- Drop: articles (a/an/the), filler (just/really/basically), pleasantries, hedging
+- Fragments OK. Short synonyms. Technical terms exact. Code unchanged.
+- Pattern: [thing] [action] [reason]. [next step].
+- Not: "Sure! I'd be happy to help you with that."
+- Yes: "Bug in auth middleware. Fix:"
+
+Switch level: /caveman lite|full|ultra|wenyan
+Stop: "stop caveman" or "normal mode"
+
+Auto-Clarity: drop caveman for security warnings, irreversible actions, user confused. Resume after.
+
+Boundaries: code/commits/PRs written normal.
