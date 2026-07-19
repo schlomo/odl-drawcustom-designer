@@ -6,26 +6,50 @@ import {
 
 describe('primaryElementListIndex', () => {
   it('returns null when nothing is selected', () => {
-    expect(primaryElementListIndex([])).toBeNull()
+    expect(primaryElementListIndex([5], [])).toBeNull()
   })
 
-  it('returns the only index for a single selection', () => {
-    expect(primaryElementListIndex([3])).toBe(3)
+  it('returns the index on a fresh single selection', () => {
+    expect(primaryElementListIndex([], [3])).toBe(3)
   })
 
-  it('returns the last (most-recently selected) index on multi-select', () => {
-    // Mirrors useProjectState's own selectedIndex definition: the last
-    // entry in selectedIndices is the most-recently selected element.
-    expect(primaryElementListIndex([2, 5, 1])).toBe(1)
+  it('returns the new index when the selection is replaced', () => {
+    expect(primaryElementListIndex([5], [2])).toBe(2)
+  })
+
+  it('returns the newly added index on additive (shift) selection, not the highest', () => {
+    // useProjectState numerically sorts additive selections
+    // (sortIndices, useProjectState.ts) — selectedIndices does NOT preserve
+    // selection order. Starting from [5] and shift-selecting element 2
+    // yields [2, 5]; the row to scroll to is 2, the one the user just
+    // clicked, not the highest index.
+    expect(primaryElementListIndex([5], [2, 5])).toBe(2)
+  })
+
+  it('falls back to the last entry when several indices are added at once', () => {
+    // Marquee/select-all-in-rect adds many at once — no single "just
+    // clicked" row exists, so fall back to the primary the rest of the UI
+    // uses (indices[length - 1]: useProjectState.ts selectedIndex,
+    // PropertyPanel.tsx primaryIndex).
+    expect(primaryElementListIndex([1], [1, 3, 7])).toBe(7)
+  })
+
+  it('falls back to the last entry when the selection shrinks (shift-deselect)', () => {
+    expect(primaryElementListIndex([2, 5], [2])).toBe(2)
+    expect(primaryElementListIndex([2, 5, 8], [2, 8])).toBe(8)
+  })
+
+  it('returns null when the selection is unchanged', () => {
+    expect(primaryElementListIndex([2, 5], [2, 5])).toBeNull()
   })
 })
 
 describe('shouldScrollListRow', () => {
-  it('scrolls when there is a primary selection and no drag in progress', () => {
+  it('scrolls when there is a target row and no drag in progress', () => {
     expect(shouldScrollListRow(4, null)).toBe(true)
   })
 
-  it('does not scroll when nothing is selected', () => {
+  it('does not scroll when there is no target row', () => {
     expect(shouldScrollListRow(null, null)).toBe(false)
   })
 
