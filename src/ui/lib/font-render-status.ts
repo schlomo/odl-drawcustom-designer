@@ -54,6 +54,12 @@ function mergeAssetFailures<TOutcome extends AssetOutcomeLike>(
 
   for (const key of requiredKeys) {
     const outcome = outcomes.get(key)
+    // Deliberately an explicit allow-list (not e.g. `!== 'ready'`), so a
+    // future status added to FontLoadStatus/ImageLoadStatus (something
+    // between "ready" and "confirmed gone") is safely skipped here by
+    // default, rather than silently reaching `buildMessage` below — which
+    // only knows how to label exactly 'missing' and 'failed' and would
+    // mislabel anything else (independent review finding on PR #58).
     if (outcome?.status !== 'missing' && outcome?.status !== 'failed') {
       continue
     }

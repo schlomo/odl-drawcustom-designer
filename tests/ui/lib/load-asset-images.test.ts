@@ -280,6 +280,62 @@ describe('loadAssetImageMapWithOutcomes', () => {
 
     return pending
   })
+
+  /**
+   * Independent review finding on PR #58: `cancelled` in DesignerCanvas's
+   * loading effect only gates the React `setState` calls — it never reached
+   * the loader itself, so an OLD (superseded) batch's in-flight
+   * `loadAssetImage` calls could still write `markImageUnavailable`/
+   * `clearImageUnavailable` into the core registry after a NEWER batch had
+   * already started (e.g. rapid element edits changing `dlimgAssetKeys`
+   * mid-flight). If the old batch's write lands after the new batch's, it
+   * can silently clobber a fresh, correct determination with a stale one.
+   *
+   * Fix: `loadAssetImageMapWithOutcomes` takes an optional `isStale()`
+   * predicate, threaded down to every registry write. DesignerCanvas passes
+   * its existing `cancelled` flag (already used to gate `setState`) as this
+   * predicate — closing the gap for the module-level registry too, without
+   * touching the registry unconditionally on every render (which would
+   * un-error still-missing images and cause flicker).
+   */
+  it('an isStale() predicate returning true suppresses registry writes, without changing the returned outcome', async () => {
+    const url = '/local/issue55-stale-batch-missing.png'
+
+    const result = await loadAssetImageMapWithOutcomes([url], () => true)
+
+    // The outcome itself is still computed and returned normally — only the
+    // side effect on the shared core registry is suppressed.
+    expect(result.outcomes.get(url)).toMatchObject({ status: 'missing' })
+    expect(imageUnavailableMessage(url)).toBeUndefined()
+  })
+
+  it('a stale batch must not clobber a fresh mark already written by a newer batch for the same key', async () => {
+    await withImmediateImageLoad(async () => {
+      const url = '/local/issue55-stale-batch-clobber.png'
+
+      // Simulate: a NEWER batch already determined (correctly) that this key
+      // is available and cleared any prior mark — e.g. it just got uploaded.
+      setAsset(url, { blob: pngBlob(), mime: 'image/png' })
+      await loadAssetImageMapWithOutcomes([url])
+      expect(imageUnavailableMessage(url)).toBeUndefined()
+
+      // An OLDER, now-superseded batch's in-flight determination (e.g. it saw
+      // the pre-upload "missing" state) finally resolves. Marked `isStale`,
+      // its write must be suppressed so it cannot clobber the newer, correct
+      // "available" state above.
+      await loadAssetImageMapWithOutcomes([url], () => true)
+      expect(imageUnavailableMessage(url)).toBeUndefined()
+    })
+  })
+
+  it('a non-stale batch (the normal case) still marks/clears the registry exactly as before', async () => {
+    const url = '/local/issue55-not-stale.png'
+
+    const result = await loadAssetImageMapWithOutcomes([url], () => false)
+
+    expect(result.outcomes.get(url)).toMatchObject({ status: 'missing' })
+    expect(imageUnavailableMessage(url)).toBeTruthy()
+  })
 })
 
 describe('drawCanvasStub dlimg preview', () => {

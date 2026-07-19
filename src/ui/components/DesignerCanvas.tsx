@@ -444,7 +444,16 @@ export function DesignerCanvas({
   useEffect(() => {
     let cancelled = false
 
-    void loadAssetImageMapWithOutcomes(dlimgAssetKeys).then((batch) => {
+    // Pass `cancelled` down as loadAssetImageMapWithOutcomes's staleness
+    // predicate too, not just for the setState guards below: without this,
+    // an OLD (superseded) batch's in-flight loadAssetImage calls could still
+    // write markImageUnavailable/clearImageUnavailable into the core
+    // image-availability registry after a NEWER batch had already written
+    // its own, correct determination for the same key — a stale write
+    // silently clobbering a fresh one (independent review finding on
+    // PR #58; reachable via rapid element edits that change which dlimg
+    // URLs are in flight, mid-load).
+    void loadAssetImageMapWithOutcomes(dlimgAssetKeys, () => cancelled).then((batch) => {
       if (!cancelled) {
         setAssetImages((current) =>
           areAssetImageMapsEqual(current, batch.images) ? current : batch.images,
