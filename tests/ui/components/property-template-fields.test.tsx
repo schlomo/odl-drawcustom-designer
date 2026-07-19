@@ -164,4 +164,184 @@ describe('property template fields', () => {
       "{{ 'red' if is_state('input_boolean.alert', 'on') else 'none' }}",
     )
   })
+
+  describe('required JSON fields never lose their value (Back to json crash)', () => {
+    it('restores a literal points array when leaving a stored template, never undefined', () => {
+      const onPropertyChange = vi.fn()
+      const element = {
+        type: 'polygon' as const,
+        points: '{{ my_points }}',
+        fill: 'black',
+      }
+
+      render(
+        <ElementPropertyForm
+          element={element}
+          fontKeys={[]}
+          onPropertyChange={onPropertyChange}
+          onUploadFont={noopUpload}
+          onUploadImageForUrl={noopUpload}
+          properties={['points']}
+        />,
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /back to json/i }))
+
+      expect(onPropertyChange).toHaveBeenCalledTimes(1)
+      const [property, restored] = onPropertyChange.mock.calls[0]!
+      expect(property).toBe('points')
+      expect(Array.isArray(restored)).toBe(true)
+      expect((restored as unknown[]).length).toBeGreaterThanOrEqual(3)
+    })
+
+    it('keeps the existing literal points untouched when template mode is toggled on and straight back off', () => {
+      const onPropertyChange = vi.fn()
+      const element = {
+        type: 'polygon' as const,
+        points: [
+          [1, 2],
+          [3, 4],
+          [5, 6],
+        ] as [number, number][],
+        fill: 'black',
+      }
+
+      render(
+        <ElementPropertyForm
+          element={element}
+          fontKeys={[]}
+          onPropertyChange={onPropertyChange}
+          onUploadFont={noopUpload}
+          onUploadImageForUrl={noopUpload}
+          properties={['points']}
+        />,
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /template expression/i }))
+      fireEvent.click(screen.getByRole('button', { name: /back to json/i }))
+
+      expect(onPropertyChange).not.toHaveBeenCalled()
+    })
+
+    it('restores the last known literal points when leaving a template committed in this session', () => {
+      const onPropertyChange = vi.fn()
+      const literal: [number, number][] = [
+        [1, 2],
+        [3, 4],
+        [5, 6],
+      ]
+
+      const { rerender } = render(
+        <ElementPropertyForm
+          element={{ type: 'polygon' as const, points: literal, fill: 'black' }}
+          fontKeys={[]}
+          onPropertyChange={onPropertyChange}
+          onUploadFont={noopUpload}
+          onUploadImageForUrl={noopUpload}
+          properties={['points']}
+        />,
+      )
+
+      rerender(
+        <ElementPropertyForm
+          element={{ type: 'polygon' as const, points: '{{ my_points }}', fill: 'black' }}
+          fontKeys={[]}
+          onPropertyChange={onPropertyChange}
+          onUploadFont={noopUpload}
+          onUploadImageForUrl={noopUpload}
+          properties={['points']}
+        />,
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /back to json/i }))
+
+      expect(onPropertyChange).toHaveBeenCalledWith('points', literal)
+    })
+
+    it('restores a literal series array when plot data leaves a stored template', () => {
+      const onPropertyChange = vi.fn()
+      const element = {
+        type: 'plot' as const,
+        data: "{{ states('sensor.series') }}",
+      }
+
+      render(
+        <ElementPropertyForm
+          element={element}
+          fontKeys={['ppb.ttf']}
+          onPropertyChange={onPropertyChange}
+          onUploadFont={noopUpload}
+          onUploadImageForUrl={noopUpload}
+          properties={['data']}
+        />,
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /back to json/i }))
+
+      expect(onPropertyChange).toHaveBeenCalledTimes(1)
+      const [property, restored] = onPropertyChange.mock.calls[0]!
+      expect(property).toBe('data')
+      expect(Array.isArray(restored)).toBe(true)
+      expect((restored as { entity?: unknown }[])[0]?.entity).toEqual(expect.any(String))
+    })
+
+    it('restores a literal icons array when icon_sequence leaves a stored template', () => {
+      const onPropertyChange = vi.fn()
+      const element = {
+        type: 'icon_sequence' as const,
+        x: 0,
+        y: 0,
+        icons: '{{ my_icons }}',
+      }
+
+      render(
+        <ElementPropertyForm
+          element={element}
+          fontKeys={[]}
+          onPropertyChange={onPropertyChange}
+          onUploadFont={noopUpload}
+          onUploadImageForUrl={noopUpload}
+          properties={['icons']}
+        />,
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /back to json/i }))
+
+      expect(onPropertyChange).toHaveBeenCalledTimes(1)
+      const [property, restored] = onPropertyChange.mock.calls[0]!
+      expect(property).toBe('icons')
+      expect(Array.isArray(restored)).toBe(true)
+      expect((restored as unknown[]).length).toBeGreaterThanOrEqual(1)
+    })
+
+    it('does not remove required points when the JSON textarea is blurred empty', () => {
+      const onPropertyChange = vi.fn()
+      const element = {
+        type: 'polygon' as const,
+        points: [
+          [1, 2],
+          [3, 4],
+          [5, 6],
+        ] as [number, number][],
+        fill: 'black',
+      }
+
+      render(
+        <ElementPropertyForm
+          element={element}
+          fontKeys={[]}
+          onPropertyChange={onPropertyChange}
+          onUploadFont={noopUpload}
+          onUploadImageForUrl={noopUpload}
+          properties={['points']}
+        />,
+      )
+
+      const textarea = screen.getByDisplayValue(/1/)
+      fireEvent.change(textarea, { target: { value: '' } })
+      fireEvent.blur(textarea)
+
+      expect(onPropertyChange).not.toHaveBeenCalledWith('points', undefined)
+    })
+  })
 })

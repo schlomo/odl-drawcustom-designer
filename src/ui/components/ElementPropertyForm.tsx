@@ -5,6 +5,8 @@ import {
   type AssetUploadResult,
   type DrawElement,
   DEBUG_GRID_MIN_SPACING,
+  ICON_SEQUENCE_ICONS_PREVIEW,
+  POLYGON_POINTS_PREVIEW,
 } from '../../core'
 import {
   booleanPropertyDefault,
@@ -374,6 +376,17 @@ function PropertyField({
           ]
         : undefined
 
+    // These JSON fields are REQUIRED by their element schemas — leaving
+    // template mode must restore a valid literal, never delete the field
+    // (deleting once white-screened the app via element-list-row's
+    // `.length` on the missing value).
+    const literalFallback =
+      property === 'points'
+        ? POLYGON_POINTS_PREVIEW
+        : property === 'icons'
+          ? [...ICON_SEQUENCE_ICONS_PREVIEW]
+          : samplePlotData
+
     return (
       <JsonOrTemplateField
         element={element}
@@ -381,6 +394,7 @@ function PropertyField({
         value={value}
         label={label}
         sampleValue={samplePlotData}
+        literalFallback={literalFallback}
         onChange={onChange}
         onBeginEdit={onBeginEdit}
         onEndEdit={onEndEdit}

@@ -175,5 +175,13 @@ describe('renderPlot', () => {
       expect(result?.primitive.kind).toBe('render-error')
       expect(result?.error).toMatch(/data/i)
     })
+
+    it('reports a clean error when data went missing entirely (UI regression, not a TypeError)', () => {
+      const result = safeRenderElement({ type: 'plot', data: undefined } as never, context)
+
+      expect(result?.primitive.kind).toBe('render-error')
+      expect(result?.error).toMatch(/data/i)
+      expect(result?.error).not.toMatch(/cannot read properties/i)
+    })
   })
 })
