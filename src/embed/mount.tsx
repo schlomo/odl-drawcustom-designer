@@ -48,7 +48,7 @@ function buildEmbedBootstrap(options: MountOptions): AppBootstrap {
   return {
     sessionName: 'Untitled',
     elements: options.payload ? parseYamlPayload(options.payload) : [],
-    canvas: capabilitiesToCanvas(options.capabilities ?? {}, { ...DEFAULT_DISPLAY_CONFIG }),
+    canvas: capabilitiesToCanvas(options.capabilities ?? {}, DEFAULT_DISPLAY_CONFIG),
     service: undefined,
     mockStates: mock.states,
     mockAttributes: mock.attributes,

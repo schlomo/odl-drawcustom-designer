@@ -52,7 +52,7 @@ import {
 import { verifyAndValidateAssetUpload } from '../lib/verify-asset-upload'
 import {
   type CanvasRotation,
-  type PreviewDitherMode,
+  type DisplayConfig,
 } from '../preferences/displayConfig'
 import { writeMockStates } from '../preferences/mockStates'
 import { isValidVariableName, writeVariables } from '../preferences/variables'
@@ -126,13 +126,9 @@ function snapshotEditHistory(history: EditHistory): PersistedEditHistory {
   }
 }
 
-export interface CanvasConfig {
-  width: number
-  height: number
-  rotation: CanvasRotation
-  colorMode: TagColorMode
-  previewDitherMode: PreviewDitherMode
-}
+/** Alias of `DisplayConfig` (`../preferences/displayConfig`) — same shape, kept
+ * under this name for the hook's existing consumers. */
+export type CanvasConfig = DisplayConfig
 
 type MockEntityAttributes = NonNullable<HaMockContext['attributes']>
 
