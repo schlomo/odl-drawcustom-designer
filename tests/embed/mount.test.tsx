@@ -163,9 +163,13 @@ describe('mount', () => {
   it('destroy unmounts the designer and empties the container', () => {
     const handle = mountDesigner({ payload: PAYLOAD })
     expect(container.childElementCount).toBeGreaterThan(0)
+    const wrapper = container.firstElementChild
+    expect(wrapper).not.toBeNull()
 
     act(() => handle.destroy())
 
     expect(container.childElementCount).toBe(0)
+    expect(wrapper!.isConnected).toBe(false)
+    expect(container.contains(wrapper)).toBe(false)
   })
 })
