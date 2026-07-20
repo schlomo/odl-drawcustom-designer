@@ -25,6 +25,7 @@ import { yamlScalarHighlight } from './yamlScalarHighlight'
 import { createYamlEditorTheme } from './yamlTheme'
 import { shouldReportLinkedYamlCursor, shouldReportYamlDocChange } from './yamlEditorSelection'
 import type { StoredEditorSelection } from './yamlEditorScroll'
+import { yamlScrollContainment } from './yamlScrollContainment'
 
 /** Tab accepts an open completion, otherwise inserts indent at the cursor (or indents a selection). */
 export function runYamlEditorTab(view: EditorView): boolean {
@@ -111,6 +112,7 @@ export function createYamlEditorState(
     extensions: [
       indentUnit.of('  '),
       EditorState.tabSize.of(2),
+      yamlScrollContainment(),
       jinjaBraceInputHandler(),
       ...basicSetup(YAML_EDITOR_BASIC_SETUP),
       yamlCloseBrackets(),
