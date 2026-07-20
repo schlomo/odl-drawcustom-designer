@@ -165,9 +165,12 @@ The designer also ships as an **embeddable component**: a single self-contained 
 Run the same demo locally:
 
 ```bash
-npm run build:lib && python3 -m http.server -d dist-lib
-# open http://localhost:8000/
+npm run build:site && npm run preview
+# open the printed URL; the demo is at /embed/ (same path as production)
 ```
+
+No dedicated server needed beyond that: the demo is plain static files, so any
+static file server works too (e.g. `python3 -m http.server -d dist-lib`).
 
 ## Development
 
