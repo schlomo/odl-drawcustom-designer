@@ -23,6 +23,8 @@ npm run build:lib && python3 -m http.server -d dist-lib
 
 The demo page mounts the designer, pushes fake warm/cold states and a 296×128 BWR capabilities payload, switches themes, and shows every `onSaveRequest` payload in a `<pre>`. It doubles as the Playwright e2e fixture (`tests/e2e/embed-mount.spec.ts`).
 
+The same demo is published from `main` at **<https://schlomo.github.io/odl-drawcustom-designer/embed/>** — `npm run build:site` assembles the deployed site (app at `/`, `dist-lib/` copied to `/embed/` by `tools/assembleSite.ts`); PR previews get their own `/embed/` the same way.
+
 ## Mount API
 
 ```js

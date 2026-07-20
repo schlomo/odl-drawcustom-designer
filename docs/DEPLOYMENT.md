@@ -64,6 +64,8 @@ VITE_GIT_BRANCH=release-1.0 VITE_GIT_REVISION=abc1234 npm run build
 
 Workflow: [`.github/workflows/pages.yml`](../.github/workflows/pages.yml) — [JamesIves/github-pages-deploy-action](https://github.com/JamesIves/github-pages-deploy-action) (production) + [rossjrw/pr-preview-action](https://github.com/rossjrw/pr-preview-action) (PR previews).
 
+Both production and preview deploys build with `npm run build:site`: the standalone app (`npm run build` → `dist/`), the embeddable library (`npm run build:lib` → `dist-lib/`), then [`tools/assembleSite.ts`](../tools/assembleSite.ts) copies `dist-lib/` into `dist/embed/`. The deployed site therefore serves the app at `/` and the [embed demo](embedding.md) at `/embed/` (PR previews included). The demo uses only relative references (enforced by the assembly script), so it works under any subpath.
+
 ### One-time repository setup
 
 1. **Settings → Pages** — source **Deploy from a branch**, branch **`gh-pages`**, folder **`/` (root)**. Do not use the “GitHub Actions” Pages source; PR previews deploy into the same `gh-pages` branch under `pr-preview/`.
@@ -95,6 +97,7 @@ PR preview builds do not set `VITE_HEADER_LEGAL_HTML`; add it to the preview job
 ## Self-hosted / other static hosts
 
 1. `npm ci && npm run lint && npm test && npm run build`
+   (use `npm run build:site` instead of `npm run build` to also include the [embed demo](embedding.md) at `<path>/embed/`)
 2. Serve the `dist/` directory at your chosen path.
 3. Set `VITE_BASE_PATH` to that path when building (defaults to `/` if omitted — see [defaults](#vite_base_path-defaults)).
 4. Optionally set `VITE_HEADER_LEGAL_HTML` for jurisdiction-specific footer links.
