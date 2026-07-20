@@ -5,6 +5,9 @@ export type ExportActionFeedback = 'success' | 'error'
 /** How long export buttons stay highlighted after an action. */
 export const EXPORT_ACTION_FEEDBACK_MS = 1500
 
+/** Errors that carry an explanation stay visible long enough to read it (issue #76). */
+export const EXPORT_ACTION_ERROR_MESSAGE_FEEDBACK_MS = 5000
+
 /** Shared sizing for export toolbar buttons (without default surface colors). */
 const exportActionButtonBase =
   'rounded-md border px-2 py-1 text-xs transition-colors hover:opacity-95'

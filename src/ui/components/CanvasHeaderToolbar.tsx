@@ -20,6 +20,7 @@ export interface CanvasHeaderToolbarProps {
   zoomMode: CanvasZoomMode
   onZoomModeChange: (mode: CanvasZoomMode) => void
   getFeedback: (actionId: string) => ExportActionFeedback | null
+  getFeedbackMessage: (actionId: string) => string | null
   onCopyPng: () => void
   onDownloadPng: () => void
   canUndo: boolean
@@ -43,6 +44,7 @@ export function CanvasHeaderToolbar({
   zoomMode,
   onZoomModeChange,
   getFeedback,
+  getFeedbackMessage,
   onCopyPng,
   onDownloadPng,
   canUndo,
@@ -68,6 +70,7 @@ export function CanvasHeaderToolbar({
         <ExportIconButton
           actionId="copy-png"
           feedback={measureOnly ? null : getFeedback('copy-png')}
+          feedbackMessage={measureOnly ? null : getFeedbackMessage('copy-png')}
           iconPath={TOOL_ICONS.copy}
           tooltip="Copy PNG"
           label={labelsVisible ? 'Copy PNG' : undefined}
@@ -77,6 +80,7 @@ export function CanvasHeaderToolbar({
         <ExportIconButton
           actionId="download-png"
           feedback={measureOnly ? null : getFeedback('download-png')}
+          feedbackMessage={measureOnly ? null : getFeedbackMessage('download-png')}
           iconPath={TOOL_ICONS.download}
           tooltip="Download PNG"
           label={labelsVisible ? 'Download PNG' : undefined}

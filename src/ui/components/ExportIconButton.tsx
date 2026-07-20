@@ -10,6 +10,8 @@ interface ExportIconButtonProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'onClick'> {
   actionId: string
   feedback: ExportActionFeedback | null
+  /** Why the action failed — shown as a visible bubble during an error flash (issue #76). */
+  feedbackMessage?: string | null
   iconPath: string
   label?: ReactNode
   /** Stable text for tooltip when `label` is hidden (icon-only). */
@@ -20,6 +22,7 @@ interface ExportIconButtonProps
 export function ExportIconButton({
   actionId,
   feedback,
+  feedbackMessage,
   iconPath,
   label,
   tooltip,
@@ -31,8 +34,9 @@ export function ExportIconButton({
   const isFlash = feedback != null
   const textLabel = tooltip ?? (typeof label === 'string' ? label : undefined)
   const isIconOnly = label == null
+  const errorMessage = feedback === 'error' ? (feedbackMessage ?? null) : null
 
-  return (
+  const button = (
     <IconButton
       iconPath={iconPath}
       label={label}
@@ -46,5 +50,22 @@ export function ExportIconButton({
       title={isIconOnly ? (title ?? textLabel) : title}
       {...rest}
     />
+  )
+
+  if (errorMessage == null) {
+    return button
+  }
+
+  return (
+    <span className="relative inline-flex shrink-0">
+      {button}
+      <span
+        role="alert"
+        data-testid="export-action-error"
+        className="pointer-events-none absolute right-0 top-[calc(100%+6px)] z-50 whitespace-nowrap rounded-md border border-[var(--shell-danger-border)] bg-[var(--shell-danger-border)] px-2 py-1 text-xs text-white shadow-md"
+      >
+        {errorMessage}
+      </span>
+    </span>
   )
 }

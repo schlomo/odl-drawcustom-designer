@@ -100,6 +100,19 @@ The payload is the drawcustom **element list YAML** (what the YAML panel shows).
 
 `'light' | 'dark'`, applied as a class on the designer's wrapper element inside your container — embedded mounts never touch `document.documentElement` or `localStorage` theme preferences. Full CSS variable relocation off `:root` plus Tailwind utility isolation lands with Shadow DOM in issue #21.
 
+## Clipboard requires a secure context
+
+The copy buttons (Copy PNG, Copy YAML, share link) use the async clipboard
+API, which browsers only expose in [secure contexts](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts)
+— HTTPS or `http://localhost`. When the host page is served from a plain-http
+LAN IP or `file://` (common for HA panels during development):
+
+- **Copy YAML** and the share link still work — the designer falls back to the
+  legacy `document.execCommand('copy')` path for text.
+- **Copy PNG** has no insecure-context clipboard path. The button fails with a
+  visible "Clipboard requires HTTPS or localhost" message; use Download PNG
+  instead, or serve the host page over HTTPS/localhost.
+
 ## Standalone SPA
 
 `src/main.tsx` is a thin caller of the same machinery (`src/embed/standalone.tsx`): document-level theme, IndexedDB session bootstrap, share-hash navigation. Standalone behavior is unchanged by embedding.

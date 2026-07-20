@@ -116,7 +116,7 @@ export function YamlPanel({
   const { fontSize, increase, decrease } = useYamlFontSize()
   const { couplingEnabled, toggleCoupling } = useYamlSelectionCoupling()
   const { templatePreviewEnabled, toggleTemplatePreview } = useYamlTemplatePreview()
-  const { flashSuccess, flashError, getFeedback } = useExportActionFeedback()
+  const { flashSuccess, flashError, getFeedback, getFeedbackMessage } = useExportActionFeedback()
   const headerRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLHeadingElement>(null)
   const measureRef = useRef<HTMLDivElement>(null)
@@ -202,10 +202,10 @@ export function YamlPanel({
 
   const handleCopyYaml = useCallback(async () => {
     const copied = await copyTextToClipboard(yamlText)
-    if (copied) {
+    if (copied.ok) {
       flashSuccess('copy-yaml')
     } else {
-      flashError('copy-yaml')
+      flashError('copy-yaml', copied.reason)
     }
   }, [flashError, flashSuccess, yamlText])
 
@@ -217,6 +217,7 @@ export function YamlPanel({
   const toolbarProps = {
     showLabels: showYamlLabels,
     getFeedback,
+    getFeedbackMessage,
     onCopyYaml: () => void handleCopyYaml(),
     onDownloadYaml: handleDownloadYaml,
     templatePreviewEnabled,

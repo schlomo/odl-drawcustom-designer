@@ -41,6 +41,7 @@ describe('canvas header toolbar while YAML is blocked', () => {
         zoomMode="fit"
         onZoomModeChange={() => {}}
         getFeedback={() => null}
+        getFeedbackMessage={() => null}
         onCopyPng={() => {}}
         onDownloadPng={() => {}}
         canUndo

@@ -239,7 +239,7 @@ export function DesignerCanvas({
   const [hoverCursor, setHoverCursor] = useState<string>('default')
   const [scrollportSize, setScrollportSize] = useState({ width: 0, height: 0 })
   const [zoomMode, setZoomMode] = useState<CanvasZoomMode>(() => readCanvasZoomMode())
-  const { flashSuccess, flashError, getFeedback } = useExportActionFeedback()
+  const { flashSuccess, flashError, getFeedback, getFeedbackMessage } = useExportActionFeedback()
   const headerRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLHeadingElement>(null)
   const measureRef = useRef<HTMLDivElement>(null)
@@ -1277,13 +1277,13 @@ export function DesignerCanvas({
         return
       }
       const copied = await copyBlobToClipboard(blob)
-      if (copied) {
+      if (copied.ok) {
         flashSuccess('copy-png')
       } else {
-        flashError('copy-png')
+        flashError('copy-png', copied.reason)
       }
     } catch {
-      flashError('copy-png')
+      flashError('copy-png', 'PNG export failed')
     }
   }, [exportPreviewPng, flashError, flashSuccess])
 
@@ -1296,7 +1296,7 @@ export function DesignerCanvas({
       triggerBlobDownload(blob, buildPngDownloadFilename(sessionName))
       flashSuccess('download-png')
     } catch {
-      flashError('download-png')
+      flashError('download-png', 'PNG export failed')
     }
   }, [exportPreviewPng, flashError, flashSuccess, sessionName])
 
@@ -1305,6 +1305,7 @@ export function DesignerCanvas({
     zoomMode,
     onZoomModeChange: setZoomMode,
     getFeedback,
+    getFeedbackMessage,
     onCopyPng: () => void handleCopyPng(),
     onDownloadPng: () => void handleDownloadPng(),
     canUndo,
