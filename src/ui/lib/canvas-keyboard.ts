@@ -13,9 +13,24 @@ export function nudgeWhenSelected(
   }
 }
 
-/** Canvas shortcuts yield to YAML editing and form fields. */
-export function shouldHandleCanvasKeyboard(event: KeyboardEvent): boolean {
-  const target = event.target
+/**
+ * Canvas shortcuts yield to YAML editing and form fields.
+ *
+ * Shadow DOM (issue #21): the listener sits on `window`, where events from
+ * inside a shadow tree arrive retargeted to the shadow host — `event.target`
+ * hides the element the user is typing into. The composed path recovers the
+ * real target. `scopeRoot` (the root node the canvas lives in) additionally
+ * confines an embedded instance to its own events: keystrokes on the host
+ * page — or in another designer instance — never travel through this
+ * instance's shadow root, so they are ignored. Standalone passes `document`,
+ * which every composed path includes, preserving app-global shortcuts.
+ */
+export function shouldHandleCanvasKeyboard(event: KeyboardEvent, scopeRoot?: Node): boolean {
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : []
+  if (scopeRoot && path.length > 0 && !path.includes(scopeRoot)) {
+    return false
+  }
+  const target = path[0] ?? event.target
   if (!(target instanceof HTMLElement)) {
     return true
   }

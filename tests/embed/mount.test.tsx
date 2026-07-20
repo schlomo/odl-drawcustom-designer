@@ -61,6 +61,11 @@ function mountDesigner(options: Parameters<typeof mount>[1] = {}): MountHandle {
   return handle
 }
 
+/** The designer renders inside the container's shadow root (issue #21). */
+function designer() {
+  return within(container.shadowRoot as unknown as HTMLElement)
+}
+
 beforeEach(() => {
   vi.stubGlobal('ResizeObserver', ResizeObserverMock)
   stubMatchMedia()
@@ -84,7 +89,7 @@ describe('mount', () => {
     mountDesigner({ payload: PAYLOAD, states: { 'sensor.demo_temperature': '21.5' } })
 
     await waitFor(() => {
-      const rows = within(container).getAllByTestId('element-list-row')
+      const rows = designer().getAllByTestId('element-list-row')
       expect(rows).toHaveLength(1)
       expect(rows[0]).toHaveTextContent('21.5')
     })
@@ -93,13 +98,13 @@ describe('mount', () => {
   it('scopes the theme to the mount container, never document.documentElement', () => {
     const handle = mountDesigner({ payload: PAYLOAD, theme: 'dark' })
 
-    const themedRoot = container.querySelector('.dark')
+    const themedRoot = container.shadowRoot!.querySelector('.dark')
     expect(themedRoot).not.toBeNull()
     expect(document.documentElement.classList.contains('dark')).toBe(false)
     expect(document.documentElement.dataset.theme).toBeUndefined()
 
     act(() => handle.setTheme('light'))
-    expect(container.querySelector('.dark')).toBeNull()
+    expect(container.shadowRoot!.querySelector('.dark')).toBeNull()
     expect(document.documentElement.classList.contains('dark')).toBe(false)
   })
 
@@ -110,13 +115,13 @@ describe('mount', () => {
     })
 
     await waitFor(() => {
-      expect(within(container).getByTestId('element-list-row')).toHaveTextContent('21.5')
+      expect(designer().getByTestId('element-list-row')).toHaveTextContent('21.5')
     })
 
     act(() => handle.setStates({ 'sensor.demo_temperature': '3.2' }))
 
     await waitFor(() => {
-      expect(within(container).getByTestId('element-list-row')).toHaveTextContent('3.2')
+      expect(designer().getByTestId('element-list-row')).toHaveTextContent('3.2')
     })
   })
 
@@ -133,7 +138,7 @@ describe('mount', () => {
     )
 
     await waitFor(() => {
-      expect(within(container).getByLabelText('Resolution')).toHaveTextContent(/296\s*×\s*128/)
+      expect(designer().getByLabelText('Resolution')).toHaveTextContent(/296\s*×\s*128/)
     })
   })
 
@@ -141,9 +146,9 @@ describe('mount', () => {
     const onSaveRequest = vi.fn()
     mountDesigner({ payload: PAYLOAD, onSaveRequest })
 
-    expect(within(container).queryByLabelText('Copy share link')).toBeNull()
+    expect(designer().queryByLabelText('Copy share link')).toBeNull()
 
-    fireEvent.click(within(container).getByRole('button', { name: 'Save' }))
+    fireEvent.click(designer().getByRole('button', { name: 'Save' }))
 
     expect(onSaveRequest).toHaveBeenCalledTimes(1)
     const saved = onSaveRequest.mock.calls[0]![0] as string
@@ -160,16 +165,17 @@ describe('mount', () => {
     expect(await readSessionFromDb()).toBeNull()
   })
 
-  it('destroy unmounts the designer and empties the container', () => {
+  it('destroy unmounts the designer and removes its DOM from the shadow root', () => {
     const handle = mountDesigner({ payload: PAYLOAD })
-    expect(container.childElementCount).toBeGreaterThan(0)
-    const wrapper = container.firstElementChild
+    const shadow = container.shadowRoot!
+    const wrapper = shadow.querySelector('[data-odl-designer-root]')
     expect(wrapper).not.toBeNull()
 
     act(() => handle.destroy())
 
-    expect(container.childElementCount).toBe(0)
+    expect(shadow.querySelector('[data-odl-designer-root]')).toBeNull()
     expect(wrapper!.isConnected).toBe(false)
-    expect(container.contains(wrapper)).toBe(false)
+    // The host-visible light DOM of the container stays empty throughout.
+    expect(container.childElementCount).toBe(0)
   })
 })

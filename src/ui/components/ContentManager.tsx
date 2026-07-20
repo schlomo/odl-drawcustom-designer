@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { BUNDLED_SHOWCASE_IMAGE_KEY, FONT_UPLOAD_ACCEPT, type AssetKind, type AssetUploadResult, type DrawElement } from '../../core'
 import { buildContentAssetRows } from '../lib/content-asset-rows'
+import { getScopedElementById } from '../lib/scoped-dom'
 import { shell } from '../styles/shell'
 import { PanelScopeToggle, type PanelListScope } from './PanelScopeToggle'
 
@@ -145,8 +146,8 @@ export function ContentManager({
                   type="button"
                   className={`flex-1 ${uploadingKey === row.key ? 'opacity-60' : ''} ${shell.button} text-center`}
                   disabled={uploadingKey === row.key}
-                  onClick={() => {
-                    document.getElementById(uploadInputId(row.key))?.click()
+                  onClick={(event) => {
+                    getScopedElementById(event.currentTarget, uploadInputId(row.key))?.click()
                   }}
                 >
                   {uploadingKey === row.key

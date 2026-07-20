@@ -1138,7 +1138,11 @@ export function DesignerCanvas({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!shouldHandleCanvasKeyboard(event)) {
+      // Scope to this instance's root (issue #21): standalone this is the
+      // document (matches every event), embedded it is the mount's shadow
+      // root — host-page keystrokes and other instances stay ignored.
+      const scopeRoot = containerRef.current?.getRootNode()
+      if (!shouldHandleCanvasKeyboard(event, scopeRoot)) {
         return
       }
 

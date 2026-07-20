@@ -64,9 +64,28 @@ export function yamlEditorKeymap() {
   ])
 }
 
-export function yamlEditorTooltipExtension() {
+/**
+ * Tooltips (autocomplete, lint) render `position: fixed` to escape the YAML
+ * pane's overflow clipping. Their DOM parent must live in the same root as
+ * the editor: inside a shadow root (issue #21) a document.body portal would
+ * put them outside the injected stylesheet — unstyled and unthemed. In the
+ * document, the topmost designer element is equivalent to the old
+ * document.body parent.
+ */
+export function yamlEditorTooltipParent(editorContainer: HTMLElement): HTMLElement {
+  if (editorContainer.getRootNode() instanceof ShadowRoot) {
+    let top = editorContainer
+    while (top.parentElement) {
+      top = top.parentElement
+    }
+    return top
+  }
+  return editorContainer.ownerDocument.body
+}
+
+export function yamlEditorTooltipExtension(parent: HTMLElement) {
   return tooltips({
-    parent: document.body,
+    parent,
     position: 'fixed',
   })
 }
@@ -85,6 +104,7 @@ export function createYamlEditorState(
   yamlSelectionRef?: { current: StoredEditorSelection },
   templatePreview: TemplatePreviewConfig = { enabled: true, context: { states: {} } },
   onEditorBlurRef?: { current: (() => void) | undefined },
+  tooltipParent?: HTMLElement,
 ): EditorState {
   return EditorState.create({
     doc,
@@ -99,7 +119,7 @@ export function createYamlEditorState(
       yamlScalarHighlight(),
       yamlEditorAutocompletion(),
       yamlPayloadLinter(),
-      yamlEditorTooltipExtension(),
+      yamlEditorTooltipExtension(tooltipParent ?? document.body),
       EditorView.domEventHandlers({
         mousedown: () => {
           pointerActiveRef.current = true

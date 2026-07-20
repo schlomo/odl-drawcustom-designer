@@ -43,7 +43,18 @@ export function ResolutionSelect({
       selectedOption.scrollIntoView({ block: 'center' })
     }
     const onDocumentMouseDown = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) {
+      const containerEl = containerRef.current
+      if (!containerEl) {
+        return
+      }
+      // At the document level, events from inside a shadow root arrive
+      // retargeted to the shadow host — `contains(event.target)` would treat
+      // every in-dropdown press as an outside click (issue #21). The composed
+      // path still holds the real ancestry across the boundary.
+      const path = typeof event.composedPath === 'function' ? event.composedPath() : []
+      const inside =
+        path.length > 0 ? path.includes(containerEl) : containerEl.contains(event.target as Node)
+      if (!inside) {
         setOpen(false)
       }
     }
