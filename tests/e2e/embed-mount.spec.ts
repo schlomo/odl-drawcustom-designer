@@ -40,6 +40,17 @@ test('mounts self-contained: capabilities drive the canvas, host states drive te
   await expect(page.getByLabel('Copy share link')).toHaveCount(0)
 })
 
+test('measured color_map hexes re-color the preview palette (issue #68)', async ({ page }) => {
+  // The demo payload draws a rectangle with `outline: red`; the demo host
+  // pushes a measured color_map with red = #c53929. Computed paint evidence:
+  // the rendered SVG rect must stroke in the measured hex, not canonical red.
+  const strokes = await page
+    .locator('#designer svg rect[stroke]')
+    .evaluateAll((rects) => rects.map((rect) => getComputedStyle(rect).stroke))
+  expect(strokes).toContain('rgb(197, 57, 41)')
+  expect(strokes).not.toContain('rgb(255, 0, 0)')
+})
+
 test('a later host states push re-evaluates the template preview', async ({ page }) => {
   await page.getByRole('button', { name: 'Push cold states' }).click()
 

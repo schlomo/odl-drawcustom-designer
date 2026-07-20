@@ -68,6 +68,13 @@ export {
   paletteColorsForMode,
 } from './display/palette-clamp'
 export {
+  normalizePaletteOverrides,
+  paletteBaseHex,
+  PALETTE_COLOR_NAMES,
+  type PaletteColorName,
+  type PaletteOverrides,
+} from './display/palette-overrides'
+export {
   DRAW_ELEMENT_TYPES,
   drawElementSchema,
   payloadSchema,

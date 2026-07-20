@@ -7,7 +7,7 @@ import {
   type DragEvent,
   type MouseEvent,
 } from 'react'
-import type { DrawElement, TagColorMode } from '../../core'
+import type { DrawElement, PaletteOverrides, TagColorMode } from '../../core'
 import { layerPanelDisplayOrder } from '../lib/draw-order'
 import {
   elementListDragIndices,
@@ -30,6 +30,8 @@ interface ElementListProps {
   selectedIndices: number[]
   colorMode: TagColorMode
   previewDitherMode?: PreviewDitherMode
+  /** Measured palette hexes (issue #68) — swatch fills adopt them. */
+  paletteOverrides?: PaletteOverrides
   onSelectElement: (index: number, options?: SelectElementOptions) => void
   onReorderElement: (
     fromIndex: number,
@@ -45,6 +47,7 @@ export function ElementList({
   selectedIndices,
   colorMode,
   previewDitherMode = 0,
+  paletteOverrides,
   onSelectElement,
   onReorderElement,
   blocked = false,
@@ -161,7 +164,7 @@ export function ElementList({
         layerPanelDisplayOrder(previewElements).map(({ item: element, index }) => {
           const selected = selectedIndices.includes(index)
           const draggingBlock = dragIndex != null ? movingIndices : []
-          const row = elementListRowMeta(element)
+          const row = elementListRowMeta(element, paletteOverrides)
           const colorClamped = clampedElements.has(index)
           const dropActive =
             dropIndex === index &&

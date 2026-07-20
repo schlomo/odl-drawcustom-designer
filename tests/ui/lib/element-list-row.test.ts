@@ -121,6 +121,28 @@ describe('elementListRowMeta', () => {
     expect(meta.typeLabel).toBe('icon sequence')
     expect(typeof meta.detail === 'string' || meta.detail === null).toBe(true)
   })
+
+  // Issue #68: swatch thumbnails paint measured palette hexes — same palette
+  // source of truth as the preview canvas.
+  it('paints color swatches with the measured palette hex when overrides are active', () => {
+    const meta = elementListRowMeta(
+      { type: 'rectangle', x_start: 0, y_start: 0, x_end: 10, y_end: 10, fill: 'red' },
+      { red: '#C53929' },
+    )
+    expect(meta.thumbnail).toEqual({ kind: 'color', fill: '#C53929', shape: 'square' })
+  })
+
+  it('keeps raw color values on swatches without overrides (standalone unchanged)', () => {
+    const meta = elementListRowMeta({
+      type: 'rectangle',
+      x_start: 0,
+      y_start: 0,
+      x_end: 10,
+      y_end: 10,
+      fill: 'red',
+    })
+    expect(meta.thumbnail).toEqual({ kind: 'color', fill: 'red', shape: 'square' })
+  })
 })
 
 describe('firstLinePreview', () => {

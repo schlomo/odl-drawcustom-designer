@@ -1,5 +1,6 @@
 import { clampHexToColorMode } from '../display/palette-clamp'
 import { colorOptionsFromContext, resolveColorMode } from '../display/palette'
+import { paletteOverridesFingerprint, type PaletteOverrides } from '../display/palette-overrides'
 import { mapColor } from './colors'
 import { halftoneTileColors, shouldUseHalftonePattern } from './dither'
 import type { ColorOptions, DitherMode, TagColorMode } from './types'
@@ -32,11 +33,13 @@ export interface ColorPreviewClampInfo {
 export interface PreviewDrawColorContext {
   colorMode: TagColorMode
   ditherMode?: DitherMode
+  paletteOverrides?: PaletteOverrides
 }
 
 export function paintOptionsFromContext(ctx: {
   colorMode: TagColorMode
   ditherMode?: ColorOptions['ditherMode']
+  paletteOverrides?: PaletteOverrides
 }): PreviewPaintOptions {
   return {
     ...colorOptionsFromContext(ctx),
@@ -48,12 +51,16 @@ export function paintOptionsFromDrawColor(drawColor: PreviewDrawColorContext): P
   return {
     colorMode: drawColor.colorMode,
     ditherMode: drawColor.ditherMode,
+    paletteOverrides: drawColor.paletteOverrides,
   }
 }
 
 export function halftonePatternId(colorName: string, options: ColorOptions): string {
   const mode = resolveColorMode(options)
-  return `ht-${colorName}-${mode}`
+  // Measured palettes tint the tiles — the fingerprint keeps ids distinct
+  // when mounts with different palettes share one document.
+  const fingerprint = paletteOverridesFingerprint(options.paletteOverrides)
+  return fingerprint ? `ht-${colorName}-${mode}-${fingerprint}` : `ht-${colorName}-${mode}`
 }
 
 /** Clamp a resolved hex to the active tag palette (same step as PNG export finalize). */
@@ -62,7 +69,7 @@ export function clampPaintToTagMode(hex: string, options: PreviewPaintOptions): 
   if (mode === 'rgb') {
     return hex
   }
-  return clampHexToColorMode(hex, mode)
+  return clampHexToColorMode(hex, mode, options.paletteOverrides)
 }
 
 function clampHalftoneTileColors(colors: string[], options: PreviewPaintOptions): string[] {
@@ -70,7 +77,7 @@ function clampHalftoneTileColors(colors: string[], options: PreviewPaintOptions)
   if (mode === 'rgb') {
     return colors
   }
-  return colors.map((color) => clampHexToColorMode(color, mode))
+  return colors.map((color) => clampHexToColorMode(color, mode, options.paletteOverrides))
 }
 
 /**

@@ -1,4 +1,10 @@
-import { isTemplateStoredValue, normalizeMdiIconName, type DrawElement } from '../../core'
+import {
+  isTemplateStoredValue,
+  mapColor,
+  normalizeMdiIconName,
+  type DrawElement,
+  type PaletteOverrides,
+} from '../../core'
 import { isHiddenOnTag, isInvisibleElement } from './hidden-on-tag'
 
 export type ElementListThumbnail =
@@ -43,9 +49,14 @@ function numericLabel(value: number | string | undefined): string | null {
   return null
 }
 
-function colorFill(value: unknown): string | null {
+function colorFill(value: unknown, paletteOverrides?: PaletteOverrides): string | null {
   if (typeof value !== 'string' || value.trim() === '') {
     return null
+  }
+  // Measured palette (issue #68): swatches paint the same adopted hexes as
+  // the canvas. Without overrides the raw value passes through untouched.
+  if (paletteOverrides) {
+    return mapColor(value, { colorMode: 'rgb', paletteOverrides }) ?? value
   }
   return value
 }
@@ -104,7 +115,10 @@ function fileNameFromUrl(url: string): string {
 }
 
 /** Sidebar row label, detail, and thumbnail for one preview (template-evaluated) element. */
-export function elementListRowMeta(element: DrawElement): ElementListRowMeta {
+export function elementListRowMeta(
+  element: DrawElement,
+  paletteOverrides?: PaletteOverrides,
+): ElementListRowMeta {
   const typeLabel = typeLabelFor(element)
   const invisible = isInvisibleElement(element)
   const hiddenOnTag = isHiddenOnTag(element)
@@ -161,7 +175,7 @@ export function elementListRowMeta(element: DrawElement): ElementListRowMeta {
         detail: positionDetail(element),
         thumbnail: {
           kind: 'color',
-          fill: colorFill(element.fill) ?? 'currentColor',
+          fill: colorFill(element.fill, paletteOverrides) ?? 'currentColor',
           shape: 'line',
         },
       }
@@ -173,7 +187,7 @@ export function elementListRowMeta(element: DrawElement): ElementListRowMeta {
         detail: positionDetail(element),
         thumbnail: {
           kind: 'color',
-          fill: colorFill('fill' in element ? element.fill : undefined) ?? 'currentColor',
+          fill: colorFill('fill' in element ? element.fill : undefined, paletteOverrides) ?? 'currentColor',
           shape: element.type === 'ellipse' ? 'circle' : 'square',
         },
       }
@@ -184,7 +198,7 @@ export function elementListRowMeta(element: DrawElement): ElementListRowMeta {
         detail: positionDetail(element),
         thumbnail: {
           kind: 'color',
-          fill: colorFill(element.fill) ?? 'currentColor',
+          fill: colorFill(element.fill, paletteOverrides) ?? 'currentColor',
           shape: 'circle',
         },
       }

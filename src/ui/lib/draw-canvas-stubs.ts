@@ -12,6 +12,7 @@ import {
   type TextDrawLine,
   type TagColorMode,
   type DitherMode,
+  type PaletteOverrides,
 } from '../../core'
 import { drawDlimgToCanvas } from './dlimg-resize'
 import { getCachedOpentypeFont } from './load-opentype-fonts'
@@ -20,6 +21,7 @@ import { resolveCanvasFontFamily } from './load-font-faces'
 export interface CanvasDrawColorContext {
   colorMode: TagColorMode
   ditherMode?: DitherMode
+  paletteOverrides?: PaletteOverrides
 }
 
 /**

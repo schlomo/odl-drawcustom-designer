@@ -72,8 +72,9 @@ export const CanvasElementSlot = memo(function CanvasElementSlot({
       renderHalftonePatternDefs({
         colorMode: renderContext.colorMode,
         ditherMode: renderContext.ditherMode,
+        paletteOverrides: renderContext.paletteOverrides,
       }),
-    [renderContext.colorMode, renderContext.ditherMode],
+    [renderContext.colorMode, renderContext.ditherMode, renderContext.paletteOverrides],
   )
 
   if (!result && !hiddenHint) {
@@ -103,6 +104,7 @@ export const CanvasElementSlot = memo(function CanvasElementSlot({
           height={renderContext.height}
           colorMode={renderContext.colorMode}
           ditherMode={renderContext.ditherMode}
+          paletteOverrides={renderContext.paletteOverrides}
           assetImages={assetImages}
           fontFamilies={fontFamilies}
           opentypeFonts={opentypeFonts}
