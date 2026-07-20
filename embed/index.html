@@ -47,6 +47,17 @@
         min-height: 3rem;
         white-space: pre-wrap;
       }
+      /* Real host pages have content below the embed, so the host document
+         scrolls. This slack is what issue #79 regressed against: designer-
+         internal scrolling must never move the host page. Kept tall on
+         purpose — the e2e suite asserts against it. */
+      .host-filler {
+        height: 120vh;
+        margin: 1rem;
+        padding: 0.75rem;
+        border: 1px dashed #a8a29e;
+        color: #57534e;
+      }
     </style>
   </head>
   <body>
@@ -64,6 +75,10 @@
     <div id="designer"></div>
     <h2 style="margin: 1rem">Last saved payload</h2>
     <pre id="saved-payload" data-testid="saved-payload">(nothing saved yet)</pre>
+    <div class="host-filler">
+      More host page content below the designer — gives the host document real
+      scroll slack, like any host embedding the designer above other content.
+    </div>
     <script type="module" src="./host.js"></script>
   </body>
 </html>
