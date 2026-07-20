@@ -1,8 +1,19 @@
 /** @vitest-environment jsdom */
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import type { DrawElement } from '../../../src/core'
 import { PropertyPanel } from '../../../src/ui/components/PropertyPanel'
+
+// jsdom has no ResizeObserver (used by the overflow-indicator hook, issue #84).
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+beforeAll(() => {
+  vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+})
 
 const element: DrawElement = { type: 'text', value: 'A', x: 0, y: 0 }
 

@@ -1,6 +1,7 @@
 import type { AssetUploadResult, DrawElement } from '../../core'
 import { PROPERTY_PANEL_WIDTH_STORAGE_KEY } from '../preferences/keys'
 import { useResizablePanelWidth } from '../hooks/useResizablePanelWidth'
+import { useScrollOverflowIndicators } from '../hooks/useScrollOverflowIndicators'
 import { ElementPropertyForm } from './ElementPropertyForm'
 import { LayerActionBar } from './LayerActionBar'
 import { SharedPropertyForm } from './SharedPropertyForm'
@@ -77,6 +78,14 @@ export function PropertyPanel({
     maxWidth: MAX_PROPERTY_WIDTH,
   })
 
+  const hasForm = elements.length > 0 && indices.length > 0
+  const {
+    scrollerRef,
+    contentRef,
+    top: overflowTop,
+    bottom: overflowBottom,
+  } = useScrollOverflowIndicators(hasForm)
+
   const resizeHandle = (
     <div
       role="separator"
@@ -87,7 +96,7 @@ export function PropertyPanel({
     />
   )
 
-  if (elements.length === 0 || indices.length === 0) {
+  if (!hasForm) {
     return (
       <aside
         style={{ width }}
@@ -136,28 +145,49 @@ export function PropertyPanel({
             onDelete={onDelete}
           />
         </div>
-        <div className="flex-1 overflow-y-auto p-4 pl-5">
-          {isMulti ? (
-            <SharedPropertyForm
-              elements={elements}
-              fontKeys={fontKeys}
-              onPropertyChange={onPropertyChange}
-              onUploadFont={onUploadFont}
-              onUploadImageForUrl={onUploadImageForUrl}
-              onBeginEdit={onBeginPropertyEdit}
-              onEndEdit={onEndPropertyEdit}
+        {/* Overlay wrapper: the fades are siblings of the scroller (not
+            children), so they pin to the visible edges instead of scrolling
+            with the content — and never touch the scroller's metrics. */}
+        <div className="relative min-h-0 flex-1">
+          <div ref={scrollerRef} className="h-full overflow-y-auto p-4 pl-5">
+            <div ref={contentRef}>
+              {isMulti ? (
+                <SharedPropertyForm
+                  elements={elements}
+                  fontKeys={fontKeys}
+                  onPropertyChange={onPropertyChange}
+                  onUploadFont={onUploadFont}
+                  onUploadImageForUrl={onUploadImageForUrl}
+                  onBeginEdit={onBeginPropertyEdit}
+                  onEndEdit={onEndPropertyEdit}
+                />
+              ) : (
+                <ElementPropertyForm
+                  element={primaryElement}
+                  fontKeys={fontKeys}
+                  onPropertyChange={onPropertyChange}
+                  onUploadFont={onUploadFont}
+                  onUploadImageForUrl={onUploadImageForUrl}
+                  onBeginEdit={onBeginPropertyEdit}
+                  onEndEdit={onEndPropertyEdit}
+                />
+              )}
+            </div>
+          </div>
+          {overflowTop ? (
+            <div
+              data-testid="property-panel-overflow-top"
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 top-0 h-8 bg-linear-to-b from-[var(--shell-surface)] to-transparent"
             />
-          ) : (
-            <ElementPropertyForm
-              element={primaryElement}
-              fontKeys={fontKeys}
-              onPropertyChange={onPropertyChange}
-              onUploadFont={onUploadFont}
-              onUploadImageForUrl={onUploadImageForUrl}
-              onBeginEdit={onBeginPropertyEdit}
-              onEndEdit={onEndPropertyEdit}
+          ) : null}
+          {overflowBottom ? (
+            <div
+              data-testid="property-panel-overflow-bottom"
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-linear-to-t from-[var(--shell-surface)] to-transparent"
             />
-          )}
+          ) : null}
         </div>
       </fieldset>
       {blockedVisible ? <PropertyPanelBlockedOverlay /> : null}
