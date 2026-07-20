@@ -6,6 +6,12 @@ import { LayerActionBar } from './LayerActionBar'
 import { SharedPropertyForm } from './SharedPropertyForm'
 import { shell } from '../styles/shell'
 
+// Both <aside> variants need `overflow-hidden` (like Sidebar's): absolutely
+// positioned descendants — e.g. ElementPropertyForm's sr-only upload inputs —
+// resolve against this `relative` aside and would otherwise escape the inner
+// `overflow-y-auto` scroller, extend the document below the h-screen shell,
+// and hand window-scrolling code (Linked editor scroll) real slack to scroll
+// the whole page (drag-scroll regression, tests/e2e/standalone-drag-scroll).
 const MIN_PROPERTY_WIDTH = 240
 const MAX_PROPERTY_WIDTH = 560
 const DEFAULT_PROPERTY_WIDTH = 288
@@ -85,7 +91,7 @@ export function PropertyPanel({
     return (
       <aside
         style={{ width }}
-        className={`relative flex shrink-0 flex-col border-l ${shell.panelBorder} ${shell.panel} p-4`}
+        className={`relative flex shrink-0 flex-col overflow-hidden border-l ${shell.panelBorder} ${shell.panel} p-4`}
       >
         {resizeHandle}
         <h2 className={shell.heading}>Properties</h2>
@@ -104,7 +110,7 @@ export function PropertyPanel({
   return (
     <aside
       style={{ width }}
-      className={`relative flex shrink-0 flex-col border-l ${shell.panelBorder} ${shell.panel}`}
+      className={`relative flex shrink-0 flex-col overflow-hidden border-l ${shell.panelBorder} ${shell.panel}`}
     >
       {resizeHandle}
       <fieldset disabled={blocked} className="contents border-0 p-0 m-0">
