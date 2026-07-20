@@ -17,9 +17,12 @@ dist-lib/odl-drawcustom-designer.js
 `dist-lib/` also contains the demo host page (copied from `demo/`). Try it:
 
 ```bash
-npm run build:lib && python3 -m http.server -d dist-lib
-# open http://localhost:8000/
+npm run build:site && npm run preview
+# open the printed URL; the demo is at /embed/ (same path as production)
 ```
+
+No dedicated server needed beyond that: the demo is plain static files, so any
+static file server works too (e.g. `python3 -m http.server -d dist-lib`).
 
 The demo page mounts the designer, pushes fake warm/cold states and a 296×128 BWR capabilities payload, switches themes, and shows every `onSaveRequest` payload in a `<pre>`. It doubles as the Playwright e2e fixture (`tests/e2e/embed-mount.spec.ts`).
 
