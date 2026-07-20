@@ -1,6 +1,6 @@
 # Embedding the designer
 
-The designer ships as an embeddable component (issue #20, [ADR-010](adr/ADR-010-ha-embed-mode.md)): a host application — the concrete target is the [OpenDisplay HA integration](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/44) custom panel — mounts it into a container, pushes entity states and display capabilities, and receives the drawcustom YAML payload on Save. Style isolation via Shadow DOM is issue #21; live HA data is a later milestone (#24).
+The designer ships as an embeddable component (issue #20, [ADR-010](adr/ADR-010-ha-embed-mode.md)): a host application — the concrete target is the [OpenDisplay HA integration](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/44) custom panel — mounts it into a container, pushes entity states and display capabilities, and receives the drawcustom YAML payload on Save. Styles are isolated via Shadow DOM at the mount boundary (issue #21); live HA data is a later milestone (#24).
 
 ## Library build
 
@@ -47,8 +47,37 @@ handle.destroy()                      // unmount and empty the container
 
 - The container needs an explicit height; the designer fills it (`height: 100%`).
 - `mount()` and `setPayload()` throw synchronously on invalid YAML.
-- The compiled stylesheet is injected once per document (or per shadow root when the container lives inside one) and left in place on destroy.
-- Multiple mounts on one page are possible; each handle is independent.
+- Multiple mounts on one page are possible; each handle is independent — including per-instance light/dark themes.
+
+### Shadow DOM at the mount boundary (issue #21)
+
+`mount()` renders into an **open shadow root on the container**: it reuses `container.shadowRoot` when the host already attached one, otherwise it calls `container.attachShadow({ mode: 'open' })` itself. This isolates styles in both directions:
+
+- The compiled stylesheet (Tailwind utilities, theme variables, editor styles) is injected as a `<style>` into the shadow root — never into the host document's `<head>`. Host CSS — including `!important` rules and colliding utility class names like `.flex` — cannot restyle the designer, and designer CSS cannot restyle the host page.
+- Theme variables live on `:host` (light) and the per-instance `.dark` wrapper inside the shadow root, so `setTheme()` is scoped per mount and never touches `document.documentElement`.
+- The stylesheet is injected once per shadow root and intentionally left in place on `destroy()` (a later mount into the same container reuses it).
+- Designer-internal overlays (e.g. CodeMirror autocomplete/lint tooltips) render inside the shadow root, and keyboard shortcuts only react to keystrokes originating inside the instance's own shadow tree.
+- Fonts still register on `document.fonts` (the FontFace API is document-wide by design); font *names* are designer-scoped enough not to collide in practice.
+
+A host custom element (the HA panel pattern) can attach the shadow root itself and hand over its own element:
+
+```js
+class DesignerPanel extends HTMLElement {
+  connectedCallback() {
+    this.attachShadow({ mode: 'open' }) // optional — mount() would create it
+    this.style.display = 'block'
+    this.style.height = '100%'
+    this.handle = mount(this, { /* options */ })
+  }
+  disconnectedCallback() {
+    this.handle?.destroy()
+  }
+}
+```
+
+The container element must support `attachShadow` (a `<div>` or an autonomous custom element does; e.g. `<span>`-like replaced elements do not).
+
+`demo/isolation.html` is the hostile-host fixture proving the boundary: aggressive `!important` host CSS, Tailwind-colliding class names, and two instances with different themes on one page (`tests/e2e/embed-isolation.spec.ts`).
 
 ## Host data contract
 
@@ -99,7 +128,7 @@ The payload is the drawcustom **element list YAML** (what the YAML panel shows).
 
 ### `theme`
 
-`'light' | 'dark'`, applied as a class on the designer's wrapper element inside your container — embedded mounts never touch `document.documentElement` or `localStorage` theme preferences. Full CSS variable relocation off `:root` plus Tailwind utility isolation lands with Shadow DOM in issue #21.
+`'light' | 'dark'`, applied as a class on the designer's wrapper element inside the mount's shadow root — embedded mounts never touch `document.documentElement` or `localStorage` theme preferences. Because every instance carries its own wrapper and stylesheet, two mounts on one page can hold different themes simultaneously.
 
 ## Clipboard requires a secure context
 

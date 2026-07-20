@@ -17,22 +17,30 @@ import type {
 const STYLE_MARKER = 'data-odl-designer-styles'
 
 /**
- * Inject the compiled stylesheet next to the mount point: into the shadow
- * root when the container lives inside one (issue #21's mounting mode), into
- * `<head>` otherwise. Injected once per root; multiple mounts share it, and
- * destroy() intentionally leaves it in place.
+ * The shadow root the designer renders into (issue #21): reuse one the host
+ * already attached (the OpenDisplay HA panel pattern — a custom element
+ * calling `this.attachShadow({ mode: 'open' })` and mounting into itself),
+ * otherwise create it. All designer DOM and styles live inside this root,
+ * so host-page CSS cannot reach the designer and designer CSS cannot leak
+ * out.
  */
-function injectStyles(container: HTMLElement): void {
-  const rootNode = container.getRootNode()
-  const styleParent =
-    rootNode instanceof ShadowRoot ? rootNode : container.ownerDocument.head
-  if (styleParent.querySelector(`style[${STYLE_MARKER}]`)) {
+function resolveShadowRoot(container: HTMLElement): ShadowRoot {
+  return container.shadowRoot ?? container.attachShadow({ mode: 'open' })
+}
+
+/**
+ * Inject the compiled stylesheet into the mount's shadow root. Injected once
+ * per root; multiple mounts share it, and destroy() intentionally leaves it
+ * in place.
+ */
+function injectStyles(shadowRoot: ShadowRoot): void {
+  if (shadowRoot.querySelector(`style[${STYLE_MARKER}]`)) {
     return
   }
-  const style = container.ownerDocument.createElement('style')
+  const style = shadowRoot.host.ownerDocument.createElement('style')
   style.setAttribute(STYLE_MARKER, '')
   style.textContent = cssText
-  styleParent.appendChild(style)
+  shadowRoot.appendChild(style)
 }
 
 /** Theme lives on the designer's own wrapper — never on the host document. */
@@ -59,6 +67,9 @@ function buildEmbedBootstrap(options: MountOptions): AppBootstrap {
 
 /**
  * Mount the designer into an arbitrary host container (issue #20, ADR-010).
+ * Renders into an open shadow root on the container — created here, or
+ * reused when the host attached one already (issue #21) — so styles are
+ * isolated in both directions.
  *
  * The host pushes data through the returned handle; the designer never
  * persists the payload itself — it hands the current drawcustom YAML to
@@ -69,12 +80,17 @@ export function mount(container: HTMLElement, options: MountOptions = {}): Mount
   const theme: EmbedTheme = options.theme ?? 'light'
   const bootstrap = buildEmbedBootstrap(options)
 
-  injectStyles(container)
+  const shadowRoot = resolveShadowRoot(container)
+  injectStyles(shadowRoot)
 
   const wrapper = container.ownerDocument.createElement('div')
   wrapper.style.height = '100%'
+  // In-shadow anchor for designer-internal overlays (e.g. CodeMirror
+  // tooltips): everything that would otherwise portal to document.body must
+  // stay inside the shadow boundary to keep its styles.
+  wrapper.setAttribute('data-odl-designer-root', '')
   applyTheme(wrapper, theme)
-  container.appendChild(wrapper)
+  shadowRoot.appendChild(wrapper)
 
   // Pushes can arrive before React has flushed the effect that registers the
   // push target (effects flush asynchronously); queue them and replay in

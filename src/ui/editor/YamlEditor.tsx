@@ -6,6 +6,7 @@ import { locateElementFocusInYaml } from './locateElementInYaml'
 import { locateFirstEntityOccurrenceInYaml } from './locateEntityInYaml'
 import {
   createYamlEditorState,
+  yamlEditorTooltipParent,
   yamlThemeCompartment,
 } from './yamlEditorExtensions'
 import { yamlEntityIdsCompartment, yamlEntityIdsFacet } from './yamlEntityIds'
@@ -152,6 +153,7 @@ export function YamlEditor({
         yamlSelectionRef,
         templatePreview,
         onEditorBlurRef,
+        yamlEditorTooltipParent(container),
       ),
       parent: container,
     })

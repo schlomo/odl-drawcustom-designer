@@ -40,6 +40,7 @@ import {
   ScalarOrTemplateField,
   TemplateToggleButton,
 } from './property-fields'
+import { getScopedElementById } from '../lib/scoped-dom'
 import { shell } from '../styles/shell'
 
 interface ElementPropertyFormProps {
@@ -320,8 +321,8 @@ function PropertyField({
           <button
             type="button"
             className={`shrink-0 self-start ${shell.button} px-2 py-1`}
-            onClick={() => {
-              document.getElementById(`image-upload-${property}`)?.click()
+            onClick={(event) => {
+              getScopedElementById(event.currentTarget, `image-upload-${property}`)?.click()
             }}
           >
             Upload
