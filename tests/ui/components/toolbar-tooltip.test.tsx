@@ -41,17 +41,17 @@ describe('ToolbarTooltip', () => {
     const wrapper = button.parentElement!
     const tooltip = tooltipFor('Top')
 
-    expect(tooltip).toHaveClass('invisible')
+    expect(tooltip).toHaveClass('hidden')
 
     fireEvent.mouseEnter(wrapper)
     act(() => {
       vi.advanceTimersByTime(TOOLBAR_TOOLTIP_SHOW_DELAY_MS)
     })
-    expect(tooltip).toHaveClass('opacity-100')
-    expect(tooltip).not.toHaveClass('invisible')
+    expect(tooltip).toHaveClass('visible')
+    expect(tooltip).not.toHaveClass('hidden')
 
     fireEvent.mouseLeave(wrapper)
-    expect(tooltip).toHaveClass('invisible')
+    expect(tooltip).toHaveClass('hidden')
   })
 
   it('does not leave the previous tooltip visible when hovering the next control', () => {
@@ -77,7 +77,7 @@ describe('ToolbarTooltip', () => {
     act(() => {
       vi.advanceTimersByTime(TOOLBAR_TOOLTIP_SHOW_DELAY_MS)
     })
-    expect(topTooltip).toHaveClass('opacity-100')
+    expect(topTooltip).toHaveClass('visible')
 
     screen.getByRole('button', { name: 'Top' }).focus()
     fireEvent.mouseLeave(topWrapper)
@@ -86,7 +86,7 @@ describe('ToolbarTooltip', () => {
       vi.advanceTimersByTime(TOOLBAR_TOOLTIP_SHOW_DELAY_MS)
     })
 
-    expect(topTooltip).toHaveClass('invisible')
-    expect(bottomTooltip).toHaveClass('opacity-100')
+    expect(topTooltip).toHaveClass('hidden')
+    expect(bottomTooltip).toHaveClass('visible')
   })
 })

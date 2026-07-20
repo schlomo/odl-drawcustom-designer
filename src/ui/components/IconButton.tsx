@@ -16,6 +16,8 @@ interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 
   surfaceClass?: string
   /** Stable human label — used as `title` / `aria-label` when icon-only. */
   tooltip?: string
+  /** Tooltip bubble anchor — see {@link ToolbarTooltip}'s `align`. */
+  tooltipAlign?: 'center' | 'end'
 }
 
 export function IconButton({
@@ -28,6 +30,7 @@ export function IconButton({
   className = '',
   title,
   tooltip,
+  tooltipAlign,
   ...rest
 }: IconButtonProps) {
   const isIconOnly = compact || label == null
@@ -55,7 +58,11 @@ export function IconButton({
   )
 
   if (isIconOnly && resolvedTitle) {
-    return <ToolbarTooltip label={resolvedTitle}>{button}</ToolbarTooltip>
+    return (
+      <ToolbarTooltip label={resolvedTitle} align={tooltipAlign}>
+        {button}
+      </ToolbarTooltip>
+    )
   }
 
   return button

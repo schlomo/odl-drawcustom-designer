@@ -4,6 +4,13 @@ import { TOOLBAR_TOOLTIP_SHOW_DELAY_MS } from '../lib/toolbar-tooltip'
 interface ToolbarTooltipProps {
   label: string
   children: ReactNode
+  /**
+   * Horizontal anchor for the bubble: `center` over the button, or `end` to
+   * align its right edge with the button's — for buttons at the right edge of
+   * a clipping container (e.g. the property panel), where a centered bubble
+   * would stick out past the container.
+   */
+  align?: 'center' | 'end'
 }
 
 /**
@@ -11,7 +18,7 @@ interface ToolbarTooltipProps {
  * Mouse-driven visibility avoids CSS `focus-within` leaving prior tooltips stuck
  * when moving between adjacent controls. Native `title` remains on the button.
  */
-export function ToolbarTooltip({ label, children }: ToolbarTooltipProps) {
+export function ToolbarTooltip({ label, children, align = 'center' }: ToolbarTooltipProps) {
   const [visible, setVisible] = useState(false)
   const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -44,12 +51,16 @@ export function ToolbarTooltip({ label, children }: ToolbarTooltipProps) {
       onMouseLeave={hide}
     >
       {children}
+      {/* Hidden state must be `display: none` — a merely invisible nowrap
+          bubble keeps its layout box and inflates the scrollable overflow of
+          ancestor scrollers (issue #83: permanent horizontal scrollbar on the
+          property panel from the hidden template-toggle tooltips). */}
       <span
         role="tooltip"
         aria-hidden={!visible}
-        className={`pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md border border-[var(--shell-border)] bg-[var(--shell-text)] px-2 py-1 text-xs text-[var(--shell-surface)] shadow-md transition-opacity duration-75 ${
-          visible ? 'visible opacity-100' : 'invisible opacity-0'
-        }`}
+        className={`pointer-events-none absolute bottom-[calc(100%+6px)] z-50 whitespace-nowrap rounded-md border border-[var(--shell-border)] bg-[var(--shell-text)] px-2 py-1 text-xs text-[var(--shell-surface)] shadow-md ${
+          align === 'end' ? 'right-0' : 'left-1/2 -translate-x-1/2'
+        } ${visible ? 'visible' : 'hidden'}`}
       >
         {label}
       </span>
