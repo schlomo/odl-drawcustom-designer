@@ -69,6 +69,19 @@ if (!process.env.PW_EMBED_PORT) {
 }
 const EMBED_PORT = Number(process.env.PW_EMBED_PORT)
 
+// Third server: the assembled GitHub Pages site (tests/e2e/embed-site.spec.ts).
+// Serves dist/ after `npm run build:site` — the exact layout Pages deploys:
+// standalone app at `/`, embed demo at `/embed/`. Same resolve-once-and-stash
+// pattern as above.
+if (!process.env.PW_SITE_PORT) {
+  let sitePort = await findFreePort()
+  while (sitePort === PORT || sitePort === EMBED_PORT) {
+    sitePort = await findFreePort()
+  }
+  process.env.PW_SITE_PORT = String(sitePort)
+}
+const SITE_PORT = Number(process.env.PW_SITE_PORT)
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -113,6 +126,22 @@ export default defineConfig({
       url: `http://localhost:${EMBED_PORT}`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
+    },
+    {
+      // Assemble the deployed site fresh (app build + library build + copy),
+      // then serve dist/ the way GitHub Pages does. Running `build:site`
+      // inside the command mirrors the dist-lib server above and keeps
+      // `npm run test:e2e` self-sufficient for the site suite; the timeout
+      // covers both builds. build:site's own `build:lib` step starts only
+      // after the (much longer) app build, so it never races the dist-lib
+      // server's parallel `build:lib` — and tests don't start until every
+      // webServer is ready, so both suites see the final, complete outputs.
+      // Readiness polls /embed/ so a stale dist/ without the assembled embed
+      // subtree can never report ready.
+      command: `npm run build:site && python3 -m http.server ${SITE_PORT} --bind 127.0.0.1 --directory dist`,
+      url: `http://localhost:${SITE_PORT}/embed/`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 240_000,
     },
   ],
 })
