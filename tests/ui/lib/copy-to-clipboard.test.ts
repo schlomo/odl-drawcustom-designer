@@ -3,8 +3,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   CLIPBOARD_INSECURE_CONTEXT_MESSAGE,
   COPY_FAILED_MESSAGE,
+  COPY_PNG_INSECURE_HINT,
   copyBlobToClipboard,
   copyTextToClipboard,
+  getCopyPngUnavailableReason,
 } from '../../../src/ui/lib/export-download'
 
 /**
@@ -83,6 +85,24 @@ describe('copyTextToClipboard', () => {
     const result = await copyTextToClipboard('yaml text')
 
     expect(result).toEqual({ ok: false, reason: COPY_FAILED_MESSAGE })
+  })
+})
+
+describe('getCopyPngUnavailableReason', () => {
+  // Issue #80: insecure-LAN HA boxes are the common deployment — the Copy PNG
+  // button must signal unavailability upfront, not only after a failed click.
+  it('returns null in a secure context (Copy PNG is available)', () => {
+    stubSecureContext(true)
+
+    expect(getCopyPngUnavailableReason()).toBeNull()
+  })
+
+  it('returns the upfront hint pointing at Download PNG on an insecure origin', () => {
+    stubSecureContext(false)
+
+    expect(getCopyPngUnavailableReason()).toBe(COPY_PNG_INSECURE_HINT)
+    expect(COPY_PNG_INSECURE_HINT).toContain('HTTPS or localhost')
+    expect(COPY_PNG_INSECURE_HINT).toContain('Download PNG')
   })
 })
 

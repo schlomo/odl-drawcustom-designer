@@ -2,6 +2,7 @@ import type { ExportActionFeedback } from '../lib/export-action-feedback'
 import { toolbarGroupRow, toolbarGroupsRow } from '../lib/export-action-feedback'
 import type { SnapGridPrefs } from '../preferences/snapGrid'
 import type { CanvasZoomMode } from '../preferences/canvasZoom'
+import { getCopyPngUnavailableReason } from '../lib/export-download'
 import { ExportIconButton } from './ExportIconButton'
 import { FeatureToggle } from './FeatureToggle'
 import { MdiIcon } from './MdiIcon'
@@ -63,6 +64,11 @@ export function CanvasHeaderToolbar({
   const labelsVisible = measureOnly || showLabels
   const ditherLabel = `Dither ${previewDitherMode === 2 ? 'd=2' : 'flat'}`
   const noop = () => {}
+  // Issue #80: signal clipboard availability upfront — on insecure origins
+  // (plain-http LAN HA boxes) Copy PNG is warning-marked from first paint.
+  // The width probe skips it: the badge/hint are absolutely positioned
+  // overlays and must not appear twice for assistive tech.
+  const copyPngWarning = measureOnly ? null : getCopyPngUnavailableReason()
 
   return (
     <div className={toolbarGroupsRow}>
@@ -71,6 +77,7 @@ export function CanvasHeaderToolbar({
           actionId="copy-png"
           feedback={measureOnly ? null : getFeedback('copy-png')}
           feedbackMessage={measureOnly ? null : getFeedbackMessage('copy-png')}
+          warning={copyPngWarning}
           iconPath={TOOL_ICONS.copy}
           tooltip="Copy PNG"
           label={labelsVisible ? 'Copy PNG' : undefined}

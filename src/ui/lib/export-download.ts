@@ -45,6 +45,21 @@ export type CopyResult = { ok: true } | { ok: false; reason: string }
 export const CLIPBOARD_INSECURE_CONTEXT_MESSAGE = 'Clipboard requires HTTPS or localhost'
 export const COPY_FAILED_MESSAGE = 'Copy to clipboard failed'
 
+export const COPY_PNG_INSECURE_HINT =
+  'Copy PNG needs HTTPS or localhost — use Download PNG instead'
+
+/**
+ * Upfront availability signal (issue #80): plain-http LAN Home Assistant
+ * boxes are the mainstream deployment, and there `navigator.clipboard` does
+ * not exist at all for image writes — no fallback exists for Copy PNG. The
+ * button must look degraded before any click, pointing at Download PNG.
+ * Text copies (YAML, share link) keep their execCommand fallback and are
+ * deliberately NOT covered by this signal.
+ */
+export function getCopyPngUnavailableReason(): string | null {
+  return window.isSecureContext ? null : COPY_PNG_INSECURE_HINT
+}
+
 function copyFailure(): CopyResult {
   return {
     ok: false,
