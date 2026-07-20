@@ -87,7 +87,7 @@ export function App({ bootstrap, host = null }: AppProps) {
   const [yamlBlocked, setYamlBlocked] = useState(false)
   const yamlBlockedVisible = useYamlBlockedVisibility(yamlBlocked)
   const [elementAddNotice, setElementAddNotice] = useState<StatusMessage | null>(null)
-  const { flashSuccess, flashError, getFeedback } = useExportActionFeedback()
+  const { flashSuccess, flashError, getFeedback, getFeedbackMessage } = useExportActionFeedback()
   const {
     sessionName,
     service,
@@ -222,10 +222,10 @@ export function App({ bootstrap, host = null }: AppProps) {
       pathname: window.location.pathname,
     })
     const copied = await copyTextToClipboard(url)
-    if (copied) {
+    if (copied.ok) {
       flashSuccess('share-link')
     } else {
-      flashError('share-link')
+      flashError('share-link', copied.reason)
     }
   }, [canvas, elements, flashError, flashSuccess, service, sessionName])
 
@@ -459,6 +459,7 @@ export function App({ bootstrap, host = null }: AppProps) {
               <ExportIconButton
                 actionId="share-link"
                 feedback={getFeedback('share-link')}
+                feedbackMessage={getFeedbackMessage('share-link')}
                 iconPath={toolIconPath('share')}
                 tooltip="Copy share link"
                 label="Copy share link"

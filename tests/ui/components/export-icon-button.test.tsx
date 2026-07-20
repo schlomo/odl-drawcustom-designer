@@ -36,6 +36,36 @@ describe('ExportIconButton', () => {
     expect(button).toHaveAttribute('title', 'Copy PNG')
   })
 
+  it('surfaces the error message as a visible alert next to the failed button (issue #76)', () => {
+    render(
+      <ExportIconButton
+        actionId="copy-png"
+        feedback="error"
+        feedbackMessage="Clipboard requires HTTPS or localhost"
+        iconPath="M0 0"
+        label="Copy PNG"
+        onClick={() => {}}
+      />,
+    )
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Clipboard requires HTTPS or localhost')
+  })
+
+  it('shows no alert when the flash succeeded or no message is attached', () => {
+    render(
+      <ExportIconButton
+        actionId="copy-png"
+        feedback="success"
+        feedbackMessage={null}
+        iconPath="M0 0"
+        label="Copy PNG"
+        onClick={() => {}}
+      />,
+    )
+
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
   it('uses neutral shell styling when there is no feedback', () => {
     render(
       <ExportIconButton

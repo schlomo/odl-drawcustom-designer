@@ -9,6 +9,7 @@ import { TOOL_ICONS } from '../lib/mdi-tool-icons'
 export interface YamlHeaderToolbarProps {
   showLabels: boolean
   getFeedback: (actionId: string) => ExportActionFeedback | null
+  getFeedbackMessage: (actionId: string) => string | null
   onCopyYaml: () => void
   onDownloadYaml: () => void
   templatePreviewEnabled: boolean
@@ -25,6 +26,7 @@ export interface YamlHeaderToolbarProps {
 export function YamlHeaderToolbar({
   showLabels,
   getFeedback,
+  getFeedbackMessage,
   onCopyYaml,
   onDownloadYaml,
   templatePreviewEnabled,
@@ -45,6 +47,7 @@ export function YamlHeaderToolbar({
         <ExportIconButton
           actionId="copy-yaml"
           feedback={measureOnly ? null : getFeedback('copy-yaml')}
+          feedbackMessage={measureOnly ? null : getFeedbackMessage('copy-yaml')}
           iconPath={TOOL_ICONS.copy}
           tooltip="Copy YAML"
           label={labelsVisible ? 'Copy YAML' : undefined}
