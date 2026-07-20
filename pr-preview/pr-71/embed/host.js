@@ -39,6 +39,8 @@ const COLD_STATES = {
   },
 }
 
+// Measured panel palette (issue #68): the red hex is deliberately NOT the
+// canonical #ff0000 — the designer preview must visibly adopt it.
 const CAPABILITIES_296X128_BWR = {
   pixel_width: 296,
   pixel_height: 128,
@@ -48,8 +50,8 @@ const CAPABILITIES_296X128_BWR = {
   color_scheme: 0x01,
   accent_color: 'red',
   available_colors: ['black', 'white', 'red'],
-  color_map: { black: '#000000', white: '#ffffff', red: '#ff0000' },
-  palette_measured: false,
+  color_map: { black: '#000000', white: '#ffffff', red: '#c53929' },
+  palette_measured: true,
 }
 
 const savedPayload = document.getElementById('saved-payload')
