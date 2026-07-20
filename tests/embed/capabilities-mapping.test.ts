@@ -115,4 +115,40 @@ describe('capabilitiesToCanvas', () => {
       CURRENT.previewDitherMode,
     )
   })
+
+  // Issue #68: measured color_map hexes become the active palette overrides.
+  it('adopts measured color_map hexes as palette overrides', () => {
+    const next = capabilitiesToCanvas(
+      {
+        color_scheme: 0x01,
+        color_map: { black: '#000000', white: '#ffffff', red: '#c53929' },
+        palette_measured: true,
+      },
+      CURRENT,
+    )
+    expect(next.paletteOverrides).toEqual({
+      black: '#000000',
+      white: '#FFFFFF',
+      red: '#C53929',
+    })
+  })
+
+  it('drops unknown color names and invalid hexes from the overrides', () => {
+    const next = capabilitiesToCanvas(
+      { color_map: { red: '#c53929', chartreuse: '#7fff00', yellow: 'nope' } },
+      CURRENT,
+    )
+    expect(next.paletteOverrides).toEqual({ red: '#C53929' })
+  })
+
+  it('keeps current palette overrides when the push has no color_map', () => {
+    const withOverrides: CanvasConfig = {
+      ...CURRENT,
+      paletteOverrides: { red: '#C53929' },
+    }
+    expect(capabilitiesToCanvas({ rotation_degrees: 90 }, withOverrides).paletteOverrides).toEqual(
+      { red: '#C53929' },
+    )
+    expect(capabilitiesToCanvas({}, CURRENT).paletteOverrides).toBeUndefined()
+  })
 })

@@ -125,6 +125,7 @@ function finalizeExportCanvas(
   finalizeTagImageData(imageData.data, canvas.width, canvas.height, {
     colorMode: renderContext.colorMode,
     ditherMode: renderContext.ditherMode,
+    paletteOverrides: renderContext.paletteOverrides,
   })
   ctx.putImageData(imageData, 0, 0)
   return canvas
@@ -150,6 +151,7 @@ export async function renderPayloadToPngBlob(options: RenderPayloadToPngOptions)
   const drawContext = {
     colorMode: renderContext.colorMode,
     ditherMode: renderContext.ditherMode,
+    paletteOverrides: renderContext.paletteOverrides,
   }
   const patternDefs = renderHalftonePatternDefs(drawContext)
 
@@ -197,7 +199,7 @@ export async function exportPaperDomToPngBlob(
   paper: HTMLElement,
   width: number,
   height: number,
-  renderContext?: Pick<RenderContext, 'colorMode' | 'ditherMode'>,
+  renderContext?: Pick<RenderContext, 'colorMode' | 'ditherMode' | 'paletteOverrides'>,
 ): Promise<Blob> {
   const canvas = document.createElement('canvas')
   canvas.width = width
@@ -232,6 +234,7 @@ export async function exportPaperDomToPngBlob(
       height,
       colorMode: renderContext.colorMode,
       ditherMode: renderContext.ditherMode,
+      paletteOverrides: renderContext.paletteOverrides,
     })
   }
 

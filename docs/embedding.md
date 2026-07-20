@@ -79,8 +79,8 @@ Mirrors the OpenDisplay HA integration's `capabilities.py` payload:
   color_scheme: 0x01,                     // Basic Standard 0x00 BW … 0x04 six
   accent_color: 'red',
   available_colors: ['black', 'white', 'red'],
-  color_map: { black: '#000000', white: '#ffffff', red: '#ff0000' },
-  palette_measured: false,
+  color_map: { black: '#000000', white: '#ffffff', red: '#c53929' },
+  palette_measured: true,
 }
 ```
 
@@ -88,9 +88,10 @@ Mapping onto the canvas (`src/embed/hostContract.ts`):
 
 - **Size** — `render_width`/`render_height` when both present, else `pixel_width`/`pixel_height` swapped for 90°/270° rotations.
 - **Rotation** — `rotation_degrees` normalized into {0, 90, 180, 270}; other angles keep the current rotation.
-- **Palette** — `color_scheme` (Basic Standard value) wins; else inferred from `color_map` keys / `available_colors` names; else `accent_color`.
+- **Palette structure** — `color_scheme` (Basic Standard value) wins; else inferred from `color_map` keys / `available_colors` names; else `accent_color`.
+- **Palette hexes** — the measured hex values in `color_map` re-color the active palette: preview canvas, PNG export, halftone dither tiles and the layer-list color swatches all paint the adopted hexes (one palette source of truth). Recognized names: `black`, `white`, `red`, `yellow`, `blue`, `green`; invalid hexes and unknown names are ignored. Half tones (`half_red`, `gray`, …) are re-derived as the same blends of the measured primaries. The `accent` keyword resolves through the same map, so `accent_color` participates automatically. A push without `color_map` keeps the current palette; without any push the canonical palettes apply and standalone rendering is unchanged.
 
-Known gaps (fields accepted but not applied): the hex values in `color_map` and `palette_measured` — the designer renders with its fixed standard palettes (ADR-007 parity model), so custom measured hexes select the nearest standard palette by color *names* only. Fractional rotations are not representable.
+Known gaps: `palette_measured` itself is informational only (the hexes apply whether or not it is set). Fractional rotations are not representable. YAML export semantics are untouched — the payload always carries color *names*, never display hexes.
 
 ### `payload` / `onSaveRequest`
 

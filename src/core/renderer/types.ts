@@ -1,6 +1,8 @@
 import type { TagColorMode } from '../display/palette'
+import type { PaletteOverrides } from '../display/palette-overrides'
 
 export type { TagColorMode } from '../display/palette'
+export type { PaletteOverrides } from '../display/palette-overrides'
 export type AccentMode = 'red' | 'yellow'
 export type DitherMode = 0 | 1 | 2
 
@@ -9,6 +11,8 @@ export interface RenderContext {
   height: number
   colorMode: TagColorMode
   ditherMode?: DitherMode
+  /** Host-measured palette hexes (issue #68); absent → canonical palette. */
+  paletteOverrides?: PaletteOverrides
   /** Designer canvas: show ghost overlays for elements hidden on the tag. Off for export. */
   showHiddenHints?: boolean
 }
@@ -18,6 +22,8 @@ export interface ColorOptions {
   /** Legacy — prefer `colorMode`; red→bwr, yellow→bwy when colorMode omitted. */
   accentMode?: AccentMode
   ditherMode?: DitherMode
+  /** Host-measured palette hexes (issue #68); absent → canonical palette. */
+  paletteOverrides?: PaletteOverrides
 }
 
 export interface SvgLinePrimitive {

@@ -392,9 +392,17 @@ export function useProjectState(bootstrap: AppBootstrap, host: EmbedHostBridge |
       height: canvas.height,
       colorMode: canvas.colorMode,
       ditherMode: canvas.previewDitherMode,
+      paletteOverrides: canvas.paletteOverrides,
       showHiddenHints,
     }),
-    [canvas.width, canvas.height, canvas.colorMode, canvas.previewDitherMode, showHiddenHints],
+    [
+      canvas.width,
+      canvas.height,
+      canvas.colorMode,
+      canvas.previewDitherMode,
+      canvas.paletteOverrides,
+      showHiddenHints,
+    ],
   )
 
   const previewElements = useMemo(

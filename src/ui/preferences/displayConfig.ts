@@ -1,4 +1,4 @@
-import type { TagColorMode } from '../../core'
+import type { PaletteOverrides, TagColorMode } from '../../core'
 import { isTagColorMode } from '../../core'
 import { DEFAULT_RESOLUTION } from '../data/resolution-picks'
 import { DISPLAY_CONFIG_STORAGE_KEY } from './keys'
@@ -12,6 +12,12 @@ export interface DisplayConfig {
   rotation: CanvasRotation
   colorMode: TagColorMode
   previewDitherMode: PreviewDitherMode
+  /**
+   * Measured panel hexes pushed by an embedding host (issue #68). Runtime
+   * only — standalone never sets it and parseDisplayConfig never restores
+   * it, so persisted display configs stay unchanged.
+   */
+  paletteOverrides?: PaletteOverrides
 }
 
 const ROTATIONS = new Set<CanvasRotation>([0, 90, 180, 270])

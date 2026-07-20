@@ -5,6 +5,11 @@ import {
   type TagColorMode,
 } from '../display/palette'
 import { clampImageDataToColorMode } from '../display/palette-clamp'
+import {
+  halfToneHex,
+  paletteBaseHex,
+  type PaletteOverrides,
+} from '../display/palette-overrides'
 import { mapColor } from './colors'
 import type { ColorOptions, DitherMode } from './types'
 
@@ -58,29 +63,31 @@ export function bayerThreshold(x: number, y: number, size = 4): number {
 
 export function resolveHalftonePair(colorName: string, options: ColorOptions): HalftonePair | null {
   const colorMode = resolveColorMode(options)
+  const overrides = options.paletteOverrides
+  const white = paletteBaseHex('white', overrides)
 
   switch (colorName) {
     case 'half_black':
     case 'gray':
     case 'grey':
     case 'hb':
-      return { light: '#FFFFFF', dark: '#000000', ratio: 0.5 }
+      return { light: white, dark: paletteBaseHex('black', overrides), ratio: 0.5 }
     case 'half_white':
     case 'hw':
-      return { light: '#FFFFFF', dark: '#000000', ratio: 0.25 }
+      return { light: white, dark: paletteBaseHex('black', overrides), ratio: 0.25 }
     case 'half_red':
     case 'hr':
       return colorMode === 'bw'
-        ? { light: '#FFFFFF', dark: '#808080', ratio: 0.5 }
-        : { light: '#FFFFFF', dark: '#FF0000', ratio: 0.5 }
+        ? { light: white, dark: halfToneHex('half_black', overrides), ratio: 0.5 }
+        : { light: white, dark: paletteBaseHex('red', overrides), ratio: 0.5 }
     case 'half_yellow':
     case 'hy':
       return colorMode === 'bw'
-        ? { light: '#FFFFFF', dark: '#808080', ratio: 0.5 }
-        : { light: '#FFFFFF', dark: '#FFFF00', ratio: 0.5 }
+        ? { light: white, dark: halfToneHex('half_black', overrides), ratio: 0.5 }
+        : { light: white, dark: paletteBaseHex('yellow', overrides), ratio: 0.5 }
     case 'half_accent':
     case 'ha':
-      return { light: '#FFFFFF', dark: accentHex(options), ratio: 0.5 }
+      return { light: white, dark: accentHex(options), ratio: 0.5 }
     default:
       return null
   }
@@ -126,16 +133,24 @@ function parseHexColor(hex: string): [number, number, number] | null {
   ]
 }
 
+function halfToneRgb(
+  name: 'half_black' | 'half_white' | 'half_red' | 'half_yellow',
+  overrides?: PaletteOverrides,
+): [number, number, number] {
+  return parseHexColor(halfToneHex(name, overrides)) ?? [0, 0, 0]
+}
+
 function nearestHalftoneName(r: number, g: number, b: number, options: ColorOptions): string | null {
   const accentMode = resolveAccentMode(options)
+  const overrides = options.paletteOverrides
   const candidates: Array<{ name: string; rgb: [number, number, number] }> = [
-    { name: 'half_black', rgb: [128, 128, 128] },
-    { name: 'half_white', rgb: [191, 191, 191] },
-    { name: 'half_red', rgb: [255, 128, 128] },
-    { name: 'half_yellow', rgb: [255, 255, 128] },
+    { name: 'half_black', rgb: halfToneRgb('half_black', overrides) },
+    { name: 'half_white', rgb: halfToneRgb('half_white', overrides) },
+    { name: 'half_red', rgb: halfToneRgb('half_red', overrides) },
+    { name: 'half_yellow', rgb: halfToneRgb('half_yellow', overrides) },
     {
       name: 'half_accent',
-      rgb: accentMode === 'yellow' ? [255, 255, 128] : [255, 128, 128],
+      rgb: halfToneRgb(accentMode === 'yellow' ? 'half_yellow' : 'half_red', overrides),
     },
   ]
 
@@ -155,40 +170,30 @@ function rgbDistanceSq(r: number, g: number, b: number, rgb: [number, number, nu
   return (r - rgb[0]) ** 2 + (g - rgb[1]) ** 2 + (b - rgb[2]) ** 2
 }
 
-function solidPrimariesForMode(mode: ReturnType<typeof resolveColorMode>): [number, number, number][] {
+function solidPrimariesForMode(
+  mode: ReturnType<typeof resolveColorMode>,
+  overrides?: PaletteOverrides,
+): [number, number, number][] {
+  const primary = (name: Parameters<typeof paletteBaseHex>[0]): [number, number, number] =>
+    parseHexColor(paletteBaseHex(name, overrides)) ?? [0, 0, 0]
+
   switch (mode) {
     case 'bw':
-      return [
-        [0, 0, 0],
-        [255, 255, 255],
-      ]
+      return [primary('black'), primary('white')]
     case 'bwr':
-      return [
-        [0, 0, 0],
-        [255, 255, 255],
-        [255, 0, 0],
-      ]
+      return [primary('black'), primary('white'), primary('red')]
     case 'bwy':
-      return [
-        [0, 0, 0],
-        [255, 255, 255],
-        [255, 255, 0],
-      ]
+      return [primary('black'), primary('white'), primary('yellow')]
     case 'four':
-      return [
-        [0, 0, 0],
-        [255, 255, 255],
-        [255, 0, 0],
-        [255, 255, 0],
-      ]
+      return [primary('black'), primary('white'), primary('red'), primary('yellow')]
     case 'six':
       return [
-        [0, 0, 0],
-        [255, 255, 255],
-        [255, 0, 0],
-        [255, 255, 0],
-        [0, 0, 255],
-        [0, 255, 0],
+        primary('black'),
+        primary('white'),
+        primary('red'),
+        primary('yellow'),
+        primary('blue'),
+        primary('green'),
       ]
     case 'rgb':
       return []
@@ -220,7 +225,7 @@ function resolveHalftoneNameForDitherPixel(
   const distToHalftone = rgbDistanceSq(r, g, b, halftoneRgb)
   const colorMode = resolveColorMode(options)
   let minSolidDistance = Number.POSITIVE_INFINITY
-  for (const solid of solidPrimariesForMode(colorMode)) {
+  for (const solid of solidPrimariesForMode(colorMode, options.paletteOverrides)) {
     minSolidDistance = Math.min(minSolidDistance, rgbDistanceSq(r, g, b, solid))
   }
 
@@ -289,7 +294,7 @@ export function finalizeTagImageData(
 ): void {
   const colorMode = resolveColorMode(options)
   if (colorMode !== 'rgb') {
-    clampImageDataToColorMode(rgba, colorMode as TagColorMode)
+    clampImageDataToColorMode(rgba, colorMode as TagColorMode, options.paletteOverrides)
   }
   if (options.ditherMode === 2 && colorMode !== 'rgb') {
     applyOrderedDitherBuffer(rgba, width, height, null, options)

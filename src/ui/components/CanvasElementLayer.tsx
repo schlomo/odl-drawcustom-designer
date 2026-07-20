@@ -1,4 +1,4 @@
-import type { DitherMode, TagColorMode } from '../../core'
+import type { DitherMode, PaletteOverrides, TagColorMode } from '../../core'
 import type opentype from 'opentype.js'
 import { memo, useEffect, useRef } from 'react'
 import type { CanvasPrimitive } from '../../core'
@@ -10,6 +10,7 @@ interface CanvasElementLayerProps {
   height: number
   colorMode: TagColorMode
   ditherMode?: DitherMode
+  paletteOverrides?: PaletteOverrides
   assetImages: ReadonlyMap<string, HTMLImageElement>
   fontFamilies: ReadonlyMap<string, string>
   opentypeFonts: ReadonlyMap<string, opentype.Font>
@@ -22,6 +23,7 @@ export const CanvasElementLayer = memo(function CanvasElementLayer({
   height,
   colorMode,
   ditherMode,
+  paletteOverrides,
   assetImages,
   fontFamilies,
   opentypeFonts,
@@ -43,8 +45,19 @@ export const CanvasElementLayer = memo(function CanvasElementLayer({
     drawCanvasStub(ctx, primitive, assetImages, fontFamilies, opentypeFonts, {
       colorMode,
       ditherMode,
+      paletteOverrides,
     })
-  }, [colorMode, assetImages, ditherMode, fontFamilies, height, opentypeFonts, primitive, width])
+  }, [
+    colorMode,
+    assetImages,
+    ditherMode,
+    fontFamilies,
+    height,
+    opentypeFonts,
+    paletteOverrides,
+    primitive,
+    width,
+  ])
 
   return (
     <canvas

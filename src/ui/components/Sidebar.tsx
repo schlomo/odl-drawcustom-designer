@@ -263,6 +263,7 @@ export function Sidebar({
                 selectedIndices={selectedIndices}
                 colorMode={canvas.colorMode}
                 previewDitherMode={canvas.previewDitherMode}
+                paletteOverrides={canvas.paletteOverrides}
                 onSelectElement={onSelectElement}
                 onReorderElement={onReorderElement}
                 blocked={yamlBlocked}

@@ -1,4 +1,4 @@
-import { colourSchemeToColorMode, type TagColorMode } from '../core'
+import { colourSchemeToColorMode, normalizePaletteOverrides, type TagColorMode } from '../core'
 import type { CanvasConfig, CanvasRotation } from '../ui/hooks/useProjectState'
 import type { MockData } from '../ui/preferences/mockStates'
 import type { HostCapabilities, HostStates } from './types'
@@ -39,9 +39,8 @@ function isPositiveSize(value: number | undefined): value is number {
 
 /**
  * Pick the tag color mode from palette color names (color_map keys or
- * available_colors). The designer's palettes are fixed (ADR-007 parity with
- * HA imagegen); custom hex values in `color_map` are NOT applied — the
- * nearest standard palette is selected instead.
+ * available_colors). The names select the palette structure; the measured
+ * hex values in `color_map` re-color it via `paletteOverrides` (issue #68).
  */
 function paletteNamesToColorMode(names: readonly string[]): TagColorMode | null {
   const normalized = new Set(names.map((name) => name.trim().toLowerCase()))
@@ -120,5 +119,8 @@ export function capabilitiesToCanvas(
     height,
     rotation,
     colorMode: resolveColorMode(capabilities) ?? current.colorMode,
+    // Measured panel hexes re-color the active palette (issue #68). `accent`
+    // resolves through the same map, so accent_color participates implicitly.
+    paletteOverrides: normalizePaletteOverrides(capabilities.color_map) ?? current.paletteOverrides,
   }
 }

@@ -75,8 +75,13 @@ export function resolveAccentMode(options: ColorOptions): AccentMode {
 export function colorOptionsFromContext(ctx: {
   colorMode: TagColorMode
   ditherMode?: ColorOptions['ditherMode']
+  paletteOverrides?: ColorOptions['paletteOverrides']
 }): ColorOptions {
-  return { colorMode: ctx.colorMode, ditherMode: ctx.ditherMode }
+  return {
+    colorMode: ctx.colorMode,
+    ditherMode: ctx.ditherMode,
+    paletteOverrides: ctx.paletteOverrides,
+  }
 }
 
 export function isTagColorMode(value: unknown): value is TagColorMode {
