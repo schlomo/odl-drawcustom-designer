@@ -27,8 +27,17 @@ async function openDemoHostPage(page: Page): Promise<void> {
   await expect(page.getByTestId('element-list-row')).toHaveCount(3)
 }
 
+const COPY_PNG_HINT = 'Copy PNG needs HTTPS or localhost — use Download PNG instead'
+
 test.describe('embed copy on a secure origin (localhost)', () => {
   test.use({ permissions: ['clipboard-read', 'clipboard-write'] })
+
+  test('Copy PNG shows no availability warning (issue #80)', async ({ page }) => {
+    await openDemoHostPage(page)
+
+    await expect(page.getByTestId('export-action-warning-badge')).toHaveCount(0)
+    await expect(page.getByTestId('export-action-warning-hint')).toHaveCount(0)
+  })
 
   test('Copy YAML puts the payload YAML on the clipboard', async ({ page }) => {
     await openDemoHostPage(page)
@@ -82,6 +91,32 @@ test.describe('embed copy on an insecure origin (no navigator.clipboard)', () =>
     const clipboard = await reader.evaluate(() => navigator.clipboard.readText())
     expect(clipboard).toContain("{{ states('sensor.demo_temperature') }} °C")
     await reader.close()
+  })
+
+  test('Copy PNG is warning-marked upfront with a hover/focus hint, before any click (issue #80)', async ({
+    page,
+  }) => {
+    const copyPng = exportButton(page, 'copy-png')
+    const badge = page.locator('[data-testid="export-action-warning-badge"]:visible')
+    const hint = page.locator('[data-testid="export-action-warning-hint"]')
+
+    // Degraded from first paint — no click needed to learn Copy PNG won't work.
+    await expect(badge).toHaveCount(1)
+    await expect(copyPng).toBeEnabled()
+    await expect(copyPng).toHaveAccessibleDescription(COPY_PNG_HINT)
+
+    // Hint bubble is discoverable on hover…
+    await copyPng.hover()
+    await expect(hint.filter({ hasText: COPY_PNG_HINT })).toBeVisible()
+
+    // …and on keyboard focus (no pointer required).
+    await page.mouse.move(0, 0)
+    await expect(hint.filter({ hasText: COPY_PNG_HINT })).toBeHidden()
+    await copyPng.focus()
+    await expect(hint.filter({ hasText: COPY_PNG_HINT })).toBeVisible()
+
+    // Working actions carry no warning noise.
+    await expect(exportButton(page, 'copy-yaml')).not.toHaveAccessibleDescription(COPY_PNG_HINT)
   })
 
   test('Copy PNG fails with a visible secure-context explanation, not a bare red flash', async ({

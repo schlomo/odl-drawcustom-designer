@@ -12,6 +12,13 @@ export const EXPORT_ACTION_ERROR_MESSAGE_FEEDBACK_MS = 5000
 const exportActionButtonBase =
   'rounded-md border px-2 py-1 text-xs transition-colors hover:opacity-95'
 
+/**
+ * Standing warning surface for actions known to be unavailable upfront
+ * (issue #80) — amber, not red: the button still works as a click target
+ * (the post-click error alert stays as backstop).
+ */
+export const EXPORT_ACTION_WARNING_CLASS = `${exportActionButtonBase} border-[var(--shell-warning-border)] bg-[var(--shell-warning-bg)] text-[var(--shell-warning-fg)] hover:bg-[var(--shell-warning-hover)]`
+
 export function getExportActionButtonClassName(
   feedback: ExportActionFeedback | null | undefined,
   baseClass: string = shell.button,

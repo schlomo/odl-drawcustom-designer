@@ -140,13 +140,19 @@ The payload is the drawcustom **element list YAML** (what the YAML panel shows).
 The copy buttons (Copy PNG, Copy YAML, share link) use the async clipboard
 API, which browsers only expose in [secure contexts](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts)
 — HTTPS or `http://localhost`. When the host page is served from a plain-http
-LAN IP or `file://` (common for HA panels during development):
+LAN IP or `file://` — the typical local Home Assistant box
+(`http://192.168.1.2:8123`, `http://homeassistant.local:8123`), so the common
+case rather than an edge case:
 
 - **Copy YAML** and the share link still work — the designer falls back to the
-  legacy `document.execCommand('copy')` path for text.
-- **Copy PNG** has no insecure-context clipboard path. The button fails with a
-  visible "Clipboard requires HTTPS or localhost" message; use Download PNG
-  instead, or serve the host page over HTTPS/localhost.
+  legacy `document.execCommand('copy')` path for text. They carry no warning.
+- **Copy PNG** has no insecure-context clipboard path, and signals that
+  upfront: the button renders warning-marked (amber surface plus a corner
+  badge) from first paint, and hovering or focusing it shows
+  "Copy PNG needs HTTPS or localhost — use Download PNG instead". It stays
+  clickable; a click still fails with the visible "Clipboard requires HTTPS
+  or localhost" alert as backstop. Use Download PNG, or serve the host page
+  over HTTPS/localhost to get Copy PNG back.
 
 ## Standalone SPA
 
