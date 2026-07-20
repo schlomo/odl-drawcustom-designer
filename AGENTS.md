@@ -173,6 +173,8 @@ npm ci   # node_modules is per-worktree (not tracked); each needs its own instal
 - If two PRs touch the same core file (e.g. `src/core/templates/evaluate.ts`), state a **merge order** and rebase the second branch onto the first after it lands.
 - Playwright picks a free preview port automatically per run — concurrent worktrees can't collide; set `PW_PORT` for a fixed port.
 - Cost-effective orchestration: run a read-only investigation before dispatching fixes; keep one PR per concern with file-disjoint territories and a declared merge order when territories touch; for small follow-ups (comment fixes, doc tweaks) prefer a fresh agent with a self-contained brief over resuming a long-lived agent transcript.
+- Tier the verification, not just the work (2026-07-20 M3 retro): the supervising thread reviews **tiny diffs inline** (a 2-line fix needs no review agent); dispatch a review agent only for multi-file diffs or landmine territory (editor sync, renderer/palette, mount lifecycle). Per-PR pattern that worked: implement agent → in parallel, rerun the full gate on the **pushed** SHA + review agent → adjudicate reviewer findings against compiled output before requesting changes (a reviewer flagged Tailwind v4's `bg-linear-to-*` as a bug from v3 knowledge — one grep of the built CSS settled it).
+- Review/mechanical briefs state the repo's framework versions (Tailwind v4, React 19, CodeMirror 6) when the diff touches their surface — prevents version-knowledge false positives. Bounded mechanical tasks (nit fixes, doc-only changes) go to a cheaper model / lower effort; reserve default-model agents for feature and fix work.
 
 ## Tool-specific files (parity)
 
