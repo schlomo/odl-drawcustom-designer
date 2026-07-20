@@ -107,3 +107,8 @@ The `checks` job (`.github/workflows/pages.yml`) surfaces results three ways:
 ## Storage tests
 
 Dexie schema upgrades wipe dev data on failure (ADR-003). Keep adapter-level behavior assertions, not internal version numbers.
+
+## Gotchas
+
+- **jsdom secure context:** jsdom leaves `window.isSecureContext` undefined, so components see an **insecure** context by default. Tests asserting secure-context behavior (e.g. Copy PNG availability) must stub it explicitly — pattern: `tests/ui/components/canvas-toolbar-copy-png-availability.test.tsx`.
+- **Assembled-site e2e serves real static files:** `tests/e2e/embed-site.spec.ts` serves `dist/` with `python3 -m http.server`, deliberately not `vite preview` — it 404s honestly like GitHub Pages, whereas `vite preview`'s SPA fallback can mask missing-file regressions. Keep it that way.

@@ -63,10 +63,23 @@ Full contract: [ADR-009](docs/adr/ADR-009-yaml-jinja-editor.md).
 - User-initiated CodeMirror changes must carry a `userEvent` annotation (e.g. `input.complete`, `input.type`); `shouldReportYamlDocChange` (`src/ui/editor/yamlEditorSelection.ts`) ignores unannotated transactions **by design**.
 - External programmatic syncs (elements → editor text) must stay **unannotated** — annotating them makes the sync loop mistake its own echo for a user edit.
 - **Echo contract:** an external sync must never rewrite newer editor text; blocked/pending state is read via **refs**, never effect dependencies (a state flip must not re-trigger the sync effect). Violations of either rule shipped real bugs (canvas lockup after autocomplete; typed text corrupted).
+- **Scroll containment:** all editor scroll-into-view goes through the `EditorView.scrollHandler` facet in [`src/ui/editor/yamlScrollContainment.ts`](src/ui/editor/yamlScrollContainment.ts), which contains scrolling to the editor's own scroller — it must never reach `window`/the embedding host page (guarded by `tests/e2e/embed-host-scroll.spec.ts` and `standalone-drag-scroll.spec.ts`). Never add scroll calls that bypass it; CM silently swallows scroll-handler exceptions, so geometry work must stay inside its keyed `requestMeasure` pass.
+
+## Embed mode invariants
+
+Full contract: [`docs/embedding.md`](docs/embedding.md) (ADR-010).
+
+- The embed path (`src/embed/mount.tsx`) must never touch `document.documentElement`, `document.head` styles, or global theme — everything scoped to the mount wrapper/shadow root (PR #67/#74).
+- Standalone output must stay byte-identical when no host data is pushed — palette/renderer helpers return canonical constants absent overrides (PR #75).
+- Library build = single self-contained ESM, React bundled, no code splitting (deliberate, see issue #22); `dist-lib` must work from any dumb static file server.
+- Clipboard/capability features must capability-detect (`window.isSecureContext`, presence checks) and surface visible explanations — insecure-LAN Home Assistant boxes are the PRIMARY deployment, not an edge case (PRs #77/#81).
+- Hidden overlays/tooltips must use `display:none`, not `visibility:hidden`/`invisible` — hidden layout boxes widen scrollers (horizontal-scrollbar bug class, PR #85; see issue #86 for remaining instances).
 
 ## Build-time defines
 
 Any env-derived value baked via `define` in `vite.config.ts` must short-circuit under Vitest — follow the `vitest:` source-flag pattern in `tools/gitRevision.ts` (keyed off `process.env.VITEST` in `vite.config.ts`). GitHub Actions sets `GITHUB_REF_NAME='<n>/merge'` etc. on `pull_request` runs; an unguarded define once leaked that into the Vitest runtime and broke CI for every open PR at once.
+
+Repo uses Tailwind **v4** — utility names differ from v3 (`bg-linear-to-*`, not `bg-gradient-to-*`); do not "correct" v4 names to v3, and brief code reviewers accordingly (a review false-positive already happened).
 
 ## TDD (non-negotiable)
 
