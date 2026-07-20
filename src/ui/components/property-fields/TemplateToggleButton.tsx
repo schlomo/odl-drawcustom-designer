@@ -17,6 +17,9 @@ export function TemplateToggleButton({
     <IconButton
       iconPath={ELEMENT_TEMPLATE_ICON}
       compact
+      // The button sits at the property panel's right edge — a centered
+      // bubble would stick out past the panel and become clipped (issue #83).
+      tooltipAlign="end"
       tooltip={active ? `Back to ${literalLabel.toLowerCase()}` : 'Template expression (or type {)'}
       aria-pressed={active}
       className={active ? 'ring-1 ring-[var(--shell-accent)]' : ''}
