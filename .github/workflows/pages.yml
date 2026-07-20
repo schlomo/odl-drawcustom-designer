@@ -133,7 +133,9 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
-      - run: npm run build
+      # build:site = app build (dist/) + library build (dist-lib/) + embed
+      # demo assembly into dist/embed/ (tools/assembleSite.ts, issue #69).
+      - run: npm run build:site
 
       - name: Upload dist artifact
         uses: actions/upload-artifact@v7
@@ -193,9 +195,12 @@ jobs:
           # PR head SHA for the header label; the merge SHA stays available
           # in the tooltip.
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        # build:site also assembles the embed demo at <preview>/embed/
+        # (tools/assembleSite.ts) — previews get it for free, same script as
+        # production, no extra workflow logic (thin CI).
         run: |
           npm ci
-          npm run build
+          npm run build:site
 
       - name: Upload dist artifact
         if: github.event.action != 'closed'

@@ -16,7 +16,8 @@
     "test:ci": "vitest run --reporter=default --reporter=github-actions --reporter=junit --outputFile.junit=reports/vitest-junit.xml",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "build:lib": "vite build --config vite.lib.config.ts"
+    "build:lib": "vite build --config vite.lib.config.ts",
+    "build:site": "npm run build && npm run build:lib && node tools/assembleSite.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

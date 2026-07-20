@@ -156,6 +156,19 @@ Use preview and PNG export to **sanity-check** layouts before deploying to a tag
 
 See `docs/adr/` for rationale (especially ADR-010, ADR-012).
 
+## Embedding
+
+The designer also ships as an **embeddable component**: a single self-contained ESM file (React and styles included) exposing `mount(container, options)`. The host application — e.g. the OpenDisplay Home Assistant integration panel — mounts the designer into a container, pushes entity states and display capabilities, and receives the drawcustom YAML payload via `onSaveRequest` when the user hits Save. Full mount API and host data contract: [`docs/embedding.md`](docs/embedding.md).
+
+**[Live embed demo →](https://schlomo.github.io/odl-drawcustom-designer/embed/)** — a fake host page that mounts the designer, pushes warm/cold entity states and a 296×128 BWR display description, switches themes, and shows every saved payload.
+
+Run the same demo locally:
+
+```bash
+npm run build:lib && python3 -m http.server -d dist-lib
+# open http://localhost:8000/
+```
+
 ## Development
 
 Requires **Node.js ^26** (see `.nvmrc`).
