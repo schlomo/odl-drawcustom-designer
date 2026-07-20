@@ -79,6 +79,12 @@ The container element must support `attachShadow` (a `<div>` or an autonomous cu
 
 `demo/isolation.html` is the hostile-host fixture proving the boundary: aggressive `!important` host CSS, Tailwind-colliding class names, and two instances with different themes on one page (`tests/e2e/embed-isolation.spec.ts`).
 
+### Scroll containment (issue #79)
+
+Designer-internal scrolling never scrolls the host page. The YAML editor scrolls itself programmatically — the Linked-editor sync centers the selected element's block on every canvas selection, and typing scrolls the cursor into view — and CodeMirror's default handling would walk ancestor scrollers past the mount boundary and call `window.scrollBy` on the host document whenever the editor's own scroller cannot absorb the full scroll. A designer embedded above other host content would visibly jump the page on every element selection or drag.
+
+A [`scrollHandler`](../src/ui/editor/yamlScrollContainment.ts) contains all editor scroll-into-view requests to the editor's own scroller: hosts can place the designer anywhere on a scrolling page without defensive wrappers. Guarded by `tests/e2e/embed-host-scroll.spec.ts` against the demo host page.
+
 ## Host data contract
 
 HA-agnostic types (`src/embed/types.ts`); an HA adapter is expected to be a thin pass-through.
