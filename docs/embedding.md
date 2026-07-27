@@ -133,6 +133,16 @@ Mapping onto the canvas (`src/embed/hostContract.ts`):
 
 Known gaps: `palette_measured` itself is informational only (the hexes apply whether or not it is set). Fractional rotations are not representable. YAML export semantics are untouched — the payload always carries color *names*, never display hexes.
 
+#### Display config lock (issue #70)
+
+When the mount received `capabilities` — at `mount()` or via `setCapabilities()` — the display config is **host-owned**: the resolution, rotation and color mode controls are disabled and a lock icon appears next to the "Display config" heading, **locked by default**.
+
+- **Unlock** (click the lock) — the "virtual display" escape hatch: the user may configure any resolution/rotation/color mode. The preview then no longer matches the host's physical display.
+- **Re-lock** — restores the host-pushed display values (the designer-only preview dither setting survives).
+- **A new `setCapabilities()` push** re-asserts the host display: it applies to the canvas and re-locks the controls.
+- **Load Demo while locked** loads the demo payload and simulator seed but **keeps** the host-defined resolution/rotation/palette. Accepted consequence: on small displays the demo layout may look bad. Unlocked, Load Demo applies the showcase display config as in standalone.
+- **No `capabilities`** (standalone, or an embed that never pushes them): no lock icon, controls behave exactly as before.
+
 ### `payload` / `onSaveRequest`
 
 The payload is the drawcustom **element list YAML** (what the YAML panel shows). The parent owns persistence: session autosave is disabled in embedded mode, the share-link button is hidden, and `onSaveRequest(payload)` fires only on an explicit Save click.

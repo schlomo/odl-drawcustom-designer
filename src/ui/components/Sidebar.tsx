@@ -1,3 +1,4 @@
+import { mdiLock, mdiLockOpen } from '@mdi/js'
 import { useMemo, useState } from 'react'
 import type { AssetKind, AssetUploadResult, DrawElement, TagColorMode } from '../../core'
 import type { HaMockContext } from '../../core'
@@ -15,6 +16,7 @@ import { SIDEBAR_WIDTH_STORAGE_KEY } from '../preferences/keys'
 import { shell } from '../styles/shell'
 import { ContentManager } from './ContentManager'
 import { ElementList } from './ElementList'
+import { IconButton } from './IconButton'
 import type { PanelListScope } from './PanelScopeToggle'
 import { ResolutionSelect } from './ResolutionSelect'
 import { StateSimulator } from './StateSimulator'
@@ -34,6 +36,13 @@ interface SidebarProps {
   onCanvasSizeChange: (width: number, height: number) => void
   onColorModeChange: (colorMode: TagColorMode) => void
   onRotationChange: (rotation: CanvasRotation) => void
+  /**
+   * Host-defined display (issue #70): 'locked' disables the display config
+   * controls, 'unlocked' is the virtual-display escape hatch. null/undefined
+   * (standalone) renders no lock at all.
+   */
+  displayLock?: 'locked' | 'unlocked' | null
+  onToggleDisplayLock?: () => void
   onSetMockState: (entityId: string, value: string) => void
   onAddMockEntity: (entityId: string, value: string) => void
   onRemoveMockEntity: (entityId: string) => void
@@ -90,6 +99,8 @@ export function Sidebar({
   onCanvasSizeChange,
   onColorModeChange,
   onRotationChange,
+  displayLock = null,
+  onToggleDisplayLock,
   onSetMockState,
   onAddMockEntity,
   onRemoveMockEntity,
@@ -119,6 +130,7 @@ export function Sidebar({
     maxWidth: MAX_SIDEBAR_WIDTH,
     edge: 'left',
   })
+  const displayLocked = displayLock === 'locked'
   const resolutionValue = resolutionDropdownValue(
     canvas.width,
     canvas.height,
@@ -152,13 +164,30 @@ export function Sidebar({
         onMouseDown={startResize}
       />
       <section className={`shrink-0 border-b ${shell.panelBorder} p-3 pr-5`}>
-        <h2 className={shell.heading}>Display config</h2>
+        {displayLock ? (
+          <div className="flex items-center justify-between gap-2">
+            <h2 className={shell.heading}>Display config</h2>
+            <IconButton
+              compact
+              iconPath={displayLock === 'locked' ? mdiLock : mdiLockOpen}
+              iconSize={14}
+              tooltip={
+                displayLock === 'locked' ? 'Unlock display config' : 'Lock display config'
+              }
+              tooltipAlign="end"
+              onClick={onToggleDisplayLock}
+            />
+          </div>
+        ) : (
+          <h2 className={shell.heading}>Display config</h2>
+        )}
         <label className={`mt-2 block text-xs ${shell.muted}`}>
           Resolution
           <ResolutionSelect
             value={resolutionValue}
             canvasWidth={canvas.width}
             canvasHeight={canvas.height}
+            disabled={displayLocked}
             onSelectValue={(nextValue) => {
               applyResolutionSelectValue(nextValue, {
                 setEditingCustom: setResolutionEditingCustom,
@@ -174,8 +203,9 @@ export function Sidebar({
               <input
                 type="number"
                 min={1}
-                className={`mt-1 w-full ${shell.input}`}
+                className={`mt-1 w-full disabled:cursor-not-allowed disabled:opacity-40 ${shell.input}`}
                 value={canvas.width}
+                disabled={displayLocked}
                 onChange={(event) =>
                   onCanvasSizeChange(Number(event.target.value), canvas.height)
                 }
@@ -186,8 +216,9 @@ export function Sidebar({
               <input
                 type="number"
                 min={1}
-                className={`mt-1 w-full ${shell.input}`}
+                className={`mt-1 w-full disabled:cursor-not-allowed disabled:opacity-40 ${shell.input}`}
                 value={canvas.height}
+                disabled={displayLocked}
                 onChange={(event) =>
                   onCanvasSizeChange(canvas.width, Number(event.target.value))
                 }
@@ -198,8 +229,9 @@ export function Sidebar({
         <label className={`mt-2 block text-xs ${shell.muted}`}>
           Color mode
           <select
-            className={`mt-1 w-full ${shell.input}`}
+            className={`mt-1 w-full disabled:cursor-not-allowed disabled:opacity-40 ${shell.input}`}
             value={canvas.colorMode}
+            disabled={displayLocked}
             onChange={(event) => onColorModeChange(event.target.value as TagColorMode)}
           >
             {COLOR_MODE_OPTIONS.map((option) => (
@@ -221,11 +253,12 @@ export function Sidebar({
             <button
               key={value}
               type="button"
-              className={`flex-1 rounded-md border px-1 py-1 text-[10px] ${
+              className={`flex-1 rounded-md border px-1 py-1 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${
                 canvas.rotation === value
                   ? 'border-[var(--shell-accent)] bg-[var(--shell-accent)] text-white'
                   : `${shell.button} hover:bg-[var(--shell-hover)]`
               }`}
+              disabled={displayLocked}
               onClick={() => onRotationChange(value)}
             >
               {value}°

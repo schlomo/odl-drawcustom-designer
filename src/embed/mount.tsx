@@ -53,10 +53,13 @@ function buildEmbedBootstrap(options: MountOptions): AppBootstrap {
   const mock = options.states
     ? hostStatesToMockData(options.states)
     : { states: {}, attributes: {} }
+  const canvas = capabilitiesToCanvas(options.capabilities ?? {}, DEFAULT_DISPLAY_CONFIG)
   return {
     sessionName: 'Untitled',
     elements: options.payload ? parseYamlPayload(options.payload) : [],
-    canvas: capabilitiesToCanvas(options.capabilities ?? {}, DEFAULT_DISPLAY_CONFIG),
+    canvas,
+    // Host-defined display (issue #70): lock the display config controls.
+    hostDisplay: options.capabilities ? canvas : undefined,
     service: undefined,
     mockStates: mock.states,
     mockAttributes: mock.attributes,

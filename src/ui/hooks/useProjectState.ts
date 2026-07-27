@@ -161,6 +161,13 @@ export function useProjectState(bootstrap: AppBootstrap, host: EmbedHostBridge |
     bootstrap.mockAttributes,
   )
   const [variables, setVariables] = useState<StoredVariables>(bootstrap.variables)
+  // Host-defined display (issue #70): the canvas config the embedding host
+  // pushed via capabilities. Presence enables the display lock; re-locking
+  // restores these values.
+  const [hostDisplay, setHostDisplay] = useState<CanvasConfig | null>(
+    bootstrap.hostDisplay ?? null,
+  )
+  const [displayLocked, setDisplayLocked] = useState(bootstrap.hostDisplay != null)
   const [assetRevision, setAssetRevision] = useState(0)
   const [snapGrid, setSnapGrid] = useState<SnapGridPrefs>(() => readSnapGridPrefs())
   const [showHiddenHints, setShowHiddenHints] = useState(() => readShowHiddenHintsPrefs().enabled)
@@ -168,6 +175,8 @@ export function useProjectState(bootstrap: AppBootstrap, host: EmbedHostBridge |
   const mockAttributesRef = useRef(mockAttributes)
   const elementsRef = useRef(elements)
   const canvasRef = useRef(canvas)
+  const hostDisplayRef = useRef(hostDisplay)
+  const displayLockedRef = useRef(displayLocked)
   const serviceRef = useRef(service)
   const selectedIndicesRef = useRef(selectedIndices)
   const [editHistory] = useState(() => createEditHistory(bootstrap.editHistory))
@@ -349,7 +358,14 @@ export function useProjectState(bootstrap: AppBootstrap, host: EmbedHostBridge |
         setMockAttributes(mock.attributes)
       },
       applyCapabilities: (capabilities) => {
-        commitCanvas((current) => capabilitiesToCanvas(capabilities, current))
+        // The host (re-)defined the display: adopt it and lock the display
+        // config controls to it (issue #70).
+        const next = capabilitiesToCanvas(capabilities, canvasRef.current)
+        commitCanvas(next)
+        hostDisplayRef.current = next
+        setHostDisplay(next)
+        displayLockedRef.current = true
+        setDisplayLocked(true)
       },
       applyPayload: (nextElements) => {
         // The parent replaced the payload wholesale — undo history from the
@@ -825,10 +841,29 @@ export function useProjectState(bootstrap: AppBootstrap, host: EmbedHostBridge |
     setVariables((current) => clearDemoVariables(current))
   }, [commitElements, commitSelectedIndices, resetEditHistory])
 
+  const toggleDisplayLock = useCallback(() => {
+    const nextLocked = !displayLockedRef.current
+    displayLockedRef.current = nextLocked
+    setDisplayLocked(nextLocked)
+    const hostConfig = hostDisplayRef.current
+    if (nextLocked && hostConfig) {
+      // Re-locking returns to the host-pushed values; the preview dither mode
+      // is a designer-only setting and survives (issue #70).
+      commitCanvas((current) => ({
+        ...hostConfig,
+        previewDitherMode: current.previewDitherMode,
+      }))
+    }
+  }, [commitCanvas])
+
   const loadDemo = useCallback(() => {
     allowShowcaseBundledForDemo()
     resetEditHistory()
-    commitCanvas({ ...SHOWCASE_CANVAS })
+    // While the display is locked to a host-defined config, Load Demo keeps
+    // it (issue #70) — the demo payload loads, the display does not change.
+    if (!(displayLockedRef.current && hostDisplayRef.current)) {
+      commitCanvas({ ...SHOWCASE_CANVAS })
+    }
     commitElements(cloneShowcaseElements())
     commitSelectedIndices([])
     // Seed the mock context the showcase templates rely on, so the demo renders
@@ -1110,6 +1145,13 @@ export function useProjectState(bootstrap: AppBootstrap, host: EmbedHostBridge |
     setColorMode,
     setCanvasSize,
     setRotation,
+    /** 'locked' | 'unlocked' when the host defined the display; null standalone (issue #70). */
+    displayLock: hostDisplay
+      ? displayLocked
+        ? ('locked' as const)
+        : ('unlocked' as const)
+      : null,
+    toggleDisplayLock,
     mockContext,
     previewMockContext,
     setMockState,
