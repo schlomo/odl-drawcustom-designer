@@ -71,7 +71,7 @@ Full contract: [`docs/embedding.md`](docs/embedding.md) (ADR-010).
 
 - The embed path (`src/embed/mount.tsx`) must never touch `document.documentElement`, `document.head` styles, or global theme — everything scoped to the mount wrapper/shadow root (PR #67/#74).
 - Standalone output must stay byte-identical when no host data is pushed — palette/renderer helpers return canonical constants absent overrides (PR #75).
-- Library build = single self-contained ESM, React bundled, no code splitting (deliberate, see issue #22); `dist-lib` must work from any dumb static file server.
+- Library build = single self-contained ESM, React bundled, no code splitting (deliberate — composition, wire sizes, and rejected alternatives documented in [`docs/bundle-audit.md`](docs/bundle-audit.md), issue #22); `dist-lib` must work from any dumb static file server.
 - Clipboard/capability features must capability-detect (`window.isSecureContext`, presence checks) and surface visible explanations — insecure-LAN Home Assistant boxes are the PRIMARY deployment, not an edge case (PRs #77/#81).
 - Hidden overlays/tooltips must use `display:none`, not `visibility:hidden`/`invisible` — hidden layout boxes widen scrollers (horizontal-scrollbar bug class, PR #85; see issue #86 for remaining instances).
 
