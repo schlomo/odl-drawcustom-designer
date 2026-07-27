@@ -8,7 +8,7 @@ The designer ships as an embeddable component (issue #20, [ADR-010](adr/ADR-010-
 npm run build:lib
 ```
 
-Emits **one self-contained ESM file** — React, styles, and bundled fonts included; the host provides nothing:
+Emits **one self-contained ESM file** — React, styles, and bundled fonts included; the host provides nothing (~5.4 MiB raw, ~1.6 MiB gzip on the wire — composition and the deliberate no-code-splitting decision: [`bundle-audit.md`](bundle-audit.md)):
 
 ```
 dist-lib/odl-drawcustom-designer.js

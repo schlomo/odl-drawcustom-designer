@@ -190,6 +190,8 @@ npm run build
 
 **Embedding the designer in a host application** (mount API, host data contract, library build, demo host page): [`docs/embedding.md`](docs/embedding.md).
 
+**Bundle composition and wire sizes** (what the big JS chunk is, verified compression, why code splitting was rejected): [`docs/bundle-audit.md`](docs/bundle-audit.md).
+
 ## Architecture
 
 - `src/core/` — pure TypeScript (YAML, schema, renderer, templates); **no React** imports
