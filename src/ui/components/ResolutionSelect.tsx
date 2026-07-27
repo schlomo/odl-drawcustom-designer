@@ -14,6 +14,8 @@ interface ResolutionSelectProps {
   canvasWidth: number
   canvasHeight: number
   onSelectValue: (value: string) => void
+  /** Host-locked display config (issue #70): render the trigger disabled. */
+  disabled?: boolean
 }
 
 function triggerLabel(value: string, canvasWidth: number, canvasHeight: number): string {
@@ -28,6 +30,7 @@ export function ResolutionSelect({
   canvasWidth,
   canvasHeight,
   onSelectValue,
+  disabled = false,
 }: ResolutionSelectProps) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -77,7 +80,8 @@ export function ResolutionSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
-        className={`flex w-full items-center gap-2 ${shell.input}`}
+        className={`flex w-full items-center gap-2 disabled:cursor-not-allowed disabled:opacity-40 ${shell.input}`}
+        disabled={disabled}
         onClick={() => setOpen((current) => !current)}
       >
         <span className="min-w-0 flex-1 truncate text-left">

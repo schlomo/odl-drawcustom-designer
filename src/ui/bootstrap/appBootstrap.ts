@@ -35,6 +35,12 @@ export interface AppBootstrap {
   importSource: BootstrapImportSource
   /** Restored only for `importSource: 'session'`; cleared for hash/default loads. */
   editHistory?: PersistedEditHistory
+  /**
+   * Display config derived from host-pushed `capabilities` (issue #70). Set
+   * only by the embed mount; presence locks the display config controls
+   * behind the lock icon. Standalone bootstraps never set it.
+   */
+  hostDisplay?: DisplayConfig
 }
 
 /** Saved sessions with no elements fall back to the built-in sample dashboard. */

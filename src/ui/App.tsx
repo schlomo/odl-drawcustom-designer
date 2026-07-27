@@ -105,6 +105,8 @@ export function App({ bootstrap, host = null }: AppProps) {
     setColorMode,
     setCanvasSize,
     setRotation,
+    displayLock,
+    toggleDisplayLock,
     setElements,
     mockContext,
     previewMockContext,
@@ -496,6 +498,8 @@ export function App({ bootstrap, host = null }: AppProps) {
           onCanvasSizeChange={setCanvasSize}
           onColorModeChange={setColorMode}
           onRotationChange={setRotation}
+          displayLock={displayLock}
+          onToggleDisplayLock={toggleDisplayLock}
           onSetMockState={setMockState}
           onAddMockEntity={addMockEntity}
           onRemoveMockEntity={removeMockEntity}
