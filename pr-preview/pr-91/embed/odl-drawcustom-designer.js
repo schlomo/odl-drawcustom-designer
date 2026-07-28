@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/issue-70-lock-display-config", ae = "ffc1637", k = "90ff8aa";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/issue-70-lock-display-config", ae = "0078d62", k = "1b848d2";
 function A(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -46329,37 +46329,37 @@ function Sq(e, t, n) {
 }
 //#endregion
 //#region src/ui/components/ToolbarTooltip.tsx
-function Cq({ label: e, children: t, align: n = "center" }) {
-	let [r, i] = (0, v.useState)(!1), a = (0, v.useRef)(null), o = (0, v.useCallback)(() => {
-		a.current != null && (clearTimeout(a.current), a.current = null);
-	}, []), s = (0, v.useCallback)(() => {
-		o(), i(!1);
-	}, [o]), c = (0, v.useCallback)(() => {
-		o(), a.current = setTimeout(() => {
-			a.current = null, i(!0);
+function Cq({ label: e, children: t, align: n = "center", placement: r = "above" }) {
+	let [i, a] = (0, v.useState)(!1), o = (0, v.useRef)(null), s = (0, v.useCallback)(() => {
+		o.current != null && (clearTimeout(o.current), o.current = null);
+	}, []), c = (0, v.useCallback)(() => {
+		s(), a(!1);
+	}, [s]), l = (0, v.useCallback)(() => {
+		s(), o.current = setTimeout(() => {
+			o.current = null, a(!0);
 		}, 300);
-	}, [o]);
-	return (0, v.useEffect)(() => s, [s]), /* @__PURE__ */ (0, K.jsxs)("span", {
+	}, [s]);
+	return (0, v.useEffect)(() => c, [c]), /* @__PURE__ */ (0, K.jsxs)("span", {
 		className: "relative inline-flex shrink-0 [&_button:disabled]:pointer-events-none",
-		onMouseEnter: c,
-		onMouseLeave: s,
+		onMouseEnter: l,
+		onMouseLeave: c,
 		children: [t, /* @__PURE__ */ (0, K.jsx)("span", {
 			role: "tooltip",
-			"aria-hidden": !r,
-			className: `pointer-events-none absolute bottom-[calc(100%+6px)] z-50 whitespace-nowrap rounded-md border border-[var(--shell-border)] bg-[var(--shell-text)] px-2 py-1 text-xs text-[var(--shell-surface)] shadow-md ${n === "end" ? "right-0" : "left-1/2 -translate-x-1/2"} ${r ? "visible" : "hidden"}`,
+			"aria-hidden": !i,
+			className: `pointer-events-none absolute z-50 whitespace-nowrap rounded-md border border-[var(--shell-border)] bg-[var(--shell-text)] px-2 py-1 text-xs text-[var(--shell-surface)] shadow-md ${r === "below" ? "top-[calc(100%+6px)]" : "bottom-[calc(100%+6px)]"} ${n === "end" ? "right-0" : "left-1/2 -translate-x-1/2"} ${i ? "visible" : "hidden"}`,
 			children: e
 		})]
 	});
 }
 //#endregion
 //#region src/ui/components/IconButton.tsx
-function wq({ iconPath: e, label: t, iconSize: n = 18, compact: r = t == null, variant: i = "default", surfaceClass: a, className: o = "", title: s, tooltip: c, tooltipAlign: l, ...u }) {
-	let d = r || t == null, f = s ?? c ?? (typeof t == "string" ? t : void 0), p = a ?? (i === "destructive" ? q.buttonDestructiveIcon : q.button), m = "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[var(--shell-surface-2)]", h = /* @__PURE__ */ (0, K.jsxs)("button", {
+function wq({ iconPath: e, label: t, iconSize: n = 18, compact: r = t == null, variant: i = "default", surfaceClass: a, className: o = "", title: s, tooltip: c, tooltipAlign: l, tooltipPlacement: u, ...d }) {
+	let f = r || t == null, p = s ?? c ?? (typeof t == "string" ? t : void 0), m = a ?? (i === "destructive" ? q.buttonDestructiveIcon : q.button), h = "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[var(--shell-surface-2)]", g = /* @__PURE__ */ (0, K.jsxs)("button", {
 		type: "button",
-		className: `${r ? `${p} ${m} flex h-7 w-7 shrink-0 items-center justify-center gap-1.5 p-0`.trim() : `${p} ${m} inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-2 py-1`.trim()} ${o}`.trim(),
-		title: d ? f : s,
-		"aria-label": typeof t == "string" ? t : f,
-		...u,
+		className: `${r ? `${m} ${h} flex h-7 w-7 shrink-0 items-center justify-center gap-1.5 p-0`.trim() : `${m} ${h} inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-2 py-1`.trim()} ${o}`.trim(),
+		title: f ? p : s,
+		"aria-label": typeof t == "string" ? t : p,
+		...d,
 		children: [/* @__PURE__ */ (0, K.jsx)(xq, {
 			path: e,
 			size: n,
@@ -46369,11 +46369,12 @@ function wq({ iconPath: e, label: t, iconSize: n = 18, compact: r = t == null, v
 			children: t
 		})]
 	});
-	return d && f ? /* @__PURE__ */ (0, K.jsx)(Cq, {
-		label: f,
+	return f && p ? /* @__PURE__ */ (0, K.jsx)(Cq, {
+		label: p,
 		align: l,
-		children: h
-	}) : h;
+		placement: u,
+		children: g
+	}) : g;
 }
 //#endregion
 //#region src/ui/components/CanvasSelectionToolbar.tsx
@@ -50189,6 +50190,7 @@ function w3t({ elements: e, previewElements: t, selectedIndices: n, canvas: r, m
 							iconSize: 14,
 							tooltip: d === "locked" ? "Unlock display config" : "Lock display config",
 							tooltipAlign: "end",
+							tooltipPlacement: "below",
 							onClick: f
 						})]
 					}) : /* @__PURE__ */ (0, K.jsx)("h2", {
@@ -75366,7 +75368,7 @@ function eln(e, t, n, r) {
 	};
 }
 function tln(e, t = null) {
-	let [n, r] = (0, v.useState)(e.sessionName), [i, a] = (0, v.useState)(e.elements), [o, s] = (0, v.useState)([]), [c, l] = (0, v.useState)("ui"), [u, d] = (0, v.useState)(e.canvas), [f, p] = (0, v.useState)(e.service), [m, h] = (0, v.useState)(e.mockStates), [g, _] = (0, v.useState)(e.mockAttributes), [y, b] = (0, v.useState)(e.variables), [x, S] = (0, v.useState)(e.hostDisplay ?? null), [C, w] = (0, v.useState)(e.hostDisplay != null), [T, E] = (0, v.useState)(0), [D, O] = (0, v.useState)(() => Bcn()), [ee, te] = (0, v.useState)(() => Ucn().enabled), ne = (0, v.useRef)(m), re = (0, v.useRef)(g), ie = (0, v.useRef)(i), ae = (0, v.useRef)(u), k = (0, v.useRef)(x), A = (0, v.useRef)(C), j = (0, v.useRef)(f), oe = (0, v.useRef)(o), [se] = (0, v.useState)(() => $cn(e.editHistory)), ce = (0, v.useRef)(se), [le, ue] = (0, v.useState)(() => ({
+	let [n, r] = (0, v.useState)(e.sessionName), [i, a] = (0, v.useState)(e.elements), [o, s] = (0, v.useState)([]), [c, l] = (0, v.useState)("ui"), [u, d] = (0, v.useState)(e.canvas), [f, p] = (0, v.useState)(e.service), [m, h] = (0, v.useState)(e.mockStates), [g, _] = (0, v.useState)(e.mockAttributes), [y, b] = (0, v.useState)(e.variables), [x, S] = (0, v.useState)(e.hostDisplay ?? null), [C, w] = (0, v.useState)(e.hostDisplay != null && (e.hostDisplayLocked ?? !0)), [T, E] = (0, v.useState)(0), [D, O] = (0, v.useState)(() => Bcn()), [ee, te] = (0, v.useState)(() => Ucn().enabled), ne = (0, v.useRef)(m), re = (0, v.useRef)(g), ie = (0, v.useRef)(i), ae = (0, v.useRef)(u), k = (0, v.useRef)(x), A = (0, v.useRef)(C), j = (0, v.useRef)(f), oe = (0, v.useRef)(o), [se] = (0, v.useState)(() => $cn(e.editHistory)), ce = (0, v.useRef)(se), [le, ue] = (0, v.useState)(() => ({
 		canUndo: se.canUndo,
 		canRedo: se.canRedo,
 		undoDepth: se.undoDepth
@@ -75479,9 +75481,9 @@ function tln(e, t = null) {
 				let t = U9(e);
 				h(t.states), _(t.attributes);
 			},
-			applyCapabilities: (e) => {
-				let t = K9(e, ae.current);
-				N(t), k.current = t, S(t), A.current = !0, w(!0);
+			applyCapabilities: (e, t) => {
+				let n = K9(e, ae.current), r = t?.lock ?? !0;
+				N(n), k.current = n, S(n), A.current = r, w(r);
 			},
 			applyPayload: (e) => {
 				fe(), M(structuredClone(e)), de([]);
@@ -76464,6 +76466,7 @@ function lln(e) {
 		elements: e.payload ? Xr(e.payload) : [],
 		canvas: n,
 		hostDisplay: e.capabilities ? n : void 0,
+		hostDisplayLocked: e.lock ?? !0,
 		service: void 0,
 		mockStates: t.states,
 		mockAttributes: t.attributes,
@@ -76509,8 +76512,8 @@ function uln(e, t = {}) {
 		setStates(e) {
 			p(), c((t) => t.applyStates(e));
 		},
-		setCapabilities(e) {
-			p(), c((t) => t.applyCapabilities(e));
+		setCapabilities(e, t) {
+			p(), c((n) => n.applyCapabilities(e, t));
 		},
 		setPayload(e) {
 			p();
