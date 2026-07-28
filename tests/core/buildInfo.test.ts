@@ -5,6 +5,7 @@ import {
   APP_GIT_PR_NUMBER,
   APP_GIT_REVISION,
   APP_HEADER_LEGAL_HTML,
+  APP_VERSION,
   formatGitBranchLabel,
   formatGitRevisionLabel,
   formatRevisionTooltip,
@@ -27,6 +28,12 @@ describe('APP_GIT_BRANCH', () => {
 describe('APP_GIT_MERGE_REVISION', () => {
   it('is injected by Vitest as test (vitest-hermetic)', () => {
     expect(APP_GIT_MERGE_REVISION).toBe('test')
+  })
+})
+
+describe('APP_VERSION', () => {
+  it('is injected by Vitest as test (issue #23 runtime version reporting)', () => {
+    expect(APP_VERSION).toBe('test')
   })
 })
 

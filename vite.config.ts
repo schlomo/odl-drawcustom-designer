@@ -2,14 +2,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { gitBuildDefines } from './tools/buildDefines.ts'
+import { buildDefines } from './tools/buildDefines.ts'
 
 const isVitest = Boolean(process.env.VITEST)
 
 export default defineConfig({
   plugins: [react(), ...(isVitest ? [] : [tailwindcss()])],
   base: process.env.VITE_BASE_PATH ?? '/',
-  define: gitBuildDefines(),
+  define: buildDefines(),
   build: {
     rollupOptions: {
       output: {

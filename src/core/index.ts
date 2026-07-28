@@ -17,6 +17,7 @@ export {
   APP_GIT_PR_NUMBER,
   APP_GIT_REVISION,
   APP_HEADER_LEGAL_HTML,
+  APP_VERSION,
   formatGitBranchLabel,
   formatGitRevisionLabel,
   formatRevisionTooltip,

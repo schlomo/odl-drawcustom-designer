@@ -86,6 +86,12 @@ export interface MountOptions {
 }
 
 export interface MountHandle {
+  /**
+   * The designer build's version (issue #23), e.g. `'0.1.0'` — package.json's
+   * version baked in at build time. Same value as the library's `version`
+   * export (`src/embed/index.ts`); handy when a host only has the handle.
+   */
+  readonly version: string
   /** Unmount the designer and remove everything from the container. */
   destroy(): void
   /** Push a full replacement entity-state map for template preview. */

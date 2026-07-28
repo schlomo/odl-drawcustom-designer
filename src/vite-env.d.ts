@@ -5,4 +5,5 @@ interface ImportMetaEnv {
   readonly VITE_GIT_REVISION?: string
   readonly VITE_GIT_PR_NUMBER?: string
   readonly VITE_HEADER_LEGAL_HTML?: string
+  readonly VITE_APP_VERSION?: string
 }

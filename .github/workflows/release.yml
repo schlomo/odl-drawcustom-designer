@@ -1,0 +1,55 @@
+# Tag-driven GitHub release (issue #23): pushing a `vX.Y.Z` tag builds the
+# embeddable library artifact and publishes a GitHub release with it
+# attached. Consumer: the OpenDisplay HA integration vendors the ESM file as
+# a static asset (issue #23 discussion) — npm publishing is not required.
+#
+# Thin CI (AGENTS.md): the only logic is tools/releaseVersion.ts (tag/version
+# match check, unit-tested in tests/tools/releaseVersion.test.ts); this file
+# just wires npm scripts and the release-creation action together.
+#
+# Changelog: GitHub's auto-generated release notes (`generate_release_notes`)
+# — simplest option that needs no extra tooling or conventions beyond normal
+# PR titles/commits.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # Fails loudly when the tag doesn't match package.json's version — the
+      # tag is the release's version source of truth (docs/releasing.md);
+      # the artifact's baked-in `version` (tools/version.ts) must agree.
+      - run: node tools/releaseVersion.ts "${{ github.ref_name }}"
+
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build:lib
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            dist-lib/odl-drawcustom-designer.js
+            LICENSE

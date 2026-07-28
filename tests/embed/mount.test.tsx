@@ -2,7 +2,7 @@
 import { act } from 'react'
 import { fireEvent, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mount } from '../../src/embed'
+import { mount, version } from '../../src/embed'
 import type { MountHandle } from '../../src/embed'
 import { readSessionFromDb } from '../../src/storage'
 
@@ -163,6 +163,16 @@ describe('mount', () => {
     await act(() => new Promise((resolve) => setTimeout(resolve, 400)))
 
     expect(await readSessionFromDb()).toBeNull()
+  })
+
+  it('exposes the designer build version for host logging (issue #23)', () => {
+    // Baked from package.json at build time (tools/version.ts); under Vitest
+    // the vitest: guard resolves it to 'test', same as the git labels.
+    expect(version).toBe('test')
+
+    const handle = mountDesigner({ payload: PAYLOAD })
+    expect(handle.version).toBe('test')
+    expect(handle.version).toBe(version)
   })
 
   it('destroy unmounts the designer and removes its DOM from the shadow root', () => {
