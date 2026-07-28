@@ -167,7 +167,12 @@ export function useProjectState(bootstrap: AppBootstrap, host: EmbedHostBridge |
   const [hostDisplay, setHostDisplay] = useState<CanvasConfig | null>(
     bootstrap.hostDisplay ?? null,
   )
-  const [displayLocked, setDisplayLocked] = useState(bootstrap.hostDisplay != null)
+  // `hostDisplayLocked: false` seeds an unlocked "virtual display" (issue #70
+  // follow-up) — the host-pushed values still land on the canvas, but the
+  // controls start enabled until the user locks back onto them.
+  const [displayLocked, setDisplayLocked] = useState(
+    bootstrap.hostDisplay != null && (bootstrap.hostDisplayLocked ?? true),
+  )
   const [assetRevision, setAssetRevision] = useState(0)
   const [snapGrid, setSnapGrid] = useState<SnapGridPrefs>(() => readSnapGridPrefs())
   const [showHiddenHints, setShowHiddenHints] = useState(() => readShowHiddenHintsPrefs().enabled)
@@ -357,15 +362,19 @@ export function useProjectState(bootstrap: AppBootstrap, host: EmbedHostBridge |
         setMockStates(mock.states)
         setMockAttributes(mock.attributes)
       },
-      applyCapabilities: (capabilities) => {
-        // The host (re-)defined the display: adopt it and lock the display
-        // config controls to it (issue #70).
+      applyCapabilities: (capabilities, options) => {
+        // The host (re-)defined the display: adopt it, and by default lock
+        // the display config controls to it. `options.lock === false` seeds
+        // an unlocked "virtual display" instead (issue #70 follow-up) — the
+        // controls stay enabled, but the lock icon still shows so the user
+        // can lock back onto these values later.
         const next = capabilitiesToCanvas(capabilities, canvasRef.current)
+        const lock = options?.lock ?? true
         commitCanvas(next)
         hostDisplayRef.current = next
         setHostDisplay(next)
-        displayLockedRef.current = true
-        setDisplayLocked(true)
+        displayLockedRef.current = lock
+        setDisplayLocked(lock)
       },
       applyPayload: (nextElements) => {
         // The parent replaced the payload wholesale — undo history from the

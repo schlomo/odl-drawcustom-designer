@@ -7,6 +7,7 @@ import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import { DEFAULT_DISPLAY_CONFIG } from '../ui/preferences/displayConfig'
 import { capabilitiesToCanvas, hostStatesToMockData } from './hostContract'
 import type {
+  CapabilitiesPushOptions,
   EmbedHostBridge,
   EmbedTheme,
   HostPushTarget,
@@ -58,8 +59,11 @@ function buildEmbedBootstrap(options: MountOptions): AppBootstrap {
     sessionName: 'Untitled',
     elements: options.payload ? parseYamlPayload(options.payload) : [],
     canvas,
-    // Host-defined display (issue #70): lock the display config controls.
+    // Host-defined display (issue #70): presence locks the display config
+    // controls by default; `lock: false` seeds an unlocked "virtual display"
+    // instead (the lock icon still shows so the user can lock onto it later).
     hostDisplay: options.capabilities ? canvas : undefined,
+    hostDisplayLocked: options.lock ?? true,
     service: undefined,
     mockStates: mock.states,
     mockAttributes: mock.attributes,
@@ -153,9 +157,9 @@ export function mount(container: HTMLElement, options: MountOptions = {}): Mount
       assertMounted()
       push((target) => target.applyStates(states))
     },
-    setCapabilities(capabilities) {
+    setCapabilities(capabilities, options?: CapabilitiesPushOptions) {
       assertMounted()
-      push((target) => target.applyCapabilities(capabilities))
+      push((target) => target.applyCapabilities(capabilities, options))
     },
     setPayload(payload) {
       assertMounted()

@@ -37,17 +37,19 @@ const handle = mount(document.getElementById('designer'), {
   payload: yamlString,          // initial drawcustom YAML (list of elements)
   states: { /* see below */ },  // initial entity states for template preview
   capabilities: { /* below */ },// display description -> canvas + palette
+  lock: true,                   // optional, default true — see "Display config lock" below
   theme: 'dark',                // 'light' | 'dark', scoped to the container
   onSaveRequest(payload) {
     // user hit Save — persist the YAML; the designer never writes it itself
   },
 })
 
-handle.setStates(states)              // replace the entity-state map
-handle.setCapabilities(capabilities)  // re-map canvas size/rotation/palette
-handle.setPayload(yamlString)         // replace the payload (throws on bad YAML)
-handle.setTheme('light')              // switch the container-scoped theme
-handle.destroy()                      // unmount and empty the container
+handle.setStates(states)                              // replace the entity-state map
+handle.setCapabilities(capabilities)                  // re-map canvas size/rotation/palette, re-lock
+handle.setCapabilities(capabilities, { lock: false })  // same, but leaves the controls unlocked
+handle.setPayload(yamlString)                         // replace the payload (throws on bad YAML)
+handle.setTheme('light')                              // switch the container-scoped theme
+handle.destroy()                                      // unmount and empty the container
 ```
 
 - The container needs an explicit height; the designer fills it (`height: 100%`).
@@ -135,12 +137,13 @@ Known gaps: `palette_measured` itself is informational only (the hexes apply whe
 
 #### Display config lock (issue #70)
 
-When the mount received `capabilities` — at `mount()` or via `setCapabilities()` — the display config is **host-owned**: the resolution, rotation and color mode controls are disabled and a lock icon appears next to the "Display config" heading, **locked by default**.
+When the mount received `capabilities` — at `mount()` or via `setCapabilities()` — the display config is **host-owned**: a lock icon appears next to the "Display config" heading, and the resolution, rotation and color mode controls follow its state.
 
-- **Unlock** (click the lock) — the "virtual display" escape hatch: the user may configure any resolution/rotation/color mode. The preview then no longer matches the host's physical display.
-- **Re-lock** — restores the host-pushed display values (the designer-only preview dither setting survives).
-- **A new `setCapabilities()` push** re-asserts the host display: it applies to the canvas and re-locks the controls.
-- **Load Demo while locked** loads the demo payload and simulator seed but **keeps** the host-defined resolution/rotation/palette. Accepted consequence: on small displays the demo layout may look bad. Unlocked, Load Demo applies the showcase display config as in standalone.
+- **Locked (default)** — the controls are disabled. Both `mount({ capabilities })` and `handle.setCapabilities(capabilities)` lock **by default** (`lock` defaults to `true`), so existing hosts that never pass `lock` see unchanged behavior.
+- **Unlock (`lock: false`, or clicking the lock)** — the "virtual display" escape hatch: the user may configure any resolution/rotation/color mode immediately, and the preview no longer matches the host's physical display. Pass `lock: false` to `mount()` or `setCapabilities(capabilities, { lock: false })` to *seed* a display this way — e.g. a host that wants to hand the user a starting point without pinning them to it. The pushed values still land on the canvas and the lock icon still appears (showing its unlocked state) so the user can lock onto them later.
+- **Re-lock** (click the lock, whether it was unlocked by the user or seeded via `lock: false`) — restores the last-pushed host display values (the designer-only preview dither setting survives).
+- **A new `setCapabilities()` push** re-asserts the host display and, by default, re-locks the controls; pass `{ lock: false }` to keep them unlocked instead.
+- **Load Demo while locked** loads the demo payload and simulator seed but **keeps** the host-defined resolution/rotation/palette. Accepted consequence: on small displays the demo layout may look bad. Unlocked (including the `lock: false` seed), Load Demo applies the showcase display config as in standalone.
 - **No `capabilities`** (standalone, or an embed that never pushes them): no lock icon, controls behave exactly as before.
 
 ### `payload` / `onSaveRequest`

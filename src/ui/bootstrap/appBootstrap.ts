@@ -37,10 +37,16 @@ export interface AppBootstrap {
   editHistory?: PersistedEditHistory
   /**
    * Display config derived from host-pushed `capabilities` (issue #70). Set
-   * only by the embed mount; presence locks the display config controls
-   * behind the lock icon. Standalone bootstraps never set it.
+   * only by the embed mount; presence shows the lock icon behind the display
+   * config controls. Standalone bootstraps never set it.
    */
   hostDisplay?: DisplayConfig
+  /**
+   * Whether `hostDisplay` starts locked (issue #70 follow-up: `lock: false`
+   * mount option seeds an unlocked "virtual display"). Only meaningful
+   * alongside `hostDisplay`; defaults to `true` when omitted.
+   */
+  hostDisplayLocked?: boolean
 }
 
 /** Saved sessions with no elements fall back to the built-in sample dashboard. */

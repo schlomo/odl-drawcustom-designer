@@ -45,6 +45,24 @@ export interface HostCapabilities {
   palette_measured?: boolean
 }
 
+/**
+ * Options accompanying a `capabilities` push (issue #70). Kept separate from
+ * `HostCapabilities` itself, which mirrors the OpenDisplay HA integration's
+ * `capabilities.py` payload verbatim — `lock` is an embedding-only directive,
+ * not a physical display property, so it travels alongside the capabilities
+ * payload rather than inside it.
+ */
+export interface CapabilitiesPushOptions {
+  /**
+   * Whether the pushed display locks the display config controls.
+   * Default `true` — unchanged behavior for hosts that never pass this.
+   * `false` seeds a "virtual display": the canvas adopts the pushed values,
+   * controls stay enabled, and the lock icon shows unlocked (still present,
+   * so the user can lock onto the pushed values later).
+   */
+  lock?: boolean
+}
+
 export interface MountOptions {
   /** Initial drawcustom YAML payload (list of draw elements). */
   payload?: string
@@ -52,6 +70,11 @@ export interface MountOptions {
   states?: HostStates
   /** Initial display capabilities. */
   capabilities?: HostCapabilities
+  /**
+   * Whether the initial `capabilities` lock the display config controls.
+   * Only meaningful alongside `capabilities`. Default `true`.
+   */
+  lock?: boolean
   /** Initial theme; defaults to 'light'. */
   theme?: EmbedTheme
   /**
@@ -67,8 +90,13 @@ export interface MountHandle {
   destroy(): void
   /** Push a full replacement entity-state map for template preview. */
   setStates(states: HostStates): void
-  /** Push a display description; maps onto canvas size, rotation and palette. */
-  setCapabilities(capabilities: HostCapabilities): void
+  /**
+   * Push a display description; maps onto canvas size, rotation and palette.
+   * `options.lock` (default `true`) controls whether this push locks the
+   * display config controls (issue #70) — `false` seeds an unlocked "virtual
+   * display" the user is free to change immediately.
+   */
+  setCapabilities(capabilities: HostCapabilities, options?: CapabilitiesPushOptions): void
   /** Replace the current payload with new drawcustom YAML (throws on invalid YAML). */
   setPayload(payload: string): void
   /** Switch the container-scoped theme. */
@@ -82,7 +110,7 @@ export interface MountHandle {
  */
 export interface HostPushTarget {
   applyStates(states: HostStates): void
-  applyCapabilities(capabilities: HostCapabilities): void
+  applyCapabilities(capabilities: HostCapabilities, options?: CapabilitiesPushOptions): void
   applyPayload(elements: DrawElement[]): void
 }
 
