@@ -2,6 +2,8 @@
 
 The designer ships as an embeddable component (issue #20, [ADR-010](adr/ADR-010-ha-embed-mode.md)): a host application — the concrete target is the [OpenDisplay HA integration](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/44) custom panel — mounts it into a container, pushes entity states and display capabilities, and receives the drawcustom YAML payload on Save. Styles are isolated via Shadow DOM at the mount boundary (issue #21); live HA data is a later milestone (#24).
 
+Consumed as a **versioned GitHub-release artifact** (issue #23) — release procedure, semver policy, and consumer story: [`docs/releasing.md`](releasing.md).
+
 ## Library build
 
 ```bash
@@ -55,6 +57,20 @@ handle.destroy()                                      // unmount and empty the c
 - The container needs an explicit height; the designer fills it (`height: 100%`).
 - `mount()` and `setPayload()` throw synchronously on invalid YAML.
 - Multiple mounts on one page are possible; each handle is independent — including per-instance light/dark themes.
+
+### Version
+
+```js
+import { mount, version } from './odl-drawcustom-designer.js'
+
+console.log(version)              // e.g. '0.1.0' — package.json's version at build time
+console.log(mount(el, {}).version) // same value, also on the handle
+```
+
+`version` is baked in from `package.json` at build time (`tools/version.ts`);
+same string as `MountHandle.version`, whichever is more convenient for a host
+to log or report. See [`docs/releasing.md`](releasing.md) for the release
+procedure and semver policy that governs this API.
 
 ### Shadow DOM at the mount boundary (issue #21)
 

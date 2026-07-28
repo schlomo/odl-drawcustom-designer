@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import cssText from '../index.css?inline'
-import { parseYamlPayload } from '../core'
+import { APP_VERSION, parseYamlPayload } from '../core'
 import { App } from '../ui/App'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import { DEFAULT_DISPLAY_CONFIG } from '../ui/preferences/displayConfig'
@@ -147,6 +147,7 @@ export function mount(container: HTMLElement, options: MountOptions = {}): Mount
   }
 
   return {
+    version: APP_VERSION,
     destroy() {
       assertMounted()
       destroyed = true

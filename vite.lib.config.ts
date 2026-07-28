@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { gitBuildDefines } from './tools/buildDefines.ts'
+import { buildDefines } from './tools/buildDefines.ts'
 
 /**
  * Library build (issue #20): bundles src/embed/index.ts into ONE
@@ -17,7 +17,7 @@ import { gitBuildDefines } from './tools/buildDefines.ts'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   define: {
-    ...gitBuildDefines(),
+    ...buildDefines(),
     // Vite's app build injects this automatically; library mode does not.
     // Without it the bundled React keeps its `process.env.NODE_ENV` checks
     // and throws `process is not defined` in the browser.

@@ -1,5 +1,8 @@
 import { execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { resolveGitBranch, resolveGitPrNumber, resolveGitRevision } from './gitRevision.ts'
+import { resolveAppVersion } from './version.ts'
 
 /**
  * Build-time `define` entries shared by the app build (vite.config.ts) and
@@ -68,11 +71,32 @@ function gitPrNumber(): number {
   )
 }
 
-export function gitBuildDefines(): Record<string, string> {
+function readPackageVersion(): string | undefined {
+  try {
+    const packageJsonPath = fileURLToPath(new URL('../package.json', import.meta.url))
+    const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as { version?: string }
+    return pkg.version
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * The designer's runtime version (issue #23): package.json's `version` is
+ * the source of truth, baked in here so a host embedding the library build
+ * can log which designer build it's running (`version` export / mount
+ * handle field, `src/embed/index.ts`).
+ */
+function appVersion(): string {
+  return resolveAppVersion({ vitest: isVitest, packageVersion: readPackageVersion() })
+}
+
+export function buildDefines(): Record<string, string> {
   return {
     'import.meta.env.VITE_GIT_BRANCH': JSON.stringify(gitBranch()),
     'import.meta.env.VITE_GIT_REVISION': JSON.stringify(gitRevision()),
     'import.meta.env.VITE_GIT_MERGE_REVISION': JSON.stringify(gitMergeRevision()),
     'import.meta.env.VITE_GIT_PR_NUMBER': JSON.stringify(String(gitPrNumber())),
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion()),
   }
 }

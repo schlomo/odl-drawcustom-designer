@@ -35,6 +35,15 @@ export const APP_GIT_PR_NUMBER: number =
 export const APP_HEADER_LEGAL_HTML =
   (import.meta.env.VITE_HEADER_LEGAL_HTML ?? '').trim()
 
+/**
+ * Runtime version (issue #23): package.json's `version` at build time
+ * (`tools/version.ts` + `tools/buildDefines.ts`), so a host embedding the
+ * library build can log which designer build it's running. Re-exported from
+ * `src/embed/index.ts` (`version`) and surfaced on `MountHandle.version`.
+ */
+export const APP_VERSION =
+  (import.meta.env.VITE_APP_VERSION ?? '0.0.0').trim() || '0.0.0'
+
 /** Compact branch label for the header (leaf segment, truncated when long). */
 export function formatGitBranchLabel(branch: string, maxLen = 12): string {
   if (DEV_LABELS.has(branch) || branch.length <= maxLen) {
