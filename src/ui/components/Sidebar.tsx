@@ -175,6 +175,11 @@ export function Sidebar({
                 displayLock === 'locked' ? 'Unlock display config' : 'Lock display config'
               }
               tooltipAlign="end"
+              // Flush with the top of this `overflow-hidden` sidebar (issue
+              // #70 review): an upward bubble has no room and gets clipped by
+              // the sidebar's own top edge, reading as hidden behind the app
+              // header above it.
+              tooltipPlacement="below"
               onClick={onToggleDisplayLock}
             />
           </div>

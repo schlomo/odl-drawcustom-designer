@@ -18,6 +18,8 @@ interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 
   tooltip?: string
   /** Tooltip bubble anchor — see {@link ToolbarTooltip}'s `align`. */
   tooltipAlign?: 'center' | 'end'
+  /** Tooltip vertical anchor — see {@link ToolbarTooltip}'s `placement`. */
+  tooltipPlacement?: 'above' | 'below'
 }
 
 export function IconButton({
@@ -31,6 +33,7 @@ export function IconButton({
   title,
   tooltip,
   tooltipAlign,
+  tooltipPlacement,
   ...rest
 }: IconButtonProps) {
   const isIconOnly = compact || label == null
@@ -59,7 +62,7 @@ export function IconButton({
 
   if (isIconOnly && resolvedTitle) {
     return (
-      <ToolbarTooltip label={resolvedTitle} align={tooltipAlign}>
+      <ToolbarTooltip label={resolvedTitle} align={tooltipAlign} placement={tooltipPlacement}>
         {button}
       </ToolbarTooltip>
     )
