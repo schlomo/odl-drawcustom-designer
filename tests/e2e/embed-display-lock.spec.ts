@@ -53,6 +53,60 @@ test.describe('embedded with host capabilities', () => {
     await expect(page.getByRole('button', { name: 'Resolution' })).toContainText(/296\s*×\s*128/)
     await expect(page.getByRole('combobox', { name: 'Color mode' })).toHaveValue('bwr')
   })
+
+  // Maintainer review (2026-07-28): the lock button sits flush at the top of
+  // the sidebar's `overflow-hidden` `<aside>` — an upward-popping tooltip has
+  // no room and gets clipped by the aside's own top edge, reading as a dark
+  // pill half-hidden behind the app header above "Display config". Bounding
+  // boxes (not `elementFromPoint`, which the tooltip's `pointer-events-none`
+  // always resolves through to the control behind it) prove the bubble
+  // renders fully inside its clipping ancestor and the viewport instead.
+  test('lock button tooltip is not clipped by the sidebar top edge', async ({ page }) => {
+    const lockButton = page.getByRole('button', { name: 'Unlock display config' })
+    await lockButton.hover()
+
+    // The tooltip fades in after TOOLBAR_TOOLTIP_SHOW_DELAY_MS; getByRole
+    // excludes aria-hidden/display:none elements from the a11y tree, so
+    // waiting on it (rather than reading geometry immediately) settles the
+    // hover state before the bounding-box assertions below.
+    await expect(page.getByRole('tooltip', { name: 'Unlock display config' })).toBeVisible()
+
+    const geometry = await page.evaluate(() => {
+      function findShadowRoot(node: Element): ShadowRoot | null {
+        if (node.shadowRoot) return node.shadowRoot
+        for (const child of Array.from(node.children)) {
+          const found = findShadowRoot(child)
+          if (found) return found
+        }
+        return null
+      }
+      const shadowRoot = findShadowRoot(document.body)
+      const tooltip = shadowRoot?.querySelector('[role="tooltip"]')
+      const aside = tooltip?.closest('aside')
+      if (!tooltip || !aside) return null
+      const tooltipBox = tooltip.getBoundingClientRect()
+      const asideBox = aside.getBoundingClientRect()
+      return {
+        ariaHidden: tooltip.getAttribute('aria-hidden'),
+        display: getComputedStyle(tooltip).display,
+        fullyWithinAside:
+          tooltipBox.top >= asideBox.top &&
+          tooltipBox.bottom <= asideBox.bottom &&
+          tooltipBox.left >= asideBox.left &&
+          tooltipBox.right <= asideBox.right,
+        fullyWithinViewport:
+          tooltipBox.top >= 0 &&
+          tooltipBox.left >= 0 &&
+          tooltipBox.bottom <= window.innerHeight &&
+          tooltipBox.right <= window.innerWidth,
+      }
+    })
+
+    expect(geometry?.display).not.toBe('none')
+    expect(geometry?.ariaHidden).toBe('false')
+    expect(geometry?.fullyWithinAside).toBe(true)
+    expect(geometry?.fullyWithinViewport).toBe(true)
+  })
 })
 
 test('standalone app shows no display config lock and keeps the controls enabled', async ({
