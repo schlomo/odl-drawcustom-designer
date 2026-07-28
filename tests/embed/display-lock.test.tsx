@@ -156,4 +156,59 @@ describe('display config lock (issue #70)', () => {
     })
     expect(designer().getByLabelText('Color mode')).toHaveValue('four')
   })
+
+  // Maintainer ruling 2026-07-28: a host must be able to seed a "virtual
+  // display" — push a display definition the user is immediately free to
+  // change, with the lock icon still present so they can lock back onto the
+  // pushed values. `lock: false` alongside `capabilities` opts into this;
+  // omitting it (or passing `lock: true`) keeps today's locked-by-default
+  // behavior unchanged for existing hosts.
+  describe('lock: false (virtual display, issue #70 follow-up)', () => {
+    it('at mount: adopts the host display, controls stay enabled, lock icon shows unlocked', () => {
+      mountDesigner({ capabilities: CAPABILITIES_296X128_BWR, lock: false })
+
+      expect(designer().getByRole('button', { name: 'Lock display config' })).toBeInTheDocument()
+      expect(
+        designer().queryByRole('button', { name: 'Unlock display config' }),
+      ).toBeNull()
+      expect(designer().getByLabelText('Resolution')).toHaveTextContent(/296\s*×\s*128/)
+      expect(designer().getByLabelText('Color mode')).toHaveValue('bwr')
+      expect(designer().getByLabelText('Resolution')).toBeEnabled()
+      expect(designer().getByLabelText('Color mode')).toBeEnabled()
+      expect(designer().getByRole('button', { name: '90°' })).toBeEnabled()
+    })
+
+    it('via setCapabilities: same unlocked seeding on an already-mounted designer', () => {
+      const handle = mountDesigner({})
+
+      act(() => handle.setCapabilities(CAPABILITIES_296X128_BWR, { lock: false }))
+
+      expect(designer().getByRole('button', { name: 'Lock display config' })).toBeInTheDocument()
+      expect(designer().getByLabelText('Color mode')).toBeEnabled()
+      expect(designer().getByLabelText('Color mode')).toHaveValue('bwr')
+    })
+
+    it('locking after an unlocked push snaps to the pushed host values', () => {
+      mountDesigner({ capabilities: CAPABILITIES_296X128_BWR, lock: false })
+
+      const colorMode = designer().getByLabelText('Color mode')
+      fireEvent.change(colorMode, { target: { value: 'bw' } })
+      expect(colorMode).toHaveValue('bw')
+
+      fireEvent.click(designer().getByRole('button', { name: 'Lock display config' }))
+
+      expect(designer().getByLabelText('Color mode')).toHaveValue('bwr')
+      expect(designer().getByLabelText('Color mode')).toBeDisabled()
+      expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+    })
+
+    it('a later push without lock:false (default) re-asserts and locks', () => {
+      const handle = mountDesigner({ capabilities: CAPABILITIES_296X128_BWR, lock: false })
+
+      act(() => handle.setCapabilities(CAPABILITIES_296X128_BWR))
+
+      expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+      expect(designer().getByLabelText('Color mode')).toBeDisabled()
+    })
+  })
 })

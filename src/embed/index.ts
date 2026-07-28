@@ -6,6 +6,7 @@
  */
 export { mount } from './mount'
 export type {
+  CapabilitiesPushOptions,
   EmbedTheme,
   HostCapabilities,
   HostEntityState,
