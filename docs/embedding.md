@@ -63,13 +63,17 @@ handle.destroy()                                      // unmount and empty the c
 ```js
 import { mount, version } from './odl-drawcustom-designer.js'
 
-console.log(version)              // e.g. '1.0.0' — package.json's version at build time
+console.log(version)              // e.g. '1.2.3' in a released build, '0.0.0-dev' otherwise
 console.log(mount(el, {}).version) // same value, also on the handle
 ```
 
-`version` is baked in from `package.json` at build time (`tools/version.ts`);
-same string as `MountHandle.version`, whichever is more convenient for a host
-to log or report. See [`docs/releasing.md`](releasing.md) for the release
+`version` is baked in at build time (`tools/version.ts`) from the release
+script's `APP_VERSION` environment variable — git tags, not `package.json`
+(which stays pinned at `0.0.0`), are this project's version source. A build
+that isn't produced by the release workflow (local dev, this repo's own GH
+Pages app build) has no `APP_VERSION` set and reports `'0.0.0-dev'`. Same
+string as `MountHandle.version`, whichever is more convenient for a host to
+log or report. See [`docs/releasing.md`](releasing.md) for the release
 procedure and semver policy that governs this API.
 
 ### Shadow DOM at the mount boundary (issue #21)

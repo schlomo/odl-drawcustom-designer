@@ -1,6 +1,4 @@
 import { execSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { resolveGitBranch, resolveGitPrNumber, resolveGitRevision } from './gitRevision.ts'
 import { resolveAppVersion } from './version.ts'
 
@@ -71,24 +69,17 @@ function gitPrNumber(): number {
   )
 }
 
-function readPackageVersion(): string | undefined {
-  try {
-    const packageJsonPath = fileURLToPath(new URL('../package.json', import.meta.url))
-    const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as { version?: string }
-    return pkg.version
-  } catch {
-    return undefined
-  }
-}
-
 /**
- * The designer's runtime version (issue #23): package.json's `version` is
- * the source of truth, baked in here so a host embedding the library build
- * can log which designer build it's running (`version` export / mount
- * handle field, `src/embed/index.ts`).
+ * The designer's runtime version (issue #23, reworked 2026-07-29: git tags
+ * are the sole version source, not package.json). `tools/autoRelease.ts`
+ * sets `APP_VERSION` in the environment for the release build it triggers;
+ * baked in here so a host embedding the library build can log which
+ * designer build it's running (`version` export / mount handle field,
+ * `src/embed/index.ts`). Absent (local dev, CI `checks`), this falls back
+ * to `DEV_APP_VERSION` (`tools/version.ts`).
  */
 function appVersion(): string {
-  return resolveAppVersion({ vitest: isVitest, packageVersion: readPackageVersion() })
+  return resolveAppVersion({ vitest: isVitest, envVersion: process.env.APP_VERSION })
 }
 
 export function buildDefines(): Record<string, string> {

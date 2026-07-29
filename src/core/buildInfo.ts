@@ -36,13 +36,15 @@ export const APP_HEADER_LEGAL_HTML =
   (import.meta.env.VITE_HEADER_LEGAL_HTML ?? '').trim()
 
 /**
- * Runtime version (issue #23): package.json's `version` at build time
- * (`tools/version.ts` + `tools/buildDefines.ts`), so a host embedding the
- * library build can log which designer build it's running. Re-exported from
+ * Runtime version (issue #23, reworked 2026-07-29: git tags are the sole
+ * version source, not package.json — see `tools/version.ts`). Baked in at
+ * build time (`tools/buildDefines.ts`) from the release script's
+ * `APP_VERSION` env var; a non-release build (local dev, CI `checks`) has
+ * none set and falls back to `0.0.0-dev`. Re-exported from
  * `src/embed/index.ts` (`version`) and surfaced on `MountHandle.version`.
  */
 export const APP_VERSION =
-  (import.meta.env.VITE_APP_VERSION ?? '0.0.0').trim() || '0.0.0'
+  (import.meta.env.VITE_APP_VERSION ?? '0.0.0-dev').trim() || '0.0.0-dev'
 
 /** Compact branch label for the header (leaf segment, truncated when long). */
 export function formatGitBranchLabel(branch: string, maxLen = 12): string {

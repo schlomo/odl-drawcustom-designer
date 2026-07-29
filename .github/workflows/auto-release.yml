@@ -1,62 +1,50 @@
-# Auto-release on push to main (issue #93): main is always stable (PR
-# checks gate it), so every push to main is a candidate release. This
-# workflow derives a semver bump from conventional-commit titles since the
-# last `vX.Y.Z` tag, bumps package.json + package-lock.json, commits, tags,
-# and pushes the tag — which triggers the existing tag-driven release
-# workflow (release.yml, issue #23). That workflow is the single release
-# mechanism and is NOT modified here; this workflow only ever produces the
-# tag push that feeds it. Manual tagging (docs/releasing.md) remains the
-# escape hatch if this workflow can't run.
+# Auto-release on push to main (issue #93, reworked 2026-07-29 per
+# maintainer ruling: KISS, long-term, no PAT). main is always stable (PR
+# checks gate it), so every push to main is a release candidate. This is the
+# single release mechanism: it derives a semver bump from conventional-
+# commit titles since the last `vX.Y.Z` tag reachable from HEAD, builds the
+# library with that version injected, and publishes it as a GitHub release —
+# `gh release create` creates the tag itself. Nothing is ever pushed to
+# main (no bump commit, no package.json write), so the default
+# `GITHUB_TOKEN` suffices — no downstream workflow needs to trigger off the
+# tag, so there is no loop-prevention problem to work around and no PAT is
+# needed.
 #
-# Thin CI (AGENTS.md): all decision logic (bump derivation/precedence, the
-# loop guard, the no-tag-yet case) lives in tools/autoRelease.ts, unit-tested
+# `workflow_dispatch` is a manual fallback that runs the exact same path —
+# useful for a clean retry after a transient failure (npm/GitHub outage,
+# etc). See docs/releasing.md.
+#
+# Thin CI (AGENTS.md): all decision logic (bump derivation/precedence, tag
+# ancestry, the no-tag-yet case) lives in tools/autoRelease.ts, unit-tested
 # in tests/tools/autoRelease.test.ts. This file only wires checkout/Node/npm
 # and calls the script.
-#
-# IMPORTANT — GitHub Actions does not re-trigger workflows from pushes made
-# with the default GITHUB_TOKEN (documented loop-prevention behavior — see
-# "Triggering a workflow from a workflow" in GitHub's Actions docs). If this
-# workflow pushed the release tag using the default token, release.yml's
-# `on: push: tags: v*.*.*` would NEVER fire, silently breaking the whole
-# point of this automation. So checkout is authenticated with a repo secret
-# PAT (`RELEASE_PAT`) instead — see docs/releasing.md for how the maintainer
-# creates it. Without that secret, `secrets.RELEASE_PAT` resolves to an
-# empty string, checkout configures no push credentials, and the later
-# `git push` steps in tools/autoRelease.ts fail loudly (not a silent no-op).
 
 name: Auto Release
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
-# Serialize: each run mutates package.json/tags based on "the last tag", so
-# overlapping runs on rapid consecutive pushes must queue, never race.
+# Serialize: each run derives "the next version" from tag ancestry, so
+# overlapping runs on rapid consecutive pushes must queue, never race or
+# cancel a half-published release.
 concurrency:
   group: auto-release-main
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   auto-release:
     runs-on: ubuntu-latest
-    # Skip when the push itself is this workflow's own bump commit — belt
-    # and suspenders on top of the tools/autoRelease.ts loop guard, so an
-    # unauthenticated (no RELEASE_PAT) push doesn't even attempt a run.
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v7
         with:
           # Full history + tags: tools/autoRelease.ts needs every tag
           # reachable from HEAD and the full commit log since the latest one.
           fetch-depth: 0
-          # See file header: must be a PAT, not the default GITHUB_TOKEN, or
-          # the pushed tag below silently fails to trigger release.yml.
-          token: ${{ secrets.RELEASE_PAT }}
 
       - uses: actions/setup-node@v7
         with:
@@ -64,5 +52,10 @@ jobs:
           cache: npm
 
       - run: npm ci
+      - run: npm test
+      - run: npm run lint
 
-      - run: node tools/autoRelease.ts
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/autoRelease.ts

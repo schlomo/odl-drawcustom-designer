@@ -1,22 +1,22 @@
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import { versionFromTag } from './releaseVersion'
 
 /**
- * Auto-release on push to main (issue #93). This is the "thin CI" logic
+ * Auto-release on push to main (issue #93, reworked 2026-07-29 per
+ * maintainer ruling: KISS, long-term, no PAT). This is the "thin CI" logic
  * (AGENTS.md) called by `.github/workflows/auto-release.yml`: read commits
- * since the last `vX.Y.Z` tag, derive a semver bump from their conventional-
- * commit titles, bump `package.json` (+ lockfile), commit, tag, and push.
- * The pushed tag then triggers the existing tag-driven release workflow
- * (`.github/workflows/release.yml`, issue #23), which is the single
- * release mechanism and stays untouched — this script only ever produces
- * the tag push that feeds it.
+ * since the last `vX.Y.Z` tag reachable from HEAD, derive a semver bump from
+ * their conventional-commit titles, build the library with that version
+ * injected, and publish it as a GitHub release — `gh release create` CREATES
+ * the tag itself. Nothing is ever pushed to `main` (no bump commit, no
+ * package.json write), so there is no loop guard to worry about; the
+ * default `GITHUB_TOKEN` suffices because no downstream workflow needs to
+ * trigger off the tag.
  *
- * Everything decision-shaped (bump derivation, precedence, loop guard, the
+ * Everything decision-shaped (bump derivation, precedence, tag parsing, the
  * no-tag-yet case) is a pure function below, unit-tested in
  * tests/tools/autoRelease.test.ts. Only the `import.meta.main` block does
- * git plumbing (reading tags/log, committing/tagging/pushing) and file
- * writes — not unit-tested, exercised for real by the workflow.
+ * git/gh plumbing (reading tags/log, building, publishing) — not
+ * unit-tested, exercised for real by the workflow.
  */
 
 export type Bump = 'major' | 'minor' | 'patch'
@@ -57,16 +57,6 @@ export function maxBump(bumps: Bump[]): Bump | undefined {
   return bumps.reduce((max, bump) => (BUMP_RANK[bump] > BUMP_RANK[max] ? bump : max))
 }
 
-/**
- * Loop guard (issue #93): this script's own release commits must never
- * trigger another bump. The auto-release workflow's every push-to-main run
- * checks HEAD's subject against this before doing anything else — the
- * bump commit it creates always matches, so the run it triggers stops here.
- */
-export function isReleaseCommit(subject: string): boolean {
-  return /^chore\(release\):/.test(subject.trim())
-}
-
 const PLAIN_SEMVER = /^(\d+)\.(\d+)\.(\d+)$/
 
 /** Apply a conventional-commit bump to a plain `X.Y.Z` version string. */
@@ -99,39 +89,53 @@ export function parseCommitMessages(rawLog: string): string[] {
     .filter((message) => message.length > 0)
 }
 
+const TAG_PATTERN = /^v(\d+\.\d+\.\d+)$/
+
+/** Extract the semver from a `vX.Y.Z` tag. Throws on any tag that isn't exactly `vX.Y.Z`. */
+export function versionFromTag(tag: string): string {
+  const match = TAG_PATTERN.exec(tag.trim())
+  if (!match) {
+    throw new Error(`Tag "${tag}" must match vX.Y.Z (e.g. v1.2.3) — no pre-release/build suffixes`)
+  }
+  return match[1]!
+}
+
+/**
+ * Args for `git tag --list`, restricted to release tags **reachable from
+ * HEAD** (`--merged HEAD`). Without that flag a stray `vX.Y.Z` tag pushed on
+ * some unmerged branch would sort ahead by version and silently become the
+ * base for the next bump — a reviewer finding on the pre-rework version of
+ * this script, which listed all matching tags repo-wide.
+ */
+export function gitTagListArgs(): string[] {
+  return ['tag', '--list', 'v*.*.*', '--merged', 'HEAD', '--sort=-v:refname']
+}
+
 export type ReleaseDecision =
   | { skip: true; reason: string }
   | { skip: false; mode: 'first-release'; version: string; reason: string }
   | { skip: false; mode: 'bump'; version: string; bump: Bump; reason: string }
 
 export interface PlanReleaseInput {
-  /** Subject line of the current HEAD commit — the loop guard checks this first. */
-  headSubject: string
   /** Latest `vX.Y.Z` tag reachable from HEAD, or `undefined` if none exists yet. */
   latestTag: string | undefined
-  /** Current package.json `version` — only used for the no-tag-yet (first release) case. */
-  packageVersion: string
   /** Full messages (subject + body) of commits strictly after `latestTag`, in any order. */
   commitMessagesSinceTag: string[]
 }
 
 /**
  * Pure decision logic for the auto-release workflow: given the repo state,
- * decide whether to release and, if so, what version and why. All git
- * plumbing and file/network side effects happen in the CLI entry point
- * below — this is what's unit-tested (AGENTS.md, "Behavior tests only").
+ * decide whether to release and, if so, what version and why. All git/gh
+ * plumbing and the library build happen in the CLI entry point below —
+ * this is what's unit-tested (AGENTS.md, "Behavior tests only").
  */
 export function planRelease(input: PlanReleaseInput): ReleaseDecision {
-  if (isReleaseCommit(input.headSubject)) {
-    return { skip: true, reason: 'HEAD is a release-bump commit (loop guard) — skipping' }
-  }
-
   if (!input.latestTag) {
     return {
       skip: false,
       mode: 'first-release',
-      version: input.packageVersion,
-      reason: 'no release tag exists yet — releasing the current package.json version as-is',
+      version: '1.0.0',
+      reason: 'no release tag reachable from HEAD yet — first release is v1.0.0',
     }
   }
 
@@ -153,54 +157,62 @@ export function planRelease(input: PlanReleaseInput): ReleaseDecision {
 if (import.meta.main) {
   const git = (args: string[]): string => execFileSync('git', args, { encoding: 'utf8' })
 
-  const headSubject = git(['log', '-1', '--format=%s']).trim()
-
-  const tagList = git(['tag', '--list', 'v*.*.*', '--sort=-v:refname'])
+  const tagList = git(gitTagListArgs())
     .split('\n')
     .map((tag) => tag.trim())
     .filter((tag) => tag.length > 0)
   const latestTag = tagList[0]
 
-  const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { version: string }
-
   const commitMessagesSinceTag = latestTag
     ? parseCommitMessages(git(['log', `${latestTag}..HEAD`, '--format=%B%x00']))
     : []
 
-  const plan = planRelease({
-    headSubject,
-    latestTag,
-    packageVersion: pkg.version,
-    commitMessagesSinceTag,
-  })
+  const plan = planRelease({ latestTag, commitMessagesSinceTag })
 
   if (plan.skip) {
     console.log(`Skipping release: ${plan.reason}`)
     process.exit(0)
   }
 
-  console.log(`Releasing v${plan.version}: ${plan.reason}`)
+  const tag = `v${plan.version}`
+  console.log(`Releasing ${tag}: ${plan.reason}`)
 
-  if (plan.mode === 'bump') {
-    // package.json/package-lock.json actually change here — commit them.
-    execFileSync('npm', ['version', plan.version, '--no-git-tag-version'], { stdio: 'inherit' })
-    execFileSync('git', ['config', 'user.name', 'github-actions[bot]'])
-    execFileSync('git', [
-      'config',
-      'user.email',
-      '41898282+github-actions[bot]@users.noreply.github.com',
-    ])
-    execFileSync('git', ['add', 'package.json', 'package-lock.json'])
-    execFileSync('git', ['commit', '-m', `chore(release): v${plan.version}`])
-    execFileSync('git', ['tag', `v${plan.version}`])
-    execFileSync('git', ['push', 'origin', 'HEAD:main'])
-    execFileSync('git', ['push', 'origin', `v${plan.version}`])
-  } else {
-    // First release: package.json already reads plan.version — no bump, no
-    // commit needed, just tag the current HEAD as-is.
-    execFileSync('git', ['tag', `v${plan.version}`])
-    execFileSync('git', ['push', 'origin', `v${plan.version}`])
+  const targetSha = process.env.GITHUB_SHA
+  if (!targetSha) {
+    throw new Error(
+      'GITHUB_SHA is not set — this script publishes a release tagged at a specific commit ' +
+        'and must run inside GitHub Actions (or with GITHUB_SHA set manually)',
+    )
   }
 
-  console.log(`Pushed v${plan.version}.`)
+  // Build the library with the derived version injected (tools/version.ts /
+  // tools/buildDefines.ts read APP_VERSION from the environment).
+  execFileSync('npm', ['run', 'build:lib'], {
+    stdio: 'inherit',
+    env: { ...process.env, APP_VERSION: plan.version },
+  })
+
+  // Creates the tag AND the release in one step (nothing is pushed to
+  // main). If the tag/release already exists this fails loudly — every
+  // main push derives a fresh version from tag ancestry, so a collision is
+  // a real error (e.g. a concurrent run, or a manual retry that shouldn't
+  // have been needed), not something to paper over.
+  execFileSync(
+    'gh',
+    [
+      'release',
+      'create',
+      tag,
+      'dist-lib/odl-drawcustom-designer.js',
+      'LICENSE',
+      '--title',
+      tag,
+      '--generate-notes',
+      '--target',
+      targetSha,
+    ],
+    { stdio: 'inherit' },
+  )
+
+  console.log(`Released ${tag}.`)
 }
