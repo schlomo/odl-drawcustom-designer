@@ -1,50 +1,33 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import { App } from '../ui/App'
-import { defaultAppBootstrap, loadAppBootstrap } from '../ui/bootstrap/appBootstrap'
-import { subscribeShareHashNavigation } from '../ui/bootstrap/shareHashNavigation'
 import { readThemeMode, resolveThemeMode } from '../ui/preferences/theme'
+import { mountDesigner } from './mount'
+import { createStandaloneHost } from './standaloneHost'
+import type { MountHandle } from './types'
 
 /**
- * Standalone SPA mount (GH Pages runtime): document-level theme, IndexedDB
- * session bootstrap and share-hash navigation. The embedded runtime is
- * `mount()` in ./mount.tsx — same App shell, host-scoped behavior (#20).
- * Deliberately NOT exported from the library entry (./index.ts).
+ * Paint the stored theme preference on the document before React renders.
+ * The standalone bootstrap is async (IndexedDB session + share hash), so
+ * without this the first frame would flash the light theme for a dark-theme
+ * user. Document-level theming is this adapter's policy — the shared mount
+ * internals never touch `document.documentElement` (ADR-010, ADR-017).
  */
-export function mountStandaloneApp(container: HTMLElement): void {
-  const initialMode = readThemeMode()
-  const initialResolved = resolveThemeMode(
-    initialMode,
+function applyStoredDocumentTheme(): void {
+  const resolved = resolveThemeMode(
+    readThemeMode(),
     window.matchMedia('(prefers-color-scheme: dark)').matches,
   )
-  document.documentElement.classList.toggle('dark', initialResolved === 'dark')
-  document.documentElement.dataset.theme = initialResolved
+  document.documentElement.classList.toggle('dark', resolved === 'dark')
+  document.documentElement.dataset.theme = resolved
+}
 
-  const root = createRoot(container)
-  let renderGeneration = 0
-
-  function renderApp(bootstrap: ReturnType<typeof defaultAppBootstrap>) {
-    renderGeneration += 1
-    root.render(
-      <StrictMode>
-        <App key={renderGeneration} bootstrap={bootstrap} />
-      </StrictMode>,
-    )
-  }
-
-  async function bootstrapAndRender() {
-    const bootstrap = await loadAppBootstrap()
-    renderApp(bootstrap)
-  }
-
-  void bootstrapAndRender().catch((error) => {
-    console.error('Failed to load saved session', error)
-    renderApp(defaultAppBootstrap())
-  })
-
-  subscribeShareHashNavigation(() => {
-    void bootstrapAndRender().catch((error) => {
-      console.error('Failed to load share hash', error)
-    })
-  })
+/**
+ * Standalone SPA mount (GitHub Pages runtime): the standalone host adapter
+ * over the same `mount()` lifecycle the library exports (issue #72, ADR-017).
+ * Persistence, share-hash bootstrap and document-level theme are the
+ * adapter's policy (./standaloneHost.ts); the lifecycle is shared.
+ *
+ * Deliberately NOT exported from the library entry (./index.ts).
+ */
+export function mountStandaloneApp(container: HTMLElement): MountHandle {
+  applyStoredDocumentTheme()
+  return mountDesigner(container, createStandaloneHost())
 }

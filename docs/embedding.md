@@ -195,4 +195,22 @@ case rather than an edge case:
 
 ## Standalone SPA
 
-`src/main.tsx` is a thin caller of the same machinery (`src/embed/standalone.tsx`): document-level theme, IndexedDB session bootstrap, share-hash navigation. Standalone behavior is unchanged by embedding.
+The standalone GitHub Pages app is a **host adapter over the same mount lifecycle** the library exports (issue #72, [ADR-017](adr/ADR-017-host-adapter-seam.md)): `src/main.tsx` calls `mountStandaloneApp()` (`src/embed/standalone.tsx`), which mounts `createStandaloneHost()` (`src/embed/standaloneHost.ts`) through the internal `mountDesigner()` in `src/embed/mount.tsx` — the same function the public `mount()` uses with the embedded adapter.
+
+Standalone behavior is unchanged by embedding: page-DOM rendering (no shadow root), document-level theme, IndexedDB session/mocks/variables autosave, `#d=` share-hash bootstrap and same-tab re-bootstrap, share link and theme toggle in the chrome.
+
+### Host adapters
+
+Everything that used to be an `embedded` conditional in the React shell is policy on the `DesignerHost` adapter (`src/embed/host.ts`):
+
+| Policy | Standalone | Embedded (`mount()`) |
+|--------|-----------|----------------------|
+| `styleScope` | `page` (page's own stylesheet) | `shadow` (isolated root + injected CSS) |
+| `theme` | `{ owner: 'designer' }` — persisted preference on `document.documentElement`, theme toggle shown | `{ owner: 'host', value }` — fixed, scoped to the mount wrapper |
+| `fill` | `viewport` | `container` |
+| `shareLink` | `true` | `false` |
+| `persistence` | IndexedDB writers | `null` — the parent owns the payload |
+| `onSaveRequest` | absent (persists continuously) | present → Save button |
+| `loadBootstrap` | async: session + `#d=` hash | sync: `payload`/`states`/`capabilities` options |
+
+The interface is **internal on purpose** — it references internal types, so publishing it would freeze designer internals under semver ([`releasing.md`](releasing.md)). The public embedded surface (`mount`, `MountOptions`, `MountHandle`, the host data contract) is unchanged by the convergence. The M4 HA panel (issue #25) becomes a third adapter, not a third mode.

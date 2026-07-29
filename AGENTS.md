@@ -33,13 +33,14 @@ Full set lives in [`docs/adr/`](docs/adr/). Read the rows that match your task b
 | [014](docs/adr/ADR-014-product-naming.md) | Product naming | `src/core/brand.ts`, slug, storage keys |
 | [015](docs/adr/ADR-015-showcase-demo-bundle.md) | Showcase demo bundle | Load Demo, `src/assets/showcase/`, first-run mocks |
 | [016](docs/adr/ADR-016-toolbar-chrome-layout.md) | Toolbar chrome | Responsive toolbar rows, label collapse |
+| [017](docs/adr/ADR-017-host-adapter-seam.md) | Host-adapter seam | `src/embed/` mount lifecycle, host policy (theme/persistence/chrome), new host runtimes |
 
 ## Architecture
 
 - **`src/core/`** — pure TypeScript; **never** import React. Business logic lives here.
 - **`src/ui/`** — React shell; calls core via `src/core/index.ts`.
 - **`src/storage/`** — IndexedDB adapters (assets, mocks, variables, session).
-- **`src/embed/`** — embeddable `mount()` API, host data contract, standalone entry helper (issue #20, ADR-010; library build via `npm run build:lib`, docs in [`docs/embedding.md`](docs/embedding.md)).
+- **`src/embed/`** — the **one** designer mount lifecycle plus its host adapters (issue #72, ADR-017): `mountDesigner()` in `mount.tsx` (DOM/render target, React root, bootstrap, push queue), `host.ts` (`DesignerHost` policy interface — internal, not published), `standaloneHost.ts` (GitHub Pages SPA), `embeddedHost.ts` (what the public `mount()` builds), `types.ts` (host data contract, ADR-010). Library build via `npm run build:lib`, docs in [`docs/embedding.md`](docs/embedding.md).
 - **`src/assets/showcase/`** — built-in **Load Demo** bundle: `showcase.yml` (payload), `showcase.json` (canvas + simulator seed), `showcase.png` (bundled image). Loaded by `src/ui/data/showcase.ts` (ADR-015).
 - **`src/ui/lib/clear-demo-data.ts`** — **Clear all** strips only unmodified showcase simulator entries; user mocks survive.
 
@@ -67,9 +68,10 @@ Full contract: [ADR-009](docs/adr/ADR-009-yaml-jinja-editor.md).
 
 ## Embed mode invariants
 
-Full contract: [`docs/embedding.md`](docs/embedding.md) (ADR-010).
+Full contract: [`docs/embedding.md`](docs/embedding.md) (ADR-010, ADR-017).
 
-- The embed path (`src/embed/mount.tsx`) must never touch `document.documentElement`, `document.head` styles, or global theme — everything scoped to the mount wrapper/shadow root (PR #67/#74).
+- The shared mount lifecycle (`src/embed/mount.tsx`) must never touch `document.documentElement`, `document.head` styles, or global theme — everything scoped to the mount wrapper/shadow root (PR #67/#74). Document-level theming is the **standalone adapter's** policy (`src/embed/standalone.tsx`, `theme: { owner: 'designer' }`); never move it into the lifecycle or the shell.
+- **No runtime mode in the React shell** (ADR-017): `App`/`useProjectState` read `DesignerHost` policy (theme owner, `fill`, `shareLink`, `persistence`, `onSaveRequest`) and take a **required** host. Do not reintroduce an `embedded` flag or an optional host defaulting to standalone — an implicit default is how an embedded mount would end up theming the host document.
 - Standalone output must stay byte-identical when no host data is pushed — palette/renderer helpers return canonical constants absent overrides (PR #75).
 - Library build = single self-contained ESM, React bundled, no code splitting (deliberate — composition, wire sizes, and rejected alternatives documented in [`docs/bundle-audit.md`](docs/bundle-audit.md), issue #22); `dist-lib` must work from any dumb static file server.
 - Clipboard/capability features must capability-detect (`window.isSecureContext`, presence checks) and surface visible explanations — insecure-LAN Home Assistant boxes are the PRIMARY deployment, not an edge case (PRs #77/#81).

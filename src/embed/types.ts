@@ -116,23 +116,13 @@ export interface MountHandle {
 
 /**
  * Applies host pushes to the running designer. Registered by the React shell
- * once its state exists; every method is invoked from a host event (a
- * `MountHandle` setter), the React-sanctioned place to call setState from.
+ * once its state exists (through `DesignerHost.registerPushTarget`, which the
+ * mount lifecycle supplies — see ./host.ts); every method is invoked from a
+ * host event (a `MountHandle` setter), the React-sanctioned place to call
+ * setState from.
  */
 export interface HostPushTarget {
   applyStates(states: HostStates): void
   applyCapabilities(capabilities: HostCapabilities, options?: CapabilitiesPushOptions): void
   applyPayload(elements: DrawElement[]): void
-}
-
-/**
- * Internal bridge handed to the React shell when embedded. Initial values
- * travel in the bootstrap; later host pushes go through the registered push
- * target (mount queues pushes that arrive before registration).
- */
-export interface EmbedHostBridge {
-  onSaveRequest?: (payload: string) => void
-  theme: EmbedTheme
-  /** Returns an unregister function (called on unmount). */
-  registerPushTarget(target: HostPushTarget): () => void
 }

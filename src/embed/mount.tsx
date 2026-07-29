@@ -4,11 +4,10 @@ import cssText from '../index.css?inline'
 import { APP_VERSION, parseYamlPayload } from '../core'
 import { App } from '../ui/App'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
-import { DEFAULT_DISPLAY_CONFIG } from '../ui/preferences/displayConfig'
-import { capabilitiesToCanvas, hostStatesToMockData } from './hostContract'
+import { createEmbeddedHost } from './embeddedHost'
+import { hostSuppliedTheme, type DesignerHost } from './host'
 import type {
   CapabilitiesPushOptions,
-  EmbedHostBridge,
   EmbedTheme,
   HostPushTarget,
   MountHandle,
@@ -50,42 +49,27 @@ function applyTheme(wrapper: HTMLElement, theme: EmbedTheme): void {
   wrapper.dataset.theme = theme
 }
 
-function buildEmbedBootstrap(options: MountOptions): AppBootstrap {
-  const mock = options.states
-    ? hostStatesToMockData(options.states)
-    : { states: {}, attributes: {} }
-  const canvas = capabilitiesToCanvas(options.capabilities ?? {}, DEFAULT_DISPLAY_CONFIG)
-  return {
-    sessionName: 'Untitled',
-    elements: options.payload ? parseYamlPayload(options.payload) : [],
-    canvas,
-    // Host-defined display (issue #70): presence locks the display config
-    // controls by default; `lock: false` seeds an unlocked "virtual display"
-    // instead (the lock icon still shows so the user can lock onto it later).
-    hostDisplay: options.capabilities ? canvas : undefined,
-    hostDisplayLocked: options.lock ?? true,
-    service: undefined,
-    mockStates: mock.states,
-    mockAttributes: mock.attributes,
-    variables: {},
-    importSource: 'default',
-  }
+/** The DOM the shell renders into, per the host's style-scope policy. */
+interface RenderTarget {
+  element: HTMLElement
+  setTheme(theme: EmbedTheme): void
+  cleanup(): void
 }
 
-/**
- * Mount the designer into an arbitrary host container (issue #20, ADR-010).
- * Renders into an open shadow root on the container — created here, or
- * reused when the host attached one already (issue #21) — so styles are
- * isolated in both directions.
- *
- * The host pushes data through the returned handle; the designer never
- * persists the payload itself — it hands the current drawcustom YAML to
- * `onSaveRequest` when the user hits Save. Invalid `payload` YAML throws
- * synchronously (here and in `setPayload`).
- */
-export function mount(container: HTMLElement, options: MountOptions = {}): MountHandle {
-  const theme: EmbedTheme = options.theme ?? 'light'
-  const bootstrap = buildEmbedBootstrap(options)
+function createRenderTarget(container: HTMLElement, host: DesignerHost): RenderTarget {
+  if (host.styleScope === 'page') {
+    // Standalone SPA: the page already links the stylesheet, and the theme
+    // class belongs to `document.documentElement` (the designer's own
+    // preference — see useThemePreference). Nothing to isolate, nothing to
+    // scope: render into the container itself so the page DOM is unchanged.
+    return {
+      element: container,
+      setTheme() {
+        throw new Error('setTheme() is unavailable: this host owns the theme preference')
+      },
+      cleanup() {},
+    }
+  }
 
   const shadowRoot = resolveShadowRoot(container)
   injectStyles(shadowRoot)
@@ -96,8 +80,27 @@ export function mount(container: HTMLElement, options: MountOptions = {}): Mount
   // tooltips): everything that would otherwise portal to document.body must
   // stay inside the shadow boundary to keep its styles.
   wrapper.setAttribute('data-odl-designer-root', '')
-  applyTheme(wrapper, theme)
+  applyTheme(wrapper, hostSuppliedTheme(host) ?? 'light')
   shadowRoot.appendChild(wrapper)
+
+  return {
+    element: wrapper,
+    setTheme: (theme) => applyTheme(wrapper, theme),
+    cleanup: () => wrapper.remove(),
+  }
+}
+
+/**
+ * The one designer mount lifecycle (issue #72, ADR-017): every runtime —
+ * standalone SPA, embedded host page, the future HA panel — is a
+ * {@link DesignerHost} adapter over this function. It owns DOM setup, the
+ * React root, bootstrap (sync or async, plus host-driven re-bootstraps) and
+ * the host push queue; the adapter owns policy.
+ *
+ * Internal: the public embedded API is {@link mount}.
+ */
+export function mountDesigner(container: HTMLElement, host: DesignerHost): MountHandle {
+  const target = createRenderTarget(container, host)
 
   // Pushes can arrive before React has flushed the effect that registers the
   // push target (effects flush asynchronously); queue them and replay in
@@ -113,9 +116,8 @@ export function mount(container: HTMLElement, options: MountOptions = {}): Mount
     pendingPushes.push(apply)
   }
 
-  let bridge: EmbedHostBridge = {
-    onSaveRequest: options.onSaveRequest,
-    theme,
+  let bridge: DesignerHost = {
+    ...host,
     registerPushTarget(target) {
       pushTarget = target
       for (const apply of pendingPushes.splice(0)) {
@@ -129,16 +131,51 @@ export function mount(container: HTMLElement, options: MountOptions = {}): Mount
     },
   }
   let destroyed = false
+  let bootstrap: AppBootstrap | null = null
+  // Bumped per bootstrap: a re-bootstrap (standalone `#d=` navigation) is a
+  // fresh project, so the shell remounts instead of merging into live state.
+  let generation = 0
 
-  const root = createRoot(wrapper)
+  const root = createRoot(target.element)
   const renderApp = () => {
+    if (!bootstrap) {
+      return
+    }
     root.render(
       <StrictMode>
-        <App bootstrap={bootstrap} host={bridge} />
+        <App key={generation} bootstrap={bootstrap} host={bridge} />
       </StrictMode>,
     )
   }
-  renderApp()
+
+  const loadAndRender = () => {
+    const loaded = host.loadBootstrap()
+    if (!(loaded instanceof Promise)) {
+      // Synchronous hosts render in this tick, and their exceptions reach the
+      // caller — `mount({ payload })` throws on invalid YAML by contract.
+      bootstrap = loaded
+      generation += 1
+      renderApp()
+      return
+    }
+    void loaded
+      .then((next) => {
+        if (destroyed) {
+          return
+        }
+        bootstrap = next
+        generation += 1
+        renderApp()
+      })
+      .catch((error: unknown) => {
+        // Keep whatever is on screen; a first-load failure is the adapter's
+        // to turn into a usable fallback bootstrap.
+        console.error('Designer bootstrap failed', error)
+      })
+  }
+
+  loadAndRender()
+  const unsubscribeBootstrap = host.subscribeBootstrapChanges?.(loadAndRender)
 
   const assertMounted = () => {
     if (destroyed) {
@@ -151,8 +188,9 @@ export function mount(container: HTMLElement, options: MountOptions = {}): Mount
     destroy() {
       assertMounted()
       destroyed = true
+      unsubscribeBootstrap?.()
       root.unmount()
-      wrapper.remove()
+      target.cleanup()
     },
     setStates(states) {
       assertMounted()
@@ -169,9 +207,28 @@ export function mount(container: HTMLElement, options: MountOptions = {}): Mount
     },
     setTheme(nextTheme) {
       assertMounted()
-      bridge = { ...bridge, theme: nextTheme }
-      applyTheme(wrapper, nextTheme)
+      // Throws for a host that owns the theme preference (standalone).
+      target.setTheme(nextTheme)
+      bridge = { ...bridge, theme: { owner: 'host', value: nextTheme } }
       renderApp()
     },
   }
+}
+
+/**
+ * Mount the designer into an arbitrary host container (issue #20, ADR-010).
+ * Renders into an open shadow root on the container — created here, or
+ * reused when the host attached one already (issue #21) — so styles are
+ * isolated in both directions.
+ *
+ * The host pushes data through the returned handle; the designer never
+ * persists the payload itself — it hands the current drawcustom YAML to
+ * `onSaveRequest` when the user hits Save. Invalid `payload` YAML throws
+ * synchronously (here and in `setPayload`).
+ *
+ * This is the embedded host adapter over {@link mountDesigner} (ADR-017);
+ * the standalone SPA is a sibling adapter over the same lifecycle.
+ */
+export function mount(container: HTMLElement, options: MountOptions = {}): MountHandle {
+  return mountDesigner(container, createEmbeddedHost(options))
 }
