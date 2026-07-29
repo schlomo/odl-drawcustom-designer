@@ -2,20 +2,23 @@ import { describe, expect, it } from 'vitest'
 import {
   applyBump,
   bumpForCommit,
-  isReleaseCommit,
+  gitTagListArgs,
   maxBump,
   parseCommitMessages,
   planRelease,
+  versionFromTag,
 } from '../../tools/autoRelease'
 
-// Auto-release on push to main (issue #93): a push-to-main workflow derives
-// a semver bump from conventional-commit titles since the last `vX.Y.Z`
-// tag, bumps package.json, commits, tags, and pushes — the pushed tag then
-// triggers the existing tag-driven release.yml (issue #23), which stays
-// untouched. All decision logic lives here (thin CI, AGENTS.md); the CLI
-// entry point (`import.meta.main` block in tools/autoRelease.ts) only does
-// git plumbing (reading tags/log, writing/committing/tagging/pushing) and
-// is exercised manually, not by these tests.
+// Auto-release on push to main (issue #93, reworked 2026-07-29 per maintainer
+// ruling: KISS, no PAT, tags as sole version source). A single workflow
+// (.github/workflows/auto-release.yml) derives a semver bump from
+// conventional-commit titles since the last `vX.Y.Z` tag reachable from
+// HEAD, builds the library with that version injected, and publishes it as
+// a GitHub release — which creates the tag. Nothing is pushed to main, so
+// there is no bump commit and no loop guard. All decision logic lives here
+// (thin CI, AGENTS.md); the CLI entry point (`import.meta.main` block in
+// tools/autoRelease.ts) only does git/gh plumbing and the library build,
+// exercised by the workflow itself, not by these tests.
 
 describe('bumpForCommit', () => {
   it('bumps minor for a feat: commit', () => {
@@ -79,24 +82,6 @@ describe('maxBump', () => {
   })
 })
 
-describe('isReleaseCommit', () => {
-  it('recognizes the release-bump commit prefix', () => {
-    expect(isReleaseCommit('chore(release): v1.2.3')).toBe(true)
-  })
-
-  it('is not fooled by leading/trailing whitespace', () => {
-    expect(isReleaseCommit('  chore(release): v1.2.3  ')).toBe(true)
-  })
-
-  it('rejects an unrelated chore commit', () => {
-    expect(isReleaseCommit('chore: tidy imports')).toBe(false)
-  })
-
-  it('rejects a feat commit', () => {
-    expect(isReleaseCommit('feat: add drag handles')).toBe(false)
-  })
-})
-
 describe('applyBump', () => {
   it('bumps patch', () => {
     expect(applyBump('1.2.3', 'patch')).toBe('1.2.4')
@@ -131,44 +116,56 @@ describe('parseCommitMessages', () => {
   })
 })
 
-describe('planRelease', () => {
-  it('skips when HEAD is a release-bump commit (loop guard), even with pending commits', () => {
-    const plan = planRelease({
-      headSubject: 'chore(release): v1.2.3',
-      latestTag: 'v1.2.2',
-      packageVersion: '1.2.2',
-      commitMessagesSinceTag: ['feat: something'],
-    })
-    expect(plan.skip).toBe(true)
+describe('versionFromTag', () => {
+  it('extracts the semver from a vX.Y.Z tag', () => {
+    expect(versionFromTag('v1.2.3')).toBe('1.2.3')
   })
 
-  it('first release: no tag yet releases the current package.json version as-is, with no bump', () => {
-    const plan = planRelease({
-      headSubject: 'docs: update readme',
-      latestTag: undefined,
-      packageVersion: '1.0.0',
-      commitMessagesSinceTag: [],
-    })
+  it('rejects a tag without the v prefix', () => {
+    expect(() => versionFromTag('1.2.3')).toThrow(/vX\.Y\.Z/)
+  })
+
+  it('rejects a tag with a pre-release/build suffix', () => {
+    expect(() => versionFromTag('v1.2.3-beta.1')).toThrow(/vX\.Y\.Z/)
+  })
+
+  it('rejects a completely malformed tag', () => {
+    expect(() => versionFromTag('release-2026')).toThrow(/vX\.Y\.Z/)
+  })
+})
+
+describe('gitTagListArgs', () => {
+  it('requires ancestry (--merged HEAD) so a stray tag on an unmerged branch is never the base', () => {
+    const args = gitTagListArgs()
+    const mergedIndex = args.indexOf('--merged')
+    expect(mergedIndex).toBeGreaterThan(-1)
+    expect(args[mergedIndex + 1]).toBe('HEAD')
+  })
+
+  it('lists only vX.Y.Z tags, sorted newest-first', () => {
+    expect(gitTagListArgs()).toEqual(['tag', '--list', 'v*.*.*', '--merged', 'HEAD', '--sort=-v:refname'])
+  })
+})
+
+describe('planRelease', () => {
+  it('first release: no tag reachable from HEAD yet releases v1.0.0', () => {
+    const plan = planRelease({ latestTag: undefined, commitMessagesSinceTag: [] })
+    expect(plan).toMatchObject({ skip: false, mode: 'first-release', version: '1.0.0' })
+  })
+
+  it('first release ignores any commits since there is no tag to diff against', () => {
+    const plan = planRelease({ latestTag: undefined, commitMessagesSinceTag: ['feat: whatever'] })
     expect(plan).toMatchObject({ skip: false, mode: 'first-release', version: '1.0.0' })
   })
 
   it('skips when a tag exists but there are no commits since it', () => {
-    const plan = planRelease({
-      headSubject: 'chore(release): v1.2.3',
-      latestTag: 'v1.2.3',
-      packageVersion: '1.2.3',
-      commitMessagesSinceTag: [],
-    })
+    const plan = planRelease({ latestTag: 'v1.2.3', commitMessagesSinceTag: [] })
     expect(plan.skip).toBe(true)
   })
 
-  it('bumps from the tag version (not package.json) when commits exist since the last tag', () => {
+  it('bumps from the tag version when commits exist since the last tag', () => {
     const plan = planRelease({
-      headSubject: 'feat: add drag handles',
       latestTag: 'v1.2.3',
-      // Deliberately diverges from the tag to prove the tag is the source
-      // of truth for the base version, matching releaseVersion.ts's policy.
-      packageVersion: '9.9.9',
       commitMessagesSinceTag: ['feat: add drag handles'],
     })
     expect(plan).toMatchObject({ skip: false, mode: 'bump', version: '1.3.0', bump: 'minor' })
@@ -176,9 +173,7 @@ describe('planRelease', () => {
 
   it('takes the max bump across all commits since the last tag', () => {
     const plan = planRelease({
-      headSubject: 'fix: small tweak',
       latestTag: 'v1.0.0',
-      packageVersion: '1.0.0',
       commitMessagesSinceTag: ['fix: small tweak', 'feat: new option', 'chore: cleanup'],
     })
     expect(plan).toMatchObject({ skip: false, mode: 'bump', version: '1.1.0', bump: 'minor' })
@@ -187,9 +182,7 @@ describe('planRelease', () => {
   it('fails loudly when the latest tag is malformed', () => {
     expect(() =>
       planRelease({
-        headSubject: 'fix: small tweak',
         latestTag: 'release-2026',
-        packageVersion: '1.0.0',
         commitMessagesSinceTag: ['fix: small tweak'],
       }),
     ).toThrow(/vX\.Y\.Z/)
