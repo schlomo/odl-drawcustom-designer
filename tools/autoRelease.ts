@@ -27,7 +27,11 @@ const BUMP_RANK: Record<Bump, number> = { patch: 0, minor: 1, major: 2 }
 // are both optional; only the subject line is inspected for type/bang — a
 // "!" or the word "feat" appearing in the body must not affect the bump.
 const CONVENTIONAL_SUBJECT = /^(\w+)(\([^)]*\))?(!)?:\s/
-const BREAKING_CHANGE_FOOTER = /BREAKING[ -]CHANGE:/
+// Anchored to the start of a line (multiline `^`) per the conventional-commits
+// footer spec — without the anchor, a squash-merge body that merely quotes
+// "BREAKING CHANGE:" mid-sentence (GitHub concatenates sub-commit lines into
+// one body) would force a false major bump.
+const BREAKING_CHANGE_FOOTER = /^BREAKING[ -]CHANGE:/m
 
 /**
  * Bump size for one full commit message (subject + body), per the
@@ -39,7 +43,7 @@ export function bumpForCommit(message: string): Bump {
   const subject = message.split('\n', 1)[0] ?? ''
   const match = CONVENTIONAL_SUBJECT.exec(subject)
   const hasBang = match?.[3] === '!'
-  const type = match?.[1]
+  const type = match?.[1]?.toLowerCase()
   if (hasBang || BREAKING_CHANGE_FOOTER.test(message)) {
     return 'major'
   }
@@ -111,6 +115,30 @@ export function gitTagListArgs(): string[] {
   return ['tag', '--list', 'v*.*.*', '--merged', 'HEAD', '--sort=-v:refname']
 }
 
+/**
+ * Environment required by the `import.meta.main` publish steps below, pulled
+ * out as a pure function so the "fail loudly up front" guard is unit-tested
+ * rather than only exercised for real by the workflow (AGENTS.md, "fail
+ * early and loudly"). Checked BEFORE the (slow) library build so a manual
+ * run missing either var fails immediately instead of after a full build.
+ */
+export function requireReleaseEnv(env: NodeJS.ProcessEnv): { targetSha: string } {
+  const targetSha = env.GITHUB_SHA
+  if (!targetSha) {
+    throw new Error(
+      'GITHUB_SHA is not set — this script publishes a release tagged at a specific commit ' +
+        'and must run inside GitHub Actions (or with GITHUB_SHA set manually)',
+    )
+  }
+  if (!env.GH_TOKEN) {
+    throw new Error(
+      'GH_TOKEN is not set — this script publishes a GitHub release via `gh release create` ' +
+        'and must run inside GitHub Actions (or with GH_TOKEN set manually for a local retry)',
+    )
+  }
+  return { targetSha }
+}
+
 export type ReleaseDecision =
   | { skip: true; reason: string }
   | { skip: false; mode: 'first-release'; version: string; reason: string }
@@ -177,13 +205,7 @@ if (import.meta.main) {
   const tag = `v${plan.version}`
   console.log(`Releasing ${tag}: ${plan.reason}`)
 
-  const targetSha = process.env.GITHUB_SHA
-  if (!targetSha) {
-    throw new Error(
-      'GITHUB_SHA is not set — this script publishes a release tagged at a specific commit ' +
-        'and must run inside GitHub Actions (or with GITHUB_SHA set manually)',
-    )
-  }
+  const { targetSha } = requireReleaseEnv(process.env)
 
   // Build the library with the derived version injected (tools/version.ts /
   // tools/buildDefines.ts read APP_VERSION from the environment).
