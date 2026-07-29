@@ -63,7 +63,7 @@ handle.destroy()                                      // unmount and empty the c
 ```js
 import { mount, version } from './odl-drawcustom-designer.js'
 
-console.log(version)              // e.g. '0.1.0' — package.json's version at build time
+console.log(version)              // e.g. '1.0.0' — package.json's version at build time
 console.log(mount(el, {}).version) // same value, also on the handle
 ```
 

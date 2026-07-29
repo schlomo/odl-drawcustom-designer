@@ -145,6 +145,8 @@ Use `npm ci` in CI. Deploy is blocked on failure (ADR-008).
 
 Only commit when the user asks, unless their task explicitly includes committing. Do not commit parity “fixes” that lack behavioral test coverage.
 
+Releases use GitHub's auto-generated notes ([`docs/releasing.md`](docs/releasing.md)), so commit/PR titles **are** the changelog verbatim. Write conventional, imperative, user-meaningful summary lines for a release reader, not just a code reader.
+
 ## Process rules
 
 - Roadmap and planning live in **GitHub milestones + issues only** — never create `ROADMAP.md` or a backlog document.
