@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/issue-72-host-adapter-seam", ae = "d1ea944", k = "e89e9d3", A = "1.0.0";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/issue-72-host-adapter-seam", ae = "7f156e7", k = "989ad81", A = "0.0.0-dev";
 function j(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -76442,83 +76442,92 @@ function $9(e, t) {
 	e.classList.toggle("dark", t === "dark"), e.dataset.theme = t;
 }
 function rln(e, t) {
+	let n = (e) => t.theme.owner === "designer" ? () => {
+		throw Error("setTheme() is unavailable: this host owns the theme preference");
+	} : (t) => $9(e, t);
 	if (t.styleScope === "page") return {
 		element: e,
-		setTheme() {
-			throw Error("setTheme() is unavailable: this host owns the theme preference");
-		},
+		setTheme: n(e),
 		cleanup() {}
 	};
-	let n = tln(e);
-	nln(n);
-	let r = e.ownerDocument.createElement("div");
-	return r.style.height = "100%", r.setAttribute("data-odl-designer-root", ""), $9(r, Z9(t) ?? "light"), n.appendChild(r), {
-		element: r,
-		setTheme: (e) => $9(r, e),
-		cleanup: () => r.remove()
+	let r = tln(e);
+	nln(r);
+	let i = e.ownerDocument.createElement("div");
+	return i.style.height = "100%", i.setAttribute("data-odl-designer-root", ""), $9(i, Z9(t) ?? "light"), r.appendChild(i), {
+		element: i,
+		setTheme: n(i),
+		cleanup: () => i.remove()
 	};
 }
 function iln(e, t) {
-	let n = rln(e, t), r = null, i = [], a = (e) => {
-		if (r) {
-			e(r);
+	let n = t.loadBootstrap(), r = rln(e, t), i = null, a = [], o = (e) => {
+		if (i) {
+			e(i);
 			return;
 		}
-		i.push(e);
-	}, o = {
+		a.push(e);
+	}, s = {
 		...t,
 		registerPushTarget(e) {
-			r = e;
-			for (let t of i.splice(0)) t(e);
+			i = e;
+			for (let t of a.splice(0)) t(e);
 			return () => {
-				r === e && (r = null);
+				i === e && (i = null);
 			};
 		}
-	}, s = !1, c = null, l = 0, u = (0, y.createRoot)(n.element), d = () => {
-		c && u.render(/* @__PURE__ */ (0, K.jsx)(v.StrictMode, { children: /* @__PURE__ */ (0, K.jsx)(Qcn, {
-			bootstrap: c,
-			host: o
-		}, l) }));
-	}, f = () => {
-		let e = t.loadBootstrap();
+	}, c = !1, l = null, u = 0, d = 0, f = (0, y.createRoot)(r.element), p = () => {
+		l && f.render(/* @__PURE__ */ (0, K.jsx)(v.StrictMode, { children: /* @__PURE__ */ (0, K.jsx)(Qcn, {
+			bootstrap: l,
+			host: s
+		}, u) }));
+	}, m = (e) => {
+		l = e, u += 1, p();
+	}, h = (e) => {
+		let t = d += 1;
 		if (!(e instanceof Promise)) {
-			c = e, l += 1, d();
+			m(e);
 			return;
 		}
 		e.then((e) => {
-			s || (c = e, l += 1, d());
+			c || t !== d || m(e);
 		}).catch((e) => {
 			console.error("Designer bootstrap failed", e);
 		});
+	}, g = () => {
+		h(t.loadBootstrap());
 	};
-	f();
-	let p = t.subscribeBootstrapChanges?.(f), m = () => {
-		if (s) throw Error("MountHandle used after destroy()");
+	try {
+		h(n);
+	} catch (e) {
+		throw f.unmount(), r.cleanup(), e;
+	}
+	let _ = t.subscribeBootstrapChanges?.(g), b = () => {
+		if (c) throw Error("MountHandle used after destroy()");
 	};
 	return {
 		version: A,
 		destroy() {
-			m(), s = !0, p?.(), u.unmount(), n.cleanup();
+			b(), c = !0, _?.(), f.unmount(), r.cleanup();
 		},
 		setStates(e) {
-			m(), a((t) => t.applyStates(e));
+			b(), o((t) => t.applyStates(e));
 		},
 		setCapabilities(e, t) {
-			m(), a((n) => n.applyCapabilities(e, t));
+			b(), o((n) => n.applyCapabilities(e, t));
 		},
 		setPayload(e) {
-			m();
+			b();
 			let t = Xr(e);
-			a((e) => e.applyPayload(t));
+			o((e) => e.applyPayload(t));
 		},
 		setTheme(e) {
-			m(), n.setTheme(e), o = {
-				...o,
+			b(), r.setTheme(e), s = {
+				...s,
 				theme: {
 					owner: "host",
 					value: e
 				}
-			}, d();
+			}, p();
 		}
 	};
 }
