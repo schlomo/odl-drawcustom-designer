@@ -3,6 +3,10 @@ import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { buildAppBootstrap } from '../../../src/ui/bootstrap/appBootstrap'
 import { useProjectState } from '../../../src/ui/hooks/useProjectState'
+import { createStandaloneHost } from '../../../src/embed/standaloneHost'
+
+/** These tests exercise the standalone SPA host adapter (issue #72, ADR-017). */
+const STANDALONE_HOST = createStandaloneHost()
 
 function bootstrapWithTemplatedFills() {
   return buildAppBootstrap(
@@ -27,7 +31,7 @@ function fillOf(element: unknown): string | undefined {
 
 describe('useProjectState — user-defined variables', () => {
   it('adding a variable updates the template preview across fields immediately', () => {
-    const { result } = renderHook(() => useProjectState(bootstrapWithTemplatedFills()))
+    const { result } = renderHook(() => useProjectState(bootstrapWithTemplatedFills(), STANDALONE_HOST))
 
     // No variable yet → both templated fills render empty.
     expect(fillOf(result.current.previewElements[0])).toBe('')
@@ -43,7 +47,7 @@ describe('useProjectState — user-defined variables', () => {
   })
 
   it('editing a variable value re-renders the preview', () => {
-    const { result } = renderHook(() => useProjectState(bootstrapWithTemplatedFills()))
+    const { result } = renderHook(() => useProjectState(bootstrapWithTemplatedFills(), STANDALONE_HOST))
 
     act(() => {
       result.current.addVariable('uv_fill', 'green')
@@ -57,7 +61,7 @@ describe('useProjectState — user-defined variables', () => {
   })
 
   it('removing a variable clears the preview again', () => {
-    const { result } = renderHook(() => useProjectState(bootstrapWithTemplatedFills()))
+    const { result } = renderHook(() => useProjectState(bootstrapWithTemplatedFills(), STANDALONE_HOST))
 
     act(() => {
       result.current.addVariable('uv_fill', 'green')

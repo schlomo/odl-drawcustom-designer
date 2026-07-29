@@ -4,6 +4,9 @@
 
 Accepted — **implementation deferred post-v1**. Do not code embed bridge until owner aligns with HA / OpenEPaperLink maintainers on the message contract below.
 
+Runtime plumbing: the two runtimes below are **host adapters over one mount
+lifecycle** — see [ADR-017](ADR-017-host-adapter-seam.md).
+
 ## Context
 
 The designer runs standalone on GitHub Pages today. The primary long-term host is **inside Home Assistant** as a design editor for `open_epaper_link.drawcustom` payloads in automations, scripts, and dashboards.

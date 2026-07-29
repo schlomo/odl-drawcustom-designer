@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../../../src/ui/App'
 import { buildAppBootstrap } from '../../../src/ui/bootstrap/appBootstrap'
 import { Sidebar } from '../../../src/ui/components/Sidebar'
+import { createStandaloneHost } from '../../../src/embed/standaloneHost'
+
+/** These tests exercise the standalone SPA host adapter (issue #72, ADR-017). */
+const STANDALONE_HOST = createStandaloneHost()
 
 class ResizeObserverMock {
   observe() {}
@@ -80,7 +84,7 @@ function stubMatchMedia() {
 }
 
 async function renderApp() {
-  render(<App bootstrap={bootstrapForApp()} />)
+  render(<App bootstrap={bootstrapForApp()} host={STANDALONE_HOST} />)
   await waitFor(() => {
     expect(screen.getByRole('button', { name: 'Load Demo' })).toBeInTheDocument()
   })
@@ -132,7 +136,7 @@ describe('Load Demo UX', () => {
       },
       {},
       'session',
-    )} />)
+    )} host={STANDALONE_HOST} />)
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Load Demo' })).toBeInTheDocument()
     })

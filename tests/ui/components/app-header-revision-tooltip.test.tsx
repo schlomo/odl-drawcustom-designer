@@ -24,6 +24,10 @@ vi.mock('../../../src/core', async (importOriginal) => {
 
 import { App } from '../../../src/ui/App'
 import { buildAppBootstrap } from '../../../src/ui/bootstrap/appBootstrap'
+import { createStandaloneHost } from '../../../src/embed/standaloneHost'
+
+/** These tests exercise the standalone SPA host adapter (issue #72, ADR-017). */
+const STANDALONE_HOST = createStandaloneHost()
 
 class ResizeObserverMock {
   observe() {}
@@ -74,7 +78,7 @@ describe('App header revision tooltip (PR preview build)', () => {
   })
 
   it('shows the head SHA as the label and the merge SHA in the title', async () => {
-    render(<App bootstrap={bootstrapForApp()} />)
+    render(<App bootstrap={bootstrapForApp()} host={STANDALONE_HOST} />)
 
     await waitFor(() => {
       expect(screen.getByText(HEAD_REVISION)).toBeInTheDocument()

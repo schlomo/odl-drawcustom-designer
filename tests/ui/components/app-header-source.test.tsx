@@ -14,6 +14,10 @@ import {
 } from '../../../src/core'
 import { App } from '../../../src/ui/App'
 import { buildAppBootstrap } from '../../../src/ui/bootstrap/appBootstrap'
+import { createStandaloneHost } from '../../../src/embed/standaloneHost'
+
+/** These tests exercise the standalone SPA host adapter (issue #72, ADR-017). */
+const STANDALONE_HOST = createStandaloneHost()
 
 class ResizeObserverMock {
   observe() {}
@@ -64,7 +68,7 @@ describe('App header build metadata', () => {
   })
 
   it('shows privacy headline with full note as tooltip', async () => {
-    render(<App bootstrap={bootstrapForApp()} />)
+    render(<App bootstrap={bootstrapForApp()} host={STANDALONE_HOST} />)
 
     await waitFor(() => {
       expect(screen.getByText(APP_PRIVACY_HEADLINE)).toBeInTheDocument()
@@ -74,7 +78,7 @@ describe('App header build metadata', () => {
   })
 
   it('shows GitHub, branch, and revision links in order', async () => {
-    render(<App bootstrap={bootstrapForApp()} />)
+    render(<App bootstrap={bootstrapForApp()} host={STANDALONE_HOST} />)
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: 'GitHub' })).toBeInTheDocument()
@@ -92,7 +96,7 @@ describe('App header build metadata', () => {
   })
 
   it('links GitHub, branch, and revision to the repository', async () => {
-    render(<App bootstrap={bootstrapForApp()} />)
+    render(<App bootstrap={bootstrapForApp()} host={STANDALONE_HOST} />)
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: 'GitHub' })).toBeInTheDocument()
@@ -113,7 +117,7 @@ describe('App header build metadata', () => {
   })
 
   it('omits the legal subline when VITE_HEADER_LEGAL_HTML is unset', async () => {
-    render(<App bootstrap={bootstrapForApp()} />)
+    render(<App bootstrap={bootstrapForApp()} host={STANDALONE_HOST} />)
 
     await waitFor(() => {
       expect(screen.getByTestId('header-meta-row')).toBeInTheDocument()

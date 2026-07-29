@@ -29,7 +29,7 @@ import { useYamlSelectionCoupling } from './hooks/useYamlSelectionCoupling'
 import { ExportIconButton } from './components/ExportIconButton'
 import { TextButton } from './components/TextButton'
 import { shell } from './styles/shell'
-import type { EmbedHostBridge } from '../embed/types'
+import { hostSuppliedTheme, type DesignerHost } from '../embed/host'
 import { serializeYamlPayload, type DrawElement } from '../core'
 import type { AddElementResult } from './hooks/useProjectState'
 import {
@@ -54,20 +54,24 @@ import { toolIconPath } from './lib/mdi-tool-icons'
 interface AppProps {
   bootstrap: AppBootstrap
   /**
-   * Present when mounted through the embed API (issue #20, ADR-010): the
-   * host pushes states/capabilities/payload and owns persistence + theme.
+   * The host adapter this designer runs under (issue #72, ADR-017): theme
+   * ownership, persistence, save channel and chrome policy. Standalone SPA,
+   * embedded host page and (M4) the HA panel are adapters — the shell has no
+   * mode of its own.
    */
-  host?: EmbedHostBridge | null
+  host: DesignerHost
 }
 
-export function App({ bootstrap, host = null }: AppProps) {
-  const embedded = host != null
+export function App({ bootstrap, host }: AppProps) {
   const columnRef = useRef<HTMLDivElement>(null)
   const canvasAllocationRef = useRef<HTMLDivElement>(null)
   const canvasAllocationSize = useElementSize(canvasAllocationRef)
-  const themePreference = useThemePreference({ applyToDocument: !embedded })
+  // A host-supplied theme is fixed and scoped to the mount; otherwise the
+  // designer owns the preference and applies it to the document.
+  const hostTheme = hostSuppliedTheme(host)
+  const themePreference = useThemePreference({ applyToDocument: hostTheme == null })
   const { mode, cycleMode } = themePreference
-  const resolvedTheme = embedded ? host.theme : themePreference.resolvedTheme
+  const resolvedTheme = hostTheme ?? themePreference.resolvedTheme
   const { couplingEnabled } = useYamlSelectionCoupling()
   const [entityScrollRequest, setEntityScrollRequest] = useState<{
     entityId: string
@@ -209,7 +213,7 @@ export function App({ bootstrap, host = null }: AppProps) {
   }, [elements.length, loadDemo])
 
   const handleSaveRequest = useCallback(() => {
-    host?.onSaveRequest?.(serializeYamlPayload(elements))
+    host.onSaveRequest?.(serializeYamlPayload(elements))
   }, [elements, host])
 
   const handleShare = useCallback(async () => {
@@ -359,7 +363,7 @@ export function App({ bootstrap, host = null }: AppProps) {
   }
 
   return (
-    <div className={embedded ? shell.appEmbedded : shell.app}>
+    <div className={host.fill === 'viewport' ? shell.app : shell.appEmbedded}>
       <header className={`${shell.header} flex items-center gap-4`}>
         <div className="flex shrink-0 items-center gap-2.5">
           <a
@@ -447,16 +451,16 @@ export function App({ bootstrap, host = null }: AppProps) {
               Load Demo
             </TextButton>
           </div>
-          {embedded && host.onSaveRequest ? (
+          {host.onSaveRequest ? (
             <div className={toolbarGroupRow} role="group" aria-label="Save">
               <TextButton onClick={handleSaveRequest} disabled={yamlBlocked}>
                 Save
               </TextButton>
             </div>
           ) : null}
-          {/* Share links and the theme toggle are standalone concerns: the
-              embedding parent owns the payload and the page theme (#20). */}
-          {!embedded ? (
+          {/* Share links and the theme toggle are host policy: an embedding
+              parent owns the payload and the page theme (#20, ADR-017). */}
+          {host.shareLink ? (
             <div className={toolbarGroupRow} role="group" aria-label="Copy share link">
               <ExportIconButton
                 actionId="share-link"
@@ -469,7 +473,7 @@ export function App({ bootstrap, host = null }: AppProps) {
               />
             </div>
           ) : null}
-          {!embedded ? (
+          {hostTheme == null ? (
             <div className={toolbarGroupRow} role="group" aria-label="Appearance">
               <ThemeToggle mode={mode} resolvedTheme={resolvedTheme} onCycle={cycleMode} />
             </div>

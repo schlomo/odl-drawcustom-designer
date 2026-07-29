@@ -10,6 +10,10 @@ import {
   SHOWCASE_VARIABLES,
 } from '../../../src/ui/data/showcase'
 import { useProjectState } from '../../../src/ui/hooks/useProjectState'
+import { createStandaloneHost } from '../../../src/embed/standaloneHost'
+
+/** These tests exercise the standalone SPA host adapter (issue #72, ADR-017). */
+const STANDALONE_HOST = createStandaloneHost()
 
 function bootstrapWithCustomText() {
   return buildAppBootstrap(
@@ -33,7 +37,7 @@ function bootstrapWithCustomText() {
 
 describe('useProjectState loadDemo', () => {
   it('loads the curated showcase elements and canvas', () => {
-    const { result } = renderHook(() => useProjectState(bootstrapWithCustomText()))
+    const { result } = renderHook(() => useProjectState(bootstrapWithCustomText(), STANDALONE_HOST))
 
     act(() => {
       result.current.loadDemo()
@@ -46,7 +50,7 @@ describe('useProjectState loadDemo', () => {
   })
 
   it('seeds the showcase mock states, attributes, and variables so the demo renders its template features', () => {
-    const { result } = renderHook(() => useProjectState(bootstrapWithCustomText()))
+    const { result } = renderHook(() => useProjectState(bootstrapWithCustomText(), STANDALONE_HOST))
 
     act(() => {
       result.current.loadDemo()
@@ -58,7 +62,7 @@ describe('useProjectState loadDemo', () => {
   })
 
   it('clears the unmodified demo simulator data for a clean slate', () => {
-    const { result } = renderHook(() => useProjectState(bootstrapWithCustomText()))
+    const { result } = renderHook(() => useProjectState(bootstrapWithCustomText(), STANDALONE_HOST))
 
     act(() => {
       result.current.loadDemo()
@@ -75,7 +79,7 @@ describe('useProjectState loadDemo', () => {
   })
 
   it('preserves user-added and user-modified simulator data when clearing', () => {
-    const { result } = renderHook(() => useProjectState(bootstrapWithCustomText()))
+    const { result } = renderHook(() => useProjectState(bootstrapWithCustomText(), STANDALONE_HOST))
 
     act(() => {
       result.current.loadDemo()

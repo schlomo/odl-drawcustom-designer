@@ -4,6 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildAppBootstrap } from '../../../src/ui/bootstrap/appBootstrap'
 import { useProjectState } from '../../../src/ui/hooks/useProjectState'
 import type { ElementBounds } from '../../../src/ui/lib/primitive-bounds'
+import { createStandaloneHost } from '../../../src/embed/standaloneHost'
+
+/** These tests exercise the standalone SPA host adapter (issue #72, ADR-017). */
+const STANDALONE_HOST = createStandaloneHost()
 
 function bootstrapWithText() {
   return buildAppBootstrap(
@@ -31,7 +35,7 @@ describe('useProjectState history integration', () => {
   })
 
   it('add → undo → redo restores elements and selection', () => {
-    const { result } = renderHook(() => useProjectState(bootstrapWithText()))
+    const { result } = renderHook(() => useProjectState(bootstrapWithText(), STANDALONE_HOST))
 
     expect(result.current.elements).toHaveLength(1)
     expect(result.current.canUndo).toBe(false)
@@ -85,6 +89,7 @@ describe('useProjectState history integration', () => {
           {},
           'session',
         ),
+        STANDALONE_HOST,
       ),
     )
 
@@ -142,6 +147,7 @@ describe('useProjectState history integration', () => {
           {},
           'session',
         ),
+        STANDALONE_HOST,
       ),
     )
 
@@ -192,6 +198,7 @@ describe('useProjectState history integration', () => {
           {},
           'session',
         ),
+        STANDALONE_HOST,
       ),
     )
 
@@ -248,6 +255,7 @@ describe('useProjectState history integration', () => {
           {},
           'session',
         ),
+        STANDALONE_HOST,
       ),
     )
 
@@ -262,7 +270,7 @@ describe('useProjectState history integration', () => {
   })
 
   it('clears history when loading the showcase demo', () => {
-    const { result } = renderHook(() => useProjectState(bootstrapWithText()))
+    const { result } = renderHook(() => useProjectState(bootstrapWithText(), STANDALONE_HOST))
 
     act(() => {
       result.current.addElement('rectangle')
@@ -307,6 +315,7 @@ describe('useProjectState history integration', () => {
           {},
           'session',
         ),
+        STANDALONE_HOST,
       ),
     )
 
@@ -356,7 +365,7 @@ describe('useProjectState history integration', () => {
       'session',
     )
 
-    const { result } = renderHook(() => useProjectState(bootstrap))
+    const { result } = renderHook(() => useProjectState(bootstrap, STANDALONE_HOST))
 
     act(() => {
       result.current.setElements(structuredClone(bootstrap.elements))
@@ -366,7 +375,7 @@ describe('useProjectState history integration', () => {
   })
 
   it('coalesces canvas drag updates into one undo step', () => {
-    const { result } = renderHook(() => useProjectState(bootstrapWithText()))
+    const { result } = renderHook(() => useProjectState(bootstrapWithText(), STANDALONE_HOST))
 
     const beforeX = result.current.elements[0]?.type === 'text' ? result.current.elements[0].x : 0
 
@@ -398,7 +407,7 @@ describe('useProjectState history integration', () => {
   })
 
   it('coalesces property panel edits into one undo step', () => {
-    const { result } = renderHook(() => useProjectState(bootstrapWithText()))
+    const { result } = renderHook(() => useProjectState(bootstrapWithText(), STANDALONE_HOST))
 
     const beforeX = result.current.elements[0]?.type === 'text' ? result.current.elements[0].x : 0
 
@@ -420,7 +429,7 @@ describe('useProjectState history integration', () => {
   })
 
   it('does not record display config changes in undo history', () => {
-    const { result } = renderHook(() => useProjectState(bootstrapWithText()))
+    const { result } = renderHook(() => useProjectState(bootstrapWithText(), STANDALONE_HOST))
 
     act(() => {
       result.current.applyResolution(296, 128)
@@ -458,7 +467,7 @@ describe('useProjectState history integration', () => {
   })
 
   it('does not revert display config when undoing YAML edits made earlier', () => {
-    const { result } = renderHook(() => useProjectState(bootstrapWithText()))
+    const { result } = renderHook(() => useProjectState(bootstrapWithText(), STANDALONE_HOST))
 
     act(() => {
       result.current.addElement('rectangle')

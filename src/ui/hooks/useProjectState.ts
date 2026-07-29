@@ -12,7 +12,6 @@ import { applyTemplateContextToPayload, resolvePreviewClockInterval, scanPayload
 import {
   persistAsset,
   removePersistedAsset,
-  writeSessionToDb,
 } from '../../storage'
 import type { AppBootstrap } from '../bootstrap/appBootstrap'
 import type { PersistedEditHistory, SessionEditSnapshot } from '../../storage'
@@ -54,8 +53,7 @@ import {
   type CanvasRotation,
   type DisplayConfig,
 } from '../preferences/displayConfig'
-import { writeMockStates } from '../preferences/mockStates'
-import { isValidVariableName, writeVariables } from '../preferences/variables'
+import { isValidVariableName } from '../preferences/variables'
 import type { StoredVariables } from '../../storage'
 import { allowShowcaseBundledForDemo, suppressShowcaseBundled } from '../preferences/showcaseAsset'
 import { readSnapGridPrefs, writeSnapGridPrefs, type SnapGridPrefs } from '../preferences/snapGrid'
@@ -64,7 +62,7 @@ import {
   writeShowHiddenHintsPrefs,
 } from '../preferences/hiddenHints'
 import { capabilitiesToCanvas, hostStatesToMockData } from '../../embed/hostContract'
-import type { EmbedHostBridge } from '../../embed/types'
+import type { DesignerHost } from '../../embed/host'
 import { useTemplatePreviewClock } from './useTemplatePreviewClock'
 
 export type { AddElementResult } from '../lib/add-element-guards'
@@ -149,7 +147,7 @@ function buildEffectiveMockContext(
   return { states, attributes: mockAttributes, variables }
 }
 
-export function useProjectState(bootstrap: AppBootstrap, host: EmbedHostBridge | null = null) {
+export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
   const [sessionName, setSessionName] = useState(bootstrap.sessionName)
   const [elements, setElements] = useState<DrawElement[]>(bootstrap.elements)
   const [selectedIndices, setSelectedIndices] = useState<number[]>([])
@@ -302,17 +300,24 @@ export function useProjectState(bootstrap: AppBootstrap, host: EmbedHostBridge |
     }
   }, [captureSnapshot, restoreSnapshot, syncHistoryUi])
 
-  // Embedded mode (ADR-010): the parent owns persistence — no local session
-  // autosave, and host-pushed states/variables never overwrite the standalone
-  // Simulator's persisted mocks.
-  const persistLocally = host == null
+  // Persistence is host policy (ADR-017): the standalone adapter supplies the
+  // IndexedDB writers, an embedding host supplies none — then the parent owns
+  // the payload (ADR-010), and host-pushed states/variables never overwrite
+  // the standalone Simulator's persisted mocks. Read through a ref so the
+  // debounce effects keep depending on a stable boolean.
+  const persistenceRef = useRef(host.persistence)
+  const persistLocally = host.persistence != null
+
+  useEffect(() => {
+    persistenceRef.current = host.persistence
+  }, [host.persistence])
 
   useEffect(() => {
     if (!persistLocally) {
       return
     }
     const timer = window.setTimeout(() => {
-      void writeMockStates({ states: mockStates, attributes: mockAttributes })
+      persistenceRef.current?.writeMocks({ states: mockStates, attributes: mockAttributes })
     }, 250)
     return () => {
       window.clearTimeout(timer)
@@ -324,7 +329,7 @@ export function useProjectState(bootstrap: AppBootstrap, host: EmbedHostBridge |
       return
     }
     const timer = window.setTimeout(() => {
-      void writeVariables(variables)
+      persistenceRef.current?.writeVariables(variables)
     }, 250)
     return () => {
       window.clearTimeout(timer)
@@ -336,7 +341,7 @@ export function useProjectState(bootstrap: AppBootstrap, host: EmbedHostBridge |
       return
     }
     const timer = window.setTimeout(() => {
-      void writeSessionToDb({
+      persistenceRef.current?.writeSession({
         name: sessionName,
         canvas,
         service,
@@ -349,11 +354,12 @@ export function useProjectState(bootstrap: AppBootstrap, host: EmbedHostBridge |
     }
   }, [persistLocally, canvas, elements, historyUi, service, sessionName])
 
-  // Host pushes (embedded mode): register the appliers with the mount bridge.
-  // Each applier runs from a MountHandle setter call — an external host event,
+  // Host pushes: register the appliers with the mount lifecycle's bridge (it
+  // owns the pre-registration queue, so adapters never implement this). Each
+  // applier runs from a MountHandle setter call — an external host event,
   // which is exactly where React wants external-state-driven setState to live.
   useEffect(() => {
-    if (!host) {
+    if (!host.registerPushTarget) {
       return
     }
     return host.registerPushTarget({
