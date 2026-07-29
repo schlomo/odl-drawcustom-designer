@@ -59,10 +59,10 @@ Both report the same string; see [`docs/embedding.md`](embedding.md#version).
      matching logic lives in [`tools/releaseVersion.ts`](../tools/releaseVersion.ts),
      unit-tested in `tests/tools/releaseVersion.test.ts`)
    - runs `npm run lint`, `npm test`, `npm run build:lib`
-   - creates a GitHub release named after the tag, with
-     **GitHub's auto-generated release notes** (commits since the previous
-     tag) — the simplest changelog option, no extra conventions or tooling
-     required
+   - publishes a GitHub release named after the tag using the GitHub CLI
+     (`gh release create --generate-notes`), with **GitHub's auto-generated
+     release notes** (commits since the previous tag) — the simplest changelog
+     option, no extra conventions or tooling required
    - attaches the artifact: `dist-lib/odl-drawcustom-designer.js` and the
      repository's `LICENSE`
 
