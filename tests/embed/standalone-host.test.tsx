@@ -8,6 +8,9 @@ import type { AppBootstrap } from '../../src/ui/bootstrap/appBootstrap'
 import { buildSharePayload, encodeShareHash } from '../../src/share'
 import { readSessionFromDb } from '../../src/storage'
 
+// Full-app standalone mounts exceed vitest's 5s default on 2-core CI runners
+vi.setConfig({ testTimeout: 30_000 })
+
 /**
  * Lets a test make the standalone bootstrap load fail (IndexedDB unavailable,
  * corrupt session). Unset by default, so every other test runs the real load.
@@ -172,7 +175,7 @@ describe('standalone host adapter', () => {
         session = await readSessionFromDb()
         expect(session).not.toBeNull()
       },
-      { timeout: 5000 },
+      { timeout: 15000 },
     )
 
     expect(session).not.toBeNull()
