@@ -35,6 +35,11 @@ export function createStandaloneHost(): DesignerHost {
           // the user is working in; the mount lifecycle logs the rejection.
           throw error
         }
+        // The fallback app counts as bootstrapped: the user works in it from
+        // here on, so a later failing `#d=` navigation must keep their screen
+        // instead of falling into this branch again and remounting a fresh
+        // default over their work.
+        bootstrapped = true
         console.error('Failed to load saved session', error)
         return defaultAppBootstrap()
       }

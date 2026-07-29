@@ -57,6 +57,18 @@ interface RenderTarget {
 }
 
 function createRenderTarget(container: HTMLElement, host: DesignerHost): RenderTarget {
+  // Whether a theme may be pushed is decided by theme *ownership*, not by
+  // style scope: an adapter that owns the preference itself rejects the push
+  // whatever its DOM looks like, so a shadow-scoped adapter with a
+  // designer-owned theme (the M4 HA panel following HA's theme) is guarded by
+  // construction.
+  const themeSetter = (element: HTMLElement): RenderTarget['setTheme'] =>
+    host.theme.owner === 'designer'
+      ? () => {
+          throw new Error('setTheme() is unavailable: this host owns the theme preference')
+        }
+      : (theme) => applyTheme(element, theme)
+
   if (host.styleScope === 'page') {
     // Standalone SPA: the page already links the stylesheet, and the theme
     // class belongs to `document.documentElement` (the designer's own
@@ -64,9 +76,7 @@ function createRenderTarget(container: HTMLElement, host: DesignerHost): RenderT
     // scope: render into the container itself so the page DOM is unchanged.
     return {
       element: container,
-      setTheme() {
-        throw new Error('setTheme() is unavailable: this host owns the theme preference')
-      },
+      setTheme: themeSetter(container),
       cleanup() {},
     }
   }
@@ -85,7 +95,7 @@ function createRenderTarget(container: HTMLElement, host: DesignerHost): RenderT
 
   return {
     element: wrapper,
-    setTheme: (theme) => applyTheme(wrapper, theme),
+    setTheme: themeSetter(wrapper),
     cleanup: () => wrapper.remove(),
   }
 }
@@ -100,6 +110,13 @@ function createRenderTarget(container: HTMLElement, host: DesignerHost): RenderT
  * Internal: the public embedded API is {@link mount}.
  */
 export function mountDesigner(container: HTMLElement, host: DesignerHost): MountHandle {
+  // Resolve the first bootstrap *before* touching the container: a synchronous
+  // host throws on invalid YAML (`mount({ payload })` by contract), and that
+  // throw must leave the container exactly as the host handed it over —
+  // otherwise every failed attempt strands a shadow root, a wrapper and a
+  // React root the host can never reach to clean up.
+  const initialBootstrap = host.loadBootstrap()
+
   const target = createRenderTarget(container, host)
 
   // Pushes can arrive before React has flushed the effect that registers the
@@ -135,6 +152,10 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
   // Bumped per bootstrap: a re-bootstrap (standalone `#d=` navigation) is a
   // fresh project, so the shell remounts instead of merging into live state.
   let generation = 0
+  // Bumped per *started* load: rapid `#d=` navigation can leave two async
+  // bootstraps in flight, and the one that resolves last is not necessarily
+  // the one the user asked for last. Only the newest load may render.
+  let loadSequence = 0
 
   const root = createRoot(target.element)
   const renderApp = () => {
@@ -148,24 +169,29 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
     )
   }
 
-  const loadAndRender = () => {
-    const loaded = host.loadBootstrap()
+  const applyBootstrap = (next: AppBootstrap) => {
+    bootstrap = next
+    generation += 1
+    renderApp()
+  }
+
+  const renderLoaded = (loaded: AppBootstrap | Promise<AppBootstrap>) => {
+    const sequence = (loadSequence += 1)
     if (!(loaded instanceof Promise)) {
-      // Synchronous hosts render in this tick, and their exceptions reach the
-      // caller — `mount({ payload })` throws on invalid YAML by contract.
-      bootstrap = loaded
-      generation += 1
-      renderApp()
+      // A synchronous host renders in this tick; its exception already reached
+      // the caller from `loadBootstrap()` — `mount({ payload })` throws on
+      // invalid YAML by contract.
+      applyBootstrap(loaded)
       return
     }
     void loaded
       .then((next) => {
-        if (destroyed) {
+        if (destroyed || sequence !== loadSequence) {
+          // A newer bootstrap was started while this one was in flight; it
+          // owns the screen even if it resolved first.
           return
         }
-        bootstrap = next
-        generation += 1
-        renderApp()
+        applyBootstrap(next)
       })
       .catch((error: unknown) => {
         // Keep whatever is on screen; a first-load failure is the adapter's
@@ -174,7 +200,19 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
       })
   }
 
-  loadAndRender()
+  const loadAndRender = () => {
+    renderLoaded(host.loadBootstrap())
+  }
+
+  try {
+    renderLoaded(initialBootstrap)
+  } catch (error) {
+    // A synchronous render failure is as unrecoverable as a bootstrap one:
+    // hand the container back untouched instead of half-mounted.
+    root.unmount()
+    target.cleanup()
+    throw error
+  }
   const unsubscribeBootstrap = host.subscribeBootstrapChanges?.(loadAndRender)
 
   const assertMounted = () => {

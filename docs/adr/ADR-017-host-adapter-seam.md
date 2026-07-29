@@ -86,7 +86,30 @@ shell (`useProjectState`); the adapter supplies only the writers.
   be torn down (`destroy()` also unsubscribes the hashchange listener — the
   leak that made two standalone bootstraps race over the same `#d=` hash in
   tests). `setTheme()` throws for a host that owns the theme preference rather
-  than silently doing nothing.
+  than silently doing nothing; the guard is keyed on **theme ownership**, not
+  style scope, so a shadow-scoped adapter that owns its theme (an HA panel
+  following HA's) rejects the push too.
+- **Bootstrap ordering is the lifecycle's job, not the adapter's.** Two
+  guarantees, both behavior-tested:
+  - The first bootstrap is resolved **before** the container is touched, so a
+    synchronously failing load (`mount({ payload })` on invalid YAML) leaves no
+    shadow root, wrapper or React root behind and the host can retry into the
+    same container.
+  - Every started load carries a sequence token checked on resolve: with two
+    bootstraps in flight (rapid `#d=` navigation), the **newest started** one
+    renders even if it resolves first. Without it a stale load that resolved
+    last silently won.
+- **`destroy()` does not revert document-level theme.** The standalone adapter
+  owns the page, so stripping `.dark`/`data-theme` off `documentElement` on
+  teardown would only flash the light theme at a dark-theme user; the next
+  mount re-applies the stored preference anyway. `destroy()` tears down React,
+  subscriptions and the mount's own DOM — document-level theme deliberately
+  persists (pinned in `tests/embed/standalone-host.test.tsx`).
+- **Handle pushes are uniform across adapters.** The lifecycle registers the
+  push target for every host, so `setCapabilities()` / `setStates()` /
+  `setPayload()` on the standalone handle behave exactly like embed pushes
+  (a standalone capabilities push locks the display config, unlockable as
+  usual). One push path, no per-adapter carve-out.
 - Document-level theme stays **adapter** code (`applyStoredDocumentTheme` in
   `src/embed/standalone.tsx`, plus `useThemePreference`'s
   `applyToDocument`): the shared mount internals still never touch

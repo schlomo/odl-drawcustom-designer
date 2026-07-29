@@ -55,7 +55,9 @@ handle.destroy()                                      // unmount and empty the c
 ```
 
 - The container needs an explicit height; the designer fills it (`height: 100%`).
-- `mount()` and `setPayload()` throw synchronously on invalid YAML.
+- `mount()` and `setPayload()` throw synchronously on invalid YAML. A throwing
+  `mount()` leaves the container exactly as it was — nothing rendered, nothing
+  to clean up — so retrying into the same container is safe.
 - Multiple mounts on one page are possible; each handle is independent — including per-instance light/dark themes.
 
 ### Version

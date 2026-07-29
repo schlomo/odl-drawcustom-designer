@@ -1,11 +1,29 @@
 /** @vitest-environment jsdom */
 import { act } from 'react'
-import { waitFor, within } from '@testing-library/react'
+import { fireEvent, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountStandaloneApp } from '../../src/embed/standalone'
 import type { MountHandle } from '../../src/embed'
+import type { AppBootstrap } from '../../src/ui/bootstrap/appBootstrap'
 import { buildSharePayload, encodeShareHash } from '../../src/share'
 import { readSessionFromDb } from '../../src/storage'
+
+/**
+ * Lets a test make the standalone bootstrap load fail (IndexedDB unavailable,
+ * corrupt session). Unset by default, so every other test runs the real load.
+ */
+const bootstrapOverride = vi.hoisted(() => ({
+  current: null as (() => Promise<AppBootstrap>) | null,
+}))
+
+vi.mock('../../src/ui/bootstrap/appBootstrap', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/ui/bootstrap/appBootstrap')>()
+  return {
+    ...actual,
+    loadAppBootstrap: (...args: Parameters<typeof actual.loadAppBootstrap>) =>
+      bootstrapOverride.current ? bootstrapOverride.current() : actual.loadAppBootstrap(...args),
+  }
+})
 
 /**
  * Standalone host adapter (issue #72, ADR-017): the GitHub Pages SPA is a
@@ -77,6 +95,19 @@ function designer() {
   return within(container)
 }
 
+/**
+ * Same-tab navigation to a share link. Assigning `location.hash` is what the
+ * click does, and jsdom fires the `hashchange` for it — dispatching one by hand
+ * as well would start *two* bootstraps for one navigation, which no browser
+ * does (the second one finds the hash already consumed).
+ */
+function navigateToShareHash(value: string): Promise<void> {
+  return act(async () => {
+    window.location.hash = shareHash(value).slice(1)
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+  })
+}
+
 /** The session autosave / mock-write debounce is 250ms; wait past it. */
 function afterDebounce(): Promise<void> {
   return act(() => new Promise<void>((resolve) => setTimeout(resolve, 400)))
@@ -85,7 +116,10 @@ function afterDebounce(): Promise<void> {
 beforeEach(() => {
   vi.stubGlobal('ResizeObserver', ResizeObserverMock)
   stubMatchMedia()
+  bootstrapOverride.current = null
   window.history.replaceState(null, '', '/')
+  // Per-test hygiene only: destroy() deliberately leaves the document theme in
+  // place (adapter policy, pinned by its own test below).
   document.documentElement.className = ''
   delete document.documentElement.dataset.theme
   document.body.innerHTML = ''
@@ -157,11 +191,7 @@ describe('standalone host adapter', () => {
       expect(designer().getAllByTestId('element-list-row').length).toBeGreaterThan(0)
     })
 
-    await act(async () => {
-      window.location.hash = shareHash('SharedByNavigation').slice(1)
-      window.dispatchEvent(new HashChangeEvent('hashchange'))
-      await Promise.resolve()
-    })
+    await navigateToShareHash('SharedByNavigation')
 
     await waitFor(() => {
       expect(designer().getAllByTestId('element-list-row')).toHaveLength(1)
@@ -191,6 +221,81 @@ describe('standalone host adapter', () => {
     act(() => handle.destroy())
 
     expect(container.childElementCount).toBe(0)
+  })
+
+  it('keeps the user session when a re-bootstrap fails after a failed first load', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    bootstrapOverride.current = () => Promise.reject(new Error('IndexedDB unavailable'))
+
+    const handle = mountStandalone()
+
+    // A failed first load falls back to a usable default app…
+    await waitFor(() => {
+      expect(designer().getAllByTestId('element-list-row').length).toBeGreaterThan(0)
+    })
+    // …which then accumulates live state (a display lock here — any App state
+    // works; a re-bootstrap remounts the shell and destroys all of it).
+    act(() =>
+      handle.setCapabilities({
+        pixel_width: 296,
+        pixel_height: 128,
+        rotation_degrees: 0,
+        color_scheme: 0x01,
+      }),
+    )
+    expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+
+    // …and a later failing `#d=` navigation keeps what the user is working in
+    // instead of remounting a fresh default app over it.
+    await navigateToShareHash('SharedByNavigation')
+    await afterDebounce()
+
+    expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+    expect(consoleError).toHaveBeenCalled()
+  })
+
+  it('leaves the document theme in place on destroy — standalone owns the page', async () => {
+    stubMatchMedia(true)
+    const handle = mountStandalone()
+
+    await waitFor(() => {
+      expect(designer().getAllByTestId('element-list-row').length).toBeGreaterThan(0)
+    })
+
+    act(() => handle.destroy())
+
+    // Reverting would flash the light theme on a page the adapter owns; the
+    // next mount re-applies the preference anyway (ADR-017).
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    expect(document.documentElement.dataset.theme).toBe('dark')
+  })
+
+  it('accepts capabilities pushes on the standalone handle: locks the display, unlock works', async () => {
+    // Deliberate uniformity (ADR-017): a push on the standalone handle behaves
+    // exactly like an embed push — one lifecycle, one push path.
+    const handle = mountStandalone()
+
+    await waitFor(() => {
+      expect(designer().getAllByTestId('element-list-row').length).toBeGreaterThan(0)
+    })
+    expect(designer().queryByRole('button', { name: 'Unlock display config' })).toBeNull()
+
+    act(() =>
+      handle.setCapabilities({
+        pixel_width: 296,
+        pixel_height: 128,
+        rotation_degrees: 0,
+        color_scheme: 0x01,
+      }),
+    )
+
+    expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+    expect(designer().getByLabelText('Resolution')).toBeDisabled()
+    expect(designer().getByLabelText('Resolution')).toHaveTextContent(/296\s*×\s*128/)
+
+    fireEvent.click(designer().getByRole('button', { name: 'Unlock display config' }))
+
+    expect(designer().getByLabelText('Resolution')).toBeEnabled()
   })
 
   it('rejects setTheme — the standalone designer owns the theme preference', async () => {
