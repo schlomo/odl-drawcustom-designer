@@ -6,6 +6,7 @@ import {
   maxBump,
   parseCommitMessages,
   planRelease,
+  requireReleaseEnv,
   versionFromTag,
 } from '../../tools/autoRelease'
 
@@ -61,6 +62,29 @@ describe('bumpForCommit', () => {
   it('only inspects the subject line, not unrelated body text, for the type/bang', () => {
     // A "!" appearing in the body (not the subject) must not force major.
     expect(bumpForCommit('fix: handle edge case\n\nnote: important!')).toBe('patch')
+  })
+
+  it('bumps minor for a capitalized Feat: commit (type match is case-insensitive)', () => {
+    expect(bumpForCommit('Feat: add drag handles')).toBe('minor')
+  })
+
+  it('bumps major for a capitalized FIX!: commit (bang match is case-insensitive on type)', () => {
+    expect(bumpForCommit('FIX!: change mount() return shape')).toBe('major')
+  })
+
+  it('does not treat a quoted "BREAKING CHANGE:" mid-line in the body as a real footer', () => {
+    // GitHub squash-merge bodies concatenate sub-commit lines; a sentence
+    // that merely quotes the phrase (not at the start of a line) must not
+    // force a false major bump.
+    const message =
+      'fix: handle edge case\n\n' +
+      'Someone said quoting "BREAKING CHANGE:" in a commit message is scary, but this is just a fix.'
+    expect(bumpForCommit(message)).toBe('patch')
+  })
+
+  it('bumps major for a genuine BREAKING CHANGE footer at the start of a line', () => {
+    const message = 'fix: change mount option\n\nBREAKING CHANGE: removes the old palette export'
+    expect(bumpForCommit(message)).toBe('major')
   })
 })
 
@@ -131,6 +155,22 @@ describe('versionFromTag', () => {
 
   it('rejects a completely malformed tag', () => {
     expect(() => versionFromTag('release-2026')).toThrow(/vX\.Y\.Z/)
+  })
+})
+
+describe('requireReleaseEnv', () => {
+  it('returns the target sha when both GITHUB_SHA and GH_TOKEN are set', () => {
+    expect(requireReleaseEnv({ GITHUB_SHA: 'abc123', GH_TOKEN: 'secret' })).toEqual({
+      targetSha: 'abc123',
+    })
+  })
+
+  it('throws loudly when GITHUB_SHA is missing', () => {
+    expect(() => requireReleaseEnv({ GH_TOKEN: 'secret' })).toThrow(/GITHUB_SHA/)
+  })
+
+  it('throws loudly when GH_TOKEN is missing, even with GITHUB_SHA set (before the build step)', () => {
+    expect(() => requireReleaseEnv({ GITHUB_SHA: 'abc123' })).toThrow(/GH_TOKEN/)
   })
 })
 
