@@ -108,11 +108,6 @@ function navigateToShareHash(value: string): Promise<void> {
   })
 }
 
-/** The session autosave / mock-write debounce is 250ms; wait past it. */
-function afterDebounce(): Promise<void> {
-  return act(() => new Promise<void>((resolve) => setTimeout(resolve, 400)))
-}
-
 beforeEach(() => {
   vi.stubGlobal('ResizeObserver', ResizeObserverMock)
   stubMatchMedia()
@@ -165,9 +160,21 @@ describe('standalone host adapter', () => {
     await waitFor(() => {
       expect(designer().getAllByTestId('element-list-row').length).toBeGreaterThan(0)
     })
-    await afterDebounce()
 
-    const session = await readSessionFromDb()
+    // Poll the actual write instead of sleeping past the 250ms debounce: a
+    // fixed sleep races the debounce timer plus the Dexie/IndexedDB write
+    // under CI's variable scheduling and was the source of a flaky failure
+    // here (`expected null not to be null`) — this waits exactly as long as
+    // the write actually takes, however long that is.
+    let session: Awaited<ReturnType<typeof readSessionFromDb>> = null
+    await waitFor(
+      async () => {
+        session = await readSessionFromDb()
+        expect(session).not.toBeNull()
+      },
+      { timeout: 5000 },
+    )
+
     expect(session).not.toBeNull()
     expect(session!.elements.length).toBeGreaterThan(0)
   })
@@ -243,15 +250,23 @@ describe('standalone host adapter', () => {
         color_scheme: 0x01,
       }),
     )
-    expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+    // The push queues until the mount's registerPushTarget effect flushes
+    // (a passive effect, scheduled asynchronously); poll for it rather than
+    // asserting in the same tick as the push.
+    await waitFor(() => {
+      expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+    })
 
     // …and a later failing `#d=` navigation keeps what the user is working in
     // instead of remounting a fresh default app over it.
     await navigateToShareHash('SharedByNavigation')
-    await afterDebounce()
 
+    // Poll for the observable side effect of the failed re-bootstrap instead
+    // of sleeping a fixed duration past it.
+    await waitFor(() => {
+      expect(consoleError).toHaveBeenCalled()
+    })
     expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
-    expect(consoleError).toHaveBeenCalled()
   })
 
   it('leaves the document theme in place on destroy — standalone owns the page', async () => {
@@ -289,7 +304,13 @@ describe('standalone host adapter', () => {
       }),
     )
 
-    expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+    // The push queues until the mount's registerPushTarget effect flushes
+    // (a passive effect, scheduled asynchronously); poll for it rather than
+    // asserting in the same tick as the push — this was the source of a
+    // flaky failure here under CI's slower/less predictable scheduling.
+    await waitFor(() => {
+      expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+    })
     expect(designer().getByLabelText('Resolution')).toBeDisabled()
     expect(designer().getByLabelText('Resolution')).toHaveTextContent(/296\s*×\s*128/)
 
