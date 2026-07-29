@@ -87,7 +87,7 @@ export interface MountOptions {
 
 export interface MountHandle {
   /**
-   * The designer build's version (issue #23), e.g. `'0.1.0'` — package.json's
+   * The designer build's version (issue #23), e.g. `'1.0.0'` — package.json's
    * version baked in at build time. Same value as the library's `version`
    * export (`src/embed/index.ts`); handy when a host only has the handle.
    */

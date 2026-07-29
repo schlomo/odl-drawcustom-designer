@@ -23,10 +23,9 @@ versioned surface and can change freely.
 - **Minor** — additive, backwards-compatible surface (new optional option,
   new `HostCapabilities` field, new `MountHandle` method).
 - **Patch** — fixes and internal changes with no embed-surface change.
-- **Pre-1.0 (`0.x`)** — the project starts at `0.1.0`; per standard semver,
-  a `0.x` minor bump may still contain breaking changes to the embed API
-  while the surface stabilizes. The first `1.0.0` tag signals the mount API
-  is considered stable.
+- **First release is `1.0.0`** — no `0.x` pre-release phase; the mount API
+  is considered stable from the first tag, and major/minor/patch above
+  apply immediately.
 
 ## Runtime version
 
@@ -73,6 +72,15 @@ maintainer cuts a release.
 **Status:** the workflow itself is unverified until a real tag is pushed
 (it can't be exercised end-to-end without one); `tools/releaseVersion.ts`
 is covered by unit tests, and `npm run build:lib` is verified locally.
+
+## Future: AI-generated release notes
+
+GitHub's auto-generated notes are the deliberate v1 choice — no extra
+conventions or tooling required. An AI-written narrative changelog
+(summarizing the merged PRs since the previous tag) is an anticipated
+upgrade path: the release workflow's thin-YAML-calling-`tools/`-scripts
+structure leaves room to swap in a different notes step later without
+restructuring the workflow itself.
 
 ## Artifact contents
 
