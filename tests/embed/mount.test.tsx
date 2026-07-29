@@ -175,6 +175,31 @@ describe('mount', () => {
     expect(handle.version).toBe(version)
   })
 
+  it('an invalid payload throws synchronously and leaves the container pristine', () => {
+    expect(() => mount(container, { payload: 'not: a list' })).toThrow(
+      /must be a list of drawing elements/i,
+    )
+
+    // A failed mount must not leave DOM (or a React root) behind: hosts retry
+    // into the same container, and every orphan wrapper is a leak.
+    expect(container.shadowRoot).toBeNull()
+    expect(container.childElementCount).toBe(0)
+  })
+
+  it('mounts cleanly into a container whose earlier mount attempts failed', async () => {
+    expect(() => mount(container, { payload: 'not: a list' })).toThrow()
+    expect(() => mount(container, { payload: 'still: not a list' })).toThrow()
+
+    mountDesigner({ payload: PAYLOAD, states: { 'sensor.demo_temperature': '21.5' } })
+
+    await waitFor(() => {
+      const rows = designer().getAllByTestId('element-list-row')
+      expect(rows).toHaveLength(1)
+      expect(rows[0]).toHaveTextContent('21.5')
+    })
+    expect(container.shadowRoot!.querySelectorAll('[data-odl-designer-root]')).toHaveLength(1)
+  })
+
   it('destroy unmounts the designer and removes its DOM from the shadow root', () => {
     const handle = mountDesigner({ payload: PAYLOAD })
     const shadow = container.shadowRoot!
