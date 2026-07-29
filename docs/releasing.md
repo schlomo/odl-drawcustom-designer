@@ -1,4 +1,4 @@
-# Releasing (issue #23)
+# Releasing (issue #23, issue #93)
 
 The designer's release artifact is the **library build** (`npm run build:lib`,
 [ADR-010](adr/ADR-010-ha-embed-mode.md)): one self-contained ESM file that the
@@ -40,7 +40,90 @@ two ways so a host can log which build it embeds:
 
 Both report the same string; see [`docs/embedding.md`](embedding.md#version).
 
-## Release procedure (maintainer)
+## Release procedure: automated (primary, issue #93)
+
+**main = release.** Main is always stable — every merge is gated by the
+`checks` job in [`pages.yml`](../.github/workflows/pages.yml) — so every
+push to main is a release candidate. On each push,
+[`.github/workflows/auto-release.yml`](../.github/workflows/auto-release.yml)
+runs [`tools/autoRelease.ts`](../tools/autoRelease.ts), which:
+
+1. Reads the latest `vX.Y.Z` tag reachable from `HEAD` and the commits since it.
+2. Derives a semver bump from those commits' conventional-commit titles
+   (commit/PR titles are already the changelog verbatim — AGENTS.md):
+   - `feat:` → **minor**
+   - `feat!:` / any type with `!` / a `BREAKING CHANGE:` footer → **major**
+   - everything else (`fix:`, `chore:`, `build(deps):`, non-conventional) → **patch**
+   - the **max** across all commits since the last tag wins
+3. Bumps `package.json` + `package-lock.json` (`npm version --no-git-tag-version`),
+   commits as `chore(release): vX.Y.Z`, tags `vX.Y.Z`, and pushes both the
+   commit and the tag.
+4. The pushed tag triggers the existing
+   [`.github/workflows/release.yml`](../.github/workflows/release.yml)
+   (issue #23, unchanged) — see below for what that does. It stays the
+   **single** mechanism that publishes a GitHub release; this workflow only
+   ever produces the tag push that feeds it.
+
+**First release (no tags yet):** with no `vX.Y.Z` tag reachable from `HEAD`,
+`tools/autoRelease.ts` treats `package.json`'s current version as the
+release — it tags `HEAD` as `vX.Y.Z` **as-is, with no bump and no bump
+commit** (nothing changed to commit). Every push after that has a tag to
+diff against, so the normal bump-from-commits path applies from then on.
+This repo's first automated run will tag the current `1.0.0` unchanged.
+
+**Loop guard:** the bump commit (`chore(release): vX.Y.Z`) must never
+itself trigger another bump. Two layers:
+- `tools/autoRelease.ts`'s `planRelease()` checks `HEAD`'s commit subject
+  first and skips unconditionally if it matches `^chore\(release\):`
+  (unit-tested in `tests/tools/autoRelease.test.ts`).
+- The workflow's job `if:` also skips when
+  `github.event.head_commit.message` starts with `chore(release):`, so an
+  unauthenticated run (see PAT note below) doesn't even start.
+
+**Required setup — `RELEASE_PAT` secret:** GitHub Actions does not
+re-trigger workflows from pushes made with the default `GITHUB_TOKEN` (a
+documented anti-loop measure). If `auto-release.yml` pushed the release tag
+using the default token, `release.yml`'s `on: push: tags: v*.*.*` would
+**never fire** — the tag would exist, but no release would ever publish.
+To avoid that, `auto-release.yml`'s checkout step authenticates with a
+repository secret PAT instead of the default token. The maintainer must
+create this once:
+
+1. GitHub → Settings (personal) → Developer settings → Personal access
+   tokens → Fine-grained tokens → Generate new token.
+2. Resource owner: this repo's owner. Repository access: **only this
+   repository**. Permissions: **Contents: Read and write** (that's the only
+   permission `tools/autoRelease.ts` needs — it reads tags/log and pushes a
+   commit + tag).
+3. Repo → Settings → Secrets and variables → Actions → New repository
+   secret → name it `RELEASE_PAT`, paste the token value.
+
+Without this secret, `secrets.RELEASE_PAT` resolves to an empty string,
+checkout configures no push credentials, and the `git push` steps in
+`tools/autoRelease.ts` fail loudly — not a silent no-op.
+
+**Dependabot path:** with this in place, a Dependabot PR that passes
+`checks` and gets merged auto-releases a patch (its title is a
+`build(deps):` commit → patch bump) with zero further action. Enabling
+Dependabot **auto-merge** is a separate maintainer decision this issue
+does not enable — to turn it on:
+
+- Repo → Settings → General → Pull Requests → check **"Allow auto-merge"**
+  (one-time, repo-wide), then either:
+  - per-PR: `gh pr merge --auto --squash <PR-number>` (or the "Enable
+    auto-merge" button in the PR's UI) once its checks are green, or
+  - a scheduled workflow that runs `gh pr merge --auto --squash` against
+    open Dependabot PRs matching update-type labels (e.g. via
+    `dependabot/fetch-metadata`) — more automation, not set up here.
+
+Branch protection on `main` (if enabled) must allow the required `checks`
+status check to gate the merge, same as any other PR.
+
+## Release procedure: manual tag (fallback / escape hatch)
+
+If the automated path above is unavailable (e.g. `RELEASE_PAT` isn't
+configured yet, or the maintainer wants to cut a release outside the normal
+commit flow), tag and push by hand:
 
 1. Bump `package.json`'s `version` to the new `X.Y.Z` (no `v` prefix, no
    pre-release suffix — the release workflow only accepts plain semver
@@ -67,11 +150,15 @@ Both report the same string; see [`docs/embedding.md`](embedding.md#version).
      repository's `LICENSE`
 
 No tag is ever pushed by an AI agent working on this repo — only the
-maintainer cuts a release.
+maintainer cuts a release, whether via this manual path or by reviewing
+what the automated path is about to do.
 
-**Status:** the workflow itself is unverified until a real tag is pushed
-(it can't be exercised end-to-end without one); `tools/releaseVersion.ts`
-is covered by unit tests, and `npm run build:lib` is verified locally.
+**Status (UNVERIFIED):** neither workflow has ever run against a real push
+or tag — `release.yml` hasn't published a release yet, and
+`auto-release.yml` hasn't run on a real push to main (it also depends on
+the `RELEASE_PAT` secret existing, which this change does not create).
+`tools/releaseVersion.ts` and `tools/autoRelease.ts`'s decision logic are
+both covered by unit tests, and `npm run build:lib` is verified locally.
 
 ## Future: AI-generated release notes
 
