@@ -1,8 +1,8 @@
 # Embedding the designer
 
-The designer ships as an embeddable component (issue #20, [ADR-010](adr/ADR-010-ha-embed-mode.md)): a host application — the concrete target is the [OpenDisplay HA integration](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/44) custom panel — mounts it into a container, pushes entity states and display capabilities, and receives the drawcustom YAML payload on Save. Styles are isolated via Shadow DOM at the mount boundary (issue #21); live HA data is a later milestone (#24).
+The designer ships as an embeddable component ([issue #20](https://github.com/schlomo/odl-drawcustom-designer/issues/20), [ADR-010](adr/ADR-010-ha-embed-mode.md)): a host application — the concrete target is the [OpenDisplay HA integration](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/44) custom panel — mounts it into a container, pushes entity states and display capabilities, and receives the drawcustom YAML payload on Save. Styles are isolated via Shadow DOM at the mount boundary ([issue #21](https://github.com/schlomo/odl-drawcustom-designer/issues/21)); live HA data is a later milestone ([#24](https://github.com/schlomo/odl-drawcustom-designer/issues/24)).
 
-Consumed as a **versioned GitHub-release artifact** (issue #23) — release procedure, semver policy, and consumer story: [`docs/releasing.md`](releasing.md).
+Consumed as a **versioned GitHub-release artifact** ([issue #23](https://github.com/schlomo/odl-drawcustom-designer/issues/23)) — release procedure, semver policy, and consumer story: [`docs/releasing.md`](releasing.md).
 
 ## Library build
 
@@ -10,7 +10,7 @@ Consumed as a **versioned GitHub-release artifact** (issue #23) — release proc
 npm run build:lib
 ```
 
-Emits **one self-contained ESM file** — React, styles, and bundled fonts included; the host provides nothing (~5.4 MiB raw, ~1.6 MiB gzip on the wire — composition and the deliberate no-code-splitting decision: [`bundle-audit.md`](bundle-audit.md)):
+Emits **one self-contained ESM file** — React, styles, and bundled fonts included; the host provides nothing (~5.4 MiB raw, ~1.6 MiB gzip on the wire — composition and the deliberate no-code-splitting decision: [`docs/bundle-audit.md`](bundle-audit.md)):
 
 ```
 dist-lib/odl-drawcustom-designer.js
@@ -26,9 +26,9 @@ npm run build:site && npm run preview
 No dedicated server needed beyond that: the demo is plain static files, so any
 static file server works too (e.g. `python3 -m http.server -d dist-lib`).
 
-The demo page mounts the designer, pushes fake warm/cold states and a 296×128 BWR capabilities payload, switches themes, and shows every `onSaveRequest` payload in a `<pre>`. It doubles as the Playwright e2e fixture (`tests/e2e/embed-mount.spec.ts`).
+The demo page mounts the designer, pushes fake warm/cold states and a 296×128 BWR capabilities payload, switches themes, and shows every `onSaveRequest` payload in a `<pre>`. It doubles as the Playwright e2e fixture ([`tests/e2e/embed-mount.spec.ts`](../tests/e2e/embed-mount.spec.ts)).
 
-The same demo is published from `main` at **<https://schlomo.github.io/odl-drawcustom-designer/embed/>** — `npm run build:site` assembles the deployed site (app at `/`, `dist-lib/` copied to `/embed/` by `tools/assembleSite.ts`); PR previews get their own `/embed/` the same way.
+The same demo is published from `main` at **<https://schlomo.github.io/odl-drawcustom-designer/embed/>** — `npm run build:site` assembles the deployed site (app at `/`, `dist-lib/` copied to `/embed/` by [`tools/assembleSite.ts`](../tools/assembleSite.ts)); PR previews get their own `/embed/` the same way.
 
 ## Mount API
 
@@ -78,7 +78,7 @@ string as `MountHandle.version`, whichever is more convenient for a host to
 log or report. See [`docs/releasing.md`](releasing.md) for the release
 procedure and semver policy that governs this API.
 
-### Shadow DOM at the mount boundary (issue #21)
+### Shadow DOM at the mount boundary ([issue #21](https://github.com/schlomo/odl-drawcustom-designer/issues/21))
 
 `mount()` renders into an **open shadow root on the container**: it reuses `container.shadowRoot` when the host already attached one, otherwise it calls `container.attachShadow({ mode: 'open' })` itself. This isolates styles in both directions:
 
@@ -106,17 +106,17 @@ class DesignerPanel extends HTMLElement {
 
 The container element must support `attachShadow` (a `<div>` or an autonomous custom element does; e.g. `<span>`-like replaced elements do not).
 
-`demo/isolation.html` is the hostile-host fixture proving the boundary: aggressive `!important` host CSS, Tailwind-colliding class names, and two instances with different themes on one page (`tests/e2e/embed-isolation.spec.ts`).
+`demo/isolation.html` is the hostile-host fixture proving the boundary: aggressive `!important` host CSS, Tailwind-colliding class names, and two instances with different themes on one page ([`tests/e2e/embed-isolation.spec.ts`](../tests/e2e/embed-isolation.spec.ts)).
 
-### Scroll containment (issue #79)
+### Scroll containment ([issue #79](https://github.com/schlomo/odl-drawcustom-designer/issues/79))
 
 Designer-internal scrolling never scrolls the host page. The YAML editor scrolls itself programmatically — the Linked-editor sync centers the selected element's block on every canvas selection, and typing scrolls the cursor into view — and CodeMirror's default handling would walk ancestor scrollers past the mount boundary and call `window.scrollBy` on the host document whenever the editor's own scroller cannot absorb the full scroll. A designer embedded above other host content would visibly jump the page on every element selection or drag.
 
-A [`scrollHandler`](../src/ui/editor/yamlScrollContainment.ts) contains all editor scroll-into-view requests to the editor's own scroller: hosts can place the designer anywhere on a scrolling page without defensive wrappers. Guarded by `tests/e2e/embed-host-scroll.spec.ts` against the demo host page.
+A [`scrollHandler`](../src/ui/editor/yamlScrollContainment.ts) contains all editor scroll-into-view requests to the editor's own scroller: hosts can place the designer anywhere on a scrolling page without defensive wrappers. Guarded by [`tests/e2e/embed-host-scroll.spec.ts`](../tests/e2e/embed-host-scroll.spec.ts) against the demo host page.
 
 ## Host data contract
 
-HA-agnostic types (`src/embed/types.ts`); an HA adapter is expected to be a thin pass-through.
+HA-agnostic types ([`src/embed/types.ts`](../src/embed/types.ts)); an HA adapter is expected to be a thin pass-through.
 
 ### `states`
 
@@ -148,7 +148,7 @@ Mirrors the OpenDisplay HA integration's `capabilities.py` payload:
 }
 ```
 
-Mapping onto the canvas (`src/embed/hostContract.ts`):
+Mapping onto the canvas ([`src/embed/hostContract.ts`](../src/embed/hostContract.ts)):
 
 - **Size** — `render_width`/`render_height` when both present, else `pixel_width`/`pixel_height` swapped for 90°/270° rotations.
 - **Rotation** — `rotation_degrees` normalized into {0, 90, 180, 270}; other angles keep the current rotation.
@@ -157,7 +157,7 @@ Mapping onto the canvas (`src/embed/hostContract.ts`):
 
 Known gaps: `palette_measured` itself is informational only (the hexes apply whether or not it is set). Fractional rotations are not representable. YAML export semantics are untouched — the payload always carries color *names*, never display hexes.
 
-#### Display config lock (issue #70)
+#### Display config lock ([issue #70](https://github.com/schlomo/odl-drawcustom-designer/issues/70))
 
 When the mount received `capabilities` — at `mount()` or via `setCapabilities()` — the display config is **host-owned**: a lock icon appears next to the "Display config" heading, and the resolution, rotation and color mode controls follow its state.
 
@@ -197,13 +197,13 @@ case rather than an edge case:
 
 ## Standalone SPA
 
-The standalone GitHub Pages app is a **host adapter over the same mount lifecycle** the library exports (issue #72, [ADR-017](adr/ADR-017-host-adapter-seam.md)): `src/main.tsx` calls `mountStandaloneApp()` (`src/embed/standalone.tsx`), which mounts `createStandaloneHost()` (`src/embed/standaloneHost.ts`) through the internal `mountDesigner()` in `src/embed/mount.tsx` — the same function the public `mount()` uses with the embedded adapter.
+The standalone GitHub Pages app is a **host adapter over the same mount lifecycle** the library exports ([issue #72](https://github.com/schlomo/odl-drawcustom-designer/issues/72), [ADR-017](adr/ADR-017-host-adapter-seam.md)): [`src/main.tsx`](../src/main.tsx) calls `mountStandaloneApp()` ([`src/embed/standalone.tsx`](../src/embed/standalone.tsx)), which mounts `createStandaloneHost()` ([`src/embed/standaloneHost.ts`](../src/embed/standaloneHost.ts)) through the internal `mountDesigner()` in [`src/embed/mount.tsx`](../src/embed/mount.tsx) — the same function the public `mount()` uses with the embedded adapter.
 
 Standalone behavior is unchanged by embedding: page-DOM rendering (no shadow root), document-level theme, IndexedDB session/mocks/variables autosave, `#d=` share-hash bootstrap and same-tab re-bootstrap, share link and theme toggle in the chrome.
 
 ### Host adapters
 
-Everything that used to be an `embedded` conditional in the React shell is policy on the `DesignerHost` adapter (`src/embed/host.ts`):
+Everything that used to be an `embedded` conditional in the React shell is policy on the `DesignerHost` adapter ([`src/embed/host.ts`](../src/embed/host.ts)):
 
 | Policy | Standalone | Embedded (`mount()`) |
 |--------|-----------|----------------------|
@@ -215,4 +215,4 @@ Everything that used to be an `embedded` conditional in the React shell is polic
 | `onSaveRequest` | absent (persists continuously) | present → Save button |
 | `loadBootstrap` | async: session + `#d=` hash | sync: `payload`/`states`/`capabilities` options |
 
-The interface is **internal on purpose** — it references internal types, so publishing it would freeze designer internals under semver ([`releasing.md`](releasing.md)). The public embedded surface (`mount`, `MountOptions`, `MountHandle`, the host data contract) is unchanged by the convergence. The M4 HA panel (issue #25) becomes a third adapter, not a third mode.
+The interface is **internal on purpose** — it references internal types, so publishing it would freeze designer internals under semver ([`docs/releasing.md`](releasing.md)). The public embedded surface (`mount`, `MountOptions`, `MountHandle`, the host data contract) is unchanged by the convergence. The M4 HA panel ([issue #25](https://github.com/schlomo/odl-drawcustom-designer/issues/25)) becomes a third adapter, not a third mode.
