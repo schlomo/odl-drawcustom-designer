@@ -136,6 +136,8 @@ Use `npm ci` in CI. Deploy is blocked on failure (ADR-008).
 
 ## CI notes
 
+**Runs on laptop or CI** — every script CI calls must run identically on a developer laptop (loud env checks, no runner-only assumptions). Thin CI (no logic in workflow YAML, behavior in tested `tools/` scripts) exists precisely so CI tooling can be developed and debugged locally.
+
 `.github/workflows/pages.yml`:
 
 - The **`checks`** job is the merge gate: lint, `test:ci` (vitest), build, Playwright, JUnit check-run publishing.
@@ -148,6 +150,8 @@ Use `npm ci` in CI. Deploy is blocked on failure (ADR-008).
 Only commit when the user asks, unless their task explicitly includes committing. Do not commit parity “fixes” that lack behavioral test coverage.
 
 Releases use GitHub's auto-generated notes ([`docs/releasing.md`](docs/releasing.md)), so commit/PR titles **are** the changelog verbatim. Write conventional, imperative, user-meaningful summary lines for a release reader, not just a code reader.
+
+Commit titles also **drive the semver bump** (auto-release derives it from conventional types). A change that additively grows the embed public surface (`src/embed/` exports, `MountOptions`/`MountHandle`, host data contract) is a `feat:` even when the work feels like refactoring — v1.0.1 shipped as a patch despite `mountStandaloneApp()` gaining a `MountHandle` return because the commit said `refactor:`. Review briefs for embed-surface diffs include a title-vs-semver check.
 
 ## Process rules
 
