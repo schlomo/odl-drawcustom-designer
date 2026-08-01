@@ -34,7 +34,7 @@
     "@mdi/js": "^7.4.47",
     "@uiw/codemirror-extensions-basic-setup": "^4.25.10",
     "bidi-js": "^1.0.3",
-    "dexie": "^4.4.3",
+    "dexie": "^4.4.4",
     "nunjucks": "^3.2.4",
     "opentype.js": "^2.0.0",
     "pako": "^2.1.0",
