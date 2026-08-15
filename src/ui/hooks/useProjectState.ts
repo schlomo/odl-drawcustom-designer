@@ -1203,6 +1203,13 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
     [commitElements, dispatchHistory],
   )
 
+  // Synchronous accessor onto `elementsRef` (issue #104): `commitElements`
+  // updates the ref before the React state setter, so this is always the
+  // latest committed elements even mid-callback, before a re-render — what
+  // `MountHandle.getPayload()` needs to read immediately after forcing a
+  // flush of any pending YAML-editor debounce.
+  const getElementsSnapshot = useCallback(() => elementsRef.current, [])
+
   return {
     sessionName,
     setSessionName,
@@ -1210,6 +1217,7 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
     setService: commitService,
     elements,
     setElements: setElementsWithHistory,
+    getElementsSnapshot,
     previewElements,
     selectedIndices,
     selectedIndex,

@@ -76,6 +76,13 @@ interface YamlPanelProps {
    * panel interactions while true.
    */
   onYamlBlockedChange?: (blocked: boolean) => void
+  /**
+   * Kept pointed at the current `flushYamlElementsSync` (issue #104): lets
+   * the parent force a flush of a pending debounced valid edit — e.g. before
+   * `MountHandle.getPayload()` reads `elements` — the same flush that
+   * normally runs on the editor's own blur or an 80ms timer.
+   */
+  flushPendingRef?: RefObject<(() => void) | null>
 }
 
 export function YamlPanel({
@@ -95,6 +102,7 @@ export function YamlPanel({
   propertyEditing = false,
   mockContext,
   onYamlBlockedChange,
+  flushPendingRef,
 }: YamlPanelProps) {
   const serialized = useMemo(() => serializeYamlPayload(elements), [elements])
   const [yamlText, setYamlText] = useState(serialized)
@@ -251,6 +259,21 @@ export function YamlPanel({
     },
     [],
   )
+
+  // Keep the parent's ref pointed at the live flush function (issue #104):
+  // MountHandle.getPayload() calls through it before reading `elements`, so
+  // it always forces the same flush a real blur/timeout would.
+  useEffect(() => {
+    if (!flushPendingRef) {
+      return
+    }
+    flushPendingRef.current = flushYamlElementsSync
+    return () => {
+      if (flushPendingRef.current === flushYamlElementsSync) {
+        flushPendingRef.current = null
+      }
+    }
+  }, [flushPendingRef, flushYamlElementsSync])
 
   const handleYamlChange = useCallback(
     (text: string) => {

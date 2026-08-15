@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import cssText from '../index.css?inline'
-import { APP_VERSION, parseYamlPayload } from '../core'
+import { APP_VERSION, parseYamlPayload, serializeYamlPayload } from '../core'
 import { App } from '../ui/App'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import { createEmbeddedHost } from './embeddedHost'
@@ -133,6 +133,14 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
     pendingPushes.push(apply)
   }
 
+  // The read mirror of the push queue above (issue #104): `getPayload()`
+  // calls whatever the shell last registered here. Before that registration
+  // effect has run — the pre-registration window `pendingPushes` also
+  // exists for — there is nothing to call, so `getPayload()` falls back to
+  // the bootstrap payload via `bootstrap` below instead of queuing (a read
+  // has no "later" to replay into; it must answer synchronously, right now).
+  let payloadSource: (() => string) | null = null
+
   let bridge: DesignerHost = {
     ...host,
     registerPushTarget(target) {
@@ -143,6 +151,14 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
       return () => {
         if (pushTarget === target) {
           pushTarget = null
+        }
+      }
+    },
+    registerPayloadSource(getPayload) {
+      payloadSource = getPayload
+      return () => {
+        if (payloadSource === getPayload) {
+          payloadSource = null
         }
       }
     },
@@ -249,6 +265,17 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
       target.setTheme(nextTheme)
       bridge = { ...bridge, theme: { owner: 'host', value: nextTheme } }
       renderApp()
+    },
+    getPayload() {
+      assertMounted()
+      if (payloadSource) {
+        return payloadSource()
+      }
+      // Nothing registered yet (pre-registration window, or the initial
+      // bootstrap load is still in flight for an async host): report the
+      // bootstrap payload — the same `elements` the shell is about to seed
+      // its state from — rather than throwing or returning nothing.
+      return serializeYamlPayload(bootstrap?.elements ?? [])
     },
   }
 }

@@ -96,6 +96,7 @@ export function App({ bootstrap, host }: AppProps) {
     sessionName,
     service,
     elements,
+    getElementsSnapshot,
     previewElements,
     selectedIndices,
     selectedIndex,
@@ -163,6 +164,22 @@ export function App({ bootstrap, host }: AppProps) {
   useEffect(() => {
     elementsRef.current = elements
   }, [elements])
+
+  // Points at YamlPanel's live `flushYamlElementsSync` (issue #104): the
+  // payload-source registration below calls through it before serializing,
+  // so getPayload() forces the same debounce flush a real blur/Save click
+  // would trigger, instead of a second, independently-timed read.
+  const yamlFlushPendingRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    if (!host.registerPayloadSource) {
+      return
+    }
+    return host.registerPayloadSource(() => {
+      yamlFlushPendingRef.current?.()
+      return serializeYamlPayload(getElementsSnapshot())
+    })
+  }, [host, getElementsSnapshot])
 
   useEffect(() => {
     if (bootstrap.importSource === 'hash') {
@@ -585,6 +602,7 @@ export function App({ bootstrap, host }: AppProps) {
             elementScrollRequest={elementScrollRequest}
             canvasDragging={canvasDragging}
             propertyEditing={propertyEditing}
+            flushPendingRef={yamlFlushPendingRef}
           />
         </div>
 
