@@ -1,7 +1,7 @@
 import { colourSchemeToColorMode, normalizePaletteOverrides, type TagColorMode } from '../core'
 import type { CanvasConfig, CanvasRotation } from '../ui/hooks/useProjectState'
-import type { MockData } from '../ui/preferences/mockStates'
-import type { HostCapabilities, HostStates } from './types'
+import type { MockData, MockEntityAttributes } from '../ui/preferences/mockStates'
+import type { HostCapabilities, HostEntityState, HostStates } from './types'
 
 /** Convert host-pushed states into the designer's mock state + attribute maps. */
 export function hostStatesToMockData(states: HostStates): MockData {
@@ -20,6 +20,107 @@ export function hostStatesToMockData(states: HostStates): MockData {
   }
 
   return { states: mockStates, attributes: mockAttributes }
+}
+
+function deepValueEqual(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) {
+    return true
+  }
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return (
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((item, index) => deepValueEqual(item, b[index]))
+    )
+  }
+  if (a !== null && b !== null && typeof a === 'object' && typeof b === 'object') {
+    return recordValuesEqual(a as Record<string, unknown>, b as Record<string, unknown>)
+  }
+  return false
+}
+
+function recordValuesEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  if (a === b) {
+    return true
+  }
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  return aKeys.length === bKeys.length && aKeys.every((key) => key in b && deepValueEqual(a[key], b[key]))
+}
+
+function attributesEqual(a?: Record<string, unknown>, b?: Record<string, unknown>): boolean {
+  if (a === b) {
+    return true
+  }
+  return recordValuesEqual(a ?? {}, b ?? {})
+}
+
+function hostEntityValueEqual(
+  a: string | number | boolean | HostEntityState,
+  b: string | number | boolean | HostEntityState,
+): boolean {
+  const aIsEntity = a !== null && typeof a === 'object'
+  const bIsEntity = b !== null && typeof b === 'object'
+  if (aIsEntity !== bIsEntity) {
+    return false
+  }
+  if (!aIsEntity) {
+    return a === b
+  }
+  const stateA = a as HostEntityState
+  const stateB = b as HostEntityState
+  return stateA.state === stateB.state && attributesEqual(stateA.attributes, stateB.attributes)
+}
+
+/**
+ * Structural equality between two host `states` pushes (issue #110). The
+ * upstream OpenDisplay HA integration pushes the *entire* entity registry —
+ * every attribute, on every entity — up to 4x/s even when nothing changed,
+ * so this is the guard that keeps an unchanged tick from costing more than
+ * this scan: linear in entity + attribute count, short-circuits on the first
+ * difference, and never allocates an intermediate string (unlike a
+ * `JSON.stringify` comparison) or a converted mock-data copy.
+ */
+export function hostStatesEqual(a: HostStates, b: HostStates): boolean {
+  if (a === b) {
+    return true
+  }
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  return aKeys.length === bKeys.length && aKeys.every((key) => key in b && hostEntityValueEqual(a[key]!, b[key]!))
+}
+
+/** Equality for the converted flat state-value map (values are always primitives). */
+export function mockStatesEqual(a: MockData['states'], b: MockData['states']): boolean {
+  if (a === b) {
+    return true
+  }
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  return aKeys.length === bKeys.length && aKeys.every((key) => key in b && a[key] === b[key])
+}
+
+/**
+ * Merge a freshly converted attribute map onto the previous one, reusing
+ * each entity's previous attribute object when its content is unchanged
+ * (issue #110) — so any future per-entity memoization (e.g. a
+ * referenced-states panel row, ADR-018) can skip work for entities a push
+ * did not touch. The returned top-level map is always new; call this only
+ * after `hostStatesEqual` already established the push changed something —
+ * this does not itself detect "nothing changed" (that is
+ * `hostStatesEqual`'s job, before any conversion happens).
+ */
+export function mergeMockAttributes(
+  previous: MockEntityAttributes,
+  next: MockEntityAttributes,
+): MockEntityAttributes {
+  const merged: MockEntityAttributes = {}
+  for (const [entityId, attrs] of Object.entries(next)) {
+    const previousAttrs = previous[entityId]
+    merged[entityId] = previousAttrs && recordValuesEqual(previousAttrs, attrs) ? previousAttrs : attrs
+  }
+  return merged
 }
 
 function normalizeRotation(degrees: number | undefined): CanvasRotation | null {

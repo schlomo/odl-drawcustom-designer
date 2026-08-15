@@ -61,8 +61,15 @@ import {
   readShowHiddenHintsPrefs,
   writeShowHiddenHintsPrefs,
 } from '../preferences/hiddenHints'
-import { capabilitiesToCanvas, hostStatesToMockData } from '../../embed/hostContract'
+import {
+  capabilitiesToCanvas,
+  hostStatesEqual,
+  hostStatesToMockData,
+  mergeMockAttributes,
+  mockStatesEqual,
+} from '../../embed/hostContract'
 import type { DesignerHost } from '../../embed/host'
+import type { HostStates } from '../../embed/types'
 import { useTemplatePreviewClock } from './useTemplatePreviewClock'
 
 export type { AddElementResult } from '../lib/add-element-guards'
@@ -176,6 +183,14 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
   const [showHiddenHints, setShowHiddenHints] = useState(() => readShowHiddenHintsPrefs().enabled)
   const mockStatesRef = useRef(mockStates)
   const mockAttributesRef = useRef(mockAttributes)
+  // Last raw host `states` payload actually applied (issue #110): compared
+  // structurally against each new push so an unchanged tick (the upstream
+  // OpenDisplay HA integration re-sends its full entity registry up to 4x/s)
+  // costs one cheap scan instead of a setState + re-render + template
+  // re-evaluation. Set synchronously inside `applyStates` itself, never from
+  // an effect — the same ref-paired-with-setter convention `commitElements`
+  // et al. use elsewhere in this file.
+  const lastHostStatesRef = useRef<HostStates | null>(null)
   const elementsRef = useRef(elements)
   const canvasRef = useRef(canvas)
   const hostDisplayRef = useRef(hostDisplay)
@@ -375,9 +390,21 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
     }
     return host.registerPushTarget({
       applyStates: (states) => {
+        // Issue #110: an unchanged push (the upstream OpenDisplay HA
+        // integration re-sends its full entity registry up to 4x/s) must
+        // cost nothing beyond this structural scan — no conversion, no
+        // setState, no re-render, no template re-evaluation.
+        if (lastHostStatesRef.current !== null && hostStatesEqual(lastHostStatesRef.current, states)) {
+          return
+        }
+        lastHostStatesRef.current = states
         const mock = hostStatesToMockData(states)
-        setMockStates(mock.states)
-        setMockAttributes(mock.attributes)
+        // Functional updaters: bail per-part when that half of the push
+        // didn't actually change (e.g. only attributes moved), and reuse
+        // each unaffected entity's attribute object (bounded churn, issue
+        // #110) rather than replacing the whole map wholesale.
+        setMockStates((current) => (mockStatesEqual(current, mock.states) ? current : mock.states))
+        setMockAttributes((current) => mergeMockAttributes(current, mock.attributes))
       },
       applyCapabilities: (capabilities, options) => {
         // The host (re-)defined the display: adopt it, and by default lock
