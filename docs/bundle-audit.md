@@ -109,12 +109,13 @@ The HA integration serves the library ESM from an aiohttp static-file view
 Measured via review of [OpenDisplay HA PR #100](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/100):
 
 **Current deployment (measured):**
-- Bundle served **uncompressed** (5.6 MiB raw, not the 5.4 MiB gzip) on every
-  panel open — no wire compression applied.
+- Bundle served **uncompressed** — 5.4 MiB raw on the wire instead of the
+  ~1.6 MiB gzip; no compression applied by the static view.
 - `Cache-Control: no-cache, no-store, must-revalidate` — full re-download on
   every panel load, no client cache benefit across visits.
-- Wire penalty on repeat visits: ~5.6 MiB per open on a LAN box at typical
-  100–1000 Mbit/s (5–50 s per load).
+- Wire penalty per panel open on a LAN box: ~0.5 s at 100 Mbit/s, ~0.05 s at
+  1 Gbit/s — tolerable once, but paid on **every** open because caching is
+  disabled.
 
 **Recommended fix (not yet implemented):**
 - Serve with content-hashed/versioned filenames (or query params) to enable
