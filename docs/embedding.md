@@ -78,6 +78,11 @@ string as `MountHandle.version`, whichever is more convenient for a host to
 log or report. See [`docs/releasing.md`](releasing.md) for the release
 procedure and semver policy that governs this API.
 
+`MountHandle.version` is used in production by the OpenDisplay HA panel
+(status line version indicator); see their [reference host adapter](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/100)
+(`custom_components/opendisplay/designer/`) for a live example. First-party
+HA support is tracked in [#25](https://github.com/schlomo/odl-drawcustom-designer/issues/25).
+
 ### Shadow DOM at the mount boundary ([issue #21](https://github.com/schlomo/odl-drawcustom-designer/issues/21))
 
 `mount()` renders into an **open shadow root on the container**: it reuses `container.shadowRoot` when the host already attached one, otherwise it calls `container.attachShadow({ mode: 'open' })` itself. This isolates styles in both directions:
