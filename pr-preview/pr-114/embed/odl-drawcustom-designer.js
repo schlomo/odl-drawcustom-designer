@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "perf/issue-110-state-push-diff", ae = "0cea4e3", k = "39470b5", A = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "perf/issue-110-state-push-diff", ae = "19a79dc", k = "b6ee9d0", A = "0.0.0-dev";
 function j(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -75563,17 +75563,17 @@ function eln(e, t) {
 			rotation: e
 		}));
 	}, [N]), Ne = (0, v.useCallback)((e, t) => {
-		h((n) => ({
+		ie.current = null, h((n) => ({
 			...n,
 			[e]: t
 		}));
 	}, []), Pe = (0, v.useCallback)((e, t) => {
-		h((n) => ({
+		ie.current = null, h((n) => ({
 			...n,
 			[e]: t
 		}));
 	}, []), B = (0, v.useCallback)((e) => {
-		h((t) => {
+		ie.current = null, h((t) => {
 			if (!(e in t)) return t;
 			let n = { ...t };
 			return delete n[e], n;
@@ -75583,7 +75583,7 @@ function eln(e, t) {
 			return delete n[e], n;
 		});
 	}, []), Fe = (0, v.useCallback)((e, t, n) => {
-		_((r) => ({
+		ie.current = null, _((r) => ({
 			...r,
 			[e]: {
 				...r[e] ?? {},
@@ -75592,7 +75592,7 @@ function eln(e, t) {
 		}));
 	}, []), Ie = (0, v.useCallback)((e, t, n) => {
 		let r = n.trim();
-		r !== t && _((n) => {
+		r !== t && (ie.current = null, _((n) => {
 			let i = n[e];
 			if (!i || !(t in i)) return n;
 			let a = {};
@@ -75601,9 +75601,9 @@ function eln(e, t) {
 				...n,
 				[e]: a
 			};
-		});
+		}));
 	}, []), Le = (0, v.useCallback)((e, t) => {
-		_((n) => {
+		ie.current = null, _((n) => {
 			let r = n[e];
 			if (!r || !(t in r)) return n;
 			let i = { ...r };
@@ -75765,7 +75765,7 @@ function eln(e, t) {
 		R,
 		i
 	]), Je = (0, v.useCallback)(() => {
-		pe(), M([]), P([]), h((e) => Ccn(e)), _((e) => wcn(e)), b((e) => Tcn(e));
+		pe(), M([]), P([]), ie.current = null, h((e) => Ccn(e)), _((e) => wcn(e)), b((e) => Tcn(e));
 	}, [
 		M,
 		P,
@@ -75779,7 +75779,7 @@ function eln(e, t) {
 			previewDitherMode: e.previewDitherMode
 		}));
 	}, [N]), Xe = (0, v.useCallback)(() => {
-		H1t(), pe(), j.current && A.current || N({ ...vcn }), M(bcn()), P([]);
+		H1t(), pe(), j.current && A.current || N({ ...vcn }), M(bcn()), P([]), ie.current = null;
 		let e = xcn();
 		h(e.states), _(e.attributes), b(e.variables);
 	}, [
