@@ -12,15 +12,21 @@
 # needed.
 #
 # `workflow_dispatch` is a manual fallback that runs the exact same path —
-# useful for a clean retry after a transient failure (npm/GitHub outage,
-# etc). See docs/releasing.md.
+# useful to trigger a release check without waiting for the next push. Note
+# that a stranded `npm publish` failure (release already created, publish
+# itself failed) self-heals on ANY subsequent run, including an ordinary
+# push — tools/autoRelease.ts's skip path checks the npm registry and
+# recovers it automatically (docs/releasing.md#partial-failure-recovery);
+# workflow_dispatch just lets you force that check immediately instead of
+# waiting. See docs/releasing.md.
 #
 # Thin CI (AGENTS.md): all decision logic (bump derivation/precedence, tag
 # ancestry, the no-tag-yet case, release-asset generation, npm staging, the
-# NPM_TOKEN-absent skip) lives in tools/autoRelease.ts and the tools/ modules
-# it calls, unit-tested under tests/tools/. This file only wires
-# checkout/Node/npm, npm registry auth, and the `id-token: write` permission
-# `npm publish --provenance` needs, then calls the script.
+# NPM_TOKEN-absent skip, partial-failure npm-publish recovery) lives in
+# tools/autoRelease.ts and the tools/ modules it calls, unit-tested under
+# tests/tools/. This file only wires checkout/Node/npm, npm registry auth,
+# and the `id-token: write` permission `npm publish --provenance` needs,
+# then calls the script.
 
 name: Auto Release
 

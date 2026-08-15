@@ -94,7 +94,11 @@ separate one). It:
    5. Generates the release assets — `THIRD_PARTY.md` and
       `odl-drawcustom-designer.js.sha256` (`tools/thirdPartyNotices.ts`,
       `tools/releaseChecksum.ts`; [Artifact contents](#artifact-contents)
-      below) — and publishes the GitHub release:
+      below) — **and stages the npm package** into `dist-npm/`
+      (`tools/stageNpmPackage.ts`; [npm](#npm) below). All of this is pure
+      file assembly, no network call, so — like the checksum/third-party
+      generation — it happens **before** the irreversible step next.
+   6. Publishes the GitHub release:
       ```bash
       gh release create "vX.Y.Z" \
         dist-lib/odl-drawcustom-designer.js LICENSE NOTICE \
@@ -104,9 +108,14 @@ separate one). It:
       This single command **creates the `vX.Y.Z` tag** (pointed at the exact
       commit that was tested, via `--target "$GITHUB_SHA"`) **and** the
       GitHub release in one step — no separate tag push, no bump commit, no
-      write back to `main` at all.
-   6. Stages and (when `NPM_TOKEN` is configured) publishes the npm package —
-      [details below](#npm).
+      write back to `main` at all. This is the one irreversible step in the
+      whole script.
+   7. Publishes the already-staged npm package (when `NPM_TOKEN` is
+      configured) — the **only** step that runs after the release, since it
+      is the only one that's genuinely a network call publishing the
+      version the release just claimed. See [Partial-failure
+      recovery](#partial-failure-recovery) below for what happens if this
+      one step fails, and [npm](#npm) for full details.
 
 Because nothing is ever pushed to `main`, there is **no loop to guard
 against** and the default `GITHUB_TOKEN` (`permissions: contents: write` in
@@ -120,17 +129,117 @@ failure, or a `gh release create` failure (including a **tag/release that
 already exists** — a real error, since every push derives a fresh version
 from tag ancestry and a collision means something is actually wrong) all
 exit the script non-zero and fail the run. There is no silent fallback
-anywhere in this path. A failed run is retried cleanly via
+anywhere in this path except the one described in [Partial-failure
+recovery](#partial-failure-recovery) next. A failed run is retried cleanly via
 [`workflow_dispatch`](#manual-retry-workflow_dispatch) once the underlying
 problem is fixed.
+
+### Partial-failure recovery
+
+The `npm publish` step (step 7 above) is the only one that runs **after**
+`gh release create` has already made the `vX.Y.Z` tag and release
+irreversible. If it fails there — bad token, npm registry outage, the job
+killed mid-step — the release itself is already real, but that version never
+reached npm.
+
+**What happens:** the *next* `tools/autoRelease.ts` run (any trigger: a
+later `main` push, or `workflow_dispatch`) lists tags, sees the
+just-published tag is still the latest, finds zero commits since it, and
+takes the "nothing to release" skip path. Unpatched, that would exit
+cleanly and never revisit the stranded version — this is exactly the "no
+silent fallback" exception flagged above. Instead, when `NPM_TOKEN` is
+configured, the skip path asks `tools/npmRecovery.ts` a read-only question:
+*is the latest tag's version actually on the npm registry?*
+
+- **Registry check is a 404 (not published) and the version is `>=
+  v1.1.0`** (the [npm-publish cutoff](#npm-publish-cutoff) — see below) →
+  **recovers**: rebuilds the library with `APP_VERSION` set to that exact
+  version, re-stages `dist-npm/`, and runs `npm publish` for it, logging
+  `recovering unpublished npm version vX.Y.Z` and writing a job-summary
+  note. It never re-runs `gh release create` — the release/tag already
+  exist and are left untouched.
+- **Registry check finds the version already published** → ordinary skip,
+  nothing to do.
+- **Registry check itself fails** (network down, a non-404 error status) →
+  fails the run loudly, same as any other step. A registry outage must
+  never be misread as "not published".
+- **The latest tag's version is below the cutoff** (`v1.0.0`–`v1.0.4`,
+  released before npm publishing existed) → always an ordinary skip, never
+  recovered — see [cutoff](#npm-publish-cutoff) below.
+
+The decision itself (`planNpmRecovery` in `tools/npmRecovery.ts`) is a pure
+function, unit-tested in `tests/tools/npmRecovery.test.ts`: given the latest
+version, whether npm publishing is configured, and whether the registry has
+that version, it returns `skip` or `recover` plus the reason. The registry
+lookup (`checkNpmRegistryHasVersion`) is a separate async function so the
+decision itself needs no network mocking.
+
+#### npm-publish cutoff
+
+`v1.0.0`–`v1.0.4` were released before this npm-publish feature (issue #103)
+existed at all — their GitHub releases carry no npm-related assets and were
+never meant to reach npm, so recovery must never retroactively publish them.
+The cutoff is `NPM_PUBLISH_CUTOFF_VERSION = '1.1.0'` in
+`tools/npmRecovery.ts`: the latest tag at the time npm publishing was added
+is `v1.0.4`, and this feature's own commit is `feat:`-scoped (minor bump),
+so the first version that can ever carry an npm publish is `v1.1.0`. It's a
+literal constant, not derived from a tag lookup, so the cutoff can never
+silently drift if a later release renumbers something.
+
+**Manual fallback** (for completeness — not the tested/normal path): if
+automatic recovery on the next run isn't desirable and you need to publish
+a specific version to npm right away, stage and publish it by hand from a
+checkout of that tag, reusing the same tested `tools/` functions the
+release script itself uses:
+
+```bash
+git checkout vX.Y.Z
+APP_VERSION=X.Y.Z npm run build:lib
+
+node --input-type=module -e "
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { stageNpmPackage } from './tools/stageNpmPackage.ts';
+import {
+  bundledDependencyNames,
+  collectBundledDependencyInfo,
+  generateThirdPartyMarkdown,
+} from './tools/thirdPartyNotices.ts';
+
+const repoRoot = process.cwd();
+const distLibJsPath = join(repoRoot, 'dist-lib', 'odl-drawcustom-designer.js');
+const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
+const thirdPartyMarkdown = generateThirdPartyMarkdown(
+  collectBundledDependencyInfo(bundledDependencyNames(pkg), join(repoRoot, 'node_modules')),
+);
+stageNpmPackage({
+  version: 'X.Y.Z',
+  repoRoot,
+  distLibJsPath,
+  stagingDir: join(repoRoot, 'dist-npm'),
+  thirdPartyMarkdown,
+});
+"
+
+cd dist-npm && npm publish --access public --provenance
+```
+
+(Verified locally with `npm publish --dry-run` — the tarball contains
+exactly the ESM, `package.json`, `LICENSE`, `NOTICE`, `THIRD_PARTY.md`.) In
+practice, letting the next scheduled/`workflow_dispatch` run recover it
+automatically is simpler and is the tested path — this manual fallback
+exists only for an urgent one-off.
 
 ### Manual retry (`workflow_dispatch`)
 
 The workflow also accepts a manual trigger (Actions tab → "Auto Release" →
 "Run workflow", or `gh workflow run auto-release.yml`) — this runs the
 **exact same steps** against the current `main`, not a different path. Use
-it to retry after a transient failure (npm registry hiccup, GitHub API
-outage, etc.) without needing an empty commit to re-trigger the `push` event.
+it to trigger a release check without waiting for the next `main` push —
+including forcing an immediate [partial-failure recovery
+check](#partial-failure-recovery) after a transient `npm publish` failure
+(npm registry hiccup, GitHub API outage, etc.), rather than waiting for the
+next real push to `main` to pick it up.
 
 **Dependabot path:** a Dependabot PR that passes `checks` and gets merged
 auto-releases a patch on the next `main` push (its title is a `build(deps):`
@@ -261,13 +370,21 @@ only invokes `tools/autoRelease.ts`:
   `GITHUB_SHA`/`GH_TOKEN` required, just `npm run build:lib` first.
 - **`tools/npmPublish.ts`** — the `NPM_TOKEN`-present check and job-summary
   warning helper (below).
+- **`tools/npmRecovery.ts`** — the [partial-failure
+  recovery](#partial-failure-recovery) decision (`planNpmRecovery`) and the
+  read-only npm registry check (`checkNpmRegistryHasVersion`) used by the
+  "nothing to release" skip path.
 
-`tools/autoRelease.ts`'s `import.meta.main` block runs
-`npm publish --access public --provenance` against the staged directory
-after the GitHub release itself succeeds. `--provenance` needs the
-workflow's `id-token: write` permission (added alongside the existing
-`contents: write` in `auto-release.yml`) — wired unconditionally; harmless
-when publish ends up skipped.
+`tools/autoRelease.ts`'s `import.meta.main` block stages the npm package
+**before** `gh release create` (pure file assembly, no network — see the
+[release procedure](#release-procedure-automated-primary-issue-93) above)
+and runs `npm publish --access public --provenance` against that staged
+directory only **after** the GitHub release itself succeeds — the one step
+that must stay post-release, since it publishes the version the release
+just claimed. `--provenance` needs the workflow's `id-token: write`
+permission (added alongside the existing `contents: write` in
+`auto-release.yml`) — wired unconditionally; harmless when publish ends up
+skipped.
 
 ### Staged rollout: `NPM_TOKEN` does not exist yet
 
@@ -282,7 +399,10 @@ action, never something an AI agent does unprompted. Until it's added:
   failure** — then the GitHub release completes exactly as it does today.
 - Once `NPM_TOKEN` exists, that safety net is gone: a real publish failure
   (bad token, a name/version collision, a registry outage) fails the run
-  loudly, same as every other step in this script.
+  loudly, same as every other step in this script. Because that failure
+  happens after the GitHub release already exists, the next run's skip path
+  recovers it automatically — see [Partial-failure
+  recovery](#partial-failure-recovery) above.
 
 **Maintainer setup, when ready:**
 

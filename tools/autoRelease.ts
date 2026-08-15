@@ -1,7 +1,9 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { APP_SLUG } from '../src/core/brand.ts'
 import { NPM_TOKEN_SKIP_MESSAGE, shouldPublishToNpm, writeGithubStepSummary } from './npmPublish.ts'
+import { checkNpmRegistryHasVersion, planNpmRecovery } from './npmRecovery.ts'
 import { writeChecksumFile } from './releaseChecksum.ts'
 import { stageNpmPackage } from './stageNpmPackage.ts'
 import { bundledDependencyNames, collectBundledDependencyInfo, generateThirdPartyMarkdown } from './thirdPartyNotices.ts'
@@ -188,6 +190,56 @@ export function planRelease(input: PlanReleaseInput): ReleaseDecision {
   }
 }
 
+/**
+ * Third-party license inventory (issue #103) — derived from package.json's
+ * own "dependencies" map, which IS the exact set vite.lib.config.ts bundles
+ * into the single ESM (no externals, no code splitting). NOT a heavyweight
+ * scanner; fails loudly if any bundled package is missing a license field.
+ * Shared by the normal release path and the npm-recovery path below, which
+ * both need to regenerate the same markdown for staging.
+ */
+function buildThirdPartyMarkdown(repoRoot: string): string {
+  const repoPackageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as {
+    dependencies?: Record<string, string>
+  }
+  return generateThirdPartyMarkdown(
+    collectBundledDependencyInfo(bundledDependencyNames(repoPackageJson), join(repoRoot, 'node_modules')),
+  )
+}
+
+/**
+ * Rebuilds the library for one exact version and assembles the npm staging
+ * directory (`dist-npm/`) — the same steps the normal release path runs
+ * before `gh release create`, factored out so the recovery path (a later
+ * run publishing a version whose GitHub release already exists) can reuse
+ * them without re-creating any tag/release.
+ */
+function buildAndStageNpmPackage(version: string, repoRoot: string): { stagingDir: string } {
+  execFileSync('npm', ['run', 'build:lib'], {
+    stdio: 'inherit',
+    env: { ...process.env, APP_VERSION: version },
+  })
+  const distLibJsPath = join(repoRoot, 'dist-lib', 'odl-drawcustom-designer.js')
+  const thirdPartyMarkdown = buildThirdPartyMarkdown(repoRoot)
+  const stagingDir = join(repoRoot, 'dist-npm')
+  stageNpmPackage({ version, repoRoot, distLibJsPath, stagingDir, thirdPartyMarkdown })
+  return { stagingDir }
+}
+
+/**
+ * Runs `npm publish` against an already-staged directory. Fails loudly on
+ * any error (bad token, name/version collision, network) — once `NPM_TOKEN`
+ * exists, a broken publish must break the run.
+ */
+function publishToNpm(stagingDir: string, tag: string): void {
+  console.log(`Publishing ${tag} to npm...`)
+  execFileSync('npm', ['publish', '--access', 'public', '--provenance'], {
+    stdio: 'inherit',
+    cwd: stagingDir,
+  })
+  console.log(`Published ${tag} to npm.`)
+}
+
 if (import.meta.main) {
   const git = (args: string[]): string => execFileSync('git', args, { encoding: 'utf8' })
 
@@ -205,6 +257,37 @@ if (import.meta.main) {
 
   if (plan.skip) {
     console.log(`Skipping release: ${plan.reason}`)
+
+    // Recovery for a partial-failure gap (issue #113 review finding):
+    // `gh release create` below is irreversible (creates the tag), but `npm
+    // publish` runs after it. If publish fails there, the *next* run lands
+    // here — same tag, zero commits since it — and would silently skip
+    // forever without this check (AGENTS.md, "re-running is the upgrade
+    // path"). Read-only registry check + pure decision in
+    // tools/npmRecovery.ts; only consulted when npm publishing is even
+    // configured, and never for versions predating npm publishing.
+    if (latestTag && shouldPublishToNpm(process.env)) {
+      const latestVersion = versionFromTag(latestTag)
+      const npmHasVersion = await checkNpmRegistryHasVersion(APP_SLUG, latestVersion)
+      const recovery = planNpmRecovery({ latestVersion, npmTokenConfigured: true, npmHasVersion })
+
+      if (recovery.action === 'recover') {
+        console.log(recovery.reason)
+        const repoRoot = process.cwd()
+        const { stagingDir } = buildAndStageNpmPackage(recovery.version, repoRoot)
+        publishToNpm(stagingDir, `v${recovery.version}`)
+        writeGithubStepSummary(
+          process.env,
+          `## 📦 Recovered npm publish\n\n${recovery.reason}\n\n` +
+            `This run found no new commits to release, but v${recovery.version} was missing from the ` +
+            `npm registry (a prior run's \`npm publish\` step must have failed after its GitHub release ` +
+            `was already created) and has now been published — see docs/releasing.md#partial-failure-recovery.\n`,
+        )
+      } else {
+        console.log(`npm recovery check: ${recovery.reason}`)
+      }
+    }
+
     process.exit(0)
   }
 
@@ -212,6 +295,9 @@ if (import.meta.main) {
   console.log(`Releasing ${tag}: ${plan.reason}`)
 
   const { targetSha } = requireReleaseEnv(process.env)
+
+  const repoRoot = process.cwd()
+  const distLibJsPath = join(repoRoot, 'dist-lib', 'odl-drawcustom-designer.js')
 
   // Build the library with the derived version injected (tools/version.ts /
   // tools/buildDefines.ts read APP_VERSION from the environment).
@@ -224,20 +310,30 @@ if (import.meta.main) {
   // own "dependencies" map, which IS the exact set vite.lib.config.ts bundles
   // into the single ESM (no externals, no code splitting). NOT a heavyweight
   // scanner; fails loudly if any bundled package is missing a license field.
-  const repoRoot = process.cwd()
-  const distLibJsPath = join(repoRoot, 'dist-lib', 'odl-drawcustom-designer.js')
-  const repoPackageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as {
-    dependencies?: Record<string, string>
-  }
-  const thirdPartyMarkdown = generateThirdPartyMarkdown(
-    collectBundledDependencyInfo(bundledDependencyNames(repoPackageJson), join(repoRoot, 'node_modules')),
-  )
+  const thirdPartyMarkdown = buildThirdPartyMarkdown(repoRoot)
   const thirdPartyPath = join(repoRoot, 'dist-lib', 'THIRD_PARTY.md')
   writeFileSync(thirdPartyPath, thirdPartyMarkdown)
 
   // sha256 checksum of the built artifact — a release asset, verifiable with
   // `shasum -c`.
   const checksumPath = writeChecksumFile(distLibJsPath)
+
+  // Stage the npm package BEFORE the irreversible `gh release create` below
+  // (issue #113 review finding): this is pure file assembly (copy the built
+  // ESM, write a generated package.json, LICENSE/NOTICE/THIRD_PARTY.md) with
+  // no network call, so it belongs with the other fail-fast-before-
+  // irreversible steps above, same as the checksum/third-party generation.
+  // The only step that still runs AFTER the release is the actual `npm
+  // publish` network call further down — that one genuinely can't move
+  // earlier, since it publishes the version the release just claimed.
+  const stagingDir = join(repoRoot, 'dist-npm')
+  stageNpmPackage({
+    version: plan.version,
+    repoRoot,
+    distLibJsPath,
+    stagingDir,
+    thirdPartyMarkdown,
+  })
 
   // Creates the tag AND the release in one step (nothing is pushed to
   // main). If the tag/release already exists this fails loudly — every
@@ -269,16 +365,9 @@ if (import.meta.main) {
   // Staged npm-publish rollout (issue #103): NPM_TOKEN is not configured as
   // a repo secret yet. Missing token is a deliberate, documented exception
   // to "fail loudly" — warn prominently and continue; once the token
-  // exists, a publish failure DOES fail the run.
-  const stagingDir = join(repoRoot, 'dist-npm')
-  stageNpmPackage({
-    version: plan.version,
-    repoRoot,
-    distLibJsPath,
-    stagingDir,
-    thirdPartyMarkdown,
-  })
-
+  // exists, a publish failure DOES fail the run. If that publish below
+  // fails, the recovery check in the skip branch above heals it on the next
+  // run (any trigger) without ever re-running `gh release create`.
   if (!shouldPublishToNpm(process.env)) {
     console.log(NPM_TOKEN_SKIP_MESSAGE)
     writeGithubStepSummary(
@@ -288,14 +377,6 @@ if (import.meta.main) {
         `to enable npm publishing on the next release — see docs/releasing.md#npm.\n`,
     )
   } else {
-    console.log(`Publishing ${tag} to npm...`)
-    // Fails loudly on any error (bad token, name/version collision, network) —
-    // once NPM_TOKEN exists, a broken publish must break the run, unlike the
-    // documented missing-token skip above.
-    execFileSync('npm', ['publish', '--access', 'public', '--provenance'], {
-      stdio: 'inherit',
-      cwd: stagingDir,
-    })
-    console.log(`Published ${tag} to npm.`)
+    publishToNpm(stagingDir, tag)
   }
 }
