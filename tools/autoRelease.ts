@@ -1,4 +1,10 @@
 import { execFileSync } from 'node:child_process'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { NPM_TOKEN_SKIP_MESSAGE, shouldPublishToNpm, writeGithubStepSummary } from './npmPublish.ts'
+import { writeChecksumFile } from './releaseChecksum.ts'
+import { stageNpmPackage } from './stageNpmPackage.ts'
+import { bundledDependencyNames, collectBundledDependencyInfo, generateThirdPartyMarkdown } from './thirdPartyNotices.ts'
 
 /**
  * Auto-release on push to main (issue #93, reworked 2026-07-29 per
@@ -214,6 +220,25 @@ if (import.meta.main) {
     env: { ...process.env, APP_VERSION: plan.version },
   })
 
+  // Third-party license inventory (issue #103) — derived from package.json's
+  // own "dependencies" map, which IS the exact set vite.lib.config.ts bundles
+  // into the single ESM (no externals, no code splitting). NOT a heavyweight
+  // scanner; fails loudly if any bundled package is missing a license field.
+  const repoRoot = process.cwd()
+  const distLibJsPath = join(repoRoot, 'dist-lib', 'odl-drawcustom-designer.js')
+  const repoPackageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as {
+    dependencies?: Record<string, string>
+  }
+  const thirdPartyMarkdown = generateThirdPartyMarkdown(
+    collectBundledDependencyInfo(bundledDependencyNames(repoPackageJson), join(repoRoot, 'node_modules')),
+  )
+  const thirdPartyPath = join(repoRoot, 'dist-lib', 'THIRD_PARTY.md')
+  writeFileSync(thirdPartyPath, thirdPartyMarkdown)
+
+  // sha256 checksum of the built artifact — a release asset, verifiable with
+  // `shasum -c`.
+  const checksumPath = writeChecksumFile(distLibJsPath)
+
   // Creates the tag AND the release in one step (nothing is pushed to
   // main). If the tag/release already exists this fails loudly — every
   // main push derives a fresh version from tag ancestry, so a collision is
@@ -225,8 +250,11 @@ if (import.meta.main) {
       'release',
       'create',
       tag,
-      'dist-lib/odl-drawcustom-designer.js',
+      distLibJsPath,
       'LICENSE',
+      'NOTICE',
+      thirdPartyPath,
+      checksumPath,
       '--title',
       tag,
       '--generate-notes',
@@ -237,4 +265,37 @@ if (import.meta.main) {
   )
 
   console.log(`Released ${tag}.`)
+
+  // Staged npm-publish rollout (issue #103): NPM_TOKEN is not configured as
+  // a repo secret yet. Missing token is a deliberate, documented exception
+  // to "fail loudly" — warn prominently and continue; once the token
+  // exists, a publish failure DOES fail the run.
+  const stagingDir = join(repoRoot, 'dist-npm')
+  stageNpmPackage({
+    version: plan.version,
+    repoRoot,
+    distLibJsPath,
+    stagingDir,
+    thirdPartyMarkdown,
+  })
+
+  if (!shouldPublishToNpm(process.env)) {
+    console.log(NPM_TOKEN_SKIP_MESSAGE)
+    writeGithubStepSummary(
+      process.env,
+      `## ⚠️ npm publish skipped\n\n${NPM_TOKEN_SKIP_MESSAGE}\n\n` +
+        `GitHub release ${tag} was published normally. Set the \`NPM_TOKEN\` repository secret ` +
+        `to enable npm publishing on the next release — see docs/releasing.md#npm.\n`,
+    )
+  } else {
+    console.log(`Publishing ${tag} to npm...`)
+    // Fails loudly on any error (bad token, name/version collision, network) —
+    // once NPM_TOKEN exists, a broken publish must break the run, unlike the
+    // documented missing-token skip above.
+    execFileSync('npm', ['publish', '--access', 'public', '--provenance'], {
+      stdio: 'inherit',
+      cwd: stagingDir,
+    })
+    console.log(`Published ${tag} to npm.`)
+  }
 }
