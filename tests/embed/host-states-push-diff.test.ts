@@ -179,4 +179,38 @@ describe('useProjectState host state-push diff (issue #110)', () => {
     })
     expect(result.current.elements[0]).toMatchObject({ x: 10, y: 10 })
   })
+
+  it('a Simulator edit between two identical host pushes is reconciled back to host truth', () => {
+    // Adjudicated review finding on this PR: `lastHostStatesRef` makes an
+    // identical push a no-op, but a local Simulator edit landing *between*
+    // two otherwise-identical pushes was not invalidating that cache — so
+    // the second push's `hostStatesEqual` short-circuit fired and the
+    // Simulator's local override was never overwritten back to host truth
+    // (pre-#110 behavior: every push overwrote deterministically). This is
+    // a transition-period guarantee — issue #107 plans to disable the
+    // Simulator outright once the designer is fed by a live host, at which
+    // point this reconciliation path becomes moot.
+    const { host, getPushTarget } = createTestHost()
+    const { result } = renderHook(() => useProjectState(bootstrapWithTemplate(), host))
+
+    act(() => {
+      getPushTarget().applyStates({ 'sensor.demo_temperature': '21.5' })
+    })
+    expect(result.current.mockContext.states['sensor.demo_temperature']).toBe('21.5')
+
+    // Simulator user edit: overrides the mock state locally.
+    act(() => {
+      result.current.setMockState('sensor.demo_temperature', '99')
+    })
+    expect(result.current.mockContext.states['sensor.demo_temperature']).toBe('99')
+
+    // A push structurally identical to the *first* push (host truth never
+    // changed) must still win over the Simulator's local override.
+    act(() => {
+      getPushTarget().applyStates({ 'sensor.demo_temperature': '21.5' })
+    })
+
+    expect(result.current.mockContext.states['sensor.demo_temperature']).toBe('21.5')
+    expect(result.current.previewElements[0]).toMatchObject({ value: '21.5' })
+  })
 })
