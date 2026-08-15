@@ -31,8 +31,11 @@ Four gaps surfaced concretely from PR #100:
 1. **Save button silently hangs.** [`MountHandle`](../../src/embed/types.ts)
    has no way to read the current payload, so PR #100 DOM-scrapes the
    designer's shadow root for the Save button and simulates a click
-   (`_clickSave()`). When Save is disabled by a YAML error, the scrape finds
-   nothing and the host silently hangs.
+   (`_clickSave()`). When a YAML error disables Save
+   ([`src/ui/App.tsx`](../../src/ui/App.tsx), `disabled={yamlBlocked}`), the
+   scrape still *finds* the button, but `click()` on a disabled button emits
+   no callback — the host reports "Saving…" and hangs. The fix is read access
+   to the payload (`getPayload()`), not better button discoverability.
 2. **Send hardcodes service options.** `onSaveRequest` yields element YAML
    only; PR #100's Send hardcodes `background: 'white'` and
    `dither: 'ordered'` because it has no seam to carry the options the
@@ -57,7 +60,11 @@ data contract — no new lifecycle, no new adapter shape:
   display-config area. Selecting a target locks to its capabilities, using
   the existing lock UX unchanged — unlocking still means "virtual display,"
   it does not forget the selection. The target id round-trips opaquely
-  through save/action callbacks; the designer never learns what it names.
+  through callbacks; the designer never learns what it names. `onAction`
+  (below) carries it; the save channel grows an **additive** context
+  argument — `onSaveRequest(payload, context?: { targetId? })` — so a host
+  can associate a save with the selected target while existing
+  payload-only hosts keep working unchanged.
 - **State catalog** — states gain an optional friendly-name field; a new
   referenced-states panel shows only the states the current payload actually
   references, with host display names, as a compact visual aid. The full
@@ -89,8 +96,12 @@ Every seam above follows one shape, and any future addition must fit it:
 - **No host code inside the shadow root, ever.** Actions are a typed button
   list, not a slot.
 - **Vocabulary stays domain-neutral.** "Target", "display", "state" —
-  never "entity", "hass", "service" — anywhere in `src/embed/`. The designer
-  must stay meaningful to a non-HA host.
+  never "entity", "hass", "service" — in **new seam declarations**. The
+  designer must stay meaningful to a non-HA host. Already-published names
+  ([`HostEntityState`](../../src/embed/types.ts) and the "entity state"
+  wording around `HostStates`) are explicitly grandfathered: renaming them
+  is a breaking change under [`docs/releasing.md`](../releasing.md)'s semver
+  policy for zero behavioral gain.
 
 **Litmus test for any addition to this seam:** a non-HA host must be able to
 implement it meaningfully, *and* the UI it drives must be testable in Vitest
