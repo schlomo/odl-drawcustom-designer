@@ -34,6 +34,7 @@ Full set lives in [`docs/adr/`](docs/adr/). Read the rows that match your task b
 | [015](docs/adr/ADR-015-showcase-demo-bundle.md) | Showcase demo bundle | Load Demo, `src/assets/showcase/`, first-run mocks |
 | [016](docs/adr/ADR-016-toolbar-chrome-layout.md) | Toolbar chrome | Responsive toolbar rows, label collapse |
 | [017](docs/adr/ADR-017-host-adapter-seam.md) | Host-adapter seam | `src/embed/` mount lifecycle, host policy (theme/persistence/chrome), new host runtimes |
+| [018](docs/adr/ADR-018-host-ui-seam.md) | Host UI seam | Targets/display picker, state catalog, host actions, preview provider — anything in `src/embed/` carrying host-driven UI |
 
 ## Architecture
 
