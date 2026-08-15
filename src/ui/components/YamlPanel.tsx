@@ -83,6 +83,34 @@ interface YamlPanelProps {
    * normally runs on the editor's own blur or an 80ms timer.
    */
   flushPendingRef?: RefObject<(() => void) | null>
+  /**
+   * Kept pointed at the current `discardPendingYamlEdit` (issue #104 review):
+   * an external payload push is authoritative, so the parent calls this in the
+   * same synchronous path — *before* it commits the pushed elements — to
+   * invalidate any debounced draft typed before the push.
+   */
+  discardPendingRef?: RefObject<(() => void) | null>
+}
+
+/**
+ * Keep a parent-owned ref pointed at the live callback while mounted, and
+ * release it on unmount without stomping a newer owner.
+ */
+function usePublishedCallback(
+  ref: RefObject<(() => void) | null> | undefined,
+  callback: () => void,
+): void {
+  useEffect(() => {
+    if (!ref) {
+      return
+    }
+    ref.current = callback
+    return () => {
+      if (ref.current === callback) {
+        ref.current = null
+      }
+    }
+  }, [callback, ref])
 }
 
 export function YamlPanel({
@@ -103,6 +131,7 @@ export function YamlPanel({
   mockContext,
   onYamlBlockedChange,
   flushPendingRef,
+  discardPendingRef,
 }: YamlPanelProps) {
   const serialized = useMemo(() => serializeYamlPayload(elements), [elements])
   const [yamlText, setYamlText] = useState(serialized)
@@ -251,6 +280,29 @@ export function YamlPanel({
     onElementsChange(pending)
   }, [onElementsChange])
 
+  /**
+   * Drop the debounced draft instead of committing it (issue #104 review): an
+   * external payload push overrules whatever the user had typed before it, so
+   * the parked parse must not survive to be flushed afterwards — by the 80ms
+   * timer, by a blur, or by `MountHandle.getPayload()` forcing a flush.
+   *
+   * Cancels the timer *and* clears the parse, so a timer that somehow still
+   * fires finds nothing to commit. Also clears the self-echo suppression: the
+   * elements the sync effect is about to see come from the host, not from our
+   * own flush, so the external sync must write them into the editor.
+   *
+   * Only refs are touched — no state, no render — so the caller can run this
+   * synchronously right before committing the pushed elements.
+   */
+  const discardPendingYamlEdit = useCallback(() => {
+    if (syncTimerRef.current != null) {
+      window.clearTimeout(syncTimerRef.current)
+      syncTimerRef.current = null
+    }
+    pendingParsedRef.current = null
+    skipExternalSyncRef.current = false
+  }, [])
+
   useEffect(
     () => () => {
       if (syncTimerRef.current != null) {
@@ -260,20 +312,11 @@ export function YamlPanel({
     [],
   )
 
-  // Keep the parent's ref pointed at the live flush function (issue #104):
-  // MountHandle.getPayload() calls through it before reading `elements`, so
-  // it always forces the same flush a real blur/timeout would.
-  useEffect(() => {
-    if (!flushPendingRef) {
-      return
-    }
-    flushPendingRef.current = flushYamlElementsSync
-    return () => {
-      if (flushPendingRef.current === flushYamlElementsSync) {
-        flushPendingRef.current = null
-      }
-    }
-  }, [flushPendingRef, flushYamlElementsSync])
+  // Publish the flush to the parent (issue #104): MountHandle.getPayload()
+  // calls through it before reading `elements`, so it always forces the same
+  // flush a real blur/timeout would.
+  usePublishedCallback(flushPendingRef, flushYamlElementsSync)
+  usePublishedCallback(discardPendingRef, discardPendingYamlEdit)
 
   const handleYamlChange = useCallback(
     (text: string) => {

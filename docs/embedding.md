@@ -79,7 +79,7 @@ disabled the button (see [ADR-018](adr/ADR-018-host-ui-seam.md)).
 
 `getPayload()` reuses the exact same serialization path as `onSaveRequest` —
 there is no second serializer to drift out of sync with it — and resolves
-three edge cases so it can never disagree with what Save would send:
+four edge cases so it can never disagree with what Save would send:
 
 - **Before React has committed anything** (a synchronous call right after
   `mount()`/`mountStandaloneApp()` returns, before the mount's internal push/read
@@ -87,7 +87,7 @@ three edge cases so it can never disagree with what Save would send:
   `elements` the shell is about to seed its state from for a synchronous host
   (`mount({ payload })`), or a safe empty-list default while an async
   bootstrap (the standalone SPA's IndexedDB/share-hash load) is still in
-  flight. Never throws, never returns `undefined`.
+  flight. Always a string, never `undefined`.
 - **Mid-keystroke, while a debounced YAML edit is still pending:** the YAML
   editor commits typed text to the canvas model on an 80ms debounce (or
   immediately on blur). `getPayload()` forces that flush before reading, so a
@@ -100,6 +100,16 @@ three edge cases so it can never disagree with what Save would send:
   (`elements`) freezes at its last-valid state while the live document is
   broken — the same state Save would have sent last, and, with Save
   disabled, the only way for a host to read anything at all.
+- **Right after a `setPayload()` push, with an edit still pending:** the push
+  wins. A host push is authoritative — it replaces the payload wholesale, so
+  it also **discards** any debounced edit typed before it, and the editor is
+  re-serialized from the pushed payload. Without that, the flush above (which
+  `getPayload()` itself triggers) would have committed the pre-push draft over
+  the payload the host had just pushed.
+
+Like every other method on the handle, `getPayload()` throws
+`MountHandle used after destroy()` once the mount has been destroyed. On a
+live mount it never throws.
 
 ### Version
 

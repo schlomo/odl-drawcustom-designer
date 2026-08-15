@@ -53,6 +53,7 @@ const emptyClientRects = (): DOMRectList =>
   ({ length: 0, item: () => null, [Symbol.iterator]: () => [][Symbol.iterator]() }) as unknown as DOMRectList
 
 const PAYLOAD = ['- type: text', '  value: Hello', '  x: 10', '  y: 10', ''].join('\n')
+const PUSHED_PAYLOAD = ['- type: text', '  value: Pushed', '  x: 4', '  y: 4', ''].join('\n')
 
 let container: HTMLElement
 const handles: MountHandle[] = []
@@ -265,5 +266,113 @@ describe('MountHandle.getPayload()', () => {
     fireEvent.click(saveButton!)
     expect(onSaveRequest).toHaveBeenCalledTimes(1)
     expect(onSaveRequest.mock.calls[0]![0]).toBe(viaGetPayload)
+  })
+
+  it('throws after destroy(), like every other handle method', () => {
+    const handle = mountDesigner({ payload: PAYLOAD })
+
+    act(() => handle.destroy())
+
+    expect(() => handle.getPayload()).toThrow('MountHandle used after destroy()')
+  })
+})
+
+/**
+ * A host `setPayload()` push is authoritative: it replaces the payload
+ * wholesale, so any YAML edit still parked in the editor's 80ms debounce is a
+ * pre-push draft the host has just overruled. Before the fix, that draft
+ * survived the push and was committed by the next flush — and `getPayload()`,
+ * documented as a pure read, forces exactly that flush, so a host doing
+ * `setPayload(next)` then `getPayload()` deterministically read back the
+ * *typed* text instead of the payload it had just pushed.
+ */
+describe('setPayload push vs. a pending debounced YAML edit', () => {
+  async function mountAndTypePendingEdit(): Promise<{ handle: MountHandle; view: EditorView }> {
+    const handle = mountDesigner({ payload: PAYLOAD })
+
+    await waitFor(() => {
+      expect(container.shadowRoot!.querySelector('[data-testid="element-list-row"]')).not.toBeNull()
+    })
+
+    const view = findMountedView()
+    const doc = view.state.doc.toString()
+    const valueFrom = doc.indexOf('value: Hello')
+    expect(valueFrom).toBeGreaterThan(-1)
+
+    // A valid edit whose 80ms debounce is deliberately left pending — never
+    // blurred, timers never advanced.
+    dispatchUserEdit(view, {
+      from: valueFrom,
+      to: valueFrom + 'value: Hello'.length,
+      insert: 'value: Edited',
+    })
+    expect(view.state.doc.toString()).toContain('value: Edited')
+
+    return { handle, view }
+  }
+
+  it('getPayload() right after a push reads the pushed payload, not the pending draft', async () => {
+    const { handle } = await mountAndTypePendingEdit()
+
+    act(() => handle.setPayload(PUSHED_PAYLOAD))
+
+    let viaGetPayload!: string
+    act(() => {
+      viaGetPayload = handle.getPayload()
+    })
+    expect(viaGetPayload).toContain('value: Pushed')
+    expect(viaGetPayload).not.toContain('value: Edited')
+  })
+
+  it('the pending debounce cannot resurrect the pre-push draft when it fires', async () => {
+    const { handle, view } = await mountAndTypePendingEdit()
+
+    vi.useFakeTimers()
+    act(() => handle.setPayload(PUSHED_PAYLOAD))
+
+    // Fire the debounce the push invalidated: nothing may come back.
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+
+    let viaGetPayload!: string
+    act(() => {
+      viaGetPayload = handle.getPayload()
+    })
+    expect(viaGetPayload).toContain('value: Pushed')
+    expect(viaGetPayload).not.toContain('value: Edited')
+
+    // The editor shows the pushed payload too — with the draft invalidated,
+    // the external sync is no longer deferred by it.
+    expect(view.state.doc.toString()).toContain('value: Pushed')
+    expect(view.state.doc.toString()).not.toContain('value: Edited')
+  })
+
+  it('the push also reaches Save, so getPayload and the Save channel never disagree', async () => {
+    const onSaveRequest = vi.fn()
+    const handle = mountDesigner({ payload: PAYLOAD, onSaveRequest })
+
+    await waitFor(() => {
+      expect(container.shadowRoot!.querySelector('[data-testid="element-list-row"]')).not.toBeNull()
+    })
+
+    const view = findMountedView()
+    const doc = view.state.doc.toString()
+    const valueFrom = doc.indexOf('value: Hello')
+    dispatchUserEdit(view, {
+      from: valueFrom,
+      to: valueFrom + 'value: Hello'.length,
+      insert: 'value: Edited',
+    })
+
+    act(() => handle.setPayload(PUSHED_PAYLOAD))
+
+    const saveButton = Array.from(container.shadowRoot!.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Save',
+    )
+    fireEvent.click(saveButton!)
+    expect(onSaveRequest).toHaveBeenCalledTimes(1)
+    expect(onSaveRequest.mock.calls[0]![0]).toContain('value: Pushed')
+    expect(onSaveRequest.mock.calls[0]![0]).toBe(handle.getPayload())
   })
 })

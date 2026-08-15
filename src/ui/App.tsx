@@ -92,6 +92,15 @@ export function App({ bootstrap, host }: AppProps) {
   const yamlBlockedVisible = useYamlBlockedVisibility(yamlBlocked)
   const [elementAddNotice, setElementAddNotice] = useState<StatusMessage | null>(null)
   const { flashSuccess, flashError, getFeedback, getFeedbackMessage } = useExportActionFeedback()
+  // The two handles on YamlPanel's debounced edit (issue #104), published by
+  // the panel and called from outside it:
+  // - flush: `getPayload()` forces the same commit a blur or the 80ms timer
+  //   would, so a host read never lags text the user already typed;
+  // - discard: a host payload push overrules a draft typed before it, so the
+  //   push applier drops that draft instead of letting a later flush commit it
+  //   back over the pushed payload.
+  const yamlFlushPendingRef = useRef<(() => void) | null>(null)
+  const yamlDiscardPendingRef = useRef<(() => void) | null>(null)
   const {
     sessionName,
     service,
@@ -157,7 +166,7 @@ export function App({ bootstrap, host }: AppProps) {
     canRedo,
     beginEditCoalesce,
     endEditCoalesce,
-  } = useProjectState(bootstrap, host)
+  } = useProjectState(bootstrap, host, { yamlDiscardPendingRef })
 
   const elementsRef = useRef(elements)
 
@@ -165,12 +174,9 @@ export function App({ bootstrap, host }: AppProps) {
     elementsRef.current = elements
   }, [elements])
 
-  // Points at YamlPanel's live `flushYamlElementsSync` (issue #104): the
-  // payload-source registration below calls through it before serializing,
-  // so getPayload() forces the same debounce flush a real blur/Save click
-  // would trigger, instead of a second, independently-timed read.
-  const yamlFlushPendingRef = useRef<(() => void) | null>(null)
-
+  // getPayload() flushes through `yamlFlushPendingRef` before serializing, so
+  // it forces the same debounce commit a real blur/Save click would trigger,
+  // instead of a second, independently-timed read.
   useEffect(() => {
     if (!host.registerPayloadSource) {
       return
@@ -603,6 +609,7 @@ export function App({ bootstrap, host }: AppProps) {
             canvasDragging={canvasDragging}
             propertyEditing={propertyEditing}
             flushPendingRef={yamlFlushPendingRef}
+            discardPendingRef={yamlDiscardPendingRef}
           />
         </div>
 
