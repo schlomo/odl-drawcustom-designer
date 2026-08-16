@@ -156,3 +156,19 @@ test('a very long host label never widens the sidebar', async ({ page }) => {
   const pickerWidth = await picker(page).evaluate((el) => el.getBoundingClientRect().width)
   expect(pickerWidth).toBeLessThanOrEqual(metrics.clientWidth)
 })
+
+test('picking a rotated display seeds rotation and keeps rotation buttons enabled', async ({
+  page,
+}) => {
+  // The Hallway display (demo target) is configured with rotation_degrees: 90,
+  // so picking it should seed that rotation on the canvas (swapped dimensions)
+  // and keep rotation controls available for further editing.
+  await picker(page).selectOption({ label: 'Hallway 7.5" (800×480 BWRY, portrait)' })
+
+  // Rotation 90 swaps canvas dimensions: 800→height, 480→width
+  await expect.poll(() => paperSize(page)).toBe('480×800')
+
+  // Rotation is seeded: the 90° button shows as active (accent color)
+  // and rotation buttons remain editable (not disabled by the lock).
+  await expect(page.getByRole('button', { name: '90°' })).toHaveAttribute('class', /shell-accent/)
+})
