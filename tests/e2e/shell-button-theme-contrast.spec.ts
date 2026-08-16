@@ -95,6 +95,19 @@ function boxShadow(locator: Locator): Promise<string> {
 }
 
 /**
+ * The dimming this spec's canvas/YAML-toolbar assertions exist to catch:
+ * an `opacity: 0.8` utility layered on top of `shell.button` in
+ * `src/ui/lib/toolbar-button.ts` (`toolbarChipClassName` /
+ * `toggleButtonClassName`'s unselected branch). `opacity` composites the
+ * whole element against whatever is behind it — it does **not** change the
+ * `background-color` `getComputedStyle` reports, so a background-only
+ * assertion cannot see this bug; only reading `opacity` itself can.
+ */
+function opacityValue(locator: Locator): Promise<string> {
+  return locator.evaluate((el) => getComputedStyle(el).opacity)
+}
+
+/**
  * Fresh mode is always `system` (no localStorage yet, isolated per-test
  * context). `nextThemeMode` order is system -> light -> dark -> system, so
  * one click always lands on `light`, two always land on `dark` — regardless
@@ -128,6 +141,28 @@ function rotationButton(page: Page) {
 }
 
 /**
+ * Canvas header toolbar (`src/ui/components/CanvasHeaderToolbar.tsx`) zoom
+ * chip: `200%` is never the default zoom mode (`fit` is,
+ * `src/ui/preferences/canvasZoom.ts`), so it always renders unselected/neutral
+ * without needing a click first — plain text content, unaffected by the
+ * toolbar's responsive label-collapse (ADR-016 only hides/shows *icon*
+ * toggles' text, never a zoom chip's label).
+ */
+function canvasZoomChip(page: Page) {
+  return page.getByRole('button', { name: '200%', exact: true })
+}
+
+/**
+ * YAML header toolbar (`src/ui/components/YamlHeaderToolbar.tsx`) template
+ * preview toggle. Defaults to *enabled* (`src/ui/preferences/templatePreview.ts`)
+ * — the selected/accent chrome — so the caller must click it once to reach
+ * the unselected/neutral chrome this spec actually targets.
+ */
+function yamlPreviewToggle(page: Page) {
+  return page.getByRole('button', { name: 'Preview', exact: true })
+}
+
+/**
  * Real keyboard Tab navigation, not `element.focus()` — Chromium only sets
  * `:focus-visible` when the last input modality was keyboard; a
  * script-invoked `.focus()` measured `boxShadow: none` in this exact harness
@@ -158,7 +193,13 @@ for (const theme of ['light', 'dark'] as const) {
   test(`neutral button chrome, computed (${theme} theme)`, async ({ page }) => {
     // Generous budget: a fresh page load in this harness alone costs
     // ~15-20s (full app boot + IndexedDB init), before any assertions run.
-    test.setTimeout(120_000)
+    // Raised from 120s (PR #135 maintainer follow-up): this test now also
+    // covers a canvas-toolbar and a YAML-toolbar button on the same page load
+    // (reusing the load rather than paying for two more, per the file-level
+    // comment on why this file is one test per theme, not one per state) —
+    // three more resting/border/opacity poll chains on top of the original
+    // rotation-button resting/hover/active/focus chain.
+    test.setTimeout(240_000)
     await gotoWithTheme(page, theme)
     const button = rotationButton(page)
 
@@ -207,5 +248,40 @@ for (const theme of ['light', 'dark'] as const) {
     await expect
       .poll(() => boxShadow(button), { timeout: SETTLE_TIMEOUT })
       .toContain(TOKEN[theme].accent)
+
+    // Maintainer feedback on PR #135 (2026-08-16): the canvas and YAML header
+    // toolbars visibly used different, lower-contrast styling than this
+    // sidebar button and the top header bar. Same page/theme, no reload —
+    // reusing this test's page load keeps the "one full boot per theme"
+    // budget from the file-level comment above.
+    const zoomChip = canvasZoomChip(page)
+    await expect(zoomChip).toBeVisible()
+    await expect
+      .poll(() => backgroundColor(zoomChip), { timeout: SETTLE_TIMEOUT })
+      .toBe(TOKEN[theme].bg)
+    await expect
+      .poll(() => borderTopColor(zoomChip), { timeout: SETTLE_TIMEOUT })
+      .toBe(TOKEN[theme].border)
+    // The actual regression: an `opacity: 0.8` utility stacked on `shell.button` for the
+    // unselected chip/toggle branch (`src/ui/lib/toolbar-button.ts`) — the
+    // background/border assertions above pass even with the bug present,
+    // because `opacity` doesn't change what `background-color` computes to.
+    await expect.poll(() => opacityValue(zoomChip), { timeout: SETTLE_TIMEOUT }).toBe('1')
+
+    const previewToggle = yamlPreviewToggle(page)
+    await expect(previewToggle).toBeVisible()
+    // Starts enabled (selected/accent) — click once to reach the neutral
+    // chrome this assertion targets, then move the pointer off so the
+    // resting read isn't actually a hover read (the cursor stays put after
+    // `.click()`).
+    await previewToggle.click()
+    await page.mouse.move(0, 0)
+    await expect
+      .poll(() => backgroundColor(previewToggle), { timeout: SETTLE_TIMEOUT })
+      .toBe(TOKEN[theme].bg)
+    await expect
+      .poll(() => borderTopColor(previewToggle), { timeout: SETTLE_TIMEOUT })
+      .toBe(TOKEN[theme].border)
+    await expect.poll(() => opacityValue(previewToggle), { timeout: SETTLE_TIMEOUT }).toBe('1')
   })
 }
