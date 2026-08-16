@@ -55,6 +55,17 @@ describe('buildNpmPackageJson', () => {
     expect((pkg.keywords as string[]).length).toBeGreaterThan(0)
   })
 
+  it('carries a description and a bugs URL — npmjs.com renders both on the package page', () => {
+    const pkg = buildNpmPackageJson('1.0.0')
+    expect(pkg.description.length).toBeGreaterThan(0)
+    expect(pkg.bugs).toEqual({ url: 'https://github.com/schlomo/odl-drawcustom-designer/issues' })
+  })
+
+  it('lists README.md in files so npm includes it in the published tarball', () => {
+    const pkg = buildNpmPackageJson('1.0.0')
+    expect(pkg.files).toEqual(expect.arrayContaining(['README.md']))
+  })
+
   it('never carries "private" — the repo package.json sets it, but the published package must not', () => {
     expect('private' in buildNpmPackageJson('1.0.0')).toBe(false)
   })

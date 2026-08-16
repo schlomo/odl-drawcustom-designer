@@ -38,6 +38,7 @@ export interface NpmPackageJson {
   license: string
   repository: { type: 'git'; url: string }
   homepage: string
+  bugs: { url: string }
   keywords: string[]
 }
 
@@ -57,10 +58,11 @@ export function buildNpmPackageJson(version: string): NpmPackageJson {
     type: 'module',
     main: `./${LIBRARY_FILE}`,
     exports: { '.': `./${LIBRARY_FILE}` },
-    files: [LIBRARY_FILE, 'LICENSE', 'NOTICE', 'THIRD_PARTY.md'],
+    files: [LIBRARY_FILE, 'README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY.md'],
     license: 'Apache-2.0',
     repository: { type: 'git', url: `git+${REPO_URL_NO_TRAILING_SLASH}.git` },
     homepage: APP_GITHUB_REPO_URL,
+    bugs: { url: `${REPO_URL_NO_TRAILING_SLASH}/issues` },
     keywords: [
       'home-assistant',
       'e-paper',

@@ -18,6 +18,8 @@ function writeFixtureRepo(workDir: string): { repoRoot: string; distLibJsPath: s
   writeFileSync(distLibJsPath, 'export const version = "1.2.3"')
   writeFileSync(join(repoRoot, 'LICENSE'), 'Apache License text')
   writeFileSync(join(repoRoot, 'NOTICE'), 'Copyright notice text')
+  mkdirSync(join(repoRoot, 'docs'), { recursive: true })
+  writeFileSync(join(repoRoot, 'docs', 'npm-README.md'), '# @schlomo/odl-drawcustom-designer\n')
   return { repoRoot, distLibJsPath }
 }
 
@@ -51,6 +53,23 @@ describe('stageNpmPackage', () => {
     const pkg = JSON.parse(readFileSync(join(stagingDir, 'package.json'), 'utf8'))
     expect(pkg.name).toBe('@schlomo/odl-drawcustom-designer')
     expect(pkg.version).toBe('1.2.3')
+  })
+
+  it('stages README.md alongside the package — npmjs.com renders it as the package page', () => {
+    workDir = mkdtempSync(join(tmpdir(), 'stage-npm-test-'))
+    const { repoRoot, distLibJsPath } = writeFixtureRepo(workDir)
+    const stagingDir = join(workDir, 'dist-npm')
+
+    stageNpmPackage({
+      version: '1.2.3',
+      repoRoot,
+      distLibJsPath,
+      stagingDir,
+      thirdPartyMarkdown: '# Third-party notices\n',
+    })
+
+    const readme = readFileSync(join(stagingDir, 'README.md'), 'utf8')
+    expect(readme).toContain('@schlomo/odl-drawcustom-designer')
   })
 
   it('creates the staging directory if it does not exist yet', () => {
