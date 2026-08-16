@@ -12,6 +12,11 @@ Amended 2026-08-16: the [display-config lock](../embedding.md#display-config-loc
 scope is dimensions and color mode/palette **only** — rotation is a user
 choice (portrait mounting of the same physical display) and stays editable
 while locked, on both display channels (`targets` and anonymous `capabilities`).
+Amended again (issue #139): rotation means the **orientation of the logical
+drawing surface** — a quarter turn swaps the canvas W/H and the designer
+presents that surface upright, always. `render_*`/`pixel_*` seeding is
+unchanged and still correct; what changed is that nothing downstream re-applies
+the rotation as a transform.
 
 ## Context
 
@@ -125,7 +130,10 @@ data contract — no new lifecycle, no new adapter shape:
     picking the target and only adopts the target's freshly-declared rotation
     when the user left it untouched since that pick; re-locking restores the
     locked dimensions/palette but leaves rotation exactly as it currently is,
-    since it was never lock-owned. The anonymous `capabilities` channel keeps
+    since it was never lock-owned. Because rotation orients the drawing
+    surface (issue #139), both of those paths restore the display's two
+    dimensions **in the orientation the user is holding** — the lock owns the
+    panel, the user owns which way round it goes. The anonymous `capabilities` channel keeps
     its existing, simpler rule unchanged (a pushed `rotation_degrees` always
     wins) — it has no "pick" to baseline against, and it dies at 2.0 (issue
     #121).

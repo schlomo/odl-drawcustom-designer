@@ -21,7 +21,7 @@ Audit of draw element parity: [OpenDisplay Language (WIP)](https://opendisplay.o
 | Field | OEPL | ODL | Schema | UI | Notes |
 |-------|------|-----|--------|-----|-------|
 | `background` | ✅ | ✅ | ✅ | — | Schema + session/share only |
-| `rotate` | ✅ | ✅ | ✅ | ✅ | Display config rotation |
+| `rotate` | ✅ | ✅ | ✅ | ❌ | **Not emitted** (issue #139). The designer's rotation control chooses the *orientation of the logical drawing surface* (W/H swap); it is never written into the payload, session or share hash as `rotate`. The send-time value is per-target output metadata — target base rotation + the user's orientation — and lands via the service-options seam ([issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105)) |
 | `dither` | ✅ | ✅ | ✅ | ✅ | Canvas preview dither toggle → share/session |
 | `ttl` | ✅ | ✅ | ✅ | — | Schema + session/share only |
 | `dry-run` | ✅ | ✅ | ✅ | — | Schema + session/share only |
@@ -70,7 +70,7 @@ All 16 draw type **names** match ODL and OEPL.
 | Basic Standard | Editor | v1 implementation |
 |----------------|--------|-------------------|
 | `colour_scheme` 0x00–0x04 | `TagColorMode` bw/bwr/bwy/four/six | Display config dropdown ✅ |
-| Rotation 0/90/180/270 | Canvas rotation | ✅ |
+| Rotation 0/90/180/270 | Canvas orientation | Surface orientation ✅ (W/H swap, canvas drawn upright); **`rotate` not emitted** — see service options above |
 | Packet 0x82 image body | PNG export | YAML/PNG ✅; binary encode **post-v1** (ADR-012) |
 
 ## Maintenance

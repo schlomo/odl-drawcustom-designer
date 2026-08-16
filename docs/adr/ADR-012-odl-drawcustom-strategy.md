@@ -23,7 +23,7 @@ Upstream ODL spec is **WIP** (expect churn). We continue vendoring `docs/spec/su
 | Concern | Forward spec | Export / runtime today |
 |---------|--------------|------------------------|
 | Element types (16) | ODL draw types | Same names in HA `drawcustom` payload |
-| Service options | ODL top-level keys | `background`, `rotate`, `dither`, `ttl`, `dry-run` — schema ✅; **`rotate`/`dither`** via display config + canvas toolbar |
+| Service options | ODL top-level keys | `background`, `rotate`, `dither`, `ttl`, `dry-run` — schema ✅; **`dither`** via the canvas toolbar. **`rotate` is not emitted** (issue #139): the canvas rotation is the *orientation of the logical drawing surface*, and the send-time `rotate` is per-target output metadata routed through the service-options seam ([issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105)) |
 | Templates | ODL + HA Jinja | Preserved verbatim in export (ADR-004) |
 | Cross-cutting fields | ODL documents `visible` on most types | **`visible` on all 16 types** in Zod, renderer, completions, property panel |
 | Wire image bytes | Basic Standard packet 0x82 | **Post-v1** — document mapping only in v1 |

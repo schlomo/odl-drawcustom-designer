@@ -55,6 +55,7 @@ import {
 } from '../lib/selection-remap'
 import { verifyAndValidateAssetUpload } from '../lib/verify-asset-upload'
 import {
+  reorientCanvasSize,
   type CanvasRotation,
   type DisplayConfig,
 } from '../preferences/displayConfig'
@@ -519,6 +520,11 @@ export function useProjectState(
         // carries one, falling back to the current rotation only when it does
         // not. No override tracking needed; clearing the ref keeps a later
         // named pick's baseline honest regardless of what happened here.
+        // Known corner (documented in docs/embedding.md): a push carrying
+        // `rotation_degrees` but no size fields restates the orientation
+        // without re-orienting the surface — this channel takes the host's
+        // dimensions verbatim and issue #139 deliberately left `hostContract`
+        // alone. Hosts push sizes alongside, or use the `targets` channel.
         rotationOverriddenSincePickRef.current = false
       },
       applyActions: (actions) => {
@@ -572,9 +578,16 @@ export function useProjectState(
         hostDisplayRef.current = next
         setHostDisplay(next)
         if (displayLockedRef.current) {
+          const heldRotation = canvasRef.current.rotation
           commitCanvas(
             rotationOverriddenSincePickRef.current
-              ? { ...next, rotation: canvasRef.current.rotation }
+              ? {
+                  ...next,
+                  // The surviving rotation orients the re-pushed panel (issue
+                  // #139) — same two dimensions, the user's way round.
+                  ...reorientCanvasSize(next, next.rotation, heldRotation),
+                  rotation: heldRotation,
+                }
               : next,
           )
         }
@@ -786,7 +799,14 @@ export function useProjectState(
       // rotation as touched since the last pick, so a later re-apply of that
       // target's capabilities preserves it instead of overwriting it.
       rotationOverriddenSincePickRef.current = true
-      commitCanvas((current) => ({ ...current, rotation }))
+      // Choosing an orientation re-orients the logical drawing surface itself
+      // (issue #139) — the canvas is always presented upright, so a quarter
+      // turn is a W/H swap and nothing else.
+      commitCanvas((current) => ({
+        ...current,
+        ...reorientCanvasSize(current, current.rotation, rotation),
+        rotation,
+      }))
     },
     [commitCanvas],
   )
@@ -1156,9 +1176,11 @@ export function useProjectState(
       // (issue #70). Rotation is outside the lock's scope (maintainer ruling
       // 2026-08-16) — it was never lock-owned, so re-locking keeps whatever
       // it currently is rather than snapping back to the host's declared
-      // value.
+      // value, and the restored panel is oriented to it (issue #139): the
+      // host's two dimensions, the user's way round.
       commitCanvas((current) => ({
         ...hostConfig,
+        ...reorientCanvasSize(hostConfig, hostConfig.rotation, current.rotation),
         rotation: current.rotation,
         previewDitherMode: current.previewDitherMode,
       }))

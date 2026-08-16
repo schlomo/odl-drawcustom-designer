@@ -32,6 +32,44 @@ Text on the canvas path must follow Pillow semantics where we can approximate th
 
 These are tested in `tests/core/renderer/text-ink-bounds.test.ts`, `tests/core/renderer/text-anchor.test.ts`, and `tests/core/renderer/variable-font-parity.test.ts`.
 
+### Rotation parity rule (issue #139)
+
+`imagegen` rotates the **paper**, not the ink
+([`core.py`](https://github.com/OpenDisplay/Home_Assistant_Integration/blob/acc3cdb63622752f0b7347a367b8c26e6d3c71ee/custom_components/opendisplay/imagegen/core.py#L352-L403),
+byte-identical in the OEPL fork), in three steps:
+
+1. **Create the canvas already swapped** for a quarter turn — `Image.new(...,
+   (canvas_height, canvas_width))` when `rotate` is 90/270. `CoordinateParser`
+   is built from *that* image, so percentage coordinates resolve against the
+   logical surface.
+2. **Draw every element upright** in it. No element type carries a rotation
+   except `dlimg.rotate` (image-only) — there is no "content is sideways"
+   concept in the payload.
+3. **Rotate the finished bitmap once**, at the very end: `img.rotate(rotate,
+   expand=True)` — Pillow's rotation is **counter-clockwise**.
+
+The designer therefore mirrors steps 1–2 and deliberately does **not** perform
+step 3:
+
+- The canvas config's width/height **are** the swapped logical surface, and the
+  editing surface presents it **upright, always** — no CSS quarter turn, no
+  rotated stage envelope, no inverse-rotated pointer mapping.
+- **PNG export is the logical bitmap** — the image as of step 2. HA applies its
+  own `rotate` server-side (and OpenDisplay applies mounting rotation
+  firmware-side), so rotating here would double it. The pre-#139 export rotated
+  clockwise, i.e. 180° away from Pillow for 90/270 — if a "physical panel
+  bitmap" export is ever wanted, it is a separate explicit affordance and must
+  turn **counter-clockwise**.
+- The rotation the user picks is *orientation*, and the effective send-time
+  `rotate` is per-target output metadata (issue #105) — never baked into the
+  payload.
+
+Regression fixture (maintainer's real automation): one payload, `rotate: 0` on
+one panel and `rotate: 270` on another of the same resolution, must show the
+same content. Designer-side coverage:
+`tests/e2e/embed-targets.spec.ts` (upright portrait paper; exported PNG dims)
+and `tests/ui/components/designer-canvas-upright-paper.test.tsx`.
+
 ### SVG trade-offs (known parity gaps)
 
 SVG was chosen for implementation speed on shapes and MDI icons, not because HA uses vectors. Browser SVG strokes and fills are **antialiased by default**. That diverges from Pillow on:

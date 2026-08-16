@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import type { CanvasRotation } from '../../../src/ui/hooks/useProjectState'
 import {
   CANVAS_VIEWPORT_PADDING_PX,
   clientPointToCanvasCoords,
@@ -8,43 +7,41 @@ import {
   computeCanvasViewportLayout,
   computeEffectiveCanvasScale,
   computeFitScale,
-  computeRotatedCanvasBounds,
   formatCanvasPointerCoords,
-  mapCanvasPointToStageLocal,
   paperTransform,
   refineCanvasPointerPoint,
 } from '../../../src/ui/lib/canvas-zoom'
 
-describe('computeRotatedCanvasBounds', () => {
-  it('swaps dimensions for quarter-turn rotation', () => {
-    expect(computeRotatedCanvasBounds(800, 480, 90)).toEqual({ width: 480, height: 800 })
-    expect(computeRotatedCanvasBounds(800, 480, 0)).toEqual({ width: 800, height: 480 })
-  })
-})
+/**
+ * The canvas config's width/height are the logical drawing surface, already
+ * oriented, and the designer always presents it upright (issue #139) — so none
+ * of this math takes a rotation any more. A portrait canvas is simply a canvas
+ * that is taller than it is wide.
+ */
 
 describe('computeFitScale', () => {
   it('shrinks uniformly to fit a small scrollport', () => {
-    const scale = computeFitScale(400, 300, 800, 480, 0, CANVAS_VIEWPORT_PADDING_PX)
+    const scale = computeFitScale(400, 300, 800, 480, CANVAS_VIEWPORT_PADDING_PX)
     expect(scale).toBeLessThan(1)
-    const stage = computeCanvasStageSize(800, 480, 0, scale)
+    const stage = computeCanvasStageSize(800, 480, scale)
     const available = computeAvailableStageArea({ width: 400, height: 300 })
     expect(stage.width).toBeLessThanOrEqual(available.width + 0.5)
     expect(stage.height).toBeLessThanOrEqual(available.height + 0.5)
   })
 
   it('upscales when the canvas is smaller than the scrollport', () => {
-    const scale = computeFitScale(2000, 1200, 800, 480, 0, CANVAS_VIEWPORT_PADDING_PX)
+    const scale = computeFitScale(2000, 1200, 800, 480, CANVAS_VIEWPORT_PADDING_PX)
     expect(scale).toBeGreaterThan(1)
-    const stage = computeCanvasStageSize(800, 480, 0, scale)
+    const stage = computeCanvasStageSize(800, 480, scale)
     const available = computeAvailableStageArea({ width: 2000, height: 1200 })
     expect(stage.width).toBeLessThanOrEqual(available.width + 0.5)
     expect(stage.height).toBeLessThanOrEqual(available.height + 0.5)
     expect(stage.height).toBeCloseTo(available.height, 0)
   })
 
-  it('uses rotated bounds when the canvas is turned', () => {
-    const portrait = computeFitScale(500, 900, 800, 480, 90, CANVAS_VIEWPORT_PADDING_PX)
-    const landscape = computeFitScale(500, 900, 800, 480, 0, CANVAS_VIEWPORT_PADDING_PX)
+  it('fits a portrait canvas to a portrait scrollport more generously than a landscape one', () => {
+    const portrait = computeFitScale(500, 900, 480, 800, CANVAS_VIEWPORT_PADDING_PX)
+    const landscape = computeFitScale(500, 900, 800, 480, CANVAS_VIEWPORT_PADDING_PX)
     expect(portrait).toBeGreaterThan(landscape)
   })
 })
@@ -62,9 +59,9 @@ describe('computeEffectiveCanvasScale', () => {
 })
 
 describe('computeCanvasStageSize', () => {
-  it('matches scaled rotated bounds at 200% zoom', () => {
-    expect(computeCanvasStageSize(800, 480, 0, 2)).toEqual({ width: 1600, height: 960 })
-    expect(computeCanvasStageSize(800, 480, 90, 2)).toEqual({ width: 960, height: 1600 })
+  it('matches the scaled canvas at 200% zoom, portrait or landscape', () => {
+    expect(computeCanvasStageSize(800, 480, 2)).toEqual({ width: 1600, height: 960 })
+    expect(computeCanvasStageSize(480, 800, 2)).toEqual({ width: 960, height: 1600 })
   })
 })
 
@@ -92,7 +89,7 @@ describe('computeCanvasViewportLayout', () => {
   })
 
   it('anchors top-left and enables horizontal scroll at 200% zoom', () => {
-    const stage = computeCanvasStageSize(800, 480, 0, 2)
+    const stage = computeCanvasStageSize(800, 480, 2)
     const panel = { width: 600, height: 500 }
     const layout = computeCanvasViewportLayout(panel, stage)
     expect(layout.needsScrollX).toBe(true)
@@ -108,10 +105,9 @@ describe('computeCanvasViewportLayout', () => {
       shortViewport.height,
       800,
       480,
-      0,
       CANVAS_VIEWPORT_PADDING_PX,
     )
-    const stage = computeCanvasStageSize(800, 480, 0, fitScale)
+    const stage = computeCanvasStageSize(800, 480, fitScale)
     const layout = computeCanvasViewportLayout(shortViewport, stage)
     expect(layout.centerY).toBe(true)
     expect(layout.needsScrollY).toBe(false)
@@ -129,7 +125,7 @@ describe('canvas hit-test coordinates', () => {
       height: 960,
     } as DOMRect
 
-    expect(clientPointToCanvasCoords(800, 480, stageRect, 800, 480, 0)).toEqual({ x: 400, y: 240 })
+    expect(clientPointToCanvasCoords(800, 480, stageRect, 800, 480)).toEqual({ x: 400, y: 240 })
   })
 
   it('maps the bottom-right corner at 200% zoom', () => {
@@ -141,8 +137,15 @@ describe('canvas hit-test coordinates', () => {
     } as DOMRect
 
     expect(
-      clientPointToCanvasCoords(40 + 1600, 20 + 960, stageRect, 800, 480, 0),
+      clientPointToCanvasCoords(40 + 1600, 20 + 960, stageRect, 800, 480),
     ).toEqual({ x: 800, y: 480 })
+  })
+
+  it('maps a portrait canvas the same way — no turn in the pointer path', () => {
+    const paperRect = { left: 0, top: 0, width: 480, height: 800 } as DOMRect
+
+    expect(clientPointToCanvasCoords(120, 200, paperRect, 480, 800)).toEqual({ x: 120, y: 200 })
+    expect(clientPointToCanvasCoords(480, 800, paperRect, 480, 800)).toEqual({ x: 480, y: 800 })
   })
 })
 
@@ -163,93 +166,48 @@ describe('canvas pointer refinement', () => {
 })
 
 describe('canvas paper transform', () => {
-  const canvasWidth = 800
-  const canvasHeight = 480
-  const scale = 1
+  it('scales the paper from its top-left corner and never turns it', () => {
+    const canvasWidth = 480
+    const canvasHeight = 800
 
-  it('maps canvas corners into the rotated stage envelope', () => {
-    for (const rotation of [0, 90, 180, 270] as const) {
-      const bounds = computeRotatedCanvasBounds(canvasWidth, canvasHeight, rotation)
-      const corners: Array<[number, number]> = [
+    for (const scale of [0.5, 1, 2]) {
+      const transform = paperTransform(scale)
+      expect(transform).toBe(`scale(${scale})`)
+
+      // Round-trip: a canvas point lands where the pointer path reads it back.
+      const paperRect = {
+        left: 0,
+        top: 0,
+        width: canvasWidth * scale,
+        height: canvasHeight * scale,
+      } as DOMRect
+      for (const [cx, cy] of [
         [0, 0],
         [canvasWidth, 0],
         [0, canvasHeight],
         [canvasWidth, canvasHeight],
-      ]
-
-      for (const [cx, cy] of corners) {
-        const stage = mapCanvasPointToStageLocal(
-          cx,
-          cy,
+      ] as const) {
+        const roundTrip = clientPointToCanvasCoords(
+          cx * scale,
+          cy * scale,
+          paperRect,
           canvasWidth,
           canvasHeight,
-          rotation,
-          scale,
         )
-        expect(stage.x).toBeGreaterThanOrEqual(-0.01)
-        expect(stage.y).toBeGreaterThanOrEqual(-0.01)
-        expect(stage.x).toBeLessThanOrEqual(bounds.width * scale + 0.01)
-        expect(stage.y).toBeLessThanOrEqual(bounds.height * scale + 0.01)
+        expect(roundTrip.x).toBeCloseTo(cx, 5)
+        expect(roundTrip.y).toBeCloseTo(cy, 5)
       }
     }
-  })
-
-  it('round-trips pointer mapping through clientPointToCanvasCoords at 90°', () => {
-    const rotation: CanvasRotation = 90
-    const bounds = computeRotatedCanvasBounds(canvasWidth, canvasHeight, rotation)
-    const stageRect = {
-      left: 0,
-      top: 0,
-      width: bounds.width,
-      height: bounds.height,
-    } as DOMRect
-
-    for (const [cx, cy] of [
-      [0, canvasHeight],
-      [canvasWidth, 0],
-      [canvasWidth, canvasHeight],
-      [0, 0],
-    ] as const) {
-      const stage = mapCanvasPointToStageLocal(
-        cx,
-        cy,
-        canvasWidth,
-        canvasHeight,
-        rotation,
-        scale,
-      )
-      const roundTrip = clientPointToCanvasCoords(
-        stageRect.left + stage.x,
-        stageRect.top + stage.y,
-        stageRect,
-        canvasWidth,
-        canvasHeight,
-        rotation,
-      )
-      expect(roundTrip.x).toBeCloseTo(cx, 5)
-      expect(roundTrip.y).toBeCloseTo(cy, 5)
-    }
-  })
-
-  it('uses a translate+matrix transform that keeps rotated content on-screen', () => {
-    expect(paperTransform(90, 1, canvasWidth, canvasHeight)).toBe(
-      'matrix(0, 1, -1, 0, 480, 0)',
-    )
-    expect(paperTransform(180, 2, canvasWidth, canvasHeight)).toBe(
-      'matrix(-2, 0, 0, -2, 1600, 960)',
-    )
   })
 })
 
 describe('regression: fit preserves full canvas height for debug grid Y labels', () => {
-  const rotation: CanvasRotation = 0
-
   it('stage height matches scaled native height on a short panel', () => {
     const fitScale = computeEffectiveCanvasScale(
       'fit',
-      computeFitScale(900, 280, 800, 480, rotation, CANVAS_VIEWPORT_PADDING_PX),
+      computeFitScale(900, 280, 800, 480, CANVAS_VIEWPORT_PADDING_PX),
     )
-    const stage = computeCanvasStageSize(800, 480, rotation, fitScale)
+    const stage = computeCanvasStageSize(800, 480, fitScale)
     expect(stage.height).toBeCloseTo(480 * fitScale, 5)
     expect(stage.width).toBeCloseTo(800 * fitScale, 5)
   })

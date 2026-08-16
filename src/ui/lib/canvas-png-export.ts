@@ -7,26 +7,8 @@ import {
   type DitherMode,
   type RenderContext,
 } from '../../core'
-import type { CanvasRotation } from '../preferences/displayConfig'
-import { computeRotatedCanvasBounds } from './canvas-zoom'
 import { drawCanvasStub } from './draw-canvas-stubs'
 import { renderSvgPrimitiveMarkup } from './svg-primitive-markup'
-
-export interface ExportCanvasSize {
-  width: number
-  height: number
-}
-
-export function resolveExportCanvasSize(
-  renderContext: Pick<RenderContext, 'width' | 'height'>,
-  rotation: CanvasRotation = 0,
-): ExportCanvasSize {
-  const bounds = computeRotatedCanvasBounds(renderContext.width, renderContext.height, rotation)
-  return {
-    width: bounds.width,
-    height: bounds.height,
-  }
-}
 
 export function resolveExportDitherMode(
   previewDitherMode: DitherMode | undefined,
@@ -48,7 +30,6 @@ export interface RenderPayloadToPngOptions {
   fontFamilies: ReadonlyMap<string, string>
   opentypeFonts: ReadonlyMap<string, opentype.Font>
   background?: string
-  rotation?: CanvasRotation
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -71,47 +52,6 @@ async function drawSvgMarkupToCanvas(
   ctx.drawImage(image, 0, 0, width, height)
 }
 
-function rotateRenderedCanvas(
-  source: HTMLCanvasElement,
-  rotation: CanvasRotation,
-): HTMLCanvasElement {
-  if (rotation === 0) {
-    return source
-  }
-
-  const bounds = computeRotatedCanvasBounds(source.width, source.height, rotation)
-  const dest = document.createElement('canvas')
-  dest.width = bounds.width
-  dest.height = bounds.height
-  const ctx = dest.getContext('2d')
-  if (!ctx) {
-    throw new Error('Canvas 2D context unavailable')
-  }
-
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, bounds.width, bounds.height)
-
-  switch (rotation) {
-    case 90:
-      ctx.setTransform(0, 1, -1, 0, source.height, 0)
-      break
-    case 180:
-      ctx.setTransform(-1, 0, 0, -1, source.width, source.height)
-      break
-    case 270:
-      ctx.setTransform(0, -1, 1, 0, 0, source.width)
-      break
-    default: {
-      const _exhaustive: never = rotation
-      return _exhaustive
-    }
-  }
-
-  ctx.drawImage(source, 0, 0)
-  ctx.setTransform(1, 0, 0, 1, 0, 0)
-  return dest
-}
-
 function finalizeExportCanvas(
   canvas: HTMLCanvasElement,
   renderContext: RenderContext,
@@ -131,9 +71,16 @@ function finalizeExportCanvas(
   return canvas
 }
 
-/** Rasterize the payload at native canvas dimensions (not CSS preview scale). */
+/**
+ * Rasterize the payload at native canvas dimensions (not CSS preview scale).
+ *
+ * The output is the **logical** canvas, upright (issue #139): the bitmap
+ * upstream `imagegen` has drawn but not yet turned. Home Assistant applies the
+ * panel's `rotate` itself, once, to the finished image — so rotating here would
+ * double it (and the raster turn this used to do went clockwise, 180° off
+ * Pillow's counter-clockwise `img.rotate(...)` anyway).
+ */
 export async function renderPayloadToPngBlob(options: RenderPayloadToPngOptions): Promise<Blob> {
-  const rotation = options.rotation ?? 0
   const nativeWidth = options.renderContext.width
   const nativeHeight = options.renderContext.height
   const canvas = document.createElement('canvas')
@@ -180,11 +127,10 @@ export async function renderPayloadToPngBlob(options: RenderPayloadToPngOptions)
     await drawSvgMarkupToCanvas(ctx, markup, nativeWidth, nativeHeight)
   }
 
-  const rotated = rotateRenderedCanvas(canvas, rotation)
-  finalizeExportCanvas(rotated, renderContext)
+  finalizeExportCanvas(canvas, renderContext)
 
   return new Promise((resolve, reject) => {
-    rotated.toBlob((blob) => {
+    canvas.toBlob((blob) => {
       if (blob) {
         resolve(blob)
       } else {

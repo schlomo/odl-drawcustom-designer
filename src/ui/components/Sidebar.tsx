@@ -285,11 +285,15 @@ export function Sidebar({
         {canvas.colorMode === 'rgb' ? (
           <p className={`mt-1 text-[10px] ${shell.muted}`}>Preview only — tag export uses palette colors, not full RGB.</p>
         ) : null}
-        {/* Lock scope is dimensions + color mode/palette only (maintainer
+        {/* Orientation, not a transform (issue #139): picking a quarter turn
+            re-orients the logical drawing surface — the W/H above swap — and
+            the canvas keeps presenting it upright, the way `imagegen` draws
+            it. Lock scope is dimensions + color mode/palette only (maintainer
             ruling 2026-08-16): rotation is a user choice — portrait mounting
             of the same physical display — so it stays editable while locked,
             unlike every other control in this section. */}
-        <div className="mt-2 flex gap-1">
+        <span className={`mt-2 block text-xs ${shell.muted}`}>Orientation</span>
+        <div className="mt-1 flex gap-1" role="group" aria-label="Orientation">
           {ROTATION_OPTIONS.map((value) => (
             <button
               key={value}

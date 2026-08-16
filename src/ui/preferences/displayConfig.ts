@@ -7,8 +7,21 @@ export type CanvasRotation = 0 | 90 | 180 | 270
 export type PreviewDitherMode = 0 | 2
 
 export interface DisplayConfig {
+  /**
+   * The **logical drawing surface** the payload is authored against — already
+   * oriented, exactly the canvas upstream `imagegen` creates (swapped for a
+   * quarter turn) before drawing. Never the raw physical panel size; see
+   * {@link rotation} and issue #139.
+   */
   width: number
   height: number
+  /**
+   * Which way round the panel is: the orientation of {@link width}/
+   * {@link height}, not a transform applied to the design. Its designer-side
+   * effect is exactly that orientation — the canvas is always presented
+   * upright — and it is carried so the send-time `rotate` can be computed per
+   * target (issue #105).
+   */
   rotation: CanvasRotation
   colorMode: TagColorMode
   previewDitherMode: PreviewDitherMode
@@ -29,6 +42,29 @@ export const DEFAULT_DISPLAY_CONFIG: DisplayConfig = {
   rotation: 0,
   colorMode: 'bwr',
   previewDitherMode: 0,
+}
+
+function isQuarterTurn(rotation: CanvasRotation): boolean {
+  return rotation === 90 || rotation === 270
+}
+
+/**
+ * Turn a logical drawing surface from one orientation to another (issue #139).
+ *
+ * A panel has two dimensions; the rotation says which of them is the width.
+ * Moving between an upright rotation (0/180) and a quarter turn (90/270)
+ * therefore swaps them; any other change leaves them alone. This is the *only*
+ * thing rotation does to the canvas — nothing downstream turns a stage or a
+ * raster.
+ */
+export function reorientCanvasSize(
+  size: { width: number; height: number },
+  from: CanvasRotation,
+  to: CanvasRotation,
+): { width: number; height: number } {
+  return isQuarterTurn(from) === isQuarterTurn(to)
+    ? { width: size.width, height: size.height }
+    : { width: size.height, height: size.width }
 }
 
 function isRotation(value: unknown): value is CanvasRotation {

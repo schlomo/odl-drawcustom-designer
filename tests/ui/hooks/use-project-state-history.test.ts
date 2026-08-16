@@ -439,8 +439,10 @@ describe('useProjectState history integration', () => {
     })
 
     expect(result.current.canvas).toMatchObject({
-      width: 296,
-      height: 128,
+      // The 90° orientation re-orients the 296×128 surface picked above
+      // (issue #139) — still not an undoable edit, which is what this asserts.
+      width: 128,
+      height: 296,
       colorMode: 'bwy',
       rotation: 90,
       previewDitherMode: 2,
@@ -458,8 +460,8 @@ describe('useProjectState history integration', () => {
 
     expect(result.current.elements).toHaveLength(1)
     expect(result.current.canvas).toMatchObject({
-      width: 296,
-      height: 128,
+      width: 128,
+      height: 296,
       colorMode: 'bwy',
       rotation: 90,
       previewDitherMode: 2,

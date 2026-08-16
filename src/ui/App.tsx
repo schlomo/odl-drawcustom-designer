@@ -605,7 +605,6 @@ export function App({ bootstrap, host }: AppProps) {
               elements={previewElements}
               editElements={elements}
               renderContext={renderContext}
-              rotation={canvas.rotation}
               selectedIndices={selectedIndices}
               assetRevision={assetRevision}
               sessionName={sessionName}

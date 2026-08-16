@@ -1,5 +1,16 @@
-import type { CanvasRotation } from '../hooks/useProjectState'
 import type { CanvasZoomMode } from '../preferences/canvasZoom'
+
+/**
+ * Canvas viewport math for a canvas that is **always presented upright**
+ * (issue #139).
+ *
+ * The canvas config's width/height *are* the logical drawing surface —
+ * already swapped for a quarter turn, exactly as upstream `imagegen` creates
+ * its Pillow canvas. Rotation chooses that surface's orientation and nothing
+ * here ever turns the presentation: no rotated stage envelope, no CSS
+ * quarter-turn on the paper, no inverse-rotation of pointer coordinates.
+ * Everything below is therefore rotation-free by construction.
+ */
 
 /** Padding inside the scroll viewport (`p-6` × 2). */
 export const CANVAS_VIEWPORT_PADDING_PX = 48
@@ -20,18 +31,6 @@ export interface CanvasViewportLayout {
   needsScrollY: boolean
 }
 
-/** Logical canvas bounds after rotation (axis-aligned envelope). */
-export function computeRotatedCanvasBounds(
-  width: number,
-  height: number,
-  rotation: CanvasRotation,
-): ViewportSize {
-  if (rotation === 90 || rotation === 270) {
-    return { width: height, height: width }
-  }
-  return { width, height }
-}
-
 export function computeAvailableStageArea(
   viewportSize: ViewportSize,
   padding = CANVAS_VIEWPORT_PADDING_PX,
@@ -44,25 +43,23 @@ export function computeAvailableStageArea(
 
 /**
  * Fit scale from the scrollport client size (space above the YAML divider).
- * Scales down or up so the rotated canvas bounds fill the available area.
+ * Scales down or up so the canvas fills the available area.
  */
 export function computeFitScale(
   viewportWidth: number,
   viewportHeight: number,
   canvasWidth: number,
   canvasHeight: number,
-  rotation: CanvasRotation,
   padding = CANVAS_VIEWPORT_PADDING_PX,
 ): number {
-  const bounds = computeRotatedCanvasBounds(canvasWidth, canvasHeight, rotation)
   const available = computeAvailableStageArea(
     { width: viewportWidth, height: viewportHeight },
     padding,
   )
-  if (available.width <= 0 || available.height <= 0 || bounds.width <= 0 || bounds.height <= 0) {
+  if (available.width <= 0 || available.height <= 0 || canvasWidth <= 0 || canvasHeight <= 0) {
     return 1
   }
-  return Math.min(available.width / bounds.width, available.height / bounds.height)
+  return Math.min(available.width / canvasWidth, available.height / canvasHeight)
 }
 
 export function computeEffectiveCanvasScale(mode: CanvasZoomMode, fitScale: number): number {
@@ -82,17 +79,15 @@ export function computeEffectiveCanvasScale(mode: CanvasZoomMode, fitScale: numb
   }
 }
 
-/** Pixel size of the visible stage after rotate + uniform scale. */
+/** Pixel size of the visible stage: the canvas at uniform scale. */
 export function computeCanvasStageSize(
   canvasWidth: number,
   canvasHeight: number,
-  rotation: CanvasRotation,
   scale: number,
 ): ViewportSize {
-  const bounds = computeRotatedCanvasBounds(canvasWidth, canvasHeight, rotation)
   return {
-    width: bounds.width * scale,
-    height: bounds.height * scale,
+    width: canvasWidth * scale,
+    height: canvasHeight * scale,
   }
 }
 
@@ -119,33 +114,17 @@ export function computeCanvasViewportLayout(
   }
 }
 
+/** Client pixels → canvas coordinates: undo the paper's uniform scale, nothing else. */
 export function clientPointToCanvasCoords(
   clientX: number,
   clientY: number,
-  stageRect: DOMRect,
+  paperRect: DOMRect,
   canvasWidth: number,
   canvasHeight: number,
-  rotation: CanvasRotation,
 ): { x: number; y: number } {
-  const bounds = computeRotatedCanvasBounds(canvasWidth, canvasHeight, rotation)
-  const scaleX = stageRect.width / bounds.width
-  const scaleY = stageRect.height / bounds.height
-  const localX = (clientX - stageRect.left) / scaleX
-  const localY = (clientY - stageRect.top) / scaleY
-
-  switch (rotation) {
-    case 0:
-      return { x: localX, y: localY }
-    case 90:
-      return { x: localY, y: canvasHeight - localX }
-    case 180:
-      return { x: canvasWidth - localX, y: canvasHeight - localY }
-    case 270:
-      return { x: canvasWidth - localY, y: localX }
-    default: {
-      const _exhaustive: never = rotation
-      return _exhaustive
-    }
+  return {
+    x: ((clientX - paperRect.left) * canvasWidth) / paperRect.width,
+    y: ((clientY - paperRect.top) * canvasHeight) / paperRect.height,
   }
 }
 
@@ -205,54 +184,7 @@ export function formatCanvasPointerCoords(
   return `${refined.x}, ${refined.y}`
 }
 
-/** Map a canvas-space point to stage-local pixels (matches pointer hit-test inverse). */
-export function mapCanvasPointToStageLocal(
-  cx: number,
-  cy: number,
-  canvasWidth: number,
-  canvasHeight: number,
-  rotation: CanvasRotation,
-  scale: number,
-): { x: number; y: number } {
-  switch (rotation) {
-    case 0:
-      return { x: cx * scale, y: cy * scale }
-    case 90:
-      return { x: (canvasHeight - cy) * scale, y: cx * scale }
-    case 180:
-      return { x: (canvasWidth - cx) * scale, y: (canvasHeight - cy) * scale }
-    case 270:
-      return { x: cy * scale, y: (canvasWidth - cx) * scale }
-    default: {
-      const _exhaustive: never = rotation
-      return _exhaustive
-    }
-  }
-}
-
-/** CSS matrix for rotate+scale with top-left origin; keeps content inside the stage envelope. */
-export function paperTransform(
-  rotation: CanvasRotation,
-  scale: number,
-  canvasWidth: number,
-  canvasHeight: number,
-): string {
-  const w = canvasWidth
-  const h = canvasHeight
-  const s = scale
-
-  switch (rotation) {
-    case 0:
-      return `matrix(${s}, 0, 0, ${s}, 0, 0)`
-    case 90:
-      return `matrix(0, ${s}, ${-s}, 0, ${h * s}, 0)`
-    case 180:
-      return `matrix(${-s}, 0, 0, ${-s}, ${w * s}, ${h * s})`
-    case 270:
-      return `matrix(0, ${-s}, ${s}, 0, 0, ${w * s})`
-    default: {
-      const _exhaustive: never = rotation
-      return _exhaustive
-    }
-  }
+/** CSS transform for the paper: a uniform scale from its top-left corner. */
+export function paperTransform(scale: number): string {
+  return `scale(${scale})`
 }

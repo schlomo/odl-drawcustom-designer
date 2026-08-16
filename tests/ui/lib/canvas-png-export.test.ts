@@ -1,29 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { finalizeTagImageData, imageDataUsesOnlyPaletteColors } from '../../../src/core'
-import {
-  resolveExportCanvasSize,
-  resolveExportDitherMode,
-} from '../../../src/ui/lib/canvas-png-export'
+import { resolveExportDitherMode } from '../../../src/ui/lib/canvas-png-export'
 
+/**
+ * Export dimensions are the logical canvas, unturned (issue #139) — proven end
+ * to end on the real export path in `tests/e2e/embed-targets.spec.ts`
+ * ("the exported PNG is the upright logical canvas"), which reads the PNG
+ * header of a downloaded file. jsdom has no canvas, so the rasterizing half of
+ * this module is not unit-testable here.
+ */
 describe('canvas PNG export helpers', () => {
-  it('uses native render dimensions regardless of CSS scale', () => {
-    expect(resolveExportCanvasSize({ width: 296, height: 128 })).toEqual({
-      width: 296,
-      height: 128,
-    })
-  })
-
-  it('swaps export dimensions when the canvas is rotated 90° or 270°', () => {
-    expect(resolveExportCanvasSize({ width: 800, height: 480 }, 90)).toEqual({
-      width: 480,
-      height: 800,
-    })
-    expect(resolveExportCanvasSize({ width: 800, height: 480 }, 270)).toEqual({
-      width: 480,
-      height: 800,
-    })
-  })
-
   it('prefers preview dither mode when set to halftone', () => {
     expect(resolveExportDitherMode(2, 0)).toBe(2)
   })
