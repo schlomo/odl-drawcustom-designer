@@ -223,6 +223,12 @@ export function YamlPanel({
     // mid-typing previously fired the echo with a stale serialization right
     // after the doc turned valid again (typing `30` over `y: 0` became `00`).
     if (yamlBlockedRef.current || pendingParsedRef.current != null) {
+      // A drag that ended while the doc is blocked/pending can't land its
+      // sync here — but `dragSuspendedSyncRef` must not survive past this
+      // point either, or a LATER, wholly unrelated sync (once the doc
+      // unblocks) would misread it as canvas-originated and wrongly request
+      // a scroll-to-linked-element for a drag that is long over.
+      dragSuspendedSyncRef.current = false
       return
     }
 

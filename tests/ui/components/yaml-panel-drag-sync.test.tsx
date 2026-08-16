@@ -196,11 +196,13 @@ describe('YamlPanel suspends the elements → editor sync for the duration of a 
     expect(elementsChanges).toEqual([])
   })
 
-  it('syncs the final geometry even when the drag started in the same batch as a YAML flush', () => {
+  it('syncs the final geometry even when the drag starts right after a YAML flush', () => {
     // A canvas pointerdown blurs the editor, so `flushYamlElementsSync` (which
-    // arms the self-echo suppression) and the drag start land in the same
-    // React batch. The suppression must not survive the gesture and swallow
-    // the drag-end sync — the editor would then keep pre-drag geometry.
+    // arms the self-echo suppression) commits immediately before the drag
+    // starts. This harness exercises that as two sequential `act()` calls
+    // (a real batch boundary in React, not a single shared batch) — the
+    // suppression must not survive the gesture and swallow the drag-end sync
+    // either way, or the editor would keep pre-drag geometry.
     vi.useFakeTimers()
     const flushPendingRef = { current: null as (() => void) | null }
     let committed = startElements
@@ -245,5 +247,99 @@ describe('YamlPanel suspends the elements → editor sync for the duration of a 
     expect(view.state.doc.toString()).toBe(serializeYamlPayload(dragged))
     expect(view.state.doc.toString()).toContain('x_start: 100')
     expect(view.state.doc.toString()).toContain('value: flushed')
+  })
+
+  it('does not mis-attribute a later, unrelated sync to a drag that already ended while the doc was blocked', () => {
+    // `dragSuspendedSyncRef` is armed for the whole gesture and read once, by
+    // the run that finally performs the deferred sync — but if the drag ends
+    // while the live doc is still blocked (broken YAML), that run early-
+    // returns *before* reaching the read, and the ref used to stay armed.
+    // The next sync — wholly unrelated to any drag — would then read it as
+    // if IT were canvas-originated and (with coupling on) wrongly scroll the
+    // YAML pane to the linked element.
+    const { container, rerender } = render(<YamlPanel {...panelProps({ selectionSource: 'yaml' })} />)
+    const view = findMountedView(container)
+
+    // Break the live YAML doc (issue #35 blocked state) without touching
+    // `elements` — the parent hasn't gotten a valid parse to commit.
+    act(() => {
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.toString().length, insert: '::: not valid yaml [' },
+        annotations: Transaction.userEvent.of('input'),
+      })
+    })
+
+    // A canvas drag starts and moves the rectangle while the doc is broken.
+    rerender(<YamlPanel {...panelProps({ selectionSource: 'yaml', canvasDragging: true })} />)
+    const dragged = elementsAfterMoves(3)
+    rerender(
+      <YamlPanel
+        {...panelProps({ selectionSource: 'yaml', canvasDragging: true, elements: dragged })}
+      />,
+    )
+
+    // The drag ends while the doc is STILL blocked — the deferred sync
+    // cannot land yet, and must not leave `dragSuspendedSyncRef` armed past
+    // this point.
+    rerender(
+      <YamlPanel
+        {...panelProps({ selectionSource: 'yaml', canvasDragging: false, elements: dragged })}
+      />,
+    )
+
+    // Fix the doc back to exactly what `elements` already holds, so no
+    // pending parse is created and the doc unblocks with nothing queued.
+    act(() => {
+      view.dispatch({
+        changes: {
+          from: 0,
+          to: view.state.doc.toString().length,
+          insert: serializeYamlPayload(dragged),
+        },
+        annotations: Transaction.userEvent.of('input'),
+      })
+    })
+
+    const dispatchSpy = vi.spyOn(view, 'dispatch')
+
+    // A later, unrelated change to `elements` (e.g. a property-panel edit) —
+    // nothing to do with the drag above. selectionSource stays 'yaml' and
+    // canvasDragging stays false, so this sync has no legitimate
+    // canvas-origin signal of its own.
+    const unrelated: DrawElement[] = [
+      dragged[0]!,
+      { type: 'text', value: 'unrelated-edit', x: 10, y: 10 },
+    ]
+    rerender(
+      <YamlPanel
+        {...panelProps({ selectionSource: 'yaml', canvasDragging: false, elements: unrelated })}
+      />,
+    )
+
+    // The sync itself must still land correctly once unblocked...
+    expect(view.state.doc.toString()).toBe(serializeYamlPayload(unrelated))
+
+    // ...but it must not carry a scroll-into-view effect: with a stale
+    // `dragSuspendedSyncRef` still armed, `YamlPanel` would mis-attribute
+    // this sync as canvas-originated and request one. Identify a
+    // `scrollLinkedElementIntoView` effect by its `ScrollTarget` payload
+    // shape (`range`/`y`), distinct from the unrelated entity-id
+    // `Compartment.reconfigure` effects the editor also dispatches on its
+    // own 200ms scan timer.
+    const scrollDispatches = dispatchSpy.mock.calls.filter(([spec]) => {
+      const effects = spec != null && 'effects' in spec ? spec.effects : undefined
+      const effectList = Array.isArray(effects) ? effects : effects ? [effects] : []
+      return effectList.some(
+        (effect) =>
+          effect != null &&
+          typeof effect === 'object' &&
+          'value' in effect &&
+          effect.value != null &&
+          typeof effect.value === 'object' &&
+          'range' in effect.value &&
+          'y' in effect.value,
+      )
+    })
+    expect(scrollDispatches).toEqual([])
   })
 })
