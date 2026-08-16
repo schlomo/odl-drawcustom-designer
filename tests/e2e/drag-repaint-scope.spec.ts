@@ -44,6 +44,45 @@ async function repaintCount(page: Page): Promise<number> {
   )
 }
 
+/**
+ * Waits for the pre-drag settle to actually finish, instead of guessing a
+ * fixed delay: bundled-font (ppb.ttf) loading can trigger a legitimate
+ * settle repaint, and a fixed sleep either races it (flaky fail) or pads the
+ * test with dead time. Two conditions, both observable in-page:
+ *
+ * 1. `document.fonts.ready` — resolves once font loading/layout for the
+ *    document has settled.
+ * 2. The repaint counter itself holds steady across several consecutive
+ *    animation frames — the actual signal under test ("no more repaints
+ *    pending"), polled via `requestAnimationFrame` rather than a wall-clock
+ *    sleep.
+ */
+async function waitForRepaintsToSettle(page: Page): Promise<void> {
+  await page.evaluate(() => document.fonts.ready)
+  await page.evaluate(() => {
+    const state = (window as unknown as { __layerRepaints: { count: number } }).__layerRepaints
+    const REQUIRED_STABLE_FRAMES = 5
+    return new Promise<void>((resolve) => {
+      let previous = state.count
+      let stableFrames = 0
+      const check = () => {
+        if (state.count === previous) {
+          stableFrames += 1
+          if (stableFrames >= REQUIRED_STABLE_FRAMES) {
+            resolve()
+            return
+          }
+        } else {
+          previous = state.count
+          stableFrames = 0
+        }
+        requestAnimationFrame(check)
+      }
+      requestAnimationFrame(check)
+    })
+  })
+}
+
 test('dragging one element does not repaint the other elements’ canvas layers', async ({
   page,
 }) => {
@@ -68,7 +107,7 @@ test('dragging one element does not repaint the other elements’ canvas layers'
   await page.mouse.move(start.x, start.y)
   await page.mouse.down()
   await expect(page.getByTestId('property-panel-selection')).toContainText('rectangle')
-  await page.waitForTimeout(300)
+  await waitForRepaintsToSettle(page)
 
   const before = await repaintCount(page)
   const STEPS = 10
