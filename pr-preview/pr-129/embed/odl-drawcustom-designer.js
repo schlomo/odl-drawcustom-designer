@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/issue-108-actions-seam", ae = "c009b90", oe = "fcfd1a8", k = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/issue-108-actions-seam", ae = "086016a", oe = "964dff9", k = "0.0.0-dev";
 function A(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
