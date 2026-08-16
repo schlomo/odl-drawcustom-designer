@@ -163,7 +163,9 @@ export type { GlyphCoverageIssue } from './renderer'
 export {
   scanPayloadForTemplates,
   evaluateTemplate,
+  applyTemplateContextToElement,
   applyTemplateContextToPayload,
+  elementHasTemplates,
   hasTemplateSyntax,
   extractEntityIds,
   extractTemplateExpressions,

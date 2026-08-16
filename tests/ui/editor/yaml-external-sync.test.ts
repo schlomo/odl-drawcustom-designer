@@ -23,27 +23,29 @@ describe('yamlExternalSync', () => {
         shouldDeferYamlExternalSync({
           propertyEditing: true,
           canvasDragging: false,
-          couplingEnabled: true,
         }),
       ).toBe(true)
     })
 
-    it('defers canvas drag when YAML coupling is off', () => {
+    // Issue #124: the elements -> editor text sync is suspended for the whole
+    // drag gesture, whether or not YAML coupling is on — re-serializing the
+    // payload and replacing the CodeMirror doc (a full lezer re-parse and
+    // re-highlight of the whole document) was ~7 ms of the ~24 ms measured per
+    // pointermove with the demo payload. One sync runs when the gesture ends.
+    it('defers a canvas drag', () => {
       expect(
         shouldDeferYamlExternalSync({
           propertyEditing: false,
           canvasDragging: true,
-          couplingEnabled: false,
         }),
       ).toBe(true)
     })
 
-    it('does not defer canvas drag when YAML coupling is on', () => {
+    it('does not defer with neither a drag nor a property edit in flight', () => {
       expect(
         shouldDeferYamlExternalSync({
           propertyEditing: false,
-          canvasDragging: true,
-          couplingEnabled: true,
+          canvasDragging: false,
         }),
       ).toBe(false)
     })
@@ -125,7 +127,6 @@ describe('yamlExternalSync', () => {
         !shouldDeferYamlExternalSync({
           propertyEditing,
           canvasDragging: false,
-          couplingEnabled: true,
         })
       ) {
         yamlText = yamlTextForExternalSync(serializedAfterCommit)
@@ -138,7 +139,6 @@ describe('yamlExternalSync', () => {
         !shouldDeferYamlExternalSync({
           propertyEditing,
           canvasDragging: false,
-          couplingEnabled: true,
         })
       ) {
         yamlText = yamlTextForExternalSync(serializedAfterCommit)

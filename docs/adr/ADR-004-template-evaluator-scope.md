@@ -129,6 +129,17 @@ share `{% set %}` state across fields. Cross-field sharing in real HA happens
 only when the **entire** payload is a single template string, or via
 **script-level `variables:`** (see below).
 
+**Elements are independent too, and the preview result reflects that
+(issue #124).** `applyTemplateContextToPayload` is a plain map over
+`applyTemplateContextToElement`, so callers may evaluate a single element
+without changing the answer. An element with **no** template syntax anywhere is
+returned **as-is** (normalized) rather than deep-copied — nothing to substitute
+means nothing to copy — which lets consumers that memoize on element identity
+keep their memo across an edit elsewhere in the payload. Preview results are
+read as immutable data and must never be mutated in place; before this they
+were always fresh clones, and a mutating consumer would now corrupt the stored
+payload.
+
 **`namespace()` within a single field is supported.** Jinja `namespace()` is
 usable inside one template via the `haNamespace` global plus the
 `{% set obj.member = expr %}` → `__ha_setattr(...)` rewrite (whitespace-trim-marker

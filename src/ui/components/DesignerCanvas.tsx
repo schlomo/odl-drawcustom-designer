@@ -275,6 +275,13 @@ export function DesignerCanvas({
   /** Preview stack frozen at drag start so live YAML/property updates do not re-render every layer. */
   const [frozenElements, setFrozenElements] = useState<DrawElement[] | null>(null)
 
+  /**
+   * The element stack held still for the duration of a drag: the painted base
+   * layers, and — since issue #124 — the hit targets derived below. The moving
+   * element is drawn from `dragOverlays` on top of it.
+   */
+  const baseElements = frozenElements ?? elements
+
   useEffect(() => {
     dragSessionRef.current = dragSession
   }, [dragSession])
@@ -371,9 +378,18 @@ export function DesignerCanvas({
   // selection frame stayed at the element's real position while the marker
   // jumped elsewhere, and errored elements couldn't be dragged because
   // clicking the visible marker missed the stale hit-test region entirely).
+  //
+  // Derived from `baseElements`, so a drag freezes them for the whole gesture
+  // (issue #124): re-resolving all bounds per pointermove re-invoked
+  // safeRenderElement for every element — the bulk of the opentype
+  // glyph-shaping cost in the drag profile — to produce hit targets nothing
+  // reads mid-gesture. The drag is bound to the element grabbed at
+  // pointerdown (whose starts come from the live targets, resolved before this
+  // freeze commits), and the hover branch that reads them is skipped while a
+  // session is in flight.
   const hitTargets = useMemo(() => {
     void fontLayoutTokenForKeys(fontAssetKeys, opentypeFonts)
-    return elements.flatMap((element, index) => {
+    return baseElements.flatMap((element, index) => {
       if (!isElementCanvasSelectable(element, renderContext)) {
         return []
       }
@@ -381,7 +397,7 @@ export function DesignerCanvas({
       return bounds ? [{ index, bounds }] : []
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
-  }, [elements, fontAssetKeys, renderContext, opentypeFonts, fontLoadOutcomes, imageLoadOutcomes])
+  }, [baseElements, fontAssetKeys, renderContext, opentypeFonts, fontLoadOutcomes, imageLoadOutcomes])
 
   // Selection-priority hit-testing (issue #45 ruling) needs to know whether
   // the *selected* candidate at a given index is draggable — keyed by index
@@ -506,8 +522,6 @@ export function DesignerCanvas({
     void assetRevision
     return pruneAssetImagesForKeys(assetImages, dlimgAssetKeys)
   }, [assetImages, assetRevision, dlimgAssetKeys])
-
-  const baseElements = frozenElements ?? elements
 
   // See hitTargets above for why fontLoadOutcomes/imageLoadOutcomes must
   // stay dependencies even though they're not read in the body —

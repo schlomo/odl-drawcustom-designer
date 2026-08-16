@@ -142,8 +142,11 @@ export function YamlPanel({
   flushPendingRef,
   discardPendingRef,
 }: YamlPanelProps) {
-  const serialized = useMemo(() => serializeYamlPayload(elements), [elements])
-  const [yamlText, setYamlText] = useState(serialized)
+  // Serializing the payload happens inside the external-sync effect below, its
+  // only consumer — never during render (issue #124). A drag suspends that
+  // effect, so re-serializing the whole payload per pointermove, for text
+  // nothing would read until the gesture ends, is work that simply never runs.
+  const [yamlText, setYamlText] = useState(() => serializeYamlPayload(elements))
   // Whether the *current* yamlText was pushed in while a canvas-driven scroll
   // to the linked element was intended. Decided once, alongside setYamlText,
   // in the same external-sync effect run — not re-derived later from live
@@ -154,6 +157,12 @@ export function YamlPanel({
   const yamlBlocked = useMemo(() => isYamlDocBlocked(yamlText), [yamlText])
   const yamlBlockedRef = useRef(yamlBlocked)
   const skipExternalSyncRef = useRef(false)
+  /**
+   * Set while a canvas drag suspends the external sync (issue #124), read and
+   * cleared by the run that finally performs it. A ref, not state — like every
+   * other flag this effect reads, a flip of it must never re-trigger the sync.
+   */
+  const dragSuspendedSyncRef = useRef(false)
   /** Parse of the live doc awaiting the debounced flush — set/cleared by handleYamlChange. */
   const pendingParsedRef = useRef<DrawElement[] | null>(null)
   const syncTimerRef = useRef<number | null>(null)
@@ -189,9 +198,18 @@ export function YamlPanel({
   }, [onYamlBlockedChange, yamlBlocked])
 
   useEffect(() => {
-    if (
-      shouldDeferYamlExternalSync({ propertyEditing, canvasDragging, couplingEnabled })
-    ) {
+    if (shouldDeferYamlExternalSync({ propertyEditing, canvasDragging })) {
+      if (canvasDragging) {
+        // The gesture will end with one sync, and that sync must be
+        // unconditional (issue #124). Consume the self-echo suppression here:
+        // a canvas pointerdown blurs the editor, so a debounced draft's flush
+        // — which arms the flag — commits in the very batch that starts the
+        // drag. Left armed, it would swallow the drag-end sync and strand the
+        // editor on pre-drag geometry. Whatever it was suppressing is already
+        // superseded by the drag's own element commits.
+        skipExternalSyncRef.current = false
+        dragSuspendedSyncRef.current = true
+      }
       return
     }
 
@@ -202,20 +220,26 @@ export function YamlPanel({
     //   `elements`, so the echo would clobber freshly typed text.
     // Both are read via refs — NOT effect dependencies — because their flips
     // must never re-trigger this effect: the blocked->unblocked transition
-    // mid-typing previously fired the echo with a stale `serialized` right
+    // mid-typing previously fired the echo with a stale serialization right
     // after the doc turned valid again (typing `30` over `y: 0` became `00`).
     if (yamlBlockedRef.current || pendingParsedRef.current != null) {
       return
     }
 
+    // A drag's single sync runs at drag END, when `canvasDragging` is already
+    // false — so the drag-originated scroll decision (issue #37) reads this
+    // ref instead, set while the suspension was in force.
+    const canvasDrag = canvasDragging || dragSuspendedSyncRef.current
+    dragSuspendedSyncRef.current = false
+
     if (shouldApplyExternalYamlSync(skipExternalSyncRef.current)) {
-      setYamlText(yamlTextForExternalSync(serialized))
-      // canvasDragging is the live signal that *this* sync originates from a
-      // canvas interaction (drag-session start/move) — capture it now, since
-      // it can revert to false (drag end) before YamlEditor's doc-sync effect
-      // reacts to the new text a render or two later.
+      setYamlText(yamlTextForExternalSync(serializeYamlPayload(elements)))
+      // canvasDrag is the signal that *this* sync originates from a canvas
+      // interaction — capture it now, since the gesture is already over by the
+      // time YamlEditor's doc-sync effect reacts to the new text a render or
+      // two later.
       setScrollLinkedElementOnSync(
-        shouldScrollLinkedElementOnSync({ couplingEnabled, canvasDragging, selectionSource }),
+        shouldScrollLinkedElementOnSync({ couplingEnabled, canvasDragging: canvasDrag, selectionSource }),
       )
     }
     skipExternalSyncRef.current = false
@@ -223,7 +247,7 @@ export function YamlPanel({
     // the moment of an actual text push (already triggered by the deps
     // below), not as its own trigger for extra runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canvasDragging, couplingEnabled, propertyEditing, serialized])
+  }, [canvasDragging, couplingEnabled, elements, propertyEditing])
 
   const elementsRef = useRef(elements)
 
