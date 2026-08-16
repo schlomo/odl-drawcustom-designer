@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "main", ae = "eed0fde", k = "eed0fde", A = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "main", ae = "43eaa84", k = "43eaa84", A = "0.0.0-dev";
 function j(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -75421,7 +75421,7 @@ function qcn(e, t) {
 		le,
 		f,
 		n
-	]), (0, v.useEffect)(() => {
+	]), (0, v.useLayoutEffect)(() => {
 		if (t.registerPushTarget) return t.registerPushTarget({
 			applyStates: (e) => {
 				let t = U9(e);
