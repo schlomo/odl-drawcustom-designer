@@ -56,6 +56,14 @@ function copyCapabilities(value: unknown, where: string): HostCapabilities {
     copy.palette_measured = source.palette_measured
   }
   if (source.available_colors !== undefined) {
+    // Checked, not spread blind: `[...value]` on a non-iterable throws a bare
+    // "is not iterable" that names neither this module nor the offending
+    // target, so the host cannot tell which push it came from.
+    if (!Array.isArray(source.available_colors)) {
+      fail(
+        `${where} needs available_colors as an array (got ${JSON.stringify(source.available_colors)})`,
+      )
+    }
     copy.available_colors = Object.freeze([...source.available_colors]) as string[]
   }
   if (source.color_map !== undefined) {
@@ -133,8 +141,13 @@ function colorMapEqual(
   )
 }
 
-/** Structural equality over the normalized (known-field) capability copy. */
-function capabilitiesEqual(a: HostCapabilities, b: HostCapabilities): boolean {
+/**
+ * Structural equality over the normalized (known-field) capability copy.
+ *
+ * Also the test for "the host re-defined the display the design is pinned to":
+ * every push carries freshly built objects, so identity says nothing.
+ */
+export function hostCapabilitiesEqual(a: HostCapabilities, b: HostCapabilities): boolean {
   return (
     a === b ||
     (NUMBER_FIELDS.every((field) => a[field] === b[field]) &&
@@ -163,7 +176,7 @@ export function hostTargetsEqual(a: readonly HostTarget[], b: readonly HostTarge
     return (
       target.id === other.id &&
       target.label === other.label &&
-      capabilitiesEqual(target.capabilities, other.capabilities)
+      hostCapabilitiesEqual(target.capabilities, other.capabilities)
     )
   })
 }

@@ -2,7 +2,6 @@ import { mdiLock, mdiLockOpen } from '@mdi/js'
 import { useMemo, useState } from 'react'
 import type { AssetKind, AssetUploadResult, DrawElement, TagColorMode } from '../../core'
 import type { HaMockContext } from '../../core'
-import { NO_HOST_TARGETS } from '../../embed/hostTargets'
 import type { HostTarget } from '../../embed/types'
 import {
   applyResolutionSelectValue,
@@ -47,8 +46,9 @@ interface SidebarProps {
   displayLock?: 'locked' | 'unlocked' | null
   onToggleDisplayLock?: () => void
   /**
-   * Host-pushed display targets (issue #106, ADR-018). Empty (standalone, or
-   * an embed that pushes none) renders no picker at all.
+   * Host-pushed display targets (issue #106, ADR-018). Absent or empty
+   * (standalone, or an embed that pushes none) renders no picker at all —
+   * unless a selection is remembered, which the picker is how you leave.
    */
   targets?: readonly HostTarget[]
   /** The remembered picker selection; kept while unlocked and while stale. */
@@ -115,7 +115,7 @@ export function Sidebar({
   onRotationChange,
   displayLock = null,
   onToggleDisplayLock,
-  targets = NO_HOST_TARGETS,
+  targets,
   selectedTargetId = null,
   selectedTargetLabel = null,
   onSelectDisplayTarget,
@@ -205,10 +205,11 @@ export function Sidebar({
           <h2 className={shell.heading}>Display config</h2>
         )}
         {/* Display picker (issue #106): conditional chrome — a designer with no
-            host targets renders exactly what it did before. A display the host
-            removed while the config is locked onto it keeps the picker alive
-            even with an empty list, so the user can still switch away from it. */}
-        {targets.length > 0 || (displayLocked && selectedTargetId != null) ? (
+            host targets renders exactly what it did before. A remembered
+            selection keeps the picker alive even once the host's list is empty,
+            locked or not: it is the control the user switches away with, and a
+            control must not vanish from under the person using it. */}
+        {(targets != null && targets.length > 0) || selectedTargetId != null ? (
           <DisplayTargetSelect
             targets={targets}
             selectedTargetId={selectedTargetId}

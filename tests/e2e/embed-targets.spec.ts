@@ -119,3 +119,40 @@ test('standalone app shows no display picker', async ({ page }) => {
 
   await expect(page.getByRole('combobox', { name: 'Display' })).toHaveCount(0)
 })
+
+test('a very long host label never widens the sidebar', async ({ page }) => {
+  // Host labels are host text: arbitrarily long, and nothing in the designer
+  // gets to reflow because of one (the PR #85 horizontal-scrollbar class of
+  // bug — a too-wide box inside an `overflow-hidden` panel is content the user
+  // simply cannot reach). Native `<select>` truncation of the option text is
+  // fine; a widened panel is not.
+  await page.evaluate(() => {
+    ;(
+      window as unknown as {
+        designerHandle: { setTargets: (targets: unknown) => void }
+      }
+    ).designerHandle.setTargets([
+      {
+        id: 'display.verbose',
+        label: `Kitchen tag on the second shelf next to the coffee machine ${'and more '.repeat(30)}`,
+        capabilities: { render_width: 296, render_height: 128 },
+      },
+    ])
+  })
+
+  await expect(picker(page).getByRole('option')).toHaveCount(3)
+
+  const sidebar = page.locator('aside').first()
+  const metrics = await sidebar.evaluate((el) => ({
+    scrollWidth: el.scrollWidth,
+    clientWidth: el.clientWidth,
+  }))
+  expect(
+    metrics.scrollWidth,
+    `sidebar must not widen for a host label (scrollWidth ${metrics.scrollWidth} > clientWidth ${metrics.clientWidth})`,
+  ).toBeLessThanOrEqual(metrics.clientWidth)
+
+  // The picker itself stays inside the panel it lives in.
+  const pickerWidth = await picker(page).evaluate((el) => el.getBoundingClientRect().width)
+  expect(pickerWidth).toBeLessThanOrEqual(metrics.clientWidth)
+})

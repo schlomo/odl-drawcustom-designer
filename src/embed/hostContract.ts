@@ -1,5 +1,6 @@
 import { colourSchemeToColorMode, normalizePaletteOverrides, type TagColorMode } from '../core'
 import type { CanvasConfig, CanvasRotation } from '../ui/hooks/useProjectState'
+import { DEFAULT_DISPLAY_CONFIG } from '../ui/preferences/displayConfig'
 import type { MockData, MockEntityAttributes } from '../ui/preferences/mockStates'
 import type { HostCapabilities, HostEntityState, HostStates } from './types'
 
@@ -193,9 +194,14 @@ function resolveColorMode(capabilities: HostCapabilities): TagColorMode | null {
 }
 
 /**
- * Map host capabilities onto the canvas config. Fields the host did not (or
- * could not) provide keep their current value; designer-only preview settings
- * (dither mode) always survive.
+ * Map host capabilities onto the canvas config, **merging onto the current
+ * one**: fields the host did not (or could not) provide keep their current
+ * value, and designer-only preview settings (dither mode) always survive.
+ *
+ * This is the `capabilities` push channel's semantics — a host that pushes a
+ * partial payload is re-asserting *some* facts about the display in effect,
+ * not describing a different display. For a **named** target pick, see
+ * {@link targetCapabilitiesToCanvas}: the same mapping over a canonical base.
  */
 export function capabilitiesToCanvas(
   capabilities: HostCapabilities,
@@ -224,4 +230,29 @@ export function capabilitiesToCanvas(
     // resolves through the same map, so accent_color participates implicitly.
     paletteOverrides: normalizePaletteOverrides(capabilities.color_map) ?? current.paletteOverrides,
   }
+}
+
+/**
+ * Map a **named** display target's capabilities onto the canvas config, from
+ * the designer's canonical defaults rather than the canvas in front of the
+ * user (issue #106, maintainer ruling 2026-08-16).
+ *
+ * Picking a display *is* the display, not an edit to the current one: the same
+ * target must produce the same canvas whatever the user picked before it.
+ * Merging onto the current config leaks the previous display's facts into a
+ * target that never declared them — its rotation (296×128 arriving as
+ * 128×296), or worse its measured `color_map`, which paints one panel's
+ * red on another's tag (ADR-007 parity).
+ *
+ * The one thing carried over is the preview dither mode: a designer-only
+ * preview setting the user owns, exactly as the display-config lock treats it.
+ */
+export function targetCapabilitiesToCanvas(
+  capabilities: HostCapabilities,
+  current: CanvasConfig,
+): CanvasConfig {
+  return capabilitiesToCanvas(capabilities, {
+    ...DEFAULT_DISPLAY_CONFIG,
+    previewDitherMode: current.previewDitherMode,
+  })
 }

@@ -260,6 +260,8 @@ Mapping onto the canvas ([`src/embed/hostContract.ts`](../src/embed/hostContract
 - **Palette structure** — `color_scheme` (Basic Standard value) wins; else inferred from `color_map` keys / `available_colors` names; else `accent_color`.
 - **Palette hexes** — the measured hex values in `color_map` re-color the active palette: preview canvas, PNG export, halftone dither tiles and the layer-list color swatches all paint the adopted hexes (one palette source of truth). Recognized names: `black`, `white`, `red`, `yellow`, `blue`, `green`; invalid hexes and unknown names are ignored. Half tones (`half_red`, `gray`, …) are re-derived as the same blends of the measured primaries. The `accent` keyword resolves through the same map, so `accent_color` participates automatically. A push without `color_map` keeps the current palette; without any push the canonical palettes apply and standalone rendering is unchanged.
 
+**Base of the mapping — a `capabilities` push merges onto the current canvas.** It re-asserts *some* facts about the display already in effect: whatever the payload omits (a rotation it does not mention, a palette it does not measure) keeps the value the canvas has now. That is deliberate and unchanged — a host can push `{ rotation_degrees: 90 }` on its own and turn the display it already defined. Picking a **named target** resolves the other way, from the designer's canonical defaults; the two are set side by side under [`targets`](#targets--ontargetselected-issue-106).
+
 Known gaps: `palette_measured` itself is informational only (the hexes apply whether or not it is set). Fractional rotations are not representable. YAML export semantics are untouched — the payload always carries color *names*, never display hexes.
 
 #### Display config lock ([issue #70](https://github.com/schlomo/odl-drawcustom-designer/issues/70))
@@ -316,6 +318,28 @@ handle.setTargets([...targets, discoveredDisplay])   // appears in the picker, n
   reusing the [display config lock](#display-config-lock-issue-70) UX
   unchanged: the lock icon appears, the resolution / rotation / color-mode
   controls follow it, and re-locking restores the **selected target's** values.
+- **A pick resolves from the designer's canonical defaults, not from the canvas
+  in front of the user.** Picking a display *is* that display, so the same
+  target always produces the same canvas, whatever was picked before it. What a
+  target does not declare comes from the defaults (no rotation, canonical
+  palette) — never from the display previously in effect. The two display
+  channels therefore differ in exactly one way, deliberately:
+
+  | | base of the mapping | why |
+  |---|---|---|
+  | `capabilities` push (anonymous display) | **merges onto the current canvas** — omitted fields keep their current value | a partial push re-asserts *some* facts about the display already in effect (`{ rotation_degrees: 90 }` turns it) |
+  | `targets` pick (named display) | **canonical designer defaults** — omitted fields fall back to those | picking names a *different* display; inheriting the previous one's rotation or measured `color_map` would paint one panel's red on another's tag (ADR-007 parity) |
+
+  Everything else — the mapping itself, the lock UX, the tolerance for junk
+  values — is shared code. The designer-only preview dither mode survives both,
+  like it survives the lock.
+- **Re-pushing the selected target's capabilities re-applies them.** If a
+  `setTargets()` push carries *different* capabilities for the display the
+  design is currently pinned to, the host has re-defined that display — the same
+  re-assert principle a `setCapabilities()` push carries — so the canvas follows
+  it (canonical base, as above) and stays locked. Unlocked, the user owns the
+  canvas: the new values are stored, and re-locking applies them. A push that
+  only *relabels* the target moves nothing.
 - **"Virtual display" is the picker's name for unlocked.** Picking it is
   identical to clicking the lock open: the controls become editable and the
   design is no longer pinned to real hardware. The selection is *remembered*
@@ -345,25 +369,44 @@ handle.setTargets([...targets, discoveredDisplay])   // appears in the picker, n
   never silently switches to another display and never unlocks — a design in
   progress does not silently start describing different hardware. Pushing the
   display back clears the marker; the remaining displays stay one pick away.
-  Because nothing was selected *away*, `onTargetSelected` does not fire. The
-  marker applies exactly while the missing display is the one in effect:
+  The marker applies exactly while the missing display is the one in effect:
   unlocking to the virtual display puts the design on nothing in particular, so
-  the picker just offers what you still have — until it is re-locked.
+  the picker just offers what you still have — until it is re-locked (which
+  returns to the missing display's last-known values).
+- **A stale selection reports no target id.** The designer never hands you back
+  an id that is absent from your own current list: the moment a push drops the
+  selected display, `onTargetSelected(null)` fires once and `onAction`'s
+  `context.targetId` is `undefined` — including after unlocking and re-locking
+  onto it. What stays on screen is the *label*, marked unavailable; that is for
+  the user, so they can see what the design is still shaped for. Pushing the
+  display back reports its id again.
 - **`onTargetSelected` is optional** and fires only on change: a target id, or
-  `null` for the virtual display (including when the user clicks the lock
-  open). It is the channel to react to a selection — re-pushing `actions` with
-  a `disabledReason: 'No display selected'`, for instance. A host that only
+  `null` for the virtual display (including when the user clicks the lock open,
+  and when the selected display leaves your list). It is the channel to react to
+  a selection — re-pushing `actions` with a
+  `disabledReason: 'No display selected'`, for instance. A host that only
   needs the id when something happens can skip it and read
   `onAction`'s `context.targetId`, which carries the same value (`undefined`
   where this callback reports `null`). Like every other function on the mount
   options it is fixed at mount — ADR-018 pushes data, never functions.
+- **Do not push bare `capabilities` in reaction to a selection.** Calling
+  `setCapabilities()` from inside `onTargetSelected` un-picks the selection the
+  user just made: that push is the *anonymous* display, and last write wins, so
+  the picker drops back to "Host display" (it does not loop — the designer
+  reports nothing for the anonymous display — but the pick is gone). A
+  targets-using host reacts to a selection with `setActions()` /
+  `setTargets()` / its own service calls, and leaves the display channel to the
+  user's pick.
 - **Malformed lists throw** at the push that carries them (missing or
   duplicate `id`, missing `label`, missing `capabilities`) and leave the
   designer untouched; a bad list passed to `mount()` throws before the
   container is touched. `id` and `label` are trimmed, so incidental padding
   never reaches the picker or the id echoed back.
 - **No targets, no picker.** A designer that is pushed no targets renders
-  exactly the display-config area it did before, standalone included.
+  exactly the display-config area it did before, standalone included. Once a
+  display has been picked the picker stays — an emptied list leaves the "Virtual
+  display" entry standing, because that control is how the user leaves the
+  display they are on.
 
 The demo host page pushes three displays, adds a fourth on demand, and removes
 the selected one to demonstrate the stale state ([`demo/host.js`](../demo/host.js),

@@ -72,10 +72,16 @@ import {
   hostStatesToMockData,
   mergeMockAttributes,
   mockStatesEqual,
+  targetCapabilitiesToCanvas,
 } from '../../embed/hostContract'
 import type { DesignerHost } from '../../embed/host'
 import { hostActionsEqual, NO_HOST_ACTIONS } from '../../embed/hostActions'
-import { findHostTarget, hostTargetsEqual, NO_HOST_TARGETS } from '../../embed/hostTargets'
+import {
+  findHostTarget,
+  hostCapabilitiesEqual,
+  hostTargetsEqual,
+  NO_HOST_TARGETS,
+} from '../../embed/hostTargets'
 import type { HostAction, HostStates, HostTarget } from '../../embed/types'
 import { useTemplatePreviewClock } from './useTemplatePreviewClock'
 
@@ -141,6 +147,16 @@ function snapshotEditHistory(history: EditHistory): PersistedEditHistory {
 /** Alias of `DisplayConfig` (`../preferences/displayConfig`) — same shape, kept
  * under this name for the hook's existing consumers. */
 export type CanvasConfig = DisplayConfig
+
+/**
+ * The display target the design is pinned to (issue #106): the id echoed back
+ * to the host, plus the label and capabilities *as last pushed*. Both copies
+ * outlive the host's list on purpose — a display the host drops keeps its name
+ * in the picker and its values under the lock (keep-and-mark-stale), and the
+ * stored capabilities are what a later push is compared against to notice the
+ * host re-defined this display.
+ */
+type SelectedTarget = Pick<HostTarget, 'id' | 'label' | 'capabilities'>
 
 type MockEntityAttributes = NonNullable<HaMockContext['attributes']>
 
@@ -213,11 +229,13 @@ export function useProjectState(
   const [hostTargets, setHostTargets] = useState<readonly HostTarget[]>(
     host.targets ?? NO_HOST_TARGETS,
   )
-  // The target the user picked, remembered with its label so a target the host
-  // later removes can still be named in the picker (keep-and-mark-stale
-  // ruling). Never set by a push: only an explicit pick selects a target, and
-  // an anonymous `capabilities` push clears it (see `applyCapabilities`).
-  const [selectedTarget, setSelectedTarget] = useState<{ id: string; label: string } | null>(null)
+  // The target the user picked, remembered with its label and capabilities so
+  // a target the host later removes can still be named in the picker and
+  // re-locked onto (keep-and-mark-stale ruling), and so a re-push carrying new
+  // capabilities for it can be recognised as such. Never *selected* by a push:
+  // only an explicit pick selects a target, and an anonymous `capabilities`
+  // push clears it (see `applyCapabilities`).
+  const [selectedTarget, setSelectedTarget] = useState<SelectedTarget | null>(null)
   const [assetRevision, setAssetRevision] = useState(0)
   const [snapGrid, setSnapGrid] = useState<SnapGridPrefs>(() => readSnapGridPrefs())
   const [showHiddenHints, setShowHiddenHints] = useState(() => readShowHiddenHintsPrefs().enabled)
@@ -245,6 +263,7 @@ export function useProjectState(
   const canvasRef = useRef(canvas)
   const hostDisplayRef = useRef(hostDisplay)
   const displayLockedRef = useRef(displayLocked)
+  const selectedTargetRef = useRef(selectedTarget)
   const serviceRef = useRef(service)
   const selectedIndicesRef = useRef(selectedIndices)
   const [editHistory] = useState(() => createEditHistory(bootstrap.editHistory))
@@ -273,6 +292,15 @@ export function useProjectState(
     const next = typeof value === 'function' ? value(canvasRef.current) : value
     canvasRef.current = next
     setCanvas(next)
+  }, [])
+
+  // Ref-paired setter, like `commitCanvas` above: the push appliers read the
+  // current selection synchronously (a `setTargets` push may arrive before
+  // React has re-rendered the previous one) and must never do their canvas work
+  // from inside a functional state updater.
+  const commitSelectedTarget = useCallback((value: SelectedTarget | null) => {
+    selectedTargetRef.current = value
+    setSelectedTarget(value)
   }, [])
 
   const commitService = useCallback(
@@ -475,7 +503,7 @@ export function useProjectState(
         // have picked. The canvas is now that unnamed display, and the picker
         // says so ("Host display") rather than keeping a selection the pushed
         // values need not match. Last write wins; the channels never merge.
-        setSelectedTarget(null)
+        commitSelectedTarget(null)
       },
       applyActions: (actions) => {
         // Re-pushable by contract (ADR-018): hosts re-push the whole list to
@@ -490,20 +518,43 @@ export function useProjectState(
         // appears in the picker without a reload. Same diff-before-setState
         // shape as `applyStates`/`applyActions` above.
         setHostTargets((current) => (hostTargetsEqual(current, targets) ? current : targets))
+
+        const selected = selectedTargetRef.current
+        const pushed = findHostTarget(targets, selected?.id ?? null)
         // Keep-and-mark-stale (maintainer ruling 2026-08-16): a push that drops
-        // the selected target changes *nothing* else — not the canvas, not the
-        // lock, not the selection. The picker derives "unavailable" from the
-        // selection no longer being in the list, so it heals by itself if the
-        // host pushes the display back. All this does is keep the remembered
-        // label current while the target is still there, so a later removal
-        // names it the way the host last did.
-        setSelectedTarget((current) => {
-          const pushed = findHostTarget(targets, current?.id ?? null)
-          if (!current || !pushed || pushed.label === current.label) {
-            return current
-          }
-          return { id: current.id, label: pushed.label }
+        // the selected target changes *nothing* here — not the canvas, not the
+        // lock, not the remembered selection. The picker derives "unavailable"
+        // from the selection no longer being in the list, so it heals by itself
+        // if the host pushes the display back.
+        if (!selected || !pushed) {
+          return
+        }
+        const redefined = !hostCapabilitiesEqual(selected.capabilities, pushed.capabilities)
+        if (pushed.label === selected.label && !redefined) {
+          return
+        }
+        // Keep the remembered label and capabilities current while the target
+        // is still there, so a later removal names it the way the host last did
+        // and re-locking uses the values the host last stated.
+        commitSelectedTarget({
+          id: selected.id,
+          label: pushed.label,
+          capabilities: pushed.capabilities,
         })
+        if (!redefined) {
+          return
+        }
+        // The host re-defined the very display the design is pinned to — the
+        // same re-assert principle a `setCapabilities` push carries (maintainer
+        // ruling 2026-08-16). Locked, the canvas follows it and stays locked;
+        // unlocked, the user owns the canvas, so this only updates what
+        // re-locking will apply.
+        const next = targetCapabilitiesToCanvas(pushed.capabilities, canvasRef.current)
+        hostDisplayRef.current = next
+        setHostDisplay(next)
+        if (displayLockedRef.current) {
+          commitCanvas(next)
+        }
       },
       applyPayload: (nextElements) => {
         // The parent replaced the payload wholesale — undo history from the
@@ -522,6 +573,7 @@ export function useProjectState(
     commitCanvas,
     commitElements,
     commitSelectedIndices,
+    commitSelectedTarget,
     resetEditHistory,
     yamlDiscardPendingRef,
   ])
@@ -1083,11 +1135,14 @@ export function useProjectState(
    * Display picker choice (issue #106): a target id, or `null` for the
    * virtual display.
    *
-   * Selecting a target adopts its capabilities through the *same*
-   * `capabilitiesToCanvas` pipeline a `capabilities` push uses — there is no
-   * second display pipeline — and locks the display config onto it.
-   * "Virtual display" is exactly the lock's open state, and the selection
-   * survives it so re-locking returns to the selected target.
+   * Selecting a target adopts its capabilities through the same mapping a
+   * `capabilities` push uses — there is no second display pipeline — but over
+   * the **canonical defaults** rather than the canvas in front of the user
+   * (`targetCapabilitiesToCanvas`): picking a display is the display, so the
+   * same target must land the same canvas whatever was picked before it.
+   * Locking the display config onto it is part of the same act; "Virtual
+   * display" is exactly the lock's open state, and the selection survives it so
+   * re-locking returns to the selected target.
    */
   const selectDisplayTarget = useCallback(
     (targetId: string | null) => {
@@ -1102,21 +1157,32 @@ export function useProjectState(
         // host replaced mid-interaction): nothing to adopt, so change nothing.
         return
       }
-      const next = capabilitiesToCanvas(target.capabilities, canvasRef.current)
+      const next = targetCapabilitiesToCanvas(target.capabilities, canvasRef.current)
       commitCanvas(next)
       hostDisplayRef.current = next
       setHostDisplay(next)
       displayLockedRef.current = true
       setDisplayLocked(true)
-      setSelectedTarget({ id: target.id, label: target.label })
+      commitSelectedTarget({
+        id: target.id,
+        label: target.label,
+        capabilities: target.capabilities,
+      })
     },
-    [commitCanvas, hostTargets],
+    [commitCanvas, commitSelectedTarget, hostTargets],
   )
 
   // The target the design is actually pinned to — what the host is told, and
   // what `onAction` carries. An unlocked display config *is* the virtual
-  // display, whatever selection the picker remembers for re-locking.
-  const activeTargetId = displayLocked ? (selectedTarget?.id ?? null) : null
+  // display, whatever selection the picker remembers for re-locking; and a
+  // selection the host's current list no longer offers is not an id the host
+  // can act on, so the designer never hands back an id absent from that list
+  // (maintainer ruling 2026-08-16). The *label* stays on screen either way —
+  // that is for the user, not the host.
+  const activeTargetId =
+    displayLocked && selectedTarget != null && findHostTarget(hostTargets, selectedTarget.id) != null
+      ? selectedTarget.id
+      : null
   const onTargetSelected = host.onTargetSelected
   const notifiedTargetRef = useRef<string | null>(null)
 

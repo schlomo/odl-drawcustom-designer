@@ -15,7 +15,8 @@ const TARGET_VALUE_PREFIX = 'target:'
 const STALE_TARGET_STATUS_TITLE = 'Display no longer available'
 
 interface DisplayTargetSelectProps {
-  targets: readonly HostTarget[]
+  /** Absent while the host's list is empty and only a selection is remembered. */
+  targets?: readonly HostTarget[]
   /** The remembered selection: kept while unlocked, and while stale. */
   selectedTargetId: string | null
   /** The selection's last-known label — the only name a removed target has left. */
@@ -60,7 +61,9 @@ export function DisplayTargetSelect({
   // "Virtual display" and offers what the host still has; re-locking returns to
   // the missing display and marks it again.
   const staleTargetId =
-    locked && selectedTargetId != null && !targets.some((target) => target.id === selectedTargetId)
+    locked &&
+    selectedTargetId != null &&
+    !targets?.some((target) => target.id === selectedTargetId)
       ? selectedTargetId
       : null
   const showAnonymousHostDisplay = locked && selectedTargetId == null
@@ -99,7 +102,7 @@ export function DisplayTargetSelect({
               {`${selectedTargetLabel ?? staleTargetId} (unavailable)`}
             </option>
           ) : null}
-          {targets.map((target) => (
+          {targets?.map((target) => (
             <option key={target.id} value={`${TARGET_VALUE_PREFIX}${target.id}`}>
               {target.label}
             </option>

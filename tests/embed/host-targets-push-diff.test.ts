@@ -104,9 +104,12 @@ describe('host targets push diff (issue #106)', () => {
   })
 
   it('lands a change buried in a target’s capabilities', () => {
-    // The picker's job is to apply capabilities, so a diff blind to them would
-    // strand a re-sized display at its old resolution until some other field
-    // happened to change.
+    // Capabilities are half of what a target *is*, so a diff blind to them
+    // would hand back the old values the next time the display is picked —
+    // and, while it is the *selected* display, leave the canvas on a size the
+    // host has already re-defined (the re-apply rule, maintainer ruling
+    // 2026-08-16; its canvas side is asserted through the real picker in
+    // host-targets.test.tsx).
     const { host, getPushTarget } = createTestHost([officeTarget()])
     const { result } = renderHook(() => useProjectState(bootstrap(), host))
 
