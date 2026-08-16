@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import {
   applyPlotPropertyUpdate,
   BUNDLED_SHOWCASE_IMAGE_KEY,
@@ -61,8 +61,15 @@ import {
   readShowHiddenHintsPrefs,
   writeShowHiddenHintsPrefs,
 } from '../preferences/hiddenHints'
-import { capabilitiesToCanvas, hostStatesToMockData } from '../../embed/hostContract'
+import {
+  capabilitiesToCanvas,
+  hostStatesEqual,
+  hostStatesToMockData,
+  mergeMockAttributes,
+  mockStatesEqual,
+} from '../../embed/hostContract'
 import type { DesignerHost } from '../../embed/host'
+import type { HostStates } from '../../embed/types'
 import { useTemplatePreviewClock } from './useTemplatePreviewClock'
 
 export type { AddElementResult } from '../lib/add-element-guards'
@@ -147,7 +154,22 @@ function buildEffectiveMockContext(
   return { states, attributes: mockAttributes, variables }
 }
 
-export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
+export interface ProjectStateEditorHooks {
+  /**
+   * Points at `YamlPanel`'s `discardPendingYamlEdit` (issue #104 review): a
+   * host payload push is authoritative, so the push applier below invalidates
+   * any debounced YAML draft before committing the pushed elements. A ref, not
+   * a callback prop, so the shell can hand it over before the panel mounts and
+   * the push registration never re-runs because of it.
+   */
+  yamlDiscardPendingRef?: RefObject<(() => void) | null>
+}
+
+export function useProjectState(
+  bootstrap: AppBootstrap,
+  host: DesignerHost,
+  { yamlDiscardPendingRef }: ProjectStateEditorHooks = {},
+) {
   const [sessionName, setSessionName] = useState(bootstrap.sessionName)
   const [elements, setElements] = useState<DrawElement[]>(bootstrap.elements)
   const [selectedIndices, setSelectedIndices] = useState<number[]>([])
@@ -176,6 +198,24 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
   const [showHiddenHints, setShowHiddenHints] = useState(() => readShowHiddenHintsPrefs().enabled)
   const mockStatesRef = useRef(mockStates)
   const mockAttributesRef = useRef(mockAttributes)
+  // Last raw host `states` payload actually applied (issue #110): compared
+  // structurally against each new push so an unchanged tick (the upstream
+  // OpenDisplay HA integration re-sends its full entity registry up to 4x/s)
+  // costs one cheap scan instead of a setState + re-render + template
+  // re-evaluation. Set synchronously inside `applyStates` itself, never from
+  // an effect — the same ref-paired-with-setter convention `commitElements`
+  // et al. use elsewhere in this file.
+  //
+  // Aliases the caller's pushed object — this holds the same reference the
+  // host passed to `setStates()`, not a clone (cloning would cost what the
+  // diff is meant to save). That makes mutate-and-repush unsupported: a host
+  // that mutates this same object in place and re-pushes it gets a false
+  // "unchanged" from `hostStatesEqual` below, since the mutation already
+  // happened to the retained reference before the comparison runs. Ownership
+  // contract documented for hosts in docs/embedding.md (`states` section)
+  // and on `HostStates` in src/embed/types.ts — construct a fresh object per
+  // push instead.
+  const lastHostStatesRef = useRef<HostStates | null>(null)
   const elementsRef = useRef(elements)
   const canvasRef = useRef(canvas)
   const hostDisplayRef = useRef(hostDisplay)
@@ -358,15 +398,38 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
   // owns the pre-registration queue, so adapters never implement this). Each
   // applier runs from a MountHandle setter call — an external host event,
   // which is exactly where React wants external-state-driven setState to live.
-  useEffect(() => {
+  //
+  // A *layout* effect, deliberately (issue #115): this is the shell's
+  // imperative handle to the host, and like `useImperativeHandle` it has to
+  // exist the moment the DOM does. Registering it passively left a window
+  // between the commit and React's passive-effect flush — a whole macrotask
+  // wide, and much wider under CPU contention — in which a host push already
+  // sitting in the mount's pre-registration queue was neither applied nor
+  // visible. The host then paints a frame of default, unlocked display config
+  // before the pushed capabilities land. Registering at commit time drains the
+  // queue synchronously, so the first frame the host can observe already
+  // reflects everything it pushed.
+  useLayoutEffect(() => {
     if (!host.registerPushTarget) {
       return
     }
     return host.registerPushTarget({
       applyStates: (states) => {
+        // Issue #110: an unchanged push (the upstream OpenDisplay HA
+        // integration re-sends its full entity registry up to 4x/s) must
+        // cost nothing beyond this structural scan — no conversion, no
+        // setState, no re-render, no template re-evaluation.
+        if (lastHostStatesRef.current !== null && hostStatesEqual(lastHostStatesRef.current, states)) {
+          return
+        }
+        lastHostStatesRef.current = states
         const mock = hostStatesToMockData(states)
-        setMockStates(mock.states)
-        setMockAttributes(mock.attributes)
+        // Functional updaters: bail per-part when that half of the push
+        // didn't actually change (e.g. only attributes moved), and reuse
+        // each unaffected entity's attribute object (bounded churn, issue
+        // #110) rather than replacing the whole map wholesale.
+        setMockStates((current) => (mockStatesEqual(current, mock.states) ? current : mock.states))
+        setMockAttributes((current) => mergeMockAttributes(current, mock.attributes))
       },
       applyCapabilities: (capabilities, options) => {
         // The host (re-)defined the display: adopt it, and by default lock
@@ -384,13 +447,24 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
       },
       applyPayload: (nextElements) => {
         // The parent replaced the payload wholesale — undo history from the
-        // previous payload no longer applies.
+        // previous payload no longer applies, and neither does a YAML edit the
+        // user typed before the push: invalidate that draft *first*, in this
+        // same synchronous path, so the commit below cannot be undone later by
+        // its debounce flush (issue #104 review).
+        yamlDiscardPendingRef?.current?.()
         resetEditHistory()
         commitElements(structuredClone(nextElements))
         commitSelectedIndices([])
       },
     })
-  }, [host, commitCanvas, commitElements, commitSelectedIndices, resetEditHistory])
+  }, [
+    host,
+    commitCanvas,
+    commitElements,
+    commitSelectedIndices,
+    resetEditHistory,
+    yamlDiscardPendingRef,
+  ])
 
   useEffect(() => {
     writeSnapGridPrefs(snapGrid)
@@ -518,6 +592,13 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
   )
 
   const setMockState = useCallback((entityId: string, value: string) => {
+    // Issue #110 follow-up: a local Simulator edit must invalidate the
+    // last-applied-host-push cache, or a later host push structurally
+    // identical to the one *before* this edit gets short-circuited by
+    // `hostStatesEqual` and never reconciles the Simulator back to host
+    // truth. Ref update lives in the same synchronous callback as the
+    // setter, same convention as `commitElements` et al.
+    lastHostStatesRef.current = null
     setMockStates((current) => ({
       ...current,
       [entityId]: value,
@@ -525,6 +606,7 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
   }, [])
 
   const addMockEntity = useCallback((entityId: string, value: string) => {
+    lastHostStatesRef.current = null
     setMockStates((current) => ({
       ...current,
       [entityId]: value,
@@ -532,6 +614,7 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
   }, [])
 
   const removeMockEntity = useCallback((entityId: string) => {
+    lastHostStatesRef.current = null
     setMockStates((current) => {
       if (!(entityId in current)) {
         return current
@@ -552,6 +635,7 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
 
   const setMockAttribute = useCallback(
     (entityId: string, attribute: string, value: unknown) => {
+      lastHostStatesRef.current = null
       setMockAttributes((current) => ({
         ...current,
         [entityId]: { ...(current[entityId] ?? {}), [attribute]: value },
@@ -566,6 +650,7 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
       if (trimmed === previousName) {
         return
       }
+      lastHostStatesRef.current = null
       setMockAttributes((current) => {
         const entity = current[entityId]
         if (!entity || !(previousName in entity)) {
@@ -588,6 +673,7 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
   )
 
   const removeMockAttribute = useCallback((entityId: string, attribute: string) => {
+    lastHostStatesRef.current = null
     setMockAttributes((current) => {
       const entity = current[entityId]
       if (!entity || !(attribute in entity)) {
@@ -851,6 +937,9 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
     // Strip only the unmodified demo-seeded simulator entries; mocks, attributes
     // and variables the user added or changed are preserved (persisted via the
     // debounced writes). This gives a clean slate without deleting user data.
+    // Invalidate the host-push cache (issue #110 follow-up): this is a local
+    // mock mutation, same as the Simulator setters above.
+    lastHostStatesRef.current = null
     setMockStates((current) => clearDemoMockStates(current))
     setMockAttributes((current) => clearDemoMockAttributes(current))
     setVariables((current) => clearDemoVariables(current))
@@ -883,6 +972,9 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
     commitSelectedIndices([])
     // Seed the mock context the showcase templates rely on, so the demo renders
     // its state/attribute/variable examples without manual Simulator setup.
+    // Invalidate the host-push cache (issue #110 follow-up): this is a local
+    // mock mutation, same as the Simulator setters above.
+    lastHostStatesRef.current = null
     const simulator = cloneShowcaseSimulator()
     setMockStates(simulator.states)
     setMockAttributes(simulator.attributes)
@@ -1137,6 +1229,13 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
     [commitElements, dispatchHistory],
   )
 
+  // Synchronous accessor onto `elementsRef` (issue #104): `commitElements`
+  // updates the ref before the React state setter, so this is always the
+  // latest committed elements even mid-callback, before a re-render — what
+  // `MountHandle.getPayload()` needs to read immediately after forcing a
+  // flush of any pending YAML-editor debounce.
+  const getElementsSnapshot = useCallback(() => elementsRef.current, [])
+
   return {
     sessionName,
     setSessionName,
@@ -1144,6 +1243,7 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
     setService: commitService,
     elements,
     setElements: setElementsWithHistory,
+    getElementsSnapshot,
     previewElements,
     selectedIndices,
     selectedIndex,

@@ -34,6 +34,7 @@ Full set lives in [`docs/adr/`](docs/adr/). Read the rows that match your task b
 | [015](docs/adr/ADR-015-showcase-demo-bundle.md) | Showcase demo bundle | Load Demo, `src/assets/showcase/`, first-run mocks |
 | [016](docs/adr/ADR-016-toolbar-chrome-layout.md) | Toolbar chrome | Responsive toolbar rows, label collapse |
 | [017](docs/adr/ADR-017-host-adapter-seam.md) | Host-adapter seam | `src/embed/` mount lifecycle, host policy (theme/persistence/chrome), new host runtimes |
+| [018](docs/adr/ADR-018-host-ui-seam.md) | Host UI seam | Targets/display picker, state catalog, host actions, preview provider — anything in `src/embed/` carrying host-driven UI |
 
 ## Architecture
 
@@ -73,6 +74,7 @@ Full contract: [`docs/embedding.md`](docs/embedding.md) (ADR-010, ADR-017).
 - The shared mount lifecycle (`src/embed/mount.tsx`) must never touch `document.documentElement`, `document.head` styles, or global theme — everything scoped to the mount wrapper/shadow root (PR #67/#74). Document-level theming is the **standalone adapter's** policy (`src/embed/standalone.tsx`, `theme: { owner: 'designer' }`); never move it into the lifecycle or the shell.
 - **No runtime mode in the React shell** (ADR-017): `App`/`useProjectState` read `DesignerHost` policy (theme owner, `fill`, `shareLink`, `persistence`, `onSaveRequest`) and take a **required** host. Do not reintroduce an `embedded` flag or an optional host defaulting to standalone — an implicit default is how an embedded mount would end up theming the host document.
 - Standalone output must stay byte-identical when no host data is pushed — palette/renderer helpers return canonical constants absent overrides (PR #75).
+- **Host pushes must land in the first observable frame** (issue #115, ADR-017): `useProjectState` registers its push target with `useLayoutEffect` — it is the shell's imperative handle to the host, and passive registration left a macrotask-wide window where an already-made push was neither applied nor visible. Never demote it to `useEffect`; and never "fix" a push assertion by wrapping it in `waitFor` — poll-instead-of-assert is what hid this bug across two PRs.
 - Library build = single self-contained ESM, React bundled, no code splitting (deliberate — composition, wire sizes, and rejected alternatives documented in [`docs/bundle-audit.md`](docs/bundle-audit.md), issue #22); `dist-lib` must work from any dumb static file server.
 - Clipboard/capability features must capability-detect (`window.isSecureContext`, presence checks) and surface visible explanations — insecure-LAN Home Assistant boxes are the PRIMARY deployment, not an edge case (PRs #77/#81).
 - Hidden overlays/tooltips must use `display:none`, not `visibility:hidden`/`invisible` — hidden layout boxes widen scrollers (horizontal-scrollbar bug class, PR #85; see issue #86 for remaining instances).
@@ -159,6 +161,7 @@ Commit titles also **drive the semver bump** (auto-release derives it from conve
 - Only the maintainer merges PRs. AI agents/assistants never merge and never enable auto-merge.
 - **TDD red-first means proving the new test can fail:** run it against pre-fix code (or a deliberate revert) and record the failure before claiming red→green.
 - Review-bot comments (e.g. Copilot) may target a stale revision — verify each claim against the current pushed commit before acting; reply-and-resolve with evidence when a finding is already fixed or refuted.
+- **Every PR body carries two sections** (maintainer ruling 2026-08-16): **Verified** — what was tested and how (gate results, red-first evidence, review passes, e2e), and **Maintainer validation** — what only the human should check before merging (manual test steps, policy calls baked in, explicitly UNVERIFIED items). Update both when the PR changes.
 
 ## Parallel agents / git worktrees
 
@@ -179,6 +182,7 @@ npm ci   # node_modules is per-worktree (not tracked); each needs its own instal
 - One branch can only be checked out in one worktree (git enforces this — rely on it).
 - After the PR merges, clean up: `git worktree remove ../odl-drawcustom-designer-<task>` and `git branch -d <branch>`.
 - If two PRs touch the same core file (e.g. `src/core/templates/evaluate.ts`), state a **merge order** and rebase the second branch onto the first after it lands.
+- **Rebase only from the origin ref, never a possibly-stale local checkout** (2026-08-16 incident): rebasing a local branch that is behind its own remote silently drops the missing commits, and `--force-push-with-lease` does NOT protect you — after a fetch, the lease matches the tracking ref and the push overwrites the newer remote work (this lost the npm README from PR #113; recovered in PR #123). Before any rebase: `git fetch && git reset --hard origin/<branch>` (or do the rebase in a fresh worktree created from the origin ref).
 - Playwright picks a free preview port automatically per run — concurrent worktrees can't collide; set `PW_PORT` for a fixed port.
 - Cost-effective orchestration: run a read-only investigation before dispatching fixes; keep one PR per concern with file-disjoint territories and a declared merge order when territories touch; for small follow-ups (comment fixes, doc tweaks) prefer a fresh agent with a self-contained brief over resuming a long-lived agent transcript.
 - Tier the verification, not just the work (2026-07-20 M3 retro): the supervising thread reviews **tiny diffs inline** (a 2-line fix needs no review agent); dispatch a review agent only for multi-file diffs or landmine territory (editor sync, renderer/palette, mount lifecycle). Per-PR pattern that worked: implement agent → in parallel, rerun the full gate on the **pushed** SHA + review agent → adjudicate reviewer findings against compiled output before requesting changes (a reviewer flagged Tailwind v4's `bg-linear-to-*` as a bug from v3 knowledge — one grep of the built CSS settled it).
