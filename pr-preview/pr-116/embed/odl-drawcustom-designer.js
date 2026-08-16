@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/issue-104-getpayload", ae = "f3a3892", k = "4e542c4", A = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/issue-104-getpayload", ae = "07e9687", k = "9cbb491", A = "0.0.0-dev";
 function j(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -75430,7 +75430,7 @@ function Jcn(e, t, { yamlDiscardPendingRef: n } = {}) {
 		le,
 		p,
 		r
-	]), (0, v.useEffect)(() => {
+	]), (0, v.useLayoutEffect)(() => {
 		if (t.registerPushTarget) return t.registerPushTarget({
 			applyStates: (e) => {
 				let t = U9(e);
