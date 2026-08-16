@@ -102,25 +102,32 @@ Conclusions:
   hashed asset names make longer client caching safe but Pages does not send
   immutable headers.
 
-### Home Assistant static view (aiohttp, M4) — UNVERIFIED
+### Home Assistant static view (aiohttp) — CODE-REVIEWED (wire unverified)
 
-The future HA integration serves the library ESM from an aiohttp static-file
-view ([OpenDisplay HA PR #44](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/44)).
-Not measurable until M4 lands. What is known vs not:
+The HA integration serves the library ESM from an aiohttp static-file view
+([OpenDisplay HA PR #44](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/44)).
+Reviewed from the source code of [OpenDisplay HA PR #100](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/100):
 
-- aiohttp's `FileResponse` does **not** compress on the fly; per aiohttp
-  documentation it serves a pre-compressed `<file>.gz` sibling when the
-  client accepts gzip. Whether the integration ships a `.gz` sibling (and
-  whether its static view takes that code path) is an M4 decision —
-  **UNVERIFIED**.
-- Worst case (uncompressed 5.4 MiB) on the target deployment (LAN HA box):
-  ~0.5 s at 100 Mbit/s, ~0.05 s at 1 Gbit/s, once per browser-cache
-  lifetime. Acceptable even without compression; a `.gz` sibling is a cheap
-  M4 follow-up if measured to matter.
+**Current behavior (from code review):**
+- Bundle served **uncompressed** — 5.4 MiB raw on the wire instead of the
+  ~1.6 MiB gzip; no compression applied by the static view.
+- `Cache-Control: no-cache, no-store, must-revalidate` — full re-download on
+  every panel load, no client cache benefit across visits.
+- Wire penalty per panel open on a LAN box: ~0.5 s at 100 Mbit/s, ~0.05 s at
+  1 Gbit/s — tolerable once, but paid on **every** open because caching is
+  disabled.
 
-Re-verify when M4 lands: fetch the panel JS from a real HA instance with
-`curl -sI -H 'Accept-Encoding: gzip' …` and record `content-encoding` +
-wire size here.
+**Recommended fix (not yet implemented):**
+- Serve with content-hashed/versioned filenames (or query params) to enable
+  long client cache lifetime.
+- `Cache-Control: public, max-age=31536000, immutable` — one download per
+  deployment, shared across all users and browsers.
+- Pre-compressed `.gz` sibling fetched by clients accepting gzip: wire size
+  ~1.6 MiB, ~3.4× faster on repeat visits.
+
+**Still unverified:** whether HA core ever wraps static-view responses in its
+own compression middleware (orthogonal question: whether a future HA version
+applies gzip to all file responses regardless of integration setup).
 
 ## Rejected alternatives (issue #22 ruling)
 
