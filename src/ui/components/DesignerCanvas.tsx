@@ -75,6 +75,7 @@ import { CANVAS_TOOLBAR_ITEM_SELECTOR } from '../lib/canvas-toolbar-layout'
 import { toolbarHeaderSlotWidth } from '../lib/toolbar-header-slot'
 import { useToolbarLabels } from '../hooks/useToolbarLabels'
 import { useElementSize } from '../hooks/useElementSize'
+import { useStableAssetKeys } from '../hooks/useStableAssetKeys'
 import { type ElementBounds } from '../lib/primitive-bounds'
 import { canAlignSelection, unionBounds, type ElementAlign } from '../lib/align-elements'
 import { isElementCanvasSelectable, resolveElementHitBounds } from '../lib/hidden-element-hints'
@@ -190,35 +191,6 @@ function applySnap(
     canvas.height,
     snapGrid.size,
     snapGrid.enabled,
-  )
-}
-
-/** Separator that cannot occur inside an asset key (filenames / `/local/` paths). */
-const ASSET_KEY_SEPARATOR = '\u0000'
-
-/**
- * Collect asset keys from `elements` into a list whose IDENTITY only changes
- * when the collected keys themselves change.
- *
- * The asset key lists below are recomputed from `elements`, so every element
- * edit — every pointermove of a drag — produced a fresh array, and through
- * `displayAssetImages` a fresh `assetImages` Map. That broke the
- * `CanvasElementSlot` memo for EVERY element and re-ran the whole stack's
- * canvas draw effects (opentype glyph draw plus the per-pixel palette
- * quantize pass) once per move, defeating the `frozenElements` snapshot whose
- * entire job is to hold the base layers still during a drag.
- *
- * The signal these consumers actually want is "the set of referenced assets
- * changed", not "some element changed" — this restores that weaker signal.
- */
-function useStableAssetKeys(
-  elements: DrawElement[],
-  collect: (elements: readonly DrawElement[]) => string[],
-): string[] {
-  const signature = useMemo(() => collect(elements).join(ASSET_KEY_SEPARATOR), [collect, elements])
-  return useMemo(
-    () => (signature === '' ? [] : signature.split(ASSET_KEY_SEPARATOR)),
-    [signature],
   )
 }
 
