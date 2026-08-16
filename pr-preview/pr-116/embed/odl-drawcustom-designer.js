@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/issue-104-getpayload", ae = "6ae6226", k = "5cb6eb6", A = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/issue-104-getpayload", ae = "f3a3892", k = "4e542c4", A = "0.0.0-dev";
 function j(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -70846,7 +70846,7 @@ function S9({ showLabels: e, getFeedback: t, getFeedbackMessage: n, onCopyYaml: 
 //#region src/ui/lib/yaml-toolbar-layout.ts
 var Wsn = "[data-yaml-toolbar]", Gsn = 120;
 function C9(e, t) {
-	(0, v.useEffect)(() => {
+	(0, v.useLayoutEffect)(() => {
 		if (e) return e.current = t, () => {
 			e.current === t && (e.current = null);
 		};
@@ -76037,7 +76037,7 @@ function $cn({ bootstrap: e, host: t }) {
 	let n = (0, v.useRef)(null), r = (0, v.useRef)(null), i = rq(r), a = Z9(t), o = Zcn({ applyToDocument: a == null }), { mode: s, cycleMode: c } = o, l = a ?? o.resolvedTheme, { couplingEnabled: u } = x9(), [d, f] = (0, v.useState)(null), [p, m] = (0, v.useState)(null), [h, g] = (0, v.useState)([]), [_, y] = (0, v.useState)(!1), [b, x] = (0, v.useState)(!1), [E, D] = (0, v.useState)(!1), O = Qcn(E), [ee, te] = (0, v.useState)(null), { flashSuccess: ne, flashError: re, getFeedback: A, getFeedbackMessage: le } = yq(), ue = (0, v.useRef)(null), N = (0, v.useRef)(null), { sessionName: P, service: de, elements: F, getElementsSnapshot: fe, previewElements: pe, selectedIndices: I, selectedIndex: L, selectionSource: R, selectedElements: me, selectElement: he, applyYamlSelection: ge, canvas: _e, renderContext: ve, applyResolution: ye, setColorMode: be, setCanvasSize: xe, setRotation: Se, displayLock: Ce, toggleDisplayLock: we, setElements: Te, mockContext: Ee, previewMockContext: De, setMockState: Oe, addMockEntity: ke, removeMockEntity: Ae, setMockAttribute: je, renameMockAttribute: z, removeMockAttribute: Me, variables: Ne, setVariable: Pe, addVariable: B, renameVariable: Fe, removeVariable: Ie, extraEntityIds: Le, assetRevision: Re, uploadAsset: ze, clearAsset: Be, updateElement: Ve, updateElementsBatch: He, updateElementProperty: V, updateSelectedProperty: H, deleteSelectedElements: Ue, addElement: U, clearElements: We, loadDemo: Ge, nudgeSelectedElements: Ke, selectAllInRect: qe, bringSelectionToFront: Je, sendSelectionToBack: Ye, moveSelectionLayer: Xe, alignSelection: Ze, reorderElement: Qe, reorderSelection: $e, snapGrid: et, toggleSnapGrid: tt, showHiddenHints: nt, toggleShowHiddenHints: rt, togglePreviewDither: it, undo: at, redo: ot, canUndo: st, canRedo: ct, beginEditCoalesce: lt, endEditCoalesce: ut } = Jcn(e, t, { yamlDiscardPendingRef: N }), dt = (0, v.useRef)(F);
 	(0, v.useEffect)(() => {
 		dt.current = F;
-	}, [F]), (0, v.useEffect)(() => {
+	}, [F]), (0, v.useLayoutEffect)(() => {
 		if (t.registerPayloadSource) return t.registerPayloadSource(() => (ue.current?.(), fi(fe())));
 	}, [t, fe]), (0, v.useEffect)(() => {
 		e.importSource === "hash" && q$t();
