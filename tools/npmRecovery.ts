@@ -118,7 +118,7 @@ export function planNpmRecovery(input: PlanNpmRecoveryInput): NpmRecoveryDecisio
  * encode, so this is a no-op for it.
  */
 export async function checkNpmRegistryHasVersion(packageName: string, version: string): Promise<boolean> {
-  const encodedName = packageName.replace('/', '%2F')
+  const encodedName = packageName.replaceAll('/', '%2F')
   const url = `https://registry.npmjs.org/${encodedName}/${version}`
   let response: Response
   try {

@@ -81,8 +81,10 @@ jobs:
       # Trusted Publishing requires npm CLI >= 11.5.1 (docs.npmjs.com/trusted-publishers)
       # and Node >= 22.14.0; the runner's Node-bundled npm is not guaranteed
       # to clear that floor, so upgrade explicitly before the publish step
-      # can run. Safe even when npm publish ends up skipped.
-      - run: npm install -g npm@latest
+      # can run. Safe even when npm publish ends up skipped. Pinned to a
+      # known-good minor (not @latest) so a future npm release cannot
+      # silently change publish behavior — bump deliberately.
+      - run: npm install -g npm@11.19
 
       - name: Release
         env:
