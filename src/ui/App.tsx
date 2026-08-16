@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   buildSharePayload,
   buildShareUrl,
@@ -177,7 +177,17 @@ export function App({ bootstrap, host }: AppProps) {
   // getPayload() flushes through `yamlFlushPendingRef` before serializing, so
   // it forces the same debounce commit a real blur/Save click would trigger,
   // instead of a second, independently-timed read.
-  useEffect(() => {
+  //
+  // useLayoutEffect, not useEffect (issue #115/#116 commit-window fix): this
+  // is the read-side mirror of `registerPushTarget` (useProjectState), which
+  // is committed synchronously at layout time (PR #117). A passive effect
+  // here would flush after that — a real window where a host push already
+  // applied live (pushTarget registered) while `getPayload()` still fell back
+  // to the stale bootstrap (payloadSource not yet registered). Registering at
+  // layout time is safe even before #117 lands: this effect only *installs* a
+  // pure read callback, touches no DOM and schedules no state update, so
+  // running it earlier cannot misorder anything — it only closes the window.
+  useLayoutEffect(() => {
     if (!host.registerPayloadSource) {
       return
     }

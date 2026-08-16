@@ -111,6 +111,11 @@ Like every other method on the handle, `getPayload()` throws
 `MountHandle used after destroy()` once the mount has been destroyed. On a
 live mount it never throws.
 
+The payload read channel (`registerPayloadSource`) registers in the same
+commit as the push channel (`registerPushTarget`) — both are `useLayoutEffect`
+— so there is no window where a host push has already applied but a read
+still reports stale, pre-push data.
+
 ### Version
 
 ```js

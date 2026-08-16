@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import {
   resolveCursorSelection,
   serializeYamlPayload,
@@ -95,12 +95,21 @@ interface YamlPanelProps {
 /**
  * Keep a parent-owned ref pointed at the live callback while mounted, and
  * release it on unmount without stomping a newer owner.
+ *
+ * useLayoutEffect, not useEffect (issue #115/#116 commit-window class):
+ * `flushPendingRef`/`discardPendingRef` are read by `getPayload()` and by the
+ * `applyPayload` push applier (both now commit-time, see App.tsx and
+ * useProjectState.ts), so this publication must not lag behind at passive
+ * timing either. No YAML draft can exist at the very first commit (the
+ * editor has not mounted yet), so today this is benign — but co-timing it
+ * now closes the same class of window before a future caller relies on it
+ * being available any earlier than a real Save/push.
  */
 function usePublishedCallback(
   ref: RefObject<(() => void) | null> | undefined,
   callback: () => void,
 ): void {
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!ref) {
       return
     }
