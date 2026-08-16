@@ -102,13 +102,13 @@ Conclusions:
   hashed asset names make longer client caching safe but Pages does not send
   immutable headers.
 
-### Home Assistant static view (aiohttp) — MEASURED
+### Home Assistant static view (aiohttp) — CODE-REVIEWED (wire unverified)
 
 The HA integration serves the library ESM from an aiohttp static-file view
 ([OpenDisplay HA PR #44](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/44)).
-Measured via review of [OpenDisplay HA PR #100](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/100):
+Reviewed from the source code of [OpenDisplay HA PR #100](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/100):
 
-**Current deployment (measured):**
+**Current behavior (from code review):**
 - Bundle served **uncompressed** — 5.4 MiB raw on the wire instead of the
   ~1.6 MiB gzip; no compression applied by the static view.
 - `Cache-Control: no-cache, no-store, must-revalidate` — full re-download on
