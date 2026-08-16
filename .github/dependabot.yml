@@ -6,3 +6,14 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+    # Bundle everything into as few PRs as possible (maintainer ruling
+    # 2026-08-16): one grouped PR per run for version updates, one per
+    # batch for security updates. Each merged PR auto-releases a patch
+    # (docs/releasing.md), so fewer PRs = fewer noise releases.
+    groups:
+      npm-version-updates:
+        applies-to: version-updates
+        patterns: ["*"]
+      npm-security-updates:
+        applies-to: security-updates
+        patterns: ["*"]
