@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "main", k = "b0167f9", A = "b0167f9", j = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "main", k = "c0e098c", A = "c0e098c", j = "0.0.0-dev";
 function M(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -64822,7 +64822,7 @@ var Z6 = /*@__PURE__*/ X6((e, { query: t }) => {
 		from: o.from,
 		to: o.to,
 		insert: l
-	}), u.push(Z.announce.of(n.phrase("replaced match on line $", n.doc.lineAt(r).number) + "."))) : o = t.nextMatch(n, o.from, o.to);
+	}), o = t.nextMatch(n, o.from, o.to), u.push(Z.announce.of(n.phrase("replaced match on line $", n.doc.lineAt(r).number) + "."))) : o = t.nextMatch(n, o.from, o.to);
 	let d = e.state.changes(s);
 	return o && (c = J.single(o.from, o.to).map(d), u.push(u8(e, o)), u.push(n.facet(z6).scrollToMatch(c.main, e))), e.dispatch({
 		changes: d,
@@ -74242,7 +74242,7 @@ var S9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 									if (u && (u.res = n), t) {
 										for (var r = 0, i = n.length; r < i; ++r) Object.freeze(n[r]);
 										Object.freeze(n);
-									} else e.result = O(n);
+									}
 									return e;
 								}).catch(function(e) {
 									return c && u && ie(c, u), Promise.reject(e);
@@ -74262,7 +74262,7 @@ var S9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 									optimisticOps: [],
 									unsignaledParts: {}
 								}).queries.query[e.query.index.name || ""] = c)), cr(u, c, a, o), u.promise.then(function(n) {
-									return { result: ar(n.result, e, s?.optimisticOps, i, u, t) };
+									return n = ar(n.result, e, s?.optimisticOps, i, u, t), { result: t ? n : O(n) };
 								})) : i.query(e);
 							}
 						});
@@ -74761,8 +74761,8 @@ var S9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			errnames: ue,
 			dependencies: pr,
 			cache: zn,
-			semVer: "4.4.3",
-			version: "4.4.3".split(".").map(function(e) {
+			semVer: "4.4.4",
+			version: "4.4.4".split(".").map(function(e) {
 				return parseInt(e);
 			}).reduce(function(e, t, n) {
 				return e + t / 10 ** (2 * n);
