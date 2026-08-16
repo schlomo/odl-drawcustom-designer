@@ -547,15 +547,25 @@ export function useProjectState(
     ],
   )
 
-  // Only the templated elements cost anything to evaluate, and only when their
-  // own content or the context changes (issue #124): every canvas pointermove
-  // ran the whole payload through the evaluator — a nunjucks compile per
-  // templated field, a deep clone of every element — to move the geometry of
-  // one. Keying on a signature of just the templated slots (the identity-
-  // stabilising technique of `useStableAssetKeys`) holds this map across moves
-  // of a template-free element; `previewElements` below passes the rest
-  // straight through. A context change — Simulator edit, host states push,
-  // preview clock tick — still re-evaluates every templated element.
+  // Only the templated elements cost anything to evaluate (issue #124): every
+  // canvas pointermove ran the whole payload through the evaluator — a
+  // nunjucks compile per templated field, a deep clone of every element — to
+  // move the geometry of one. The signature below is scoped to just the
+  // templated slots (a template-free element folds to `null` regardless of
+  // its content, the identity-stabilising technique of `useStableAssetKeys`),
+  // so moving a template-free element never touches it and this map stays
+  // cached across that move; `previewElements` below passes such elements
+  // straight through.
+  //
+  // This is ONE combined signature over ALL templated slots together, not a
+  // per-element cache: editing any templated element's own content changes
+  // the whole signature string, so the recompute below re-evaluates EVERY
+  // templated element, not just the one that changed. A drag of a templated
+  // element (e.g. an icon with a templated `size`) does not get the same
+  // per-move win a template-free drag does — an accepted, subset-bounded
+  // trade rather than per-slot caching. A context change — Simulator edit,
+  // host states push, preview clock tick — always re-evaluates every
+  // templated element regardless.
   const templatedSlotsSignature = useMemo(
     () =>
       JSON.stringify(elements.map((element) => (elementHasTemplates(element) ? element : null))),
