@@ -1,18 +1,28 @@
 import { describe, expect, it } from 'vitest'
-import { buildNpmPackageJson } from '../../tools/npmPackage'
+import { buildNpmPackageJson, NPM_PACKAGE_NAME } from '../../tools/npmPackage'
 
 // npm publish staging (issue #103): package.json is generated at staging
 // time with the REAL derived release version — the tracked repo
 // package.json stays pinned at 0.0.0 forever (docs/releasing.md's
 // version-source policy is unchanged, ADR-untouched).
 
+describe('NPM_PACKAGE_NAME', () => {
+  it('is an explicit constant, not derived from the root package.json name field', () => {
+    // Scoped under the `schlomo` npm org (maintainer update, 2026-08-16).
+    // The root package.json's own "name" is a separate, cosmetic field
+    // (stays private:true/0.0.0 forever, docs/releasing.md's version-source
+    // policy) — this is the one tested source of truth the generator uses.
+    expect(NPM_PACKAGE_NAME).toBe('@schlomo/odl-drawcustom-designer')
+  })
+})
+
 describe('buildNpmPackageJson', () => {
   it('injects the real derived version', () => {
     expect(buildNpmPackageJson('1.2.3').version).toBe('1.2.3')
   })
 
-  it('sets the package name to the product slug', () => {
-    expect(buildNpmPackageJson('1.0.0').name).toBe('odl-drawcustom-designer')
+  it('sets the package name to the scoped npm package name (org "schlomo", scoped 2026-08-16)', () => {
+    expect(buildNpmPackageJson('1.0.0').name).toBe('@schlomo/odl-drawcustom-designer')
   })
 
   it('is an ES module pointing exports/main at the single bundled ESM file', () => {

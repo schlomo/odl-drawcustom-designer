@@ -2,8 +2,8 @@
 
 The designer's release artifact is the **library build** (`npm run build:lib`,
 [ADR-010](adr/ADR-010-ha-embed-mode.md)): one self-contained ESM file,
-published two ways — as an **npm package** (`odl-drawcustom-designer`, the
-**primary** consumer path going forward, [see below](#npm)) and as a
+published two ways — as an **npm package** (`@schlomo/odl-drawcustom-designer`,
+the **primary** consumer path going forward, [see below](#npm)) and as a
 **GitHub release asset**, kept as a fallback for hosts that would rather
 vendor a static file than add a package-manager dependency. The concrete
 consumer — the [OpenDisplay HA integration](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/44)
@@ -110,8 +110,8 @@ separate one). It:
       GitHub release in one step — no separate tag push, no bump commit, no
       write back to `main` at all. This is the one irreversible step in the
       whole script.
-   7. Publishes the already-staged npm package (when `NPM_TOKEN` is
-      configured) — the **only** step that runs after the release, since it
+   7. Publishes the already-staged npm package (when `NPM_PUBLISH` is
+      enabled) — the **only** step that runs after the release, since it
       is the only one that's genuinely a network call publishing the
       version the release just claimed. See [Partial-failure
       recovery](#partial-failure-recovery) below for what happens if this
@@ -138,17 +138,17 @@ problem is fixed.
 
 The `npm publish` step (step 7 above) is the only one that runs **after**
 `gh release create` has already made the `vX.Y.Z` tag and release
-irreversible. If it fails there — bad token, npm registry outage, the job
-killed mid-step — the release itself is already real, but that version never
-reached npm.
+irreversible. If it fails there — trusted publisher not configured, npm
+registry outage, the job killed mid-step — the release itself is already
+real, but that version never reached npm.
 
 **What happens:** the *next* `tools/autoRelease.ts` run (any trigger: a
 later `main` push, or `workflow_dispatch`) lists tags, sees the
 just-published tag is still the latest, finds zero commits since it, and
 takes the "nothing to release" skip path. Unpatched, that would exit
 cleanly and never revisit the stranded version — this is exactly the "no
-silent fallback" exception flagged above. Instead, when `NPM_TOKEN` is
-configured, the skip path asks `tools/npmRecovery.ts` a read-only question:
+silent fallback" exception flagged above. Instead, when `NPM_PUBLISH` is
+enabled, the skip path asks `tools/npmRecovery.ts` a read-only question:
 *is the latest tag's version actually on the npm registry?*
 
 - **Registry check is a 404 (not published) and the version is `>=
@@ -169,7 +169,7 @@ configured, the skip path asks `tools/npmRecovery.ts` a read-only question:
 
 The decision itself (`planNpmRecovery` in `tools/npmRecovery.ts`) is a pure
 function, unit-tested in `tests/tools/npmRecovery.test.ts`: given the latest
-version, whether npm publishing is configured, and whether the registry has
+version, whether npm publishing is enabled, and whether the registry has
 that version, it returns `skip` or `recover` plus the reason. The registry
 lookup (`checkNpmRegistryHasVersion`) is a separate async function so the
 decision itself needs no network mocking.
@@ -222,14 +222,17 @@ stageNpmPackage({
 });
 "
 
-cd dist-npm && npm publish --access public --provenance
+cd dist-npm && npm login && npm publish --access public
 ```
 
-(Verified locally with `npm publish --dry-run` — the tarball contains
-exactly the ESM, `package.json`, `LICENSE`, `NOTICE`, `THIRD_PARTY.md`.) In
-practice, letting the next scheduled/`workflow_dispatch` run recover it
-automatically is simpler and is the tested path — this manual fallback
-exists only for an urgent one-off.
+No `--provenance` here — provenance attestation only works from a supported
+CI provider (GitHub Actions/GitLab CI), not a local `npm publish`; this
+manual path authenticates the ordinary way (`npm login`, 2FA as usual), not
+via Trusted Publishing. (Verified locally with `npm publish --dry-run` — the
+tarball contains exactly the ESM, `package.json`, `LICENSE`, `NOTICE`,
+`THIRD_PARTY.md`.) In practice, letting the next scheduled/`workflow_dispatch`
+run recover it automatically is simpler and is the tested path — this
+manual fallback exists only for an urgent one-off.
 
 ### Manual retry (`workflow_dispatch`)
 
@@ -317,20 +320,21 @@ redundant once npm's own tarball integrity hash covers it).
 
 ## npm
 
-> **Status: not yet published.** The `odl-drawcustom-designer` name on npm is
-> **unclaimed, not registered** — it was only checked read-only against the
-> registry on 2026-08-16 and found available. The maintainer is claiming the
-> name separately; until that first real `npm publish` happens,
-> `npm install odl-drawcustom-designer` below is **not a live install path**.
-> Once it is published, verify the package's listed publisher/maintainer is
-> `schlomo` before installing — an unclaimed name is exactly the kind of gap
-> a squatter could fill first.
+> **Status: not yet published.** `@schlomo/odl-drawcustom-designer` has never
+> been published. The package is **scoped** under the `schlomo` npm org
+> (maintainer update 2026-08-16 — the npm user `schlomo` was converted to an
+> npm org, mirroring the GitHub org/user path), so there is no unscoped-name
+> squatting risk to manage: the scope itself is already org-owned, and
+> nothing outside that org can publish under it. It stays unpublished until
+> the maintainer runbook below is followed (manual first publish, then
+> Trusted Publishing setup) — `npm install @schlomo/odl-drawcustom-designer`
+> below is **not a live install path** until then.
 
 Issue #103: alongside the GitHub release, the same build publishes to npm as
-[`odl-drawcustom-designer`](https://www.npmjs.com/package/odl-drawcustom-designer)
-(name checked read-only against the registry on 2026-08-16 — available at
-the time of writing). This is the **primary** consumer path going forward;
-the GitHub release asset (above) stays available as a fallback.
+[`@schlomo/odl-drawcustom-designer`](https://www.npmjs.com/package/@schlomo/odl-drawcustom-designer)
+(scoped under the `schlomo` npm org, 2026-08-16). This is the **primary**
+consumer path going forward; the GitHub release asset (above) stays
+available as a fallback.
 
 ### Why npm: cache invalidation, not just distribution
 
@@ -342,18 +346,18 @@ already misses the vendored bundle. Consuming the designer from
 `node_modules` instead means the *consumer's own* build/packaging step emits
 a **content-hashed filename** for whatever it ships — the natural, already-
 solved cache-invalidation mechanism — and the served asset can carry an
-`immutable` cache header. `npm install odl-drawcustom-designer@x.y.z` turns
-the update path into an ordinary version pin instead of a vendored blob with
-a hand-maintained token.
+`immutable` cache header. `npm install @schlomo/odl-drawcustom-designer@x.y.z`
+turns the update path into an ordinary version pin instead of a vendored
+blob with a hand-maintained token.
 
 ### npm consumer story
 
 ```bash
-npm install odl-drawcustom-designer@1.0.0   # pin an exact version
+npm install @schlomo/odl-drawcustom-designer@1.0.0   # pin an exact version
 ```
 
 ```js
-import { mount, version } from 'odl-drawcustom-designer'
+import { mount, version } from '@schlomo/odl-drawcustom-designer'
 ```
 
 The package ships the **same single self-contained ESM** as the GitHub
@@ -385,8 +389,8 @@ only invokes `tools/autoRelease.ts`:
   `THIRD_PARTY.md`). `npm publish --dry-run` against this directory works on
   a laptop exactly as in CI (`runs on laptop or CI identically`) — no
   `GITHUB_SHA`/`GH_TOKEN` required, just `npm run build:lib` first.
-- **`tools/npmPublish.ts`** — the `NPM_TOKEN`-present check and job-summary
-  warning helper (below).
+- **`tools/npmPublish.ts`** — the `NPM_PUBLISH`-enabled check and
+  job-summary warning helper (below).
 - **`tools/npmRecovery.ts`** — the [partial-failure
   recovery](#partial-failure-recovery) decision (`planNpmRecovery`) and the
   read-only npm registry check (`checkNpmRegistryHasVersion`) used by the
@@ -398,45 +402,130 @@ only invokes `tools/autoRelease.ts`:
 and runs `npm publish --access public --provenance` against that staged
 directory only **after** the GitHub release itself succeeds — the one step
 that must stay post-release, since it publishes the version the release
-just claimed. `--provenance` needs the workflow's `id-token: write`
-permission (added alongside the existing `contents: write` in
-`auto-release.yml`) — wired unconditionally; harmless when publish ends up
-skipped.
+just claimed.
 
-### Staged rollout: `NPM_TOKEN` does not exist yet
+### npm Trusted Publishing (OIDC) — no token, ever
 
-**Deliberate.** This change wires the full npm publish path but does **not**
-create the `NPM_TOKEN` repository secret — adding a secret is a maintainer
-action, never something an AI agent does unprompted. Until it's added:
+**Reworked 2026-08-16** (maintainer ruling): npmjs.com now refuses to create
+classic "Automation" access tokens on accounts without npm's own 2FA
+enrollment, and its own docs point integrators at **Trusted Publishing**
+instead — so this path was built directly on Trusted Publishing rather than
+a long-lived npm access-token secret. There is no npm token anywhere in this repo, in CI,
+or in any secret store: authentication is a per-run, short-lived credential
+npm mints after verifying this exact GitHub Actions workflow's OIDC
+identity token. Source: [npm Trusted Publishers
+docs](https://docs.npmjs.com/trusted-publishers/), [GitHub npm Trusted
+Publishing GA announcement](https://github.blog/changelog/2025-07-31-npm-trusted-publishing-with-oidc-is-generally-available/).
 
-- `tools/npmPublish.ts`'s `shouldPublishToNpm()` sees no (or blank)
-  `NPM_TOKEN`, and the release script logs
-  `NPM_TOKEN not configured — npm publish skipped (docs/releasing.md#npm)`
+**What the workflow needs** (all present in `auto-release.yml`):
+
+- `permissions: id-token: write` — mints the OIDC token npm exchanges for a
+  publish credential. (`contents: write` is already broader than the
+  `contents: read` Trusted Publishing itself needs, since this workflow
+  also creates the GitHub release/tag.)
+- `registry-url: 'https://registry.npmjs.org'` in the `actions/setup-node`
+  step — no `NODE_AUTH_TOKEN`/`.npmrc` auth line; Trusted Publishing needs
+  only the registry URL to target the OIDC exchange at.
+- **npm CLI ≥ 11.5.1 and Node ≥ 22.14.0** — the documented minimum for
+  Trusted Publishing. The runner's Node-bundled npm is not guaranteed to
+  clear that floor, so the workflow runs `npm install -g npm@latest`
+  explicitly before the release step (belt-and-suspenders; a no-op if the
+  bundled version already qualifies).
+- `--provenance` on the `npm publish` command. npm's docs say provenance is
+  generated **automatically** under Trusted Publishing and the flag isn't
+  required — but real-world reports (see [this write-up](https://philna.sh/blog/2026/01/28/trusted-publishing-npm/))
+  found that not fully reliable in practice, so it stays explicit here
+  rather than depending on the implicit default.
+- `--access public` — **mandatory**, not just habit, because the package is
+  **scoped** (`@schlomo/odl-drawcustom-designer`, org `schlomo`, 2026-08-16):
+  a scoped package defaults to *private* visibility on first publish, and
+  omitting the flag would either fail (no paid private-package plan) or
+  quietly publish it private ([docs.npmjs.com scoped-package
+  docs](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/)).
+  Applies the same way whether the publish is manual or via Trusted
+  Publishing — the flag controls package visibility, not the auth method.
+
+**Scoped/org specifics** (this package is scoped under the `schlomo` npm
+org): publishing under a scope requires the publishing identity — a human
+account for the manual first publish, or the workflow's OIDC identity once
+Trusted Publishing is configured — to have publish permission **in that
+org**, same as any org-scoped package. No extra org-level toggle is needed
+beyond that membership/permission; Trusted Publishing's whole point is that
+the CI workflow's OIDC-derived credential satisfies an org's 2FA-for-publish
+requirement without a human present for *that* publish — the maintainer's
+own manual first publish (step 1 below) is the one step that still needs
+interactive 2FA, since it's the human-authenticated bootstrap Trusted
+Publishing itself depends on.
+
+**Gate: `vars.NPM_PUBLISH` repo variable, not a secret.** There's no token
+lifecycle to manage under Trusted Publishing, so the staged-rollout gate is
+a plain repository **variable** instead of a secret:
+
+- `tools/npmPublish.ts`'s `shouldPublishToNpm()` is `true` only when
+  `NPM_PUBLISH` is exactly `enabled` (trimmed). Anything else — unset,
+  `disabled`, a typo — and the release script logs
+  `NPM_PUBLISH repo variable not enabled — npm publish skipped (docs/releasing.md#npm)`
   and writes the same warning to the job summary — **prominent, but not a
   failure** — then the GitHub release completes exactly as it does today.
-- Once `NPM_TOKEN` exists, that safety net is gone: a real publish failure
-  (bad token, a name/version collision, a registry outage) fails the run
-  loudly, same as every other step in this script. Because that failure
-  happens after the GitHub release already exists, the next run's skip path
-  recovers it automatically — see [Partial-failure
-  recovery](#partial-failure-recovery) above.
+- Once `NPM_PUBLISH` is `enabled`, that safety net is gone: a real publish
+  failure (trusted publisher not configured, a name/version collision, a
+  registry outage) fails the run loudly, same as every other step in this
+  script. Because that failure happens after the GitHub release already
+  exists, the next run's skip path recovers it automatically — see
+  [Partial-failure recovery](#partial-failure-recovery) above.
 
-**Maintainer setup, when ready:**
+**Maintainer runbook, in order** (each step is a one-time maintainer action,
+never something an AI agent does unprompted):
 
-1. Create an npm [granular access token](https://docs.npmjs.com/creating-and-viewing-access-tokens)
-   scoped to publish `odl-drawcustom-designer` (Automation type, so it isn't
-   blocked by 2FA prompts in CI).
-2. Repo → Settings → Secrets and variables → Actions → New repository
-   secret → name it `NPM_TOKEN`.
-3. The next push to `main` that produces a release publishes to npm
-   automatically — no code or workflow change needed.
+1. **Claim the package — manual first publish.** A brand-new, never-published
+   package name **cannot** be claimed via Trusted Publishing directly, and
+   its settings page doesn't exist until step 2 can even be attempted:
+   npm's Trusted Publisher configuration lives on the package's own
+   settings page (`npmjs.com` → Packages → *your package* → Settings →
+   Trusted Publishing), which **only appears once the package has been
+   published at least once** — this is a hard step-ordering requirement,
+   not a suggestion. So the very first `v1.x.y` publish must be a normal,
+   manually authenticated `npm publish` from a maintainer machine
+   (`npm login`, 2FA as usual, publishing under the `schlomo` org's own
+   scope):
+   ```bash
+   git checkout vX.Y.Z   # the tag from the run whose GitHub release you're claiming npm for
+   APP_VERSION=X.Y.Z npm run build:lib
+   # …stage dist-npm/ as in the manual-fallback script further up…
+   cd dist-npm && npm login && npm publish --access public
+   ```
+2. **Configure the trusted publisher (now that the package exists).** On
+   `npmjs.com` → Packages → `@schlomo/odl-drawcustom-designer` → Settings →
+   Trusted Publishing → add a publisher → **GitHub Actions** →
+   organization/user `schlomo`, repository `odl-drawcustom-designer`,
+   workflow filename `auto-release.yml` (no environment — this workflow
+   doesn't use a GitHub Actions environment).
+3. **Set the repo variable.** Repo → Settings → Secrets and variables →
+   Actions → **Variables** tab (not Secrets) → New repository variable →
+   name `NPM_PUBLISH`, value `enabled`.
+4. Done. The next push to `main` that produces a release publishes to npm
+   automatically — tokenless, OIDC-authenticated, provenance-attested — no
+   code or workflow change needed.
+
+**If Trusted Publishing isn't configured yet but `NPM_PUBLISH` is
+`enabled` anyway:** npm does not surface a clear "trusted publisher not
+configured" diagnostic. Reports from real usage show a generic `404 Not
+Found` or an `ENEEDAUTH`/"please log in" error instead — the same errors
+npm shows for an actually-missing package or a genuinely unauthenticated
+publish (see [npm/cli#9088](https://github.com/npm/cli/issues/9088)). The
+run still fails loudly (`npm publish` exits non-zero, same as any other
+publish error), it's just not self-diagnosing — check the package's
+Trusted Publishing settings and the workflow filename/repo match exactly,
+then retry via [`workflow_dispatch`](#manual-retry-workflow_dispatch).
 
 **Status (UNVERIFIED):** `npm publish --dry-run` against a locally staged
 package has been run and verified (tarball contents: exactly the ESM,
 `package.json`, `LICENSE`, `NOTICE`, `THIRD_PARTY.md`; correct name/version/
-size). The real `npm publish --access public --provenance` path — auth,
-provenance attestation, actually reaching the registry — is unverified until
-`NPM_TOKEN` exists and a live release runs.
+size) — `--dry-run` needs no auth at all, so this works identically on a
+laptop and in CI. The real `npm publish --access public --provenance` path —
+OIDC exchange, provenance attestation, actually reaching the registry — is
+unverified until the maintainer runbook above is followed and a live release
+runs.
 
 ## Consumer story
 

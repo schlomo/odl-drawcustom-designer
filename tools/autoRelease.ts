@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { APP_SLUG } from '../src/core/brand.ts'
-import { NPM_TOKEN_SKIP_MESSAGE, shouldPublishToNpm, writeGithubStepSummary } from './npmPublish.ts'
+import { NPM_PUBLISH_SKIP_MESSAGE, shouldPublishToNpm, writeGithubStepSummary } from './npmPublish.ts'
+import { NPM_PACKAGE_NAME } from './npmPackage.ts'
 import { checkNpmRegistryHasVersion, planNpmRecovery } from './npmRecovery.ts'
 import { writeChecksumFile } from './releaseChecksum.ts'
 import { stageNpmPackage } from './stageNpmPackage.ts'
@@ -237,9 +237,15 @@ function buildAndStageNpmPackage(version: string, repoRoot: string): { stagingDi
 }
 
 /**
- * Runs `npm publish` against an already-staged directory. Fails loudly on
- * any error (bad token, name/version collision, network) — once `NPM_TOKEN`
- * exists, a broken publish must break the run.
+ * Runs `npm publish` against an already-staged directory. Trusted
+ * Publishing (OIDC) needs no token — the workflow's `id-token: write`
+ * permission plus a trusted publisher configured on npmjs.com for this
+ * repo/workflow is what authenticates the publish; `--provenance` is kept
+ * explicit as belt-and-suspenders even though npm auto-generates
+ * provenance under trusted publishing (docs.npmjs.com/trusted-publishers).
+ * Fails loudly on any error (trusted publisher not configured,
+ * name/version collision, network) — once `NPM_PUBLISH` is enabled, a
+ * broken publish must break the run.
  */
 function publishToNpm(stagingDir: string, tag: string): void {
   console.log(`Publishing ${tag} to npm...`)
@@ -278,8 +284,8 @@ if (import.meta.main) {
     // configured, and never for versions predating npm publishing.
     if (latestTag && shouldPublishToNpm(process.env)) {
       const latestVersion = versionFromTag(latestTag)
-      const npmHasVersion = await checkNpmRegistryHasVersion(APP_SLUG, latestVersion)
-      const recovery = planNpmRecovery({ latestVersion, npmTokenConfigured: true, npmHasVersion })
+      const npmHasVersion = await checkNpmRegistryHasVersion(NPM_PACKAGE_NAME, latestVersion)
+      const recovery = planNpmRecovery({ latestVersion, npmPublishEnabled: true, npmHasVersion })
 
       if (recovery.action === 'recover') {
         console.log(recovery.reason)
@@ -372,19 +378,23 @@ if (import.meta.main) {
 
   console.log(`Released ${tag}.`)
 
-  // Staged npm-publish rollout (issue #103): NPM_TOKEN is not configured as
-  // a repo secret yet. Missing token is a deliberate, documented exception
-  // to "fail loudly" — warn prominently and continue; once the token
-  // exists, a publish failure DOES fail the run. If that publish below
-  // fails, the recovery check in the skip branch above heals it on the next
-  // run (any trigger) without ever re-running `gh release create`.
+  // Staged npm-publish rollout (issue #103, reworked to Trusted Publishing
+  // per maintainer ruling 2026-08-16): the `NPM_PUBLISH` repo variable
+  // gates publishing — until the maintainer has claimed the package name
+  // (manual first publish) and configured a trusted publisher on npmjs.com
+  // for this repo/workflow, the variable stays unset. That's a deliberate,
+  // documented exception to "fail loudly" — warn prominently and continue;
+  // once enabled, a publish failure DOES fail the run. If that publish
+  // below fails, the recovery check in the skip branch above heals it on
+  // the next run (any trigger) without ever re-running `gh release create`.
   if (!shouldPublishToNpm(process.env)) {
-    console.log(NPM_TOKEN_SKIP_MESSAGE)
+    console.log(NPM_PUBLISH_SKIP_MESSAGE)
     writeGithubStepSummary(
       process.env,
-      `## ⚠️ npm publish skipped\n\n${NPM_TOKEN_SKIP_MESSAGE}\n\n` +
-        `GitHub release ${tag} was published normally. Set the \`NPM_TOKEN\` repository secret ` +
-        `to enable npm publishing on the next release — see docs/releasing.md#npm.\n`,
+      `## ⚠️ npm publish skipped\n\n${NPM_PUBLISH_SKIP_MESSAGE}\n\n` +
+        `GitHub release ${tag} was published normally. Set the \`NPM_PUBLISH\` repository variable ` +
+        `to \`enabled\` (after claiming the name and configuring a trusted publisher) to enable npm ` +
+        `publishing on the next release — see docs/releasing.md#npm.\n`,
     )
   } else {
     publishToNpm(stagingDir, tag)

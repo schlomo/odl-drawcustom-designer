@@ -36,22 +36,22 @@ describe('compareSemver', () => {
 })
 
 describe('planNpmRecovery', () => {
-  it('skips when NPM_TOKEN is not configured, even if the version would otherwise recover', () => {
+  it('skips when npm publishing is not enabled, even if the version would otherwise recover', () => {
     const decision = planNpmRecovery({
       latestVersion: '1.2.0',
-      npmTokenConfigured: false,
+      npmPublishEnabled: false,
       npmHasVersion: false,
     })
     expect(decision).toMatchObject({ action: 'skip' })
-    expect(decision.reason).toMatch(/NPM_TOKEN/)
+    expect(decision.reason).toMatch(/NPM_PUBLISH/)
   })
 
-  it('skips a version below the npm-publish cutoff, even with a token and missing from the registry', () => {
+  it('skips a version below the npm-publish cutoff, even when enabled and missing from the registry', () => {
     // v1.0.0-v1.0.4 predate npm publishing entirely (issue #103) — must
     // never be retroactively published on a later skip run.
     const decision = planNpmRecovery({
       latestVersion: '1.0.4',
-      npmTokenConfigured: true,
+      npmPublishEnabled: true,
       npmHasVersion: false,
     })
     expect(decision).toMatchObject({ action: 'skip' })
@@ -61,7 +61,7 @@ describe('planNpmRecovery', () => {
   it('skips exactly at the cutoff version when the registry already has it', () => {
     const decision = planNpmRecovery({
       latestVersion: NPM_PUBLISH_CUTOFF_VERSION,
-      npmTokenConfigured: true,
+      npmPublishEnabled: true,
       npmHasVersion: true,
     })
     expect(decision).toMatchObject({ action: 'skip' })
@@ -71,7 +71,7 @@ describe('planNpmRecovery', () => {
   it('recovers a cutoff-or-later version missing from the registry', () => {
     const decision = planNpmRecovery({
       latestVersion: '1.1.0',
-      npmTokenConfigured: true,
+      npmPublishEnabled: true,
       npmHasVersion: false,
     })
     expect(decision).toMatchObject({ action: 'recover', version: '1.1.0' })
@@ -81,7 +81,7 @@ describe('planNpmRecovery', () => {
   it('recovers a later version too, not just exactly the cutoff', () => {
     const decision = planNpmRecovery({
       latestVersion: '2.4.1',
-      npmTokenConfigured: true,
+      npmPublishEnabled: true,
       npmHasVersion: false,
     })
     expect(decision).toMatchObject({ action: 'recover', version: '2.4.1' })
@@ -116,6 +116,14 @@ describe('checkNpmRegistryHasVersion', () => {
     global.fetch = vi.fn().mockRejectedValue(new Error('getaddrinfo ENOTFOUND'))
     await expect(checkNpmRegistryHasVersion('odl-drawcustom-designer', '1.1.0')).rejects.toThrow(
       /npm registry check failed/,
+    )
+  })
+
+  it('URL-encodes the "/" in a scoped package name as %2F (registry API convention, docs.npmjs.com)', async () => {
+    global.fetch = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }))
+    await expect(checkNpmRegistryHasVersion('@schlomo/odl-drawcustom-designer', '1.1.0')).resolves.toBe(true)
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://registry.npmjs.org/@schlomo%2Fodl-drawcustom-designer/1.1.0',
     )
   })
 })

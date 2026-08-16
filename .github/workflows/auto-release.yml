@@ -1,15 +1,19 @@
 # Auto-release on push to main (issue #93, reworked 2026-07-29 per
 # maintainer ruling: KISS, long-term, no PAT; extended for issue #103 with
-# npm publishing + sha256/NOTICE/THIRD_PARTY.md release assets). main is
-# always stable (PR checks gate it), so every push to main is a release
-# candidate. This is the single release mechanism: it derives a semver bump
-# from conventional-commit titles since the last `vX.Y.Z` tag reachable from
-# HEAD, builds the library with that version injected, and publishes it as a
-# GitHub release — `gh release create` creates the tag itself. Nothing is
-# ever pushed to main (no bump commit, no package.json write), so the default
-# `GITHUB_TOKEN` suffices — no downstream workflow needs to trigger off the
-# tag, so there is no loop-prevention problem to work around and no PAT is
-# needed.
+# npm publishing + sha256/NOTICE/THIRD_PARTY.md release assets; npm publish
+# reworked from a long-lived npm access-token secret to npm Trusted
+# Publishing (OIDC) per maintainer ruling 2026-08-16 — npmjs now refuses
+# classic automation tokens without 2FA and points integrators at Trusted
+# Publishing instead).
+# main is always stable (PR checks gate it), so every push to main is a
+# release candidate. This is the single release mechanism: it derives a
+# semver bump from conventional-commit titles since the last `vX.Y.Z` tag
+# reachable from HEAD, builds the library with that version injected, and
+# publishes it as a GitHub release — `gh release create` creates the tag
+# itself. Nothing is ever pushed to main (no bump commit, no package.json
+# write), so the default `GITHUB_TOKEN` suffices — no downstream workflow
+# needs to trigger off the tag, so there is no loop-prevention problem to
+# work around and no PAT is needed.
 #
 # `workflow_dispatch` is a manual fallback that runs the exact same path —
 # useful to trigger a release check without waiting for the next push. Note
@@ -22,11 +26,11 @@
 #
 # Thin CI (AGENTS.md): all decision logic (bump derivation/precedence, tag
 # ancestry, the no-tag-yet case, release-asset generation, npm staging, the
-# NPM_TOKEN-absent skip, partial-failure npm-publish recovery) lives in
+# NPM_PUBLISH-gate skip, partial-failure npm-publish recovery) lives in
 # tools/autoRelease.ts and the tools/ modules it calls, unit-tested under
-# tests/tools/. This file only wires checkout/Node/npm, npm registry auth,
-# and the `id-token: write` permission `npm publish --provenance` needs,
-# then calls the script.
+# tests/tools/. This file only wires checkout/Node/npm, the npm CLI version
+# Trusted Publishing requires, the `id-token: write` permission the OIDC
+# exchange needs, then calls the script.
 
 name: Auto Release
 
@@ -44,10 +48,11 @@ concurrency:
 
 permissions:
   contents: write
-  # npm provenance (issue #103): `npm publish --provenance` needs an OIDC
-  # token to attest the package was built by this workflow. Harmless when
-  # NPM_TOKEN is absent — tools/autoRelease.ts skips the publish step
-  # entirely in that case, this permission is just unused.
+  # npm Trusted Publishing / provenance (issue #103, reworked #113): `npm
+  # publish` under Trusted Publishing exchanges this workflow's OIDC token
+  # for a short-lived npm credential — no long-lived npm token involved.
+  # Harmless when `NPM_PUBLISH` is not enabled — tools/autoRelease.ts skips
+  # the publish step entirely in that case, this permission is just unused.
   id-token: write
 
 jobs:
@@ -64,28 +69,32 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-          # Writes ~/.npmrc with the registry.npmjs.org auth line referencing
-          # ${NODE_AUTH_TOKEN} — harmless when the Release step below has no
-          # NODE_AUTH_TOKEN set (tools/autoRelease.ts checks NPM_TOKEN itself
-          # and skips `npm publish` entirely; nothing ever reads this .npmrc
-          # in that case).
+          # Trusted Publishing doesn't need an auth token in .npmrc (no
+          # NODE_AUTH_TOKEN) — the OIDC exchange targets this registry by
+          # URL, which is all registry-url wires here.
           registry-url: 'https://registry.npmjs.org'
 
       - run: npm ci
       - run: npm test
       - run: npm run lint
 
+      # Trusted Publishing requires npm CLI >= 11.5.1 (docs.npmjs.com/trusted-publishers)
+      # and Node >= 22.14.0; the runner's Node-bundled npm is not guaranteed
+      # to clear that floor, so upgrade explicitly before the publish step
+      # can run. Safe even when npm publish ends up skipped.
+      - run: npm install -g npm@latest
+
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}
-          # NPM_TOKEN does not exist as a repository secret yet (issue #103,
-          # deliberate staged rollout) — until the maintainer adds it,
-          # `secrets.NPM_TOKEN` resolves empty, tools/autoRelease.ts detects
-          # that and skips npm publish with a prominent job-summary warning,
-          # and the GitHub release still completes normally. See
-          # docs/releasing.md#npm.
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          # What `npm publish` itself actually authenticates with — the
-          # ~/.npmrc setup-node wrote above reads this exact variable name.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Staged rollout gate (issue #103, reworked #113): a repo
+          # **variable**, not a secret — there is no token to manage under
+          # Trusted Publishing. Unset/anything other than "enabled" means
+          # the maintainer hasn't yet claimed the npm package name (manual
+          # first publish, docs/releasing.md#npm) and/or configured a
+          # trusted publisher for this repo/workflow on npmjs.com;
+          # tools/autoRelease.ts detects that and skips npm publish with a
+          # prominent job-summary warning, and the GitHub release still
+          # completes normally.
+          NPM_PUBLISH: ${{ vars.NPM_PUBLISH }}
         run: node tools/autoRelease.ts

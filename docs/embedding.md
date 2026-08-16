@@ -8,25 +8,23 @@ Consumed as a **versioned release** ([issue #23](https://github.com/schlomo/odl-
 
 **npm (primary):**
 
-> **Status: not yet published.** `odl-drawcustom-designer` is **unclaimed on
-> npm** — the maintainer is claiming the name separately, and no version has
-> been published there yet. The `npm install` command below is not a live
-> install path until that first publish lands (see
-> [`docs/releasing.md#npm`](releasing.md#npm)). Once it is published, verify
-> the package's listed publisher is `schlomo` before installing.
+> **Status: not yet published.** `@schlomo/odl-drawcustom-designer` — scoped
+> under the `schlomo` npm org — has not been published yet. The
+> `npm install` command below is not a live install path until the
+> maintainer runbook lands (see [`docs/releasing.md#npm`](releasing.md#npm)).
 
 ```bash
-npm install odl-drawcustom-designer@1.0.0
+npm install @schlomo/odl-drawcustom-designer@1.0.0
 ```
 
 ```js
-import { mount, version } from 'odl-drawcustom-designer'
+import { mount, version } from '@schlomo/odl-drawcustom-designer'
 ```
 
 Same self-contained ESM as below, plus `LICENSE`/`NOTICE`/`THIRD_PARTY.md` in
 the package. No `.d.ts` types ship yet (known gap — plain JS, shapes
 documented here and in `src/embed/types.ts`). Rationale (content-hash cache
-invalidation, staged `NPM_TOKEN` rollout) and the maintainer setup story:
+invalidation, staged Trusted Publishing rollout) and the maintainer setup story:
 [`docs/releasing.md#npm`](releasing.md#npm).
 
 **GitHub release asset (fallback):** download the tagged release's

@@ -49,7 +49,7 @@ describe('stageNpmPackage', () => {
     expect(readFileSync(join(stagingDir, 'THIRD_PARTY.md'), 'utf8')).toBe('# Third-party notices\n')
 
     const pkg = JSON.parse(readFileSync(join(stagingDir, 'package.json'), 'utf8'))
-    expect(pkg.name).toBe('odl-drawcustom-designer')
+    expect(pkg.name).toBe('@schlomo/odl-drawcustom-designer')
     expect(pkg.version).toBe('1.2.3')
   })
 

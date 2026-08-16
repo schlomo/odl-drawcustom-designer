@@ -13,6 +13,18 @@ import { APP_GITHUB_REPO_URL, APP_SLUG, APP_TAGLINE } from '../src/core/brand.ts
  * manager to resolve.
  */
 
+/**
+ * The npm package moved under the `schlomo` npm **org** and is now scoped
+ * (maintainer update, 2026-08-16 — mirrors the GitHub org/repo path). This
+ * is deliberately its own constant, not `APP_SLUG` (ADR-014): `APP_SLUG` is
+ * the unscoped product slug used for IndexedDB/localStorage/lint-source
+ * naming across the whole app and must not change, while the npm package
+ * name is purely a packaging concern. The ESM artifact filename
+ * (`odl-drawcustom-designer.js`, `LIBRARY_FILE` below) is unaffected — only
+ * the package.json `name` field is scoped.
+ */
+export const NPM_PACKAGE_NAME = `@schlomo/${APP_SLUG}` as const
+
 const PLAIN_SEMVER = /^\d+\.\d+\.\d+$/
 
 export interface NpmPackageJson {
@@ -39,7 +51,7 @@ export function buildNpmPackageJson(version: string): NpmPackageJson {
     throw new Error(`Version "${version}" is not a plain X.Y.Z semver — cannot build package.json`)
   }
   return {
-    name: APP_SLUG,
+    name: NPM_PACKAGE_NAME,
     version,
     description: APP_TAGLINE,
     type: 'module',

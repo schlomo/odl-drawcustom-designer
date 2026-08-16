@@ -65,23 +65,23 @@ export type NpmRecoveryDecision =
 export interface PlanNpmRecoveryInput {
   /** Version derived from the latest tag reachable from HEAD, e.g. "1.2.3". */
   latestVersion: string
-  /** `shouldPublishToNpm(process.env)` — recovery never applies without a configured token. */
-  npmTokenConfigured: boolean
+  /** `shouldPublishToNpm(process.env)` — recovery never applies while the gate is off. */
+  npmPublishEnabled: boolean
   /** Whether the npm registry already has this exact version published (read-only check, resolved by the caller). */
   npmHasVersion: boolean
 }
 
 /**
  * Pure decision for the "no commits since last tag" skip path: given the
- * latest tag's version, whether npm publishing is even configured, and
+ * latest tag's version, whether npm publishing is even enabled, and
  * whether the registry already has that version, decide whether to recover
  * a stranded npm publish instead of a plain skip.
  */
 export function planNpmRecovery(input: PlanNpmRecoveryInput): NpmRecoveryDecision {
-  const { latestVersion, npmTokenConfigured, npmHasVersion } = input
+  const { latestVersion, npmPublishEnabled, npmHasVersion } = input
 
-  if (!npmTokenConfigured) {
-    return { action: 'skip', reason: 'NPM_TOKEN not configured — nothing to recover' }
+  if (!npmPublishEnabled) {
+    return { action: 'skip', reason: 'NPM_PUBLISH repo variable not enabled — nothing to recover' }
   }
 
   if (compareSemver(latestVersion, NPM_PUBLISH_CUTOFF_VERSION) < 0) {
@@ -110,9 +110,16 @@ export function planNpmRecovery(input: PlanNpmRecoveryInput): NpmRecoveryDecisio
  * packument endpoint). 404 means "not published" — every other failure
  * (network error, 5xx, unexpected status) throws, so a registry outage is
  * never mistaken for "not published" and silently republished/skipped.
+ *
+ * The package is scoped (`@schlomo/odl-drawcustom-designer`, 2026-08-16) —
+ * the registry API requires the `/` between scope and name to be
+ * URL-encoded as `%2F` (docs.npmjs.com's scoped-package registry examples;
+ * the `@` itself stays unescaped). A plain, unscoped name has no `/` to
+ * encode, so this is a no-op for it.
  */
 export async function checkNpmRegistryHasVersion(packageName: string, version: string): Promise<boolean> {
-  const url = `https://registry.npmjs.org/${packageName}/${version}`
+  const encodedName = packageName.replace('/', '%2F')
+  const url = `https://registry.npmjs.org/${encodedName}/${version}`
   let response: Response
   try {
     response = await fetch(url)
