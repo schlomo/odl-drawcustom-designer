@@ -157,7 +157,7 @@ describe('host actions (issue #108)', () => {
       ],
     })
 
-    expect(actionButton('Validate').className).toContain('--shell-surface-2')
+    expect(actionButton('Validate').className).toContain('--shell-button-bg')
     expect(actionButton('Validate').className).not.toContain('--shell-warning')
     expect(actionButton('Validate').className).not.toContain('--shell-danger')
 

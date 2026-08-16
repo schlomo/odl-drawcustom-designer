@@ -106,11 +106,20 @@ describe('HostActionButtons', () => {
     expect(requireTooltipFor('Display settings')).toHaveTextContent('Display offline')
   })
 
-  it('keeps the button element (and its keyboard focus) across a disabledReason re-push', () => {
+  it('keeps the same button element across a disabledReason re-push', () => {
     // A re-push that only adds a reason must not swap the rendered element
     // type — that remounts the button, dropping focus and any assistive-tech
     // state pointing at it. Same DOM node before and after is the observable
-    // form of "no remount".
+    // form of "no remount"; this is what the test asserts.
+    //
+    // It deliberately does NOT assert that keyboard focus itself survives the
+    // disable transition. Disabling a focused button natively drops focus in
+    // a real browser (Chromium moves it to the document body) — jsdom does
+    // not emulate that focus-management behaviour, so an
+    // `document.activeElement` assertion here would pass in this suite while
+    // asserting a browser-inaccurate outcome. The maintainer accepted the
+    // native focus loss as expected UX (issue #132 ride-along); this test
+    // documents that rather than contradicting it.
     const actions = (reason?: string) => [
       { id: 'send', label: 'Send to display', disabledReason: reason },
     ]
@@ -126,7 +135,6 @@ describe('HostActionButtons', () => {
 
     const after = screen.getByRole('button', { name: 'Send to display' })
     expect(after).toBe(before)
-    expect(document.activeElement).toBe(before)
 
     // …and back again, the direction a host takes when it reconnects.
     rerender(<HostActionButtons actions={actions()} onAction={() => {}} />)

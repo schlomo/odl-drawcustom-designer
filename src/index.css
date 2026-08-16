@@ -19,14 +19,35 @@
   --shell-danger: #b91c1c;
   --shell-danger-border: #dc2626;
   --shell-danger-hover: rgb(220 38 38 / 0.12);
+  --shell-danger-active: rgb(220 38 38 / 0.2);
   /* Solid success flash — same in light and dark (filled button, not a tint). */
   --shell-success-bg: #16a34a;
   --shell-success-border: #15803d;
   --shell-success-fg: #ffffff;
   --shell-warning-bg: #fffbeb;
-  --shell-warning-border: #fcd34d;
+  /* amber-700, not the original amber-300 (#fcd34d, ~1.4:1 vs --shell-bg) —
+     issue #132: a caution button's border must clear ~3:1 against the
+     toolbar background to read as a button at all, not just as a tint. */
+  --shell-warning-border: #b45309;
   --shell-warning-hover: #fef3c7;
+  --shell-warning-active: #fde68a;
   --shell-warning-fg: #92400e;
+  /*
+   * Toolbar-button chrome (issue #132). Split out from --shell-surface-2 /
+   * --shell-border / --shell-hover because those three are shared with
+   * unrelated chrome (drag handles, dropdown menus, resize rails, list rows)
+   * that this issue does not touch — a dedicated button ramp lets every
+   * button variant (neutral/caution/danger) gain real affordance without
+   * scattering per-component overrides or reshading things outside scope.
+   * Contrast vs --shell-bg (#f8fafc), computed (WCAG relative-luminance
+   * formula): --shell-button-border 4.55:1, --shell-button-bg 1.18:1 (the
+   * border carries the ≥3:1 non-text contrast requirement; the bg step plus
+   * hover/active steps add graduated surface feedback on top of it).
+   */
+  --shell-button-bg: #e2e8f0;
+  --shell-button-border: #64748b;
+  --shell-button-hover: #cbd5e1;
+  --shell-button-active: #94a3b8;
 }
 
 .dark {
@@ -42,10 +63,24 @@
   --shell-danger: #fecaca;
   --shell-danger-border: #f87171;
   --shell-danger-hover: rgb(248 113 113 / 0.22);
+  --shell-danger-active: rgb(248 113 113 / 0.32);
   --shell-warning-bg: rgb(146 64 14 / 0.35);
-  --shell-warning-border: rgb(245 158 11 / 0.45);
+  /* alpha 0.45 composited over --shell-bg was ~2.6:1; 0.7 clears ~3:1. */
+  --shell-warning-border: rgb(245 158 11 / 0.7);
   --shell-warning-hover: rgb(146 64 14 / 0.5);
+  --shell-warning-active: rgb(146 64 14 / 0.65);
   --shell-warning-fg: #fde68a;
+  /*
+   * Toolbar-button chrome (issue #132), dark counterpart of the light block
+   * above. --shell-button-bg used to be an alias of --shell-surface-2, which
+   * in dark mode is literally --shell-bg (#0f172a) — zero surface contrast.
+   * Contrast vs --shell-bg, computed: --shell-button-border 3.75:1,
+   * --shell-button-bg 1.72:1.
+   */
+  --shell-button-bg: #334155;
+  --shell-button-border: #64748b;
+  --shell-button-hover: #475569;
+  --shell-button-active: #94a3b8;
 }
 
 body {

@@ -14,9 +14,14 @@ import { deleteFirstColonInYamlLine } from './fixtures/yaml-editor'
 
 const embedUrl = () => `http://localhost:${process.env.PW_EMBED_PORT}/`
 
-/** `--shell-warning-*` in light theme (src/index.css) — the caution palette. */
+/**
+ * `--shell-warning-*` in light theme (src/index.css) — the caution palette.
+ * Border is amber-700 (#b45309), not amber-300 — issue #132 raised it from
+ * ~1.4:1 against the toolbar background to ~4.8:1, computed, so a caution
+ * button's border actually reads as a border.
+ */
 const CAUTION_BG = 'rgb(255, 251, 235)'
-const CAUTION_BORDER = 'rgb(252, 211, 77)'
+const CAUTION_BORDER = 'rgb(180, 83, 9)'
 
 test.beforeEach(async ({ page }) => {
   await page.goto(embedUrl())
