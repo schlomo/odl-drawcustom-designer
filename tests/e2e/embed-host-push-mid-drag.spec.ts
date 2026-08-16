@@ -77,13 +77,20 @@ test('a host states push mid-drag lands the drag at its true final position and 
   await expect(paper).toHaveCSS('cursor', 'grabbing')
 
   // The host state push (issue #110) lands mid-drag, before the gesture
-  // completes — driven straight through the MountHandle a real host uses.
+  // completes. Routed through `window.demoPushStates` (demo/host.js) rather
+  // than calling `designerHandle.setStates()` directly: the demo page's
+  // live 1s ticker re-pushes clock + its own recorded "current" states on
+  // every tick, so a push that bypasses that recording (a raw `setStates()`
+  // call) is invisible to the ticker and gets silently clobbered by the
+  // very next tick — a real, observed race (Copilot review on PR #128).
+  // `demoPushStates` is the single source of truth the ticker reads from,
+  // so this push survives every subsequent tick by construction.
   await page.evaluate(() => {
     ;(
       window as unknown as {
-        designerHandle: { setStates: (states: unknown) => void }
+        demoPushStates: (states: unknown) => void
       }
-    ).designerHandle.setStates({
+    ).demoPushStates({
       'sensor.demo_temperature': {
         state: '3.2',
         attributes: { friendly_name: 'Balcony', unit_of_measurement: '°C' },
