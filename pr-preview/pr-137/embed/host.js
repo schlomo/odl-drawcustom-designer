@@ -94,6 +94,14 @@ const CAPABILITIES_800X480_BWRY = {
   available_colors: ['black', 'white', 'red', 'yellow'],
 }
 
+const CAPABILITIES_800X480_BWRY_PORTRAIT = {
+  render_width: 480,
+  render_height: 800,
+  rotation_degrees: 90,
+  color_scheme: 0x03,
+  available_colors: ['black', 'white', 'red', 'yellow'],
+}
+
 const CAPABILITIES_152X152_BW = {
   pixel_width: 152,
   pixel_height: 152,
@@ -107,7 +115,7 @@ const INITIAL_TARGETS = [
     capabilities: CAPABILITIES_296X128_BWR,
   },
   { id: 'display.office', label: 'Office display (400×300 BW)', capabilities: CAPABILITIES_400X300_BW },
-  { id: 'display.hallway', label: 'Hallway 7.5" (800×480 BWRY)', capabilities: CAPABILITIES_800X480_BWRY },
+  { id: 'display.hallway', label: 'Hallway 7.5" (800×480 BWRY, portrait)', capabilities: CAPABILITIES_800X480_BWRY_PORTRAIT },
 ]
 
 // The display this host "discovers" later — the hot-update demo.
