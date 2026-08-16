@@ -122,24 +122,25 @@ beforeEach(() => {
 })
 
 describe('registerPayloadSource registration timing (issue #104 x #115 commit window)', () => {
-  it('registers before registerPushTarget, because it is now a layout effect and React fires every layout effect in the tree before any passive effect', async () => {
+  it('registers both channels synchronously in the mount commit — no paint or microtask can observe one without the other', async () => {
     const order: string[] = []
+    // Both registrations are layout effects (registerPushTarget since
+    // issue #115 / PR #117, registerPayloadSource since this PR), so React
+    // runs them in the same commit-time flush: their relative order is
+    // hook-declaration order (an implementation detail), but BOTH must be
+    // present before anything after the commit — a microtask observer must
+    // never see a push channel without its read channel (the #104 x #115
+    // commit-window bug).
     render(<App bootstrap={bootstrapWith('Order')} host={orderSpyHost(order)} />)
 
     await waitFor(() => {
       expect(order).toContain('registerPushTarget')
-      expect(order).toContain('registerPayloadSource')
     })
-
-    // Pre-fix, both registrations were passive `useEffect`s: hook-declaration
-    // order put registerPushTarget (inside useProjectState, called earlier
-    // in App's body) first, so the observed order was
-    // ['registerPushTarget', 'registerPayloadSource'] — exactly the ordering
-    // this test used to assert against, and the one that goes red without
-    // this PR's fix (registerPushTarget here is still a passive effect on
-    // this branch, so this flip is caused *entirely* by promoting
-    // registerPayloadSource to useLayoutEffect).
-    expect(order).toEqual(['registerPayloadSource', 'registerPushTarget'])
+    const observedAtFirstRegistration = await new Promise<string[]>((resolve) => {
+      queueMicrotask(() => resolve([...order]))
+    })
+    expect(observedAtFirstRegistration).toContain('registerPushTarget')
+    expect(observedAtFirstRegistration).toContain('registerPayloadSource')
   })
 })
 
