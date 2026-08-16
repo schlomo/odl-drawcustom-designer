@@ -61,8 +61,15 @@ import {
   readShowHiddenHintsPrefs,
   writeShowHiddenHintsPrefs,
 } from '../preferences/hiddenHints'
-import { capabilitiesToCanvas, hostStatesToMockData } from '../../embed/hostContract'
+import {
+  capabilitiesToCanvas,
+  hostStatesEqual,
+  hostStatesToMockData,
+  mergeMockAttributes,
+  mockStatesEqual,
+} from '../../embed/hostContract'
 import type { DesignerHost } from '../../embed/host'
+import type { HostStates } from '../../embed/types'
 import { useTemplatePreviewClock } from './useTemplatePreviewClock'
 
 export type { AddElementResult } from '../lib/add-element-guards'
@@ -176,6 +183,24 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
   const [showHiddenHints, setShowHiddenHints] = useState(() => readShowHiddenHintsPrefs().enabled)
   const mockStatesRef = useRef(mockStates)
   const mockAttributesRef = useRef(mockAttributes)
+  // Last raw host `states` payload actually applied (issue #110): compared
+  // structurally against each new push so an unchanged tick (the upstream
+  // OpenDisplay HA integration re-sends its full entity registry up to 4x/s)
+  // costs one cheap scan instead of a setState + re-render + template
+  // re-evaluation. Set synchronously inside `applyStates` itself, never from
+  // an effect — the same ref-paired-with-setter convention `commitElements`
+  // et al. use elsewhere in this file.
+  //
+  // Aliases the caller's pushed object — this holds the same reference the
+  // host passed to `setStates()`, not a clone (cloning would cost what the
+  // diff is meant to save). That makes mutate-and-repush unsupported: a host
+  // that mutates this same object in place and re-pushes it gets a false
+  // "unchanged" from `hostStatesEqual` below, since the mutation already
+  // happened to the retained reference before the comparison runs. Ownership
+  // contract documented for hosts in docs/embedding.md (`states` section)
+  // and on `HostStates` in src/embed/types.ts — construct a fresh object per
+  // push instead.
+  const lastHostStatesRef = useRef<HostStates | null>(null)
   const elementsRef = useRef(elements)
   const canvasRef = useRef(canvas)
   const hostDisplayRef = useRef(hostDisplay)
@@ -375,9 +400,21 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
     }
     return host.registerPushTarget({
       applyStates: (states) => {
+        // Issue #110: an unchanged push (the upstream OpenDisplay HA
+        // integration re-sends its full entity registry up to 4x/s) must
+        // cost nothing beyond this structural scan — no conversion, no
+        // setState, no re-render, no template re-evaluation.
+        if (lastHostStatesRef.current !== null && hostStatesEqual(lastHostStatesRef.current, states)) {
+          return
+        }
+        lastHostStatesRef.current = states
         const mock = hostStatesToMockData(states)
-        setMockStates(mock.states)
-        setMockAttributes(mock.attributes)
+        // Functional updaters: bail per-part when that half of the push
+        // didn't actually change (e.g. only attributes moved), and reuse
+        // each unaffected entity's attribute object (bounded churn, issue
+        // #110) rather than replacing the whole map wholesale.
+        setMockStates((current) => (mockStatesEqual(current, mock.states) ? current : mock.states))
+        setMockAttributes((current) => mergeMockAttributes(current, mock.attributes))
       },
       applyCapabilities: (capabilities, options) => {
         // The host (re-)defined the display: adopt it, and by default lock
@@ -529,6 +566,13 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
   )
 
   const setMockState = useCallback((entityId: string, value: string) => {
+    // Issue #110 follow-up: a local Simulator edit must invalidate the
+    // last-applied-host-push cache, or a later host push structurally
+    // identical to the one *before* this edit gets short-circuited by
+    // `hostStatesEqual` and never reconciles the Simulator back to host
+    // truth. Ref update lives in the same synchronous callback as the
+    // setter, same convention as `commitElements` et al.
+    lastHostStatesRef.current = null
     setMockStates((current) => ({
       ...current,
       [entityId]: value,
@@ -536,6 +580,7 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
   }, [])
 
   const addMockEntity = useCallback((entityId: string, value: string) => {
+    lastHostStatesRef.current = null
     setMockStates((current) => ({
       ...current,
       [entityId]: value,
@@ -543,6 +588,7 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
   }, [])
 
   const removeMockEntity = useCallback((entityId: string) => {
+    lastHostStatesRef.current = null
     setMockStates((current) => {
       if (!(entityId in current)) {
         return current
@@ -563,6 +609,7 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
 
   const setMockAttribute = useCallback(
     (entityId: string, attribute: string, value: unknown) => {
+      lastHostStatesRef.current = null
       setMockAttributes((current) => ({
         ...current,
         [entityId]: { ...(current[entityId] ?? {}), [attribute]: value },
@@ -577,6 +624,7 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
       if (trimmed === previousName) {
         return
       }
+      lastHostStatesRef.current = null
       setMockAttributes((current) => {
         const entity = current[entityId]
         if (!entity || !(previousName in entity)) {
@@ -599,6 +647,7 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
   )
 
   const removeMockAttribute = useCallback((entityId: string, attribute: string) => {
+    lastHostStatesRef.current = null
     setMockAttributes((current) => {
       const entity = current[entityId]
       if (!entity || !(attribute in entity)) {
@@ -862,6 +911,9 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
     // Strip only the unmodified demo-seeded simulator entries; mocks, attributes
     // and variables the user added or changed are preserved (persisted via the
     // debounced writes). This gives a clean slate without deleting user data.
+    // Invalidate the host-push cache (issue #110 follow-up): this is a local
+    // mock mutation, same as the Simulator setters above.
+    lastHostStatesRef.current = null
     setMockStates((current) => clearDemoMockStates(current))
     setMockAttributes((current) => clearDemoMockAttributes(current))
     setVariables((current) => clearDemoVariables(current))
@@ -894,6 +946,9 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
     commitSelectedIndices([])
     // Seed the mock context the showcase templates rely on, so the demo renders
     // its state/attribute/variable examples without manual Simulator setup.
+    // Invalidate the host-push cache (issue #110 follow-up): this is a local
+    // mock mutation, same as the Simulator setters above.
+    lastHostStatesRef.current = null
     const simulator = cloneShowcaseSimulator()
     setMockStates(simulator.states)
     setMockAttributes(simulator.attributes)
