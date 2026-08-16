@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
 /**
  * Issue #132 follow-up (Copilot-adjudicated finding #3 on PR #135): the
@@ -33,6 +33,23 @@ import { expect, test, type Page } from '@playwright/test'
  * Playwright's action timeout. Chaining resting -> hover -> active -> focus
  * inside a single page load per theme keeps this fast and deterministic.
  *
+ * **Every computed-style read below is `expect.poll`, never a direct
+ * `getComputedStyle` + `expect().toBe()`** (docs/testing.md: "synchronize on
+ * conditions, never on wall-clock"). `shell.button` carries `transition-colors`
+ * (this PR added it) — a theme flip, hover, or press all change which color a
+ * `--shell-button-*` variable resolves to, and the browser interpolates the
+ * *actual painted `background-color`* across the transition instead of
+ * snapping instantly. A direct read can land mid-interpolation and observe
+ * neither the old nor the new color as a stable value. This raced in CI (run
+ * 31959121360): the dark-theme resting assertion read the still-transitioning
+ * light background right after the toggle click, and the light-theme hover
+ * assertion read the still-transitioning resting background right after
+ * `hover()` — both passed locally because a fast dev machine's transition
+ * settles inside the gap between the action and the next line, which is not
+ * a guarantee. `expect.poll` re-reads until the color matches (or times out
+ * for a real failure), which waits out the transition without a fixed sleep
+ * and without disabling the transition under test.
+ *
  * Token values asserted below (WCAG-computed, see `src/index.css` comments):
  *  - light: --shell-button-bg #e2e8f0, --shell-button-hover #cbd5e1,
  *    --shell-button-active #94a3b8, --shell-button-border #64748b,
@@ -62,6 +79,21 @@ const TOKEN = {
 
 type Theme = keyof typeof TOKEN
 
+/** How long a poll may keep re-reading a computed style before failing for real. */
+const SETTLE_TIMEOUT = 10_000
+
+function backgroundColor(locator: Locator): Promise<string> {
+  return locator.evaluate((el) => getComputedStyle(el).backgroundColor)
+}
+
+function borderTopColor(locator: Locator): Promise<string> {
+  return locator.evaluate((el) => getComputedStyle(el).borderTopColor)
+}
+
+function boxShadow(locator: Locator): Promise<string> {
+  return locator.evaluate((el) => getComputedStyle(el).boxShadow)
+}
+
 /**
  * Fresh mode is always `system` (no localStorage yet, isolated per-test
  * context). `nextThemeMode` order is system -> light -> dark -> system, so
@@ -69,6 +101,13 @@ type Theme = keyof typeof TOKEN
  * of whatever `prefers-color-scheme` the test runner's Chromium resolves
  * `system` to. Explicit modes force `resolvedTheme` directly, so this never
  * depends on OS/browser color-scheme emulation.
+ *
+ * The `data-theme` attribute flips the instant React applies the class
+ * (no transition possible on an attribute), so waiting for it only proves
+ * the *mode* changed — not that the button's `transition-colors` has
+ * finished interpolating toward the new token color. The caller's first
+ * `expect.poll` on the button's resting background is what actually waits
+ * that out; this only waits for the mode switch itself.
  */
 async function gotoWithTheme(page: Page, theme: Theme): Promise<void> {
   await page.goto('/')
@@ -124,18 +163,16 @@ for (const theme of ['light', 'dark'] as const) {
     const button = rotationButton(page)
 
     // Resting: dedicated button-bg/border tokens, not the shared toolbar
-    // surface (that's the original issue #132 regression).
-    const resting = await button.evaluate((el) => {
-      const computed = getComputedStyle(el)
-      return {
-        background: computed.backgroundColor,
-        border: computed.borderTopColor,
-        boxShadow: computed.boxShadow,
-      }
-    })
-    expect(resting.background).toBe(TOKEN[theme].bg)
-    expect(resting.border).toBe(TOKEN[theme].border)
-    expect(resting.boxShadow).toBe('none')
+    // surface (that's the original issue #132 regression). Also the poll
+    // that waits out the theme-flip's own transition-colors interpolation
+    // (see the file-level comment) before any per-theme value is asserted.
+    await expect
+      .poll(() => backgroundColor(button), { timeout: SETTLE_TIMEOUT })
+      .toBe(TOKEN[theme].bg)
+    await expect
+      .poll(() => borderTopColor(button), { timeout: SETTLE_TIMEOUT })
+      .toBe(TOKEN[theme].border)
+    await expect.poll(() => boxShadow(button), { timeout: SETTLE_TIMEOUT }).toBe('none')
 
     // Hover: this is the exact button/assertion that would have caught the
     // Sidebar.tsx regression — a second `hover:bg-[var(--shell-hover)]`
@@ -144,8 +181,9 @@ for (const theme of ['light', 'dark'] as const) {
     // `hover:bg-[var(--shell-button-hover)]`, leaving this one button on the
     // old dim hover while every sibling got the new ramp.
     await button.hover()
-    const hoverBackground = await button.evaluate((el) => getComputedStyle(el).backgroundColor)
-    expect(hoverBackground).toBe(TOKEN[theme].hover)
+    await expect
+      .poll(() => backgroundColor(button), { timeout: SETTLE_TIMEOUT })
+      .toBe(TOKEN[theme].hover)
 
     // Active: a real mouse press, not the `:active` pseudo-class asserted by
     // name — release away from the button so no click fires (a completed
@@ -155,15 +193,19 @@ for (const theme of ['light', 'dark'] as const) {
     if (box == null) throw new Error('rotation button has no layout box')
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
     await page.mouse.down()
-    const pressedBackground = await button.evaluate((el) => getComputedStyle(el).backgroundColor)
-    expect(pressedBackground).toBe(TOKEN[theme].active)
+    await expect
+      .poll(() => backgroundColor(button), { timeout: SETTLE_TIMEOUT })
+      .toBe(TOKEN[theme].active)
     await page.mouse.move(0, 0)
     await page.mouse.up()
 
-    // Focus-visible: real Tab navigation:
+    // Focus-visible: real Tab navigation. A single poll covers both "a ring
+    // exists" and "it's the right color" — if the ring hasn't painted yet
+    // (or never will), the string is `'none'` and `toContain` keeps failing
+    // until it either settles to the accent color or the poll times out.
     await focusViaKeyboard(page, button)
-    const focusedShadow = await button.evaluate((el) => getComputedStyle(el).boxShadow)
-    expect(focusedShadow).not.toBe('none')
-    expect(focusedShadow).toContain(TOKEN[theme].accent)
+    await expect
+      .poll(() => boxShadow(button), { timeout: SETTLE_TIMEOUT })
+      .toContain(TOKEN[theme].accent)
   })
 }
