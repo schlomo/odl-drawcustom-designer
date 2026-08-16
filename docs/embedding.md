@@ -8,6 +8,13 @@ Consumed as a **versioned release** ([issue #23](https://github.com/schlomo/odl-
 
 **npm (primary):**
 
+> **Status: not yet published.** `odl-drawcustom-designer` is **unclaimed on
+> npm** — the maintainer is claiming the name separately, and no version has
+> been published there yet. The `npm install` command below is not a live
+> install path until that first publish lands (see
+> [`docs/releasing.md#npm`](releasing.md#npm)). Once it is published, verify
+> the package's listed publisher is `schlomo` before installing.
+
 ```bash
 npm install odl-drawcustom-designer@1.0.0
 ```
@@ -25,8 +32,9 @@ invalidation, staged `NPM_TOKEN` rollout) and the maintainer setup story:
 **GitHub release asset (fallback):** download the tagged release's
 `odl-drawcustom-designer.js`, `LICENSE`, `NOTICE`, `THIRD_PARTY.md`, and
 `odl-drawcustom-designer.js.sha256` (verify with
-`shasum -c odl-drawcustom-designer.js.sha256`), and vendor the ESM as a
-static file — the path the OpenDisplay HA integration uses today.
+`shasum -a 256 -c odl-drawcustom-designer.js.sha256` — `-a 256` matters,
+bare `shasum -c` defaults to SHA-1), and vendor the ESM as a static file —
+the path the OpenDisplay HA integration uses today.
 
 ## Library build
 

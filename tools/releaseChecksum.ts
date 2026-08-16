@@ -5,7 +5,8 @@ import { basename, dirname, join } from 'node:path'
 /**
  * sha256 checksum for the release library artifact (issue #103): shipped as
  * `odl-drawcustom-designer.js.sha256` alongside the GitHub release, verifiable
- * with `shasum -c`. Pure/FS logic here, tested in
+ * with `shasum -a 256 -c` (bare `-c` defaults to SHA-1 and mis-verifies a
+ * SHA-256 file). Pure/FS logic here, tested in
  * tests/tools/releaseChecksum.test.ts; called from tools/autoRelease.ts —
  * the workflow only invokes that script (thin CI, AGENTS.md).
  */

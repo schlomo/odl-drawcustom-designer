@@ -6,7 +6,13 @@ import { NPM_TOKEN_SKIP_MESSAGE, shouldPublishToNpm, writeGithubStepSummary } fr
 import { checkNpmRegistryHasVersion, planNpmRecovery } from './npmRecovery.ts'
 import { writeChecksumFile } from './releaseChecksum.ts'
 import { stageNpmPackage } from './stageNpmPackage.ts'
-import { bundledDependencyNames, collectBundledDependencyInfo, generateThirdPartyMarkdown } from './thirdPartyNotices.ts'
+import {
+  bundledDependencyNames,
+  collectBundledDependencyInfo,
+  generateThirdPartyMarkdown,
+  resolveTransitiveRuntimeDependencyPaths,
+  type PackageLockFile,
+} from './thirdPartyNotices.ts'
 
 /**
  * Auto-release on push to main (issue #93, reworked 2026-07-29 per
@@ -191,20 +197,24 @@ export function planRelease(input: PlanReleaseInput): ReleaseDecision {
 }
 
 /**
- * Third-party license inventory (issue #103) — derived from package.json's
- * own "dependencies" map, which IS the exact set vite.lib.config.ts bundles
- * into the single ESM (no externals, no code splitting). NOT a heavyweight
- * scanner; fails loudly if any bundled package is missing a license field.
- * Shared by the normal release path and the npm-recovery path below, which
- * both need to regenerate the same markdown for staging.
+ * Third-party license inventory (issue #103) — the transitive closure of
+ * package.json's direct "dependencies", traversed through
+ * `package-lock.json`'s locked graph (production deps only, issue #113
+ * review finding: a direct-deps-only list missed packages like
+ * crelt/style-mod/w3c-keyname that @codemirror/view itself pulls in). That
+ * full closure is the exact set vite.lib.config.ts bundles into the single
+ * ESM (no externals, no code splitting). NOT a heavyweight scanner; fails
+ * loudly if any bundled package is missing a license field. Shared by the
+ * normal release path and the npm-recovery path below, which both need to
+ * regenerate the same markdown for staging.
  */
 function buildThirdPartyMarkdown(repoRoot: string): string {
   const repoPackageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as {
     dependencies?: Record<string, string>
   }
-  return generateThirdPartyMarkdown(
-    collectBundledDependencyInfo(bundledDependencyNames(repoPackageJson), join(repoRoot, 'node_modules')),
-  )
+  const packageLock = JSON.parse(readFileSync(join(repoRoot, 'package-lock.json'), 'utf8')) as PackageLockFile
+  const resolvedPaths = resolveTransitiveRuntimeDependencyPaths(packageLock, bundledDependencyNames(repoPackageJson))
+  return generateThirdPartyMarkdown(collectBundledDependencyInfo(resolvedPaths, repoRoot))
 }
 
 /**
@@ -306,16 +316,16 @@ if (import.meta.main) {
     env: { ...process.env, APP_VERSION: plan.version },
   })
 
-  // Third-party license inventory (issue #103) — derived from package.json's
-  // own "dependencies" map, which IS the exact set vite.lib.config.ts bundles
-  // into the single ESM (no externals, no code splitting). NOT a heavyweight
+  // Third-party license inventory (issue #103) — the full transitive closure
+  // of production runtime deps (package-lock.json), the exact set
+  // vite.lib.config.ts bundles into the single ESM. NOT a heavyweight
   // scanner; fails loudly if any bundled package is missing a license field.
   const thirdPartyMarkdown = buildThirdPartyMarkdown(repoRoot)
   const thirdPartyPath = join(repoRoot, 'dist-lib', 'THIRD_PARTY.md')
   writeFileSync(thirdPartyPath, thirdPartyMarkdown)
 
   // sha256 checksum of the built artifact — a release asset, verifiable with
-  // `shasum -c`.
+  // `shasum -a 256 -c` (bare `-c` defaults to SHA-1 and mis-verifies).
   const checksumPath = writeChecksumFile(distLibJsPath)
 
   // Stage the npm package BEFORE the irreversible `gh release create` below
