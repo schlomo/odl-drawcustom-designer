@@ -75,6 +75,7 @@ import { CANVAS_TOOLBAR_ITEM_SELECTOR } from '../lib/canvas-toolbar-layout'
 import { toolbarHeaderSlotWidth } from '../lib/toolbar-header-slot'
 import { useToolbarLabels } from '../hooks/useToolbarLabels'
 import { useElementSize } from '../hooks/useElementSize'
+import { useStableAssetKeys } from '../hooks/useStableAssetKeys'
 import { type ElementBounds } from '../lib/primitive-bounds'
 import { canAlignSelection, unionBounds, type ElementAlign } from '../lib/align-elements'
 import { isElementCanvasSelectable, resolveElementHitBounds } from '../lib/hidden-element-hints'
@@ -356,7 +357,7 @@ export function DesignerCanvas({
     writeCanvasZoomMode(zoomMode)
   }, [zoomMode])
 
-  const fontAssetKeys = useMemo(() => collectFontKeysFromElements(elements), [elements])
+  const fontAssetKeys = useStableAssetKeys(elements, collectFontKeysFromElements)
 
   // resolveElementHitBounds re-invokes safeRenderElement, so its result
   // depends on the core opentype.js font registry AND the core image
@@ -396,10 +397,7 @@ export function DesignerCanvas({
     [editElements],
   )
 
-  const dlimgAssetKeys = useMemo(
-    () => collectDlimgAssetKeysFromElements(elements),
-    [elements],
-  )
+  const dlimgAssetKeys = useStableAssetKeys(elements, collectDlimgAssetKeysFromElements)
 
   const fontsLoading = useMemo(() => {
     if (fontAssetKeys.length === 0) {
