@@ -13,6 +13,17 @@ export interface HostEntityState {
  * Host-pushed entity states: entity-id -> state value or {state, attributes}.
  * When provided, this replaces the State Simulator's persisted mock source
  * for template preview (ADR-010; live HA feed is a later milestone).
+ *
+ * Ownership contract (issue #110): treated as an **immutable snapshot** at
+ * the moment `setStates()` is called. Repeated pushes are diffed
+ * structurally against the previously applied object to keep a 4x/s
+ * full-registry push cheap (no re-render, no template re-evaluation when
+ * nothing changed) — that diff compares by value against the retained
+ * reference, not by cloning, so **mutate-and-repush is unsupported**:
+ * mutating this same object in place and calling `setStates()` again with
+ * that reference is invisible to the diff and silently treated as
+ * "unchanged". Construct a fresh object per push instead (see
+ * docs/embedding.md's `states` section).
  */
 export type HostStates = Record<string, string | number | boolean | HostEntityState>
 
@@ -99,7 +110,12 @@ export interface MountHandle {
   readonly version: string
   /** Unmount the designer and remove everything from the container. */
   destroy(): void
-  /** Push a full replacement entity-state map for template preview. */
+  /**
+   * Push a full replacement entity-state map for template preview. Treat the
+   * passed object as an immutable snapshot — see `HostStates`'s ownership
+   * contract above; mutating it and calling `setStates()` again with the
+   * same reference is unsupported and gets treated as a no-op push.
+   */
   setStates(states: HostStates): void
   /**
    * Push a display description; maps onto canvas size, rotation and palette.

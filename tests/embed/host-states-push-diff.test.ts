@@ -15,14 +15,19 @@ import type { HostPushTarget, HostStates } from '../../src/embed/types'
  *  - cost nothing (no setState, no re-render, no template re-evaluation)
  *    when a push is structurally identical to the last one applied,
  *  - apply a changed subset without disturbing unrelated entities, and
- *  - not disrupt an in-progress coalesced edit (canvas drag) landing
- *    between pushes.
+ *  - never touch `elements`/`selectedIndices`/the edit-history ref, so a
+ *    push landing between `beginEditCoalesce()`/`endEditCoalesce()` cannot
+ *    corrupt an in-progress coalesced edit at the hook's state level.
  *
  * Exercised directly against the hook (not through a full `mount()`), same
  * pattern as `tests/ui/hooks/use-project-state-history.test.ts` — a stub
  * `DesignerHost` whose `registerPushTarget` captures the applier so the test
  * can call `applyStates` exactly like a `MountHandle.setStates()` push would
  * (mount.tsx's push queue is exercised separately in `tests/embed/mount.test.tsx`).
+ * This file proves state *isolation*, not gesture behavior — it has no real
+ * `DesignerCanvas`, drag session, frozen-elements overlay, or pointer
+ * capture. The real-browser drag proof is
+ * `tests/e2e/embed-host-push-mid-drag.spec.ts`.
  */
 
 function bootstrapWithTemplate(): AppBootstrap {
@@ -134,7 +139,19 @@ describe('useProjectState host state-push diff (issue #110)', () => {
     expect(result.current.mockContext.attributes['sensor.humidity']).toBe(humidityAttrsBefore)
   })
 
-  it('a host push mid-drag does not disrupt the in-progress coalesced edit', () => {
+  it('a host push interleaved with a coalesced edit never touches elements/selection/history state', () => {
+    // What this proves (and what it does not): `applyStates` never touches
+    // `elements`/`selectedIndices`/the edit-history ref, so calling it
+    // between `beginEditCoalesce()`/`endEditCoalesce()` cannot corrupt the
+    // coalesced edit *at the hook's state level*. This is exercised directly
+    // against the hook — no real `DesignerCanvas` drag session, frozen-
+    // elements overlay, or pointer capture is involved, so it is NOT proof
+    // that an actual in-progress canvas drag survives a host push visually
+    // untouched (a naive change could still remount/reset the canvas on a
+    // push without this test noticing). That real-browser guarantee is
+    // `tests/e2e/embed-host-push-mid-drag.spec.ts`, which drives a real
+    // pointer drag on the demo host page and pushes `setStates()` mid-
+    // gesture.
     const { host, getPushTarget } = createTestHost()
     const { result } = renderHook(() => useProjectState(bootstrapWithTemplate(), host))
 
@@ -148,10 +165,8 @@ describe('useProjectState host state-push diff (issue #110)', () => {
       })
     })
 
-    // The host state push (issue #110) lands mid-drag. `applyStates` never
-    // touches `elements`/`selectedIndices`/the edit-history ref, so
-    // interleaving it with an in-progress coalesced edit is safe by
-    // construction (investigated, not deferred — see PR description).
+    // The host state push (issue #110) lands between the coalesce calls,
+    // standing in for "mid-gesture" at the hook level only.
     act(() => {
       getPushTarget().applyStates({ 'sensor.demo_temperature': '21.5' })
     })

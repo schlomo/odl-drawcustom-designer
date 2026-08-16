@@ -190,6 +190,16 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
   // re-evaluation. Set synchronously inside `applyStates` itself, never from
   // an effect — the same ref-paired-with-setter convention `commitElements`
   // et al. use elsewhere in this file.
+  //
+  // Aliases the caller's pushed object — this holds the same reference the
+  // host passed to `setStates()`, not a clone (cloning would cost what the
+  // diff is meant to save). That makes mutate-and-repush unsupported: a host
+  // that mutates this same object in place and re-pushes it gets a false
+  // "unchanged" from `hostStatesEqual` below, since the mutation already
+  // happened to the retained reference before the comparison runs. Ownership
+  // contract documented for hosts in docs/embedding.md (`states` section)
+  // and on `HostStates` in src/embed/types.ts — construct a fresh object per
+  // push instead.
   const lastHostStatesRef = useRef<HostStates | null>(null)
   const elementsRef = useRef(elements)
   const canvasRef = useRef(canvas)
