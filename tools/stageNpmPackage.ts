@@ -31,6 +31,7 @@ export function stageNpmPackage(options: StageNpmPackageOptions): void {
   copyFileSync(distLibJsPath, join(stagingDir, basename(distLibJsPath)))
   copyFileSync(join(repoRoot, 'LICENSE'), join(stagingDir, 'LICENSE'))
   copyFileSync(join(repoRoot, 'NOTICE'), join(stagingDir, 'NOTICE'))
+  copyFileSync(join(repoRoot, 'docs', 'npm-README.md'), join(stagingDir, 'README.md'))
   writeFileSync(join(stagingDir, 'THIRD_PARTY.md'), thirdPartyMarkdown)
   writeFileSync(join(stagingDir, 'package.json'), `${JSON.stringify(buildNpmPackageJson(version), null, 2)}\n`)
 }
