@@ -17,14 +17,17 @@ export const shell = {
    * reason gets read, so it must not repaint itself as a different button at
    * that exact moment.
    *
-   * All three variants share the `--shell-button-*` ramp (index.css) for
-   * their resting surface and neutral hover/active/focus states — a
-   * dedicated token family (issue #132) rather than the general
-   * `--shell-surface-2` / `--shell-hover`, which in dark mode collapsed a
-   * button's surface onto the page background (0 contrast) and are shared
-   * with unrelated chrome this issue doesn't touch. Only the *border* and
-   * *text/fill hover tint* differ per severity, keeping the amber/red
-   * identity from issue #108.
+   * All three variants share the `--shell-button-bg` resting fill
+   * (index.css) — a dedicated token (issue #132) rather than the general
+   * `--shell-surface-2`, which in dark mode collapsed a button's surface
+   * onto the page background (0 contrast) and is shared with unrelated
+   * chrome this issue doesn't touch. Only the *neutral* variant (`button`,
+   * `buttonIcon`) also uses the shared `--shell-button-hover` /
+   * `--shell-button-active` for its interaction states: `buttonCaution` /
+   * `buttonCautionIcon` use `--shell-warning-hover` / `--shell-warning-active`,
+   * and `buttonDestructive` / `buttonDestructiveIcon` use `--shell-danger-hover`
+   * / `--shell-danger-active` instead, keeping the amber/red identity from
+   * issue #108 through hover and press, not just the border and text.
    */
   button:
     'rounded-md border border-[var(--shell-button-border)] bg-[var(--shell-button-bg)] [--shell-button-surface:var(--shell-button-bg)] px-2 py-1 text-xs text-[var(--shell-text)] transition-colors hover:bg-[var(--shell-button-hover)] active:bg-[var(--shell-button-active)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--shell-accent)]',

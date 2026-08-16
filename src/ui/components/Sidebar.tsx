@@ -261,7 +261,7 @@ export function Sidebar({
               className={`flex-1 rounded-md border px-1 py-1 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${
                 canvas.rotation === value
                   ? 'border-[var(--shell-accent)] bg-[var(--shell-accent)] text-white'
-                  : `${shell.button} hover:bg-[var(--shell-hover)]`
+                  : shell.button
               }`}
               disabled={displayLocked}
               onClick={() => onRotationChange(value)}
