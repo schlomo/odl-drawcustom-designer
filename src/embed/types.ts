@@ -1,5 +1,4 @@
 import type { DrawElement } from '../core'
-import type { HostActionIcon } from './hostActionIcons'
 
 /** Theme applied to the mount container (never `document.documentElement`). */
 export type EmbedTheme = 'light' | 'dark'
@@ -33,16 +32,31 @@ export interface HostAction {
    * replacing it. Must be unique within a push.
    */
   id: string
-  /** Button text, shown as-is. Also its accessible name. */
+  /** Button text, shown as-is (surrounding whitespace trimmed). Also its accessible name. */
   label: string
   /**
-   * Optional icon from the designer's closed vocabulary
-   * ({@link HostActionIcon}) — the designer bundles the paths, so a host
-   * needs no icon dependency. An unknown name is rejected, not ignored.
+   * Optional [Material Design Icon](https://pictogrammer.com/library/mdi/)
+   * name — the same vocabulary a payload `icon` element accepts, resolved
+   * the same way (`mdi:` prefix optional, e.g. `send`, `mdi:home-assistant`).
+   * The designer bundles the full MDI set for the payload's icon element
+   * anyway, so every one of those names is available to a host at no added
+   * bundle size and with no icon dependency of its own. An unknown name is
+   * rejected, not ignored.
    */
-  icon?: HostActionIcon
+  icon?: string
   /** Button chrome; defaults to `'normal'`. */
   severity?: HostActionSeverity
+  /**
+   * Whether this action reads the designer's payload; defaults to `true`.
+   *
+   * A payload-carrying action is disabled while the YAML editor is blocked by
+   * a parse/schema error — the same rule that disables Save. An action that
+   * does *not* need the payload (host-side settings, a reconnect, a help
+   * link) sets `false` and stays clickable throughout; it still receives the
+   * last valid payload, exactly as {@link MountHandle.getPayload} documents
+   * for a blocked document.
+   */
+  needsPayload?: boolean
   /**
    * When set, the button renders visibly disabled and this text is what the
    * user gets on hover ("Display offline", "No target selected"). Clearing it
@@ -170,12 +184,16 @@ export interface MountOptions {
    * {@link MountHandle.setActions} before the first painted frame, and
    * re-pushable from then on. A malformed list throws out of `mount()`, like
    * an invalid `payload`.
+   *
+   * Requires {@link MountOptions.onAction}: registering actions no one can
+   * hear about is rejected rather than rendered.
    */
   actions?: readonly HostAction[]
   /**
    * Called when the user clicks one of the {@link MountOptions.actions}.
    * A stable closure — there is no update channel for it (ADR-018: data is
-   * pushed, functions are not).
+   * pushed, functions are not) — which is why a mount without it can never
+   * take actions, at mount time or through a later `setActions()`.
    */
   onAction?: HostActionHandler
   /**
@@ -229,7 +247,9 @@ export interface MountHandle {
    * action chrome.
    *
    * Throws on a malformed list (unknown `icon` or `severity`, missing or
-   * duplicate `id`, missing `label`) without changing what is on screen.
+   * duplicate `id`, missing `label`) without changing what is on screen, and
+   * on any non-empty list when `mount()` was given no `onAction` — the
+   * handler is fixed at mount, so those buttons could never fire.
    */
   setActions(actions: readonly HostAction[]): void
   /** Switch the container-scoped theme. */

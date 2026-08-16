@@ -281,11 +281,14 @@ const actions = (displayOnline) => [
   {
     id: 'send',                    // opaque, host-defined; echoed back to onAction
     label: 'Send to display',      // button text and accessible name
-    icon: 'send',                  // optional, from the closed vocabulary below
+    icon: 'send',                  // optional Material Design Icon name
     severity: 'caution',           // 'normal' (default) | 'caution' | 'danger'
     disabledReason: displayOnline ? undefined : 'Display offline — reconnect to send',
   },
   { id: 'validate', label: 'Validate', icon: 'check' },
+  // Host-side UI that never reads the design — stays clickable even while
+  // the YAML editor is blocked.
+  { id: 'settings', label: 'Display settings', icon: 'monitor-dashboard', needsPayload: false },
 ]
 
 const handle = mount(el, {
@@ -306,6 +309,11 @@ handle.setActions([])               // no action buttons at all
   `mount(el)` + `setActions(actions)` applied before the first painted frame,
   and everything pushed at mount is re-pushable afterwards. `onAction` itself
   is a stable closure — there is no update channel for functions.
+- **`onAction` is required** whenever actions are registered. Because it is
+  fixed at mount, a mount without one can never take an action — so a
+  non-empty list at `mount()` *or* at `setActions()` throws instead of
+  painting buttons that look live and do nothing. `setActions([])` stays
+  legal either way.
 - **Re-pushable, and diffed.** Push the *whole* list again on every host state
   change; the designer compares it structurally and does nothing at all when
   it is unchanged, so a host may re-push on a timer. Unlike
@@ -318,25 +326,37 @@ handle.setActions([])               // no action buttons at all
   behavior from it: no confirmation dialog, no interception.
 - **`disabledReason` disables the button** and is what the user reads when
   hovering it — the field hosts flip live ("Display offline", "No target
-  selected"). Clearing it re-enables the button.
-- **`icon` is a closed vocabulary** the designer bundles, so a host needs no
-  icon dependency: `alert`, `check`, `delete`, `download`, `play`, `preview`,
-  `refresh`, `save`, `send`, `settings`, `upload` (exported as
-  `HOST_ACTION_ICON_NAMES`). Arbitrary Material Design Icon names are not
-  resolvable — that would mean bundling all ~7000 paths into the single-file
-  build.
+  selected"). Clearing it re-enables the button. It is also exposed to
+  assistive tech as the button's description, so it is readable without
+  hovering; the button keeps its own surface under the pointer while
+  disabled, and toggling the reason never remounts it (focus survives).
+- **`icon` is any [Material Design Icon](https://pictogrammer.com/library/mdi/)
+  name**, resolved exactly as a payload `icon` element resolves it — the
+  `mdi:` prefix is optional, so `send`, `mdi:send` and `home-assistant` all
+  work. One icon vocabulary, not two: the designer already bundles the full
+  MDI set deliberately for the payload's icon element, so every name that
+  element accepts is available here at no added bundle size and with no icon
+  dependency on the host side.
+- **`needsPayload` (default `true`)** says whether the action reads the
+  design. See the blocked-editor rule below; set `false` for host-side UI
+  that does not need the payload at all.
 - **Malformed lists throw** at the push that carries them (unknown `icon` or
-  `severity`, missing or duplicate `id`, missing `label`), like invalid
-  `payload` YAML does, and leave the designer untouched. A bad list passed to
-  `mount()` throws before the container is touched.
+  `severity`, non-boolean `needsPayload`, missing or duplicate `id`, missing
+  `label`), like invalid `payload` YAML does, and leave the designer
+  untouched. A bad list passed to `mount()` throws before the container is
+  touched. Text fields are trimmed, so incidental padding never reaches the
+  button or the id echoed back to `onAction`.
 - **While the YAML editor is blocked** by a parse/schema error, every action
-  is disabled — same rule as Save — and says so on hover. A host
-  `disabledReason` takes precedence over that message.
+  that needs the payload is disabled — same rule as Save — and says so on
+  hover. A host `disabledReason` takes precedence over that message.
+  A `needsPayload: false` action stays clickable and receives the **last
+  valid payload**, exactly what [`getPayload()`](#getpayload-issue-104)
+  reports while blocked.
 - The designer's built-in **Save button is the same species of control** and
   becomes an ordinary action instance at 2.0, when `onSaveRequest` and the
   built-in button are removed ([issue #121](https://github.com/schlomo/odl-drawcustom-designer/issues/121)).
 
-The demo host page registers both example actions and a "Simulate display
+The demo host page registers all three example actions and a "Simulate display
 offline" toggle that re-pushes the list ([`demo/host.js`](../demo/host.js),
 guarded by [`tests/e2e/embed-actions.spec.ts`](../tests/e2e/embed-actions.spec.ts)).
 

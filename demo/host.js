@@ -81,6 +81,8 @@ const actionLog = document.getElementById('action-log')
 // Host-registered actions (issue #108, ADR-018): the host owns what each
 // button means — this page fakes a display transmission and a payload check.
 // `severity: 'caution'` is the reference case: Send drives real hardware.
+// `icon` takes any Material Design Icon name — the same vocabulary a payload
+// icon element accepts, so `monitor-dashboard` needs no special casing.
 function buildActions(displayOnline) {
   return [
     {
@@ -91,6 +93,9 @@ function buildActions(displayOnline) {
       disabledReason: displayOnline ? undefined : 'Display offline — reconnect to send',
     },
     { id: 'validate', label: 'Validate', icon: 'check' },
+    // Host-side UI that never reads the design: `needsPayload: false` keeps
+    // it clickable even while the YAML editor is blocked by a syntax error.
+    { id: 'settings', label: 'Display settings', icon: 'monitor-dashboard', needsPayload: false },
   ]
 }
 
@@ -139,6 +144,10 @@ const handle = mount(document.getElementById('designer'), {
     if (id === 'validate') {
       const elementCount = payload.split(/^- /m).length - 1
       actionLog.textContent = `Validated ${elementCount} element(s).`
+      return
+    }
+    if (id === 'settings') {
+      actionLog.textContent = 'Opened the host-side display settings (no payload needed).'
       return
     }
     actionLog.textContent = `Unhandled action: ${id}`

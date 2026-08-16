@@ -1,5 +1,5 @@
-import { HOST_ACTION_ICON_NAMES, isHostActionIcon } from './hostActionIcons'
-import type { HostAction, HostActionSeverity } from './types'
+import { normalizeMdiIconName, resolveMdiPath } from '../core'
+import type { HostAction, HostActionHandler, HostActionSeverity } from './types'
 
 /** Shared empty list: an actions-free designer allocates nothing per render. */
 export const NO_HOST_ACTIONS: readonly HostAction[] = Object.freeze([])
@@ -10,11 +10,12 @@ function fail(message: string): never {
   throw new TypeError(`Invalid host actions: ${message}`)
 }
 
+/** Non-empty text, with the host's incidental padding removed. */
 function requireText(value: unknown, field: string, where: string): string {
   if (typeof value !== 'string' || value.trim() === '') {
     fail(`${where} needs a non-empty ${field} (got ${JSON.stringify(value)})`)
   }
-  return value
+  return value.trim()
 }
 
 /**
@@ -41,7 +42,10 @@ export function normalizeHostActions(actions: readonly HostAction[]): readonly H
   }
 
   const seen = new Set<string>()
-  const normalized = actions.map((action, index) => {
+  // `Array.from`, not `map`: `map` skips a sparse array's holes, and a hole
+  // that survives validation renders as nothing at all — the silent drop this
+  // whole function exists to prevent.
+  const normalized = Array.from(actions, (action, index) => {
     if (action == null || typeof action !== 'object') {
       fail(`entry ${index} is not an action object`)
     }
@@ -57,12 +61,15 @@ export function normalizeHostActions(actions: readonly HostAction[]): readonly H
       label: requireText(action.label, 'label', where),
     }
     if (action.icon !== undefined) {
-      if (!isHostActionIcon(action.icon)) {
+      const icon = requireText(action.icon, 'icon', where)
+      if (resolveMdiPath(icon) === null) {
         fail(
-          `${where} has unknown icon ${JSON.stringify(action.icon)} — known icons: ${HOST_ACTION_ICON_NAMES.join(', ')}`,
+          `${where} has unknown icon ${JSON.stringify(action.icon)} — expected a Material Design Icon name, the same vocabulary a payload icon element accepts (e.g. "send", "mdi:home-assistant")`,
         )
       }
-      normalizedAction.icon = action.icon
+      // Store the canonical lookup key so `mdi:Send` and `send` are one value
+      // to the push-diff rather than two.
+      normalizedAction.icon = normalizeMdiIconName(icon)
     }
     if (action.severity !== undefined) {
       if (!SEVERITIES.includes(action.severity)) {
@@ -71,6 +78,12 @@ export function normalizeHostActions(actions: readonly HostAction[]): readonly H
         )
       }
       normalizedAction.severity = action.severity
+    }
+    if (action.needsPayload !== undefined) {
+      if (typeof action.needsPayload !== 'boolean') {
+        fail(`${where} has a non-boolean needsPayload (got ${JSON.stringify(action.needsPayload)})`)
+      }
+      normalizedAction.needsPayload = action.needsPayload
     }
     if (action.disabledReason !== undefined) {
       normalizedAction.disabledReason = requireText(
@@ -83,6 +96,27 @@ export function normalizeHostActions(actions: readonly HostAction[]): readonly H
   })
 
   return Object.freeze(normalized)
+}
+
+/**
+ * Reject actions no one can hear about (Copilot review, issue #108).
+ *
+ * `onAction` is fixed at mount — ADR-018 pushes data, never functions — so a
+ * host that registered no handler can never gain one. Buttons pushed to it
+ * would render enabled and do nothing, forever; failing loudly at the push
+ * (or at `mount()`) is the same contract as a malformed list. Clearing the
+ * list stays legal: there is nothing left that could fire.
+ */
+export function assertActionsAreHandled(
+  actions: readonly HostAction[],
+  onAction: HostActionHandler | undefined,
+  where: string,
+): void {
+  if (actions.length > 0 && onAction == null) {
+    fail(
+      `${where} was given ${actions.length} action(s) but no onAction handler — pass onAction to mount() (it is fixed there, so actions registered without it can never fire)`,
+    )
+  }
 }
 
 /**
@@ -105,6 +139,7 @@ export function hostActionsEqual(a: readonly HostAction[], b: readonly HostActio
       action.label === other.label &&
       action.icon === other.icon &&
       action.severity === other.severity &&
+      action.needsPayload === other.needsPayload &&
       action.disabledReason === other.disabledReason
     )
   })

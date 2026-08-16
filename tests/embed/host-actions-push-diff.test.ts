@@ -107,6 +107,20 @@ describe('host actions push diff (issue #108)', () => {
     expect(result.current.hostActions).toEqual([])
   })
 
+  it('treats a flipped needsPayload as a change, not an unchanged re-push', () => {
+    // `needsPayload` decides whether a blocked YAML document disables the
+    // button, so a diff blind to it would strand the button in the wrong
+    // state until some other field happened to change.
+    const { host, getPushTarget } = createTestHost([SEND])
+    const { result } = renderHook(() => useProjectState(bootstrap(), host))
+
+    act(() => {
+      getPushTarget().applyActions([{ ...SEND, needsPayload: false }])
+    })
+
+    expect(result.current.hostActions).toEqual([{ ...SEND, needsPayload: false }])
+  })
+
   it('starts with no actions when the adapter offers none', () => {
     const { host } = createTestHost()
     const { result } = renderHook(() => useProjectState(bootstrap(), host))

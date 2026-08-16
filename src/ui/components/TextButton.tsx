@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes } from 'react'
-import { shell } from '../styles/shell'
+import { disabledButton, shell } from '../styles/shell'
 
 type TextButtonVariant = 'default' | 'caution' | 'destructive'
 
@@ -15,7 +15,7 @@ interface TextButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export function TextButton({ variant = 'default', className = '', ...rest }: TextButtonProps) {
   const surface = SURFACES[variant]
-  const disabledClass =
-    'disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[var(--shell-surface-2)]'
-  return <button type="button" className={`${surface} ${disabledClass} ${className}`.trim()} {...rest} />
+  return (
+    <button type="button" className={`${surface} ${disabledButton} ${className}`.trim()} {...rest} />
+  )
 }

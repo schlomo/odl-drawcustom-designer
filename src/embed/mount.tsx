@@ -6,7 +6,7 @@ import { App } from '../ui/App'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import { createEmbeddedHost } from './embeddedHost'
 import { hostSuppliedTheme, type DesignerHost } from './host'
-import { normalizeHostActions } from './hostActions'
+import { assertActionsAreHandled, normalizeHostActions } from './hostActions'
 import type {
   CapabilitiesPushOptions,
   EmbedTheme,
@@ -277,8 +277,11 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
       assertMounted()
       // Validate before queueing, so a malformed list throws at the push that
       // carries it and leaves the designer untouched — a queued push cannot
-      // report its own failure to the host later.
+      // report its own failure to the host later. `onAction` is fixed at
+      // mount, so a host that registered none never gains one: reject the
+      // push instead of painting permanently inert buttons.
       const normalized = normalizeHostActions(actions)
+      assertActionsAreHandled(normalized, host.onAction, 'setActions()')
       push((target) => target.applyActions(normalized))
     },
     setTheme(nextTheme) {

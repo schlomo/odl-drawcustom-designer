@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { act } from 'react'
+import { mdiHomeAssistant, mdiWeatherSunny } from '@mdi/js'
 import { fireEvent, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '../../src/embed'
@@ -70,7 +71,16 @@ const VALIDATE: HostAction = { id: 'validate', label: 'Validate' }
 let container: HTMLElement
 const handles: MountHandle[] = []
 
+/**
+ * Actions require an `onAction` handler by contract (a host that cannot hear
+ * the click gets a loud rejection, not inert buttons), so tests that do not
+ * care about the callback still have to supply one.
+ */
 function mountDesigner(options: Parameters<typeof mount>[1] = {}): MountHandle {
+  return mountRaw({ onAction: () => {}, ...options })
+}
+
+function mountRaw(options: Parameters<typeof mount>[1] = {}): MountHandle {
   let handle!: MountHandle
   act(() => {
     handle = mount(container, options)
@@ -225,7 +235,7 @@ describe('host actions (issue #108)', () => {
     // over the mount option, which is itself defined as an initial push.
     let handle!: MountHandle
     act(() => {
-      handle = mount(container, { payload: PAYLOAD, actions: [VALIDATE] })
+      handle = mount(container, { payload: PAYLOAD, actions: [VALIDATE], onAction: () => {} })
       handle.setActions([SEND])
     })
     handles.push(handle)
@@ -256,23 +266,30 @@ describe('host actions (issue #108)', () => {
     )
     expect(() => handle.setActions([{ id: '', label: 'A' }])).toThrow(/id/i)
     expect(() => handle.setActions([{ id: 'a', label: '' }])).toThrow(/label/i)
-    expect(() =>
-      handle.setActions([{ id: 'a', label: 'A', icon: 'rocket' as HostAction['icon'] }]),
-    ).toThrow(/icon/i)
+    expect(() => handle.setActions([{ id: 'a', label: 'A', icon: 'not-an-icon' }])).toThrow(/icon/i)
     expect(() =>
       handle.setActions([
         { id: 'a', label: 'A', severity: 'urgent' as HostAction['severity'] },
       ]),
     ).toThrow(/severity/i)
+    expect(() =>
+      handle.setActions([{ id: 'a', label: 'A', needsPayload: 'yes' as unknown as boolean }]),
+    ).toThrow(/needsPayload/i)
+    // A sparse array: `map` skips its holes, so every index has to be visited
+    // explicitly or a hole slips through and renders as nothing at all.
+    expect(() => handle.setActions(new Array<HostAction>(1))).toThrow(/entry 0/i)
 
     // The rejected pushes changed nothing.
     expect(actionButton('Send to display')).toBeInTheDocument()
   })
 
   it('rejects malformed mount actions before touching the container', () => {
-    expect(() => mount(container, { actions: [{ id: 'a', label: 'A' }, { id: 'a', label: 'B' }] })).toThrow(
-      /duplicate/i,
-    )
+    expect(() =>
+      mount(container, {
+        actions: [{ id: 'a', label: 'A' }, { id: 'a', label: 'B' }],
+        onAction: () => {},
+      }),
+    ).toThrow(/duplicate/i)
 
     expect(container.shadowRoot).toBeNull()
     expect(container.childElementCount).toBe(0)
@@ -283,5 +300,61 @@ describe('host actions (issue #108)', () => {
     act(() => handle.destroy())
 
     expect(() => handle.setActions([VALIDATE])).toThrow(/after destroy/i)
+  })
+
+  it('draws any Material Design icon the payload accepts, `mdi:` prefix and all', () => {
+    // One icon vocabulary: whatever `icon:` on a payload element resolves to,
+    // an action button resolves to — the whole MDI set is bundled either way.
+    mountDesigner({
+      payload: PAYLOAD,
+      actions: [
+        { id: 'weather', label: 'Weather', icon: 'weather-sunny' },
+        { id: 'home', label: 'Home', icon: 'mdi:home-assistant' },
+      ],
+    })
+
+    expect(actionButton('Weather').querySelector('svg path')?.getAttribute('d')).toBe(
+      mdiWeatherSunny,
+    )
+    expect(actionButton('Home').querySelector('svg path')?.getAttribute('d')).toBe(mdiHomeAssistant)
+  })
+
+  it('rejects an unknown icon name before touching the container', () => {
+    expect(() =>
+      mount(container, {
+        actions: [{ id: 'a', label: 'A', icon: 'definitely-not-an-mdi-icon' }],
+        onAction: () => {},
+      }),
+    ).toThrow(/icon/i)
+
+    expect(container.shadowRoot).toBeNull()
+  })
+
+  it('trims the text a host pushes instead of rendering (and echoing) its padding', () => {
+    const onAction = vi.fn()
+    mountDesigner({
+      payload: PAYLOAD,
+      actions: [{ id: '  send  ', label: '  Send to display  ' }],
+      onAction,
+    })
+
+    const button = actionButton('Send to display')
+    expect(button.textContent).toBe('Send to display')
+
+    fireEvent.click(button)
+    expect(onAction.mock.calls[0]?.[0]).toBe('send')
+  })
+
+  it('refuses actions the host could never hear about', () => {
+    // `onAction` is fixed at mount (ADR-018: data is pushed, functions are
+    // not), so actions registered without one are permanently inert —
+    // buttons that look live and do nothing.
+    expect(() => mount(container, { payload: PAYLOAD, actions: [SEND] })).toThrow(/onAction/i)
+    expect(container.shadowRoot).toBeNull()
+
+    const handle = mountRaw({ payload: PAYLOAD, onSaveRequest: () => {} })
+    expect(() => handle.setActions([SEND])).toThrow(/onAction/i)
+    // Clearing the list stays legal — there is nothing that could fire.
+    expect(() => act(() => handle.setActions([]))).not.toThrow()
   })
 })

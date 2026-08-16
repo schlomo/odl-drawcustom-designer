@@ -28,6 +28,3 @@ export type {
   MountHandle,
   MountOptions,
 } from './types'
-/** The closed icon vocabulary for {@link HostAction.icon} (issue #108). */
-export type { HostActionIcon } from './hostActionIcons'
-export { HOST_ACTION_ICON_NAMES } from './hostActionIcons'

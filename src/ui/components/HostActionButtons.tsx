@@ -1,5 +1,5 @@
-import { Fragment, type ReactElement } from 'react'
-import { hostActionIconPath } from '../../embed/hostActionIcons'
+import { useId, type ReactElement } from 'react'
+import { resolveMdiPath } from '../../core'
 import type { HostAction, HostActionSeverity } from '../../embed/types'
 import { IconButton } from './IconButton'
 import { TextButton } from './TextButton'
@@ -9,10 +9,11 @@ import { shell } from '../styles/shell'
 interface HostActionButtonsProps {
   actions: readonly HostAction[]
   /**
-   * Reason the designer itself cannot run any action right now (a blocked
-   * YAML document, exactly what disables Save). A host's own
-   * `disabledReason` wins over it — the host's statement about its own action
-   * is the more specific one.
+   * Reason the designer itself cannot run a payload-carrying action right now
+   * (a blocked YAML document, exactly what disables Save). Applies only to
+   * actions that need the payload — `needsPayload: false` opts out. A host's
+   * own `disabledReason` wins over it: the host's statement about its own
+   * action is the more specific one.
    */
   designerDisabledReason?: string | null
   onAction: (id: string) => void
@@ -28,7 +29,7 @@ const VARIANTS: Record<HostActionSeverity, ButtonVariant> = {
 
 /** Icon-button surfaces carry no padding of their own — {@link IconButton} adds it. */
 const ICON_SURFACES: Record<HostActionSeverity, string> = {
-  normal: shell.button,
+  normal: shell.buttonIcon,
   caution: shell.buttonCautionIcon,
   danger: shell.buttonDestructiveIcon,
 }
@@ -51,39 +52,56 @@ export function HostActionButtons({
   designerDisabledReason,
   onAction,
 }: HostActionButtonsProps) {
+  const reasonIdPrefix = useId()
   return (
     <>
       {actions.map((action) => {
         const severity = action.severity ?? 'normal'
-        const disabledReason = action.disabledReason ?? designerDisabledReason ?? null
+        // A blocked document only blocks what reads the payload; an action
+        // that opted out (`needsPayload: false`) stays clickable and receives
+        // the last valid payload, as getPayload() documents.
+        const blockedByDesigner = action.needsPayload === false ? null : designerDisabledReason
+        const disabledReason = action.disabledReason ?? blockedByDesigner ?? null
         const disabled = disabledReason != null
+        // Disabled buttons take no pointer events, so the hover bubble below
+        // is the sighted reader's channel; this description is the one
+        // assistive tech gets, without hovering anything.
+        const reasonId = disabled ? `${reasonIdPrefix}${action.id}` : undefined
 
-        const button: ReactElement = action.icon ? (
+        const iconPath = action.icon ? resolveMdiPath(action.icon) : null
+        const button: ReactElement = iconPath ? (
           <IconButton
-            iconPath={hostActionIconPath(action.icon)}
+            iconPath={iconPath}
             label={action.label}
             surfaceClass={ICON_SURFACES[severity]}
             disabled={disabled}
+            aria-describedby={reasonId}
             onClick={() => onAction(action.id)}
           />
         ) : (
           <TextButton
             variant={VARIANTS[severity]}
             disabled={disabled}
+            aria-describedby={reasonId}
             onClick={() => onAction(action.id)}
           >
             {action.label}
           </TextButton>
         )
 
-        // Disabled buttons swallow the native `title` (ADR-016), so the
-        // reason has to ride the hover-tooltip pattern to be readable at all.
-        return disabledReason != null ? (
-          <ToolbarTooltip key={action.id} label={disabledReason}>
+        // Rendered unconditionally, reason or not: a conditional wrapper
+        // swaps the element type on every `disabledReason` push, which
+        // remounts the button and drops keyboard focus. An absent label
+        // renders the wrapper with no bubble (see ToolbarTooltip).
+        return (
+          <ToolbarTooltip key={action.id} label={disabledReason ?? undefined}>
             {button}
+            {reasonId ? (
+              <span id={reasonId} className="sr-only">
+                {disabledReason}
+              </span>
+            ) : null}
           </ToolbarTooltip>
-        ) : (
-          <Fragment key={action.id}>{button}</Fragment>
         )
       })}
     </>
