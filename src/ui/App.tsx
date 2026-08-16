@@ -122,6 +122,11 @@ export function App({ bootstrap, host }: AppProps) {
     setRotation,
     displayLock,
     toggleDisplayLock,
+    hostTargets,
+    selectedTargetId,
+    selectedTargetLabel,
+    selectDisplayTarget,
+    activeTargetId,
     hostActions,
     setElements,
     mockContext,
@@ -253,16 +258,16 @@ export function App({ bootstrap, host }: AppProps) {
     host.onSaveRequest?.(serializeYamlPayload(elements))
   }, [elements, host])
 
-  // Host-registered action clicked (issue #108): the designer reports the id
-  // and the current payload, nothing else — meaning, auth and the actual call
-  // are host-side (ADR-018). The context object is the extension point the
-  // targets seam (#106) fills with `targetId`; there is no picker yet, so it
-  // is empty rather than absent, and hosts can destructure it today.
+  // Host-registered action clicked (issue #108): the designer reports the id,
+  // the current payload and the opaque id of the display the design is pinned
+  // to (issue #106) — nothing else; meaning, auth and the actual call are
+  // host-side (ADR-018). `targetId` is absent while no target is selected,
+  // which is the same thing `onTargetSelected(null)` last reported.
   const handleHostAction = useCallback(
     (id: string) => {
-      host.onAction?.(id, readCurrentPayload(), {})
+      host.onAction?.(id, readCurrentPayload(), { targetId: activeTargetId ?? undefined })
     },
-    [host, readCurrentPayload],
+    [activeTargetId, host, readCurrentPayload],
   )
 
   const handleShare = useCallback(async () => {
@@ -567,6 +572,10 @@ export function App({ bootstrap, host }: AppProps) {
           onRotationChange={setRotation}
           displayLock={displayLock}
           onToggleDisplayLock={toggleDisplayLock}
+          targets={hostTargets}
+          selectedTargetId={selectedTargetId}
+          selectedTargetLabel={selectedTargetLabel}
+          onSelectDisplayTarget={selectDisplayTarget}
           onSetMockState={setMockState}
           onAddMockEntity={addMockEntity}
           onRemoveMockEntity={removeMockEntity}

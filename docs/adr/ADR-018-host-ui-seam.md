@@ -8,6 +8,10 @@ collaboration with @jonasniesner. Extends [ADR-017](ADR-017-host-adapter-seam.md
 (host-adapter seam) and [ADR-010](ADR-010-ha-embed-mode.md) (embed mode).
 Revised 2026-08-16 with the 2.0 forward-only rulings (no live consumers exist;
 PR #100 was exploration — design for the best interface, not for migration).
+Amended 2026-08-16: the [display-config lock](../embedding.md#display-config-lock-issue-70)'s
+scope is dimensions and color mode/palette **only** — rotation is a user
+choice (portrait mounting of the same physical display) and stays editable
+while locked, on both display channels (`targets` and anonymous `capabilities`).
 
 ## Context
 
@@ -72,6 +76,76 @@ data contract — no new lifecycle, no new adapter shape:
   `lock` channel entirely: a single-display host passes a one-element
   `targets` array (auto-selected, locked); "virtual display" is a picker
   state, not an option flag.
+
+  *Shipped shape* (issue #106, `docs/embedding.md`):
+
+  - **The two display channels coexist through 1.x with a stated precedence.**
+    A bare `capabilities` push is an **anonymous target**: a real display that
+    carries no id, behaving exactly as it always has (adopt + lock, or seed
+    unlocked with `lock: false`), and the picker names it "Host display".
+    Pushing `targets` declares only what the user *can* pick — it never moves
+    the canvas by itself, and nothing is auto-selected in 1.x (auto-selection
+    belongs to the 2.0 subsumption, not to two consecutive behaviors). An
+    explicit pick selects a named target and wins over the anonymous display;
+    a later `capabilities` push wins back and clears the named selection.
+    **Last write wins; the channels never merge** — in particular, pushed
+    capabilities are never matched against a target's capabilities to infer
+    which display they are, since that would guess at the identity the seam
+    deliberately keeps opaque.
+  - **Lock state and selection are one control, not two.** Selecting a target
+    adopts its capabilities through the same mapping the `capabilities` channel
+    uses (one display pipeline) and locks the display config — the issue #70
+    lock UX unchanged. "Virtual display" *is* the lock's open state: picking it
+    and clicking the lock open are the same action, and the selection survives
+    it, so re-locking returns to the selected target. What the picker reads is
+    therefore always the display the design is pinned to right now.
+  - **One mapping, two bases** (maintainer ruling 2026-08-16). The channels
+    share `capabilitiesToCanvas` but resolve it against different bases, and
+    that difference is the whole of what "anonymous display" versus "named
+    display" means:
+
+    | channel | base | rationale |
+    |---------|------|-----------|
+    | `capabilities` push | the **current canvas** (`capabilitiesToCanvas`) | a partial push re-asserts *some* facts about the display already in effect — `{ rotation_degrees: 90 }` turns it |
+    | `targets` pick | the **designer defaults** (`targetCapabilitiesToCanvas`) | picking names a *different* display; the same target must yield the same canvas whatever preceded it, and inheriting the previous display's rotation or measured `color_map` corrupts ADR-007 parity |
+
+    The preview dither mode is designer-only and survives both, as it survives
+    the lock.
+  - **A re-push of the selected target's capabilities re-applies.** The host
+    re-defining the display the design is pinned to is the same event a
+    `setCapabilities()` push carries, so it lands the same way: canvas follows
+    (canonical base) and stays locked; unlocked, the values are stored and
+    re-locking applies them. A relabel alone moves nothing.
+  - **Lock scope excludes rotation** (amendment, maintainer ruling
+    2026-08-16). The lock covers dimensions and color mode/palette only —
+    rotation is a user choice (portrait mounting), stays editable while
+    locked on both channels, and changing it never unlocks or clears a
+    selection. The re-apply and re-lock rules above therefore both carve
+    rotation out: a re-push preserves a rotation the user changed since
+    picking the target and only adopts the target's freshly-declared rotation
+    when the user left it untouched since that pick; re-locking restores the
+    locked dimensions/palette but leaves rotation exactly as it currently is,
+    since it was never lock-owned. The anonymous `capabilities` channel keeps
+    its existing, simpler rule unchanged (a pushed `rotation_degrees` always
+    wins) — it has no "pick" to baseline against, and it dies at 2.0 (issue
+    #121).
+  - **`onTargetSelected(id | null)` is optional and fires on change only.** A
+    host that merely needs the id when something happens reads `onAction`'s
+    `context.targetId` (same value; `undefined` where the callback reports
+    `null`). A host that *reacts* to the selection needs the notification —
+    the reference case is re-pushing `actions` with a
+    `disabledReason: 'No display selected'`, which the actions seam already
+    documents as its live-state field. The two channels agree by rule: an
+    unlocked (virtual) display reports no target on both.
+  - **Keep-and-mark-stale is derived, not stored.** "Unavailable" is the
+    selection no longer appearing in the pushed list, so pushing the display
+    back heals the state by construction and no push can strand a stale flag.
+    The removal changes nothing else on the designer side — canvas, lock and
+    remembered selection all stay — but the *reported* target follows the
+    host's own list: an id the host no longer offers is never handed back to
+    it, so `onTargetSelected(null)` fires at that transition and
+    `context.targetId` is `undefined` until the display returns. The stale
+    label stays visible; it addresses the user, not the host.
 - **State catalog** — states gain an optional friendly-name field; a new
   referenced-states panel shows only the states the current payload actually
   references, with host display names, as a compact visual aid. The full

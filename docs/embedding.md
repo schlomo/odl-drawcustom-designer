@@ -58,7 +58,7 @@ npm run build:site && npm run preview
 No dedicated server needed beyond that: the demo is plain static files, so any
 static file server works too (e.g. `python3 -m http.server -d dist-lib`).
 
-The demo page mounts the designer, pushes fake warm/cold states and a 296×128 BWR capabilities payload, registers two host actions (and re-pushes them to simulate a display going offline), switches themes, and shows every `onSaveRequest` payload and fired action in a `<pre>`. It doubles as the Playwright e2e fixture ([`tests/e2e/embed-mount.spec.ts`](../tests/e2e/embed-mount.spec.ts), [`tests/e2e/embed-actions.spec.ts`](../tests/e2e/embed-actions.spec.ts)).
+The demo page mounts the designer, pushes fake warm/cold states and a 296×128 BWR capabilities payload, offers three display targets (adding a fourth and removing the selected one on demand), registers three host actions (and re-pushes them to simulate a display going offline), switches themes, and shows every `onSaveRequest` payload, fired action and display selection in a `<pre>`. It doubles as the Playwright e2e fixture ([`tests/e2e/embed-mount.spec.ts`](../tests/e2e/embed-mount.spec.ts), [`tests/e2e/embed-actions.spec.ts`](../tests/e2e/embed-actions.spec.ts), [`tests/e2e/embed-targets.spec.ts`](../tests/e2e/embed-targets.spec.ts)).
 
 The same demo is published from `main` at **<https://schlomo.github.io/odl-drawcustom-designer/embed/>** — `npm run build:site` assembles the deployed site (app at `/`, `dist-lib/` copied to `/embed/` by [`tools/assembleSite.ts`](../tools/assembleSite.ts)); PR previews get their own `/embed/` the same way.
 
@@ -74,8 +74,12 @@ const handle = mount(document.getElementById('designer'), {
   lock: true,                   // optional, default true — see "Display config lock" below
   theme: 'dark',                // 'light' | 'dark', scoped to the container
   actions: [ /* see below */ ], // host buttons in the designer toolbar
+  targets: [ /* see below */ ], // displays offered in the designer's picker
   onAction(id, payload, context) {
     // user clicked one of your buttons — do the host-side thing
+  },
+  onTargetSelected(targetId) {
+    // user picked a display (or the virtual display: targetId === null)
   },
   onSaveRequest(payload) {
     // user hit Save — persist the YAML; the designer never writes it itself
@@ -87,6 +91,7 @@ handle.setCapabilities(capabilities)                  // re-map canvas size/rota
 handle.setCapabilities(capabilities, { lock: false })  // same, but leaves the controls unlocked
 handle.setPayload(yamlString)                         // replace the payload (throws on bad YAML)
 handle.setActions(actions)                            // replace the host action buttons
+handle.setTargets(targets)                            // replace the displays in the picker
 handle.getPayload()                                   // read the current payload YAML — see below
 handle.setTheme('light')                              // switch the container-scoped theme
 handle.destroy()                                      // unmount and empty the container
@@ -255,18 +260,165 @@ Mapping onto the canvas ([`src/embed/hostContract.ts`](../src/embed/hostContract
 - **Palette structure** — `color_scheme` (Basic Standard value) wins; else inferred from `color_map` keys / `available_colors` names; else `accent_color`.
 - **Palette hexes** — the measured hex values in `color_map` re-color the active palette: preview canvas, PNG export, halftone dither tiles and the layer-list color swatches all paint the adopted hexes (one palette source of truth). Recognized names: `black`, `white`, `red`, `yellow`, `blue`, `green`; invalid hexes and unknown names are ignored. Half tones (`half_red`, `gray`, …) are re-derived as the same blends of the measured primaries. The `accent` keyword resolves through the same map, so `accent_color` participates automatically. A push without `color_map` keeps the current palette; without any push the canonical palettes apply and standalone rendering is unchanged.
 
+**Base of the mapping — a `capabilities` push merges onto the current canvas.** It re-asserts *some* facts about the display already in effect: whatever the payload omits (a rotation it does not mention, a palette it does not measure) keeps the value the canvas has now. That is deliberate and unchanged — a host can push `{ rotation_degrees: 90 }` on its own and turn the display it already defined. Picking a **named target** resolves the other way, from the designer's canonical defaults; the two are set side by side under [`targets`](#targets--ontargetselected-issue-106).
+
 Known gaps: `palette_measured` itself is informational only (the hexes apply whether or not it is set). Fractional rotations are not representable. YAML export semantics are untouched — the payload always carries color *names*, never display hexes.
 
 #### Display config lock ([issue #70](https://github.com/schlomo/odl-drawcustom-designer/issues/70))
 
-When the mount received `capabilities` — at `mount()` or via `setCapabilities()` — the display config is **host-owned**: a lock icon appears next to the "Display config" heading, and the resolution, rotation and color mode controls follow its state.
+When the mount received `capabilities` — at `mount()` or via `setCapabilities()` — the display config is **host-owned**: a lock icon appears next to the "Display config" heading, and the resolution and color mode controls follow its state.
 
-- **Locked (default)** — the controls are disabled. Both `mount({ capabilities })` and `handle.setCapabilities(capabilities)` lock **by default** (`lock` defaults to `true`), so existing hosts that never pass `lock` see unchanged behavior.
-- **Unlock (`lock: false`, or clicking the lock)** — the "virtual display" escape hatch: the user may configure any resolution/rotation/color mode immediately, and the preview no longer matches the host's physical display. Pass `lock: false` to `mount()` or `setCapabilities(capabilities, { lock: false })` to *seed* a display this way — e.g. a host that wants to hand the user a starting point without pinning them to it. The pushed values still land on the canvas and the lock icon still appears (showing its unlocked state) so the user can lock onto them later.
-- **Re-lock** (click the lock, whether it was unlocked by the user or seeded via `lock: false`) — restores the last-pushed host display values (the designer-only preview dither setting survives).
-- **A new `setCapabilities()` push** re-asserts the host display and, by default, re-locks the controls; pass `{ lock: false }` to keep them unlocked instead.
-- **Load Demo while locked** loads the demo payload and simulator seed but **keeps** the host-defined resolution/rotation/palette. Accepted consequence: on small displays the demo layout may look bad. Unlocked (including the `lock: false` seed), Load Demo applies the showcase display config as in standalone.
+**Lock scope excludes rotation** (maintainer ruling 2026-08-16, amending the original issue #70 shape): the lock covers **dimensions and color mode/palette only**. Rotation is a user choice — how the same physical display is mounted (portrait vs. landscape) — so the rotation buttons stay **enabled whether or not the display config is locked**, changing rotation never unlocks the display or clears a target selection, and the base (unrotated) dimensions the lock stores are unaffected by it; only the rotated *presentation* (on-screen stage, PNG export) swaps, through the same `computeRotatedCanvasBounds` both already share.
+
+- **Locked (default)** — the resolution and color-mode controls are disabled; rotation stays enabled. Both `mount({ capabilities })` and `handle.setCapabilities(capabilities)` lock **by default** (`lock` defaults to `true`), so existing hosts that never pass `lock` see unchanged behavior for those two controls.
+- **Unlock (`lock: false`, or clicking the lock)** — the "virtual display" escape hatch: the user may configure any resolution/color mode immediately (rotation was already theirs), and the preview no longer matches the host's physical display's dimensions/palette. Pass `lock: false` to `mount()` or `setCapabilities(capabilities, { lock: false })` to *seed* a display this way — e.g. a host that wants to hand the user a starting point without pinning them to it. The pushed values still land on the canvas and the lock icon still appears (showing its unlocked state) so the user can lock onto them later.
+- **Re-lock** (click the lock, whether it was unlocked by the user or seeded via `lock: false`) — restores the last-pushed host dimensions/color mode/palette (the designer-only preview dither setting survives too). **Rotation is left exactly as it currently is** — it was never lock-owned, so re-locking never snaps it back to whatever the host declared.
+- **A new `setCapabilities()` push** re-asserts the host display and, by default, re-locks the controls; pass `{ lock: false }` to keep them unlocked instead. Rotation follows the anonymous-channel rule below.
+- **Load Demo while locked** loads the demo payload and simulator seed but **keeps** the host-defined resolution/palette (and the rotation currently in effect, whatever the user set it to). Accepted consequence: on small displays the demo layout may look bad. Unlocked (including the `lock: false` seed), Load Demo applies the showcase display config as in standalone.
 - **No `capabilities`** (standalone, or an embed that never pushes them): no lock icon, controls behave exactly as before.
+- **With [`targets`](#targets--ontargetselected-issue-106)** the same lock serves the display picker: selecting a display locks onto it, "Virtual display" is the unlocked state, and re-locking returns to the selected display's dimensions/palette. Nothing about the lock itself changes — and the rotation carve-out above applies identically, with its own re-apply rule spelled out below.
+
+### `targets` / `onTargetSelected` ([issue #106](https://github.com/schlomo/odl-drawcustom-designer/issues/106))
+
+The host pushes the **displays it knows about**; the designer renders a picker
+inside its own display-config area, right above the resolution control
+([ADR-018](adr/ADR-018-host-ui-seam.md) targets seam). No host-built display
+picker outside the mount — that was the drift ADR-018 exists to end.
+
+```js
+const targets = [
+  {
+    id: 'display.kitchen',              // opaque, host-defined; echoed back untouched
+    label: 'Kitchen tag (296×128 BWR)', // picker entry text
+    capabilities: { render_width: 296, render_height: 128, color_scheme: 0x01 },
+  },
+  { id: 'display.office', label: 'Office display', capabilities: { /* … */ } },
+]
+
+const handle = mount(el, {
+  capabilities: CURRENT_DISPLAY,   // optional: the display to start on (see precedence)
+  targets,
+  onTargetSelected(targetId) {
+    // targetId === null: the user switched to the virtual display
+    handle.setActions(actions(targetId))   // e.g. disable Send without a display
+  },
+  onAction(id, payload, { targetId }) {
+    if (id === 'send') void sendToDisplay(targetId, payload)
+  },
+})
+
+// Re-push whenever your display inventory changes — this is the normal way to work:
+handle.setTargets([...targets, discoveredDisplay])   // appears in the picker, no reload
+```
+
+- **`capabilities` is the same shape** as the [`capabilities`](#capabilities)
+  channel and maps onto the canvas through exactly the same code — one display
+  pipeline, not two. Field values are equally tolerant: a rotation that is not
+  a quarter turn or a zero size is ignored by the mapping rather than rejected
+  at the push.
+- **Selecting a target adopts its capabilities and locks** the display config,
+  reusing the [display config lock](#display-config-lock-issue-70) UX
+  unchanged: the lock icon appears, the resolution / rotation / color-mode
+  controls follow it, and re-locking restores the **selected target's** values.
+- **A pick resolves from the designer's canonical defaults, not from the canvas
+  in front of the user.** Picking a display *is* that display, so the same
+  target always produces the same canvas, whatever was picked before it. What a
+  target does not declare comes from the defaults (no rotation, canonical
+  palette) — never from the display previously in effect. The two display
+  channels therefore differ in exactly one way, deliberately:
+
+  | | base of the mapping | why |
+  |---|---|---|
+  | `capabilities` push (anonymous display) | **merges onto the current canvas** — omitted fields keep their current value | a partial push re-asserts *some* facts about the display already in effect (`{ rotation_degrees: 90 }` turns it) |
+  | `targets` pick (named display) | **canonical designer defaults** — omitted fields fall back to those | picking names a *different* display; inheriting the previous one's rotation or measured `color_map` would paint one panel's red on another's tag (ADR-007 parity) |
+
+  Everything else — the mapping itself, the lock UX, the tolerance for junk
+  values — is shared code. The designer-only preview dither mode survives both,
+  like it survives the lock.
+- **Re-pushing the selected target's capabilities re-applies them.** If a
+  `setTargets()` push carries *different* capabilities for the display the
+  design is currently pinned to, the host has re-defined that display — the same
+  re-assert principle a `setCapabilities()` push carries — so the canvas follows
+  it (canonical base, as above) and stays locked. Unlocked, the user owns the
+  canvas: the new values are stored, and re-locking applies them. A push that
+  only *relabels* the target moves nothing. **Rotation is the one field this
+  re-apply does not always follow** (lock scope, maintainer ruling
+  2026-08-16): if the user changed rotation since picking this target, that
+  rotation survives the re-apply; only a rotation left untouched since the
+  pick adopts what the target now declares. Picking the target (again, or for
+  the first time) always resets this — the freshly-picked rotation is the new
+  baseline "since the pick" measures from.
+- **"Virtual display" is the picker's name for unlocked.** Picking it is
+  identical to clicking the lock open: the controls become editable and the
+  design is no longer pinned to real hardware. The selection is *remembered*
+  while unlocked — re-locking (or picking the target again) returns to it — so
+  the picker reads "Virtual display" whenever the config is unlocked, and the
+  target again once it is not.
+- **Precedence between `capabilities` and `targets`** (the two display channels
+  coexist until 2.0, [issue #121](https://github.com/schlomo/odl-drawcustom-designer/issues/121)):
+  a bare `capabilities` push is an **anonymous target** — a real display that
+  carries no id — and behaves exactly as it always has: it adopts the values
+  and locks (or seeds unlocked with `lock: false`). The picker then shows
+  "Host display". Pushing `targets` only says what the user *can* pick; it
+  never moves the canvas by itself, and nothing is auto-selected (a
+  single-display host still seeds with `capabilities`; auto-selection arrives
+  when the targets seam subsumes that channel at 2.0). An explicit pick is the
+  only thing that selects a named target, and it wins over the anonymous
+  display; a later `capabilities` push wins back, clearing the named
+  selection. Last write wins — the channels never merge.
+- **Re-pushable, and diffed.** Push the *whole* list again whenever your
+  inventory changes; the designer compares it structurally and does nothing at
+  all when it is unchanged, so a host may re-push on a timer. Pushed targets
+  are copied and frozen on the way in (like [`actions`](#actions--onaction-issue-108),
+  unlike [`states`](#states)), so mutate-and-repush works.
+- **Removing the selected display keeps it** ("keep and mark stale"): the
+  designer holds that display's last-known capabilities and lock state, marks
+  the selection *unavailable* in the picker and says so in a visible hint. It
+  never silently switches to another display and never unlocks — a design in
+  progress does not silently start describing different hardware. Pushing the
+  display back clears the marker; the remaining displays stay one pick away.
+  The marker applies exactly while the missing display is the one in effect:
+  unlocking to the virtual display puts the design on nothing in particular, so
+  the picker just offers what you still have — until it is re-locked (which
+  returns to the missing display's last-known values).
+- **A stale selection reports no target id.** The designer never hands you back
+  an id that is absent from your own current list: the moment a push drops the
+  selected display, `onTargetSelected(null)` fires once and `onAction`'s
+  `context.targetId` is `undefined` — including after unlocking and re-locking
+  onto it. What stays on screen is the *label*, marked unavailable; that is for
+  the user, so they can see what the design is still shaped for. Pushing the
+  display back reports its id again.
+- **`onTargetSelected` is optional** and fires only on change: a target id, or
+  `null` for the virtual display (including when the user clicks the lock open,
+  and when the selected display leaves your list). It is the channel to react to
+  a selection — re-pushing `actions` with a
+  `disabledReason: 'No display selected'`, for instance. A host that only
+  needs the id when something happens can skip it and read
+  `onAction`'s `context.targetId`, which carries the same value (`undefined`
+  where this callback reports `null`). Like every other function on the mount
+  options it is fixed at mount — ADR-018 pushes data, never functions.
+- **Do not push bare `capabilities` in reaction to a selection.** Calling
+  `setCapabilities()` from inside `onTargetSelected` un-picks the selection the
+  user just made: that push is the *anonymous* display, and last write wins, so
+  the picker drops back to "Host display" (it does not loop — the designer
+  reports nothing for the anonymous display — but the pick is gone). A
+  targets-using host reacts to a selection with `setActions()` /
+  `setTargets()` / its own service calls, and leaves the display channel to the
+  user's pick.
+- **Malformed lists throw** at the push that carries them (missing or
+  duplicate `id`, missing `label`, missing `capabilities`) and leave the
+  designer untouched; a bad list passed to `mount()` throws before the
+  container is touched. `id` and `label` are trimmed, so incidental padding
+  never reaches the picker or the id echoed back.
+- **No targets, no picker.** A designer that is pushed no targets renders
+  exactly the display-config area it did before, standalone included. Once a
+  display has been picked the picker stays — an emptied list leaves the "Virtual
+  display" entry standing, because that control is how the user leaves the
+  display they are on.
+
+The demo host page pushes three displays, adds a fourth on demand, and removes
+the selected one to demonstrate the stale state ([`demo/host.js`](../demo/host.js),
+guarded by [`tests/e2e/embed-targets.spec.ts`](../tests/e2e/embed-targets.spec.ts)).
 
 ### `actions` / `onAction` ([issue #108](https://github.com/schlomo/odl-drawcustom-designer/issues/108))
 
@@ -294,9 +446,9 @@ const actions = (displayOnline) => [
 const handle = mount(el, {
   actions: actions(true),
   onAction(id, payload, context) {
-    // payload === handle.getPayload() at this instant; context.targetId is
-    // reserved for the targets seam (#106) and undefined today.
-    if (id === 'send') void sendToDisplay(payload)
+    // payload === handle.getPayload() at this instant; context.targetId is the
+    // selected display (see `targets` above), undefined when there is none.
+    if (id === 'send') void sendToDisplay(context.targetId, payload)
   },
 })
 
@@ -406,6 +558,7 @@ Everything that used to be an `embedded` conditional in the React shell is polic
 | `persistence` | IndexedDB writers | `null` — the parent owns the payload |
 | `onSaveRequest` | absent (persists continuously) | present → Save button |
 | `actions` / `onAction` | absent — no action chrome | host-registered buttons (issue #108) |
+| `targets` / `onTargetSelected` | absent — no display picker | host-pushed displays in the picker (issue #106) |
 | `loadBootstrap` | async: session + `#d=` hash | sync: `payload`/`states`/`capabilities` options |
 
 The interface is **internal on purpose** — it references internal types, so publishing it would freeze designer internals under semver ([`docs/releasing.md`](releasing.md)). The public embedded surface (`mount`, `MountOptions`, `MountHandle`, the host data contract) is unchanged by the convergence. The M4 HA panel ([issue #25](https://github.com/schlomo/odl-drawcustom-designer/issues/25)) becomes a third adapter, not a third mode.

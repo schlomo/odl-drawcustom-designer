@@ -25,6 +25,8 @@ export type {
   HostCapabilities,
   HostEntityState,
   HostStates,
+  HostTarget,
+  HostTargetSelectedHandler,
   MountHandle,
   MountOptions,
 } from './types'

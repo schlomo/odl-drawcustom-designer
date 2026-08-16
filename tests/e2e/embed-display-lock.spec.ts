@@ -21,7 +21,21 @@ test.describe('embedded with host capabilities', () => {
     await expect(page.getByRole('button', { name: 'Unlock display config' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Resolution' })).toBeDisabled()
     await expect(page.getByRole('combobox', { name: 'Color mode' })).toBeDisabled()
-    await expect(page.getByRole('button', { name: '90°' })).toBeDisabled()
+    // Lock scope is dimensions + color mode/palette only (maintainer ruling
+    // 2026-08-16): rotation is a user choice and stays editable while locked.
+    await expect(page.getByRole('button', { name: '90°' })).toBeEnabled()
+  })
+
+  test('rotating while locked keeps the lock and does not clear the selection', async ({
+    page,
+  }) => {
+    await page.getByRole('button', { name: '90°' }).click()
+
+    await expect(page.getByRole('button', { name: 'Unlock display config' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '90°' })).toHaveAttribute('class', /shell-accent/)
+    // Base dimensions are unaffected — the lock stores them, rotation only
+    // swaps the presentation.
+    await expect(page.getByRole('button', { name: 'Resolution' })).toContainText(/296\s*×\s*128/)
   })
 
   test('unlock allows a manual change; re-lock restores the host values', async ({ page }) => {

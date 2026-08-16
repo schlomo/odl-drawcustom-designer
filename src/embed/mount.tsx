@@ -7,6 +7,7 @@ import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import { createEmbeddedHost } from './embeddedHost'
 import { hostSuppliedTheme, type DesignerHost } from './host'
 import { assertActionsAreHandled, normalizeHostActions } from './hostActions'
+import { normalizeHostTargets } from './hostTargets'
 import type {
   CapabilitiesPushOptions,
   EmbedTheme,
@@ -283,6 +284,15 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
       const normalized = normalizeHostActions(actions)
       assertActionsAreHandled(normalized, host.onAction, 'setActions()')
       push((target) => target.applyActions(normalized))
+    },
+    setTargets(targets) {
+      assertMounted()
+      // Validated before queueing, same reason as `setActions()` above: a
+      // queued push cannot report its own failure to the host later. No
+      // handler requirement here — `onTargetSelected` is optional, and a
+      // selection still reaches the host through `onAction`'s context.
+      const normalized = normalizeHostTargets(targets)
+      push((pushTarget) => pushTarget.applyTargets(normalized))
     },
     setTheme(nextTheme) {
       assertMounted()

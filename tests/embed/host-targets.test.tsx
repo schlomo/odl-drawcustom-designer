@@ -1,0 +1,641 @@
+/** @vitest-environment jsdom */
+import { act } from 'react'
+import { fireEvent, within } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mount } from '../../src/embed'
+import type { HostTarget, MountHandle } from '../../src/embed'
+import { createStandaloneHost } from '../../src/embed/standaloneHost'
+
+/**
+ * Targets seam (issue #106, ADR-018): the host pushes the displays it knows
+ * about — `{ id, label, capabilities }`, the id opaque — and the designer
+ * renders a display picker inside its own display-config area, wired to the
+ * existing lock UX (issue #70). What an embedding host can observe:
+ *
+ *  - one picker entry per pushed target, plus the "Virtual display" (unlock)
+ *    entry, and no picker chrome at all when no targets are pushed;
+ *  - selecting a target adopts its capabilities and locks the display config;
+ *  - "Virtual display" unlocks; re-locking returns to the selected target;
+ *  - `onTargetSelected(id | null)` reporting the selection, and
+ *    `onAction(..., { targetId })` carrying the same id;
+ *  - hot updates (`setTargets`) adding displays without a reload;
+ *  - a push that removes the selected display keeping its last-known config
+ *    and marking the selection stale, never switching or unlocking;
+ *  - malformed pushes rejected loudly, leaving the designer untouched.
+ */
+
+declare global {
+  var IS_REACT_ACT_ENVIRONMENT: boolean | undefined
+}
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true
+
+class ResizeObserverMock {
+  observe() {}
+  disconnect() {}
+  unobserve() {}
+}
+
+function stubMatchMedia() {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  )
+}
+
+const PAYLOAD = ['- type: text', '  value: hello', '  x: 10', '  y: 10', ''].join('\n')
+
+const KITCHEN: HostTarget = {
+  id: 'display.kitchen',
+  label: 'Kitchen tag',
+  capabilities: { render_width: 296, render_height: 128, color_scheme: 0x01 },
+}
+const OFFICE: HostTarget = {
+  id: 'display.office',
+  label: 'Office display',
+  capabilities: { render_width: 400, render_height: 300, color_scheme: 0x00 },
+}
+const HALLWAY: HostTarget = {
+  id: 'display.hallway',
+  label: 'Hallway 7.5"',
+  capabilities: { render_width: 800, render_height: 480, color_scheme: 0x03 },
+}
+
+/** A rectangle whose `fill: red` paints the layer-row swatch — the palette probe. */
+const RED_RECTANGLE_PAYLOAD = [
+  '- type: rectangle',
+  '  x_start: 0',
+  '  y_start: 0',
+  '  x_end: 10',
+  '  y_end: 10',
+  '  fill: red',
+  '',
+].join('\n')
+
+/** A display whose panel was measured: its red is nothing like `#ff0000`. */
+const MEASURED_KITCHEN: HostTarget = {
+  id: 'display.kitchen',
+  label: 'Kitchen tag',
+  capabilities: {
+    render_width: 296,
+    render_height: 128,
+    color_map: { black: '#000000', white: '#ffffff', red: '#c81020' },
+  },
+}
+/** Same size class, no measured palette at all. */
+const UNMEASURED_HALLWAY: HostTarget = {
+  id: 'display.hallway',
+  label: 'Hallway 7.5"',
+  capabilities: { render_width: 800, render_height: 480, color_scheme: 0x01 },
+}
+/** Portrait by rotation, sized in physical pixels so the rotation is visible. */
+const ROTATED_OFFICE: HostTarget = {
+  id: 'display.office',
+  label: 'Office display',
+  capabilities: { pixel_width: 400, pixel_height: 300, rotation_degrees: 90, color_scheme: 0x00 },
+}
+/** Declares no rotation — the canonical default (0°) is what it must get. */
+const UPRIGHT_KITCHEN: HostTarget = {
+  id: 'display.kitchen',
+  label: 'Kitchen tag',
+  capabilities: { pixel_width: 296, pixel_height: 128, color_scheme: 0x01 },
+}
+
+let container: HTMLElement
+const handles: MountHandle[] = []
+
+function mountDesigner(options: Parameters<typeof mount>[1] = {}): MountHandle {
+  let handle!: MountHandle
+  act(() => {
+    handle = mount(container, options)
+  })
+  handles.push(handle)
+  return handle
+}
+
+/** The designer renders inside the container's shadow root (issue #21). */
+function designer() {
+  return within(container.shadowRoot as unknown as HTMLElement)
+}
+
+/** The display picker — the targets seam's only chrome. */
+function picker(): HTMLSelectElement {
+  return designer().getByLabelText('Display') as HTMLSelectElement
+}
+
+function optionLabels(): string[] {
+  return Array.from(picker().options, (option) => option.textContent ?? '')
+}
+
+function selectDisplay(label: string): void {
+  const option = Array.from(picker().options).find((entry) => entry.textContent === label)
+  if (!option) {
+    throw new Error(`no display option labelled ${JSON.stringify(label)} — have ${optionLabels().join(', ')}`)
+  }
+  fireEvent.change(picker(), { target: { value: option.value } })
+}
+
+function resolution(): HTMLElement {
+  return designer().getByLabelText('Resolution')
+}
+
+function colorMode(): HTMLElement {
+  return designer().getByLabelText('Color mode')
+}
+
+/**
+ * The colour the first layer row's swatch actually paints — the adopted
+ * palette, one step from the canvas (issue #68: swatches, preview and PNG
+ * export share one palette source of truth).
+ */
+function layerSwatchFill(): string | null {
+  const swatch = (container.shadowRoot as unknown as ParentNode).querySelector(
+    '[data-testid="element-list-row"] svg rect',
+  )
+  return swatch?.getAttribute('fill') ?? null
+}
+
+beforeEach(() => {
+  vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+  stubMatchMedia()
+  document.body.innerHTML = ''
+  container = document.createElement('div')
+  document.body.appendChild(container)
+  handles.length = 0
+  return () => {
+    for (const handle of handles.splice(0)) {
+      try {
+        act(() => handle.destroy())
+      } catch {
+        // already destroyed by the test
+      }
+    }
+  }
+})
+
+describe('host targets (issue #106)', () => {
+  it('renders no display picker when the host pushes no targets', () => {
+    mountDesigner({ payload: PAYLOAD, capabilities: { render_width: 296, render_height: 128 } })
+
+    expect(designer().queryByLabelText('Display')).toBeNull()
+    // The rest of the display-config area is untouched.
+    expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+  })
+
+  it('offers one entry per pushed target plus the virtual-display entry, selecting none', () => {
+    mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE] })
+
+    expect(optionLabels()).toEqual(['Kitchen tag', 'Office display', 'Virtual display'])
+    // Nothing is adopted until the user picks: no host display, no lock, and
+    // the display config controls stay enabled (1.x keeps `capabilities` as
+    // the way to seed a display).
+    expect(picker()).toHaveValue('')
+    expect(designer().queryByRole('button', { name: 'Unlock display config' })).toBeNull()
+    expect(resolution()).toBeEnabled()
+    expect(colorMode()).toBeEnabled()
+  })
+
+  it('selecting a target adopts its capabilities and locks the display config', () => {
+    mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE] })
+
+    selectDisplay('Office display')
+
+    expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
+    expect(colorMode()).toHaveValue('bw')
+    expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+    expect(resolution()).toBeDisabled()
+    expect(colorMode()).toBeDisabled()
+  })
+
+  it('applies a picked display from the designer defaults, not from the one picked before', () => {
+    // Canonical-base resolution (maintainer ruling 2026-08-16): the same
+    // display must produce the same canvas whatever the user picked before it.
+    // A merge onto the *current* canvas leaks the previous display's rotation
+    // into a display that never declared one — 128×296 instead of 296×128.
+    mountDesigner({ payload: PAYLOAD, targets: [ROTATED_OFFICE, UPRIGHT_KITCHEN] })
+
+    selectDisplay('Office display')
+    expect(resolution()).toHaveTextContent(/300\s*×\s*400/)
+
+    selectDisplay('Kitchen tag')
+
+    expect(resolution()).toHaveTextContent(/296\s*×\s*128/)
+  })
+
+  it('drops the previous display’s measured palette when the next declares none', () => {
+    // Same ruling, ADR-007 parity: a display with no `color_map` renders the
+    // canonical palette. Inheriting the last display's measured hexes paints
+    // one panel's red on another's — silently wrong on the tag.
+    mountDesigner({
+      payload: RED_RECTANGLE_PAYLOAD,
+      targets: [MEASURED_KITCHEN, UNMEASURED_HALLWAY],
+    })
+
+    selectDisplay('Kitchen tag')
+    expect(layerSwatchFill()?.toLowerCase()).toBe('#c81020')
+
+    selectDisplay('Hallway 7.5"')
+
+    expect(layerSwatchFill()).toBe('red')
+  })
+
+  it('re-applies the selected display when the host re-pushes it with new capabilities', () => {
+    // The host re-defined the display the design is pinned to — the same
+    // re-assert principle a `setCapabilities` push carries (maintainer ruling
+    // 2026-08-16). Stranding the canvas on the old size while the picker shows
+    // the new label describes hardware that no longer exists.
+    const handle = mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE] })
+    selectDisplay('Office display')
+    expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
+
+    act(() =>
+      handle.setTargets([
+        KITCHEN,
+        {
+          ...OFFICE,
+          label: 'Office display (resized)',
+          capabilities: { render_width: 800, render_height: 480, color_scheme: 0x01 },
+        },
+      ]),
+    )
+
+    expect(resolution()).toHaveTextContent(/800\s*×\s*480/)
+    expect(colorMode()).toHaveValue('bwr')
+    // Still locked onto it, still the selection.
+    expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+    expect(picker().selectedOptions[0]?.textContent).toBe('Office display (resized)')
+  })
+
+  it('stores an updated selected display while unlocked, and re-locking applies it', () => {
+    const handle = mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE] })
+    selectDisplay('Office display')
+    fireEvent.click(designer().getByRole('button', { name: 'Unlock display config' }))
+
+    act(() =>
+      handle.setTargets([
+        KITCHEN,
+        { ...OFFICE, capabilities: { render_width: 800, render_height: 480, color_scheme: 0x01 } },
+      ]),
+    )
+
+    // Unlocked means the user owns the canvas: the push does not move it.
+    expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
+
+    fireEvent.click(designer().getByRole('button', { name: 'Lock display config' }))
+
+    expect(resolution()).toHaveTextContent(/800\s*×\s*480/)
+    expect(colorMode()).toHaveValue('bwr')
+  })
+
+  it('reports no target while the selection is missing from the host’s list', () => {
+    // The designer never hands the host an id absent from the host's own list
+    // (maintainer ruling 2026-08-16). The stale *label* stays on screen for
+    // the user; the id reported to the host does not.
+    const onTargetSelected = vi.fn()
+    const onAction = vi.fn()
+    const handle = mountDesigner({
+      payload: PAYLOAD,
+      targets: [KITCHEN, OFFICE],
+      actions: [{ id: 'send', label: 'Send to display' }],
+      onTargetSelected,
+      onAction,
+    })
+    selectDisplay('Office display')
+    onTargetSelected.mockClear()
+
+    act(() => handle.setTargets([KITCHEN]))
+
+    expect(onTargetSelected.mock.calls).toEqual([[null]])
+    fireEvent.click(designer().getByRole('button', { name: 'Send to display' }))
+    expect(onAction.mock.calls[0]?.[2]).toEqual({ targetId: undefined })
+    // The user still sees which display the design is pinned to.
+    expect(picker().selectedOptions[0]?.textContent).toBe('Office display (unavailable)')
+
+    // Re-adding it heals the state: the id is reported again.
+    act(() => handle.setTargets([KITCHEN, OFFICE]))
+    expect(onTargetSelected.mock.calls).toEqual([[null], ['display.office']])
+  })
+
+  it('re-locking a stale selection keeps its display but still reports no target', () => {
+    const onTargetSelected = vi.fn()
+    const handle = mountDesigner({
+      payload: PAYLOAD,
+      targets: [KITCHEN, OFFICE],
+      onTargetSelected,
+    })
+    selectDisplay('Office display')
+    act(() => handle.setTargets([KITCHEN]))
+    onTargetSelected.mockClear()
+
+    fireEvent.click(designer().getByRole('button', { name: 'Unlock display config' }))
+    fireEvent.click(designer().getByRole('button', { name: 'Lock display config' }))
+
+    // Last-known capabilities come back (existing ruling)…
+    expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
+    expect(picker().selectedOptions[0]?.textContent).toBe('Office display (unavailable)')
+    // …but the host is never told an id it no longer offers.
+    expect(onTargetSelected).not.toHaveBeenCalled()
+  })
+
+  it('keeps the picker while the host’s list is empty and a selection is remembered', () => {
+    const handle = mountDesigner({ payload: PAYLOAD, targets: [OFFICE] })
+    selectDisplay('Office display')
+    fireEvent.click(designer().getByRole('button', { name: 'Unlock display config' }))
+
+    act(() => handle.setTargets([]))
+
+    // The control the user was last using must not vanish from under them:
+    // the virtual display is still a choice, and re-locking is still one click.
+    expect(designer().queryByLabelText('Display')).not.toBeNull()
+    expect(optionLabels()).toEqual(['Virtual display'])
+  })
+
+  it('reports the selection to the host, including the virtual display', () => {
+    const onTargetSelected = vi.fn()
+    mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE], onTargetSelected })
+
+    expect(onTargetSelected).not.toHaveBeenCalled()
+
+    selectDisplay('Kitchen tag')
+    expect(onTargetSelected.mock.calls).toEqual([['display.kitchen']])
+
+    selectDisplay('Virtual display')
+    expect(onTargetSelected.mock.calls).toEqual([['display.kitchen'], [null]])
+    expect(colorMode()).toBeEnabled()
+  })
+
+  it('unlocking is the virtual display; re-locking returns to the selected target', () => {
+    const onTargetSelected = vi.fn()
+    mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE], onTargetSelected })
+
+    selectDisplay('Office display')
+    fireEvent.click(designer().getByRole('button', { name: 'Unlock display config' }))
+
+    expect(picker()).toHaveValue('')
+    fireEvent.change(colorMode(), { target: { value: 'bwr' } })
+    expect(colorMode()).toHaveValue('bwr')
+
+    fireEvent.click(designer().getByRole('button', { name: 'Lock display config' }))
+
+    // The selection was remembered while unlocked: re-locking restores the
+    // selected target's values and shows it in the picker again.
+    expect(colorMode()).toHaveValue('bw')
+    expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
+    expect(picker().selectedOptions[0]?.textContent).toBe('Office display')
+    expect(onTargetSelected.mock.calls).toEqual([
+      ['display.office'],
+      [null],
+      ['display.office'],
+    ])
+  })
+
+  it('lets a capabilities push from inside onTargetSelected un-pick, without looping', () => {
+    // The documented channel-mixing footgun (docs/embedding.md): a host that
+    // answers a selection with a bare `capabilities` push overwrites the pick
+    // with the anonymous display — last write wins, as designed. What must not
+    // happen is a feedback loop between the callback and the push.
+    const onTargetSelected = vi.fn()
+    // Assigned before the callback can run: nothing is selected at mount, so
+    // `onTargetSelected` fires no earlier than the pick below.
+    const handle: MountHandle = mountDesigner({
+      payload: PAYLOAD,
+      targets: [KITCHEN, OFFICE],
+      onTargetSelected: (targetId) => {
+        onTargetSelected(targetId)
+        handle.setCapabilities({ render_width: 296, render_height: 128 })
+      },
+    })
+
+    selectDisplay('Office display')
+
+    expect(onTargetSelected.mock.calls).toEqual([['display.office'], [null]])
+    expect(picker().selectedOptions[0]?.textContent).toBe('Host display')
+  })
+
+  it('carries the selected target id into onAction', () => {
+    const onAction = vi.fn()
+    mountDesigner({
+      payload: PAYLOAD,
+      targets: [KITCHEN, OFFICE],
+      actions: [{ id: 'send', label: 'Send to display' }],
+      onAction,
+    })
+
+    fireEvent.click(designer().getByRole('button', { name: 'Send to display' }))
+    expect(onAction.mock.calls[0]?.[2]).toEqual({ targetId: undefined })
+
+    selectDisplay('Kitchen tag')
+    fireEvent.click(designer().getByRole('button', { name: 'Send to display' }))
+    expect(onAction.mock.calls[1]?.[2]).toEqual({ targetId: 'display.kitchen' })
+
+    // A virtual display is not a target: the host is told there is none,
+    // exactly as `onTargetSelected(null)` reported.
+    selectDisplay('Virtual display')
+    fireEvent.click(designer().getByRole('button', { name: 'Send to display' }))
+    expect(onAction.mock.calls[2]?.[2]).toEqual({ targetId: undefined })
+  })
+
+  it('adds a display pushed after mount without a reload, keeping the selection', () => {
+    const handle = mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE] })
+    selectDisplay('Office display')
+
+    act(() => handle.setTargets([KITCHEN, OFFICE, HALLWAY]))
+
+    expect(optionLabels()).toEqual([
+      'Kitchen tag',
+      'Office display',
+      'Hallway 7.5"',
+      'Virtual display',
+    ])
+    expect(picker().selectedOptions[0]?.textContent).toBe('Office display')
+    expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
+  })
+
+  it('keeps the last-known config and marks the selection stale when it disappears', () => {
+    const onTargetSelected = vi.fn()
+    const handle = mountDesigner({
+      payload: PAYLOAD,
+      targets: [KITCHEN, OFFICE],
+      onTargetSelected,
+    })
+    selectDisplay('Office display')
+    onTargetSelected.mockClear()
+
+    act(() => handle.setTargets([KITCHEN]))
+
+    // Kept: the canvas, the lock, and the selection itself.
+    expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
+    expect(colorMode()).toHaveValue('bw')
+    expect(colorMode()).toBeDisabled()
+    expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+    // Marked stale, visibly, and the remaining displays stay pickable.
+    expect(picker().selectedOptions[0]?.textContent).toBe('Office display (unavailable)')
+    expect(optionLabels()).toEqual([
+      'Office display (unavailable)',
+      'Kitchen tag',
+      'Virtual display',
+    ])
+    expect(
+      designer().getByRole('status', { name: 'Display no longer available' }),
+    ).toBeInTheDocument()
+    // Never silently switched or unlocked. The host is told the id is no
+    // longer in effect — it just dropped that display from its own list — but
+    // exactly once, and the user keeps seeing which display this is.
+    expect(onTargetSelected.mock.calls).toEqual([[null]])
+  })
+
+  it('clears the stale marker when the host pushes the display back', () => {
+    const handle = mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE] })
+    selectDisplay('Office display')
+
+    act(() => handle.setTargets([KITCHEN]))
+    expect(picker().selectedOptions[0]?.textContent).toBe('Office display (unavailable)')
+
+    act(() => handle.setTargets([KITCHEN, OFFICE]))
+
+    expect(picker().selectedOptions[0]?.textContent).toBe('Office display')
+    expect(designer().queryByRole('status', { name: 'Display no longer available' })).toBeNull()
+  })
+
+  it('marks the selection stale only while the design is pinned to it', () => {
+    const handle = mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE] })
+    selectDisplay('Office display')
+    act(() => handle.setTargets([KITCHEN]))
+
+    // Unlocking is the virtual display: the design is pinned to nothing, so
+    // there is no missing display to warn about — only what the host still has.
+    fireEvent.click(designer().getByRole('button', { name: 'Unlock display config' }))
+
+    expect(optionLabels()).toEqual(['Kitchen tag', 'Virtual display'])
+    expect(picker()).toHaveValue('')
+    expect(designer().queryByRole('status', { name: 'Display no longer available' })).toBeNull()
+
+    // Re-locking returns to the missing display, and says so again.
+    fireEvent.click(designer().getByRole('button', { name: 'Lock display config' }))
+    expect(picker().selectedOptions[0]?.textContent).toBe('Office display (unavailable)')
+    expect(
+      designer().getByRole('status', { name: 'Display no longer available' }),
+    ).toBeInTheDocument()
+  })
+
+  it('keeps the stale entry pickable-away after the whole list is cleared', () => {
+    const handle = mountDesigner({ payload: PAYLOAD, targets: [OFFICE] })
+    selectDisplay('Office display')
+
+    act(() => handle.setTargets([]))
+
+    expect(optionLabels()).toEqual(['Office display (unavailable)', 'Virtual display'])
+    expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
+  })
+
+  it('treats a bare capabilities push as an anonymous display, clearing the selection', () => {
+    // Precedence (ADR-018 amendment): `capabilities` is an unnamed display
+    // push — today's semantics untouched — so it wins over, rather than
+    // merges with, a named selection.
+    const handle = mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE] })
+    selectDisplay('Office display')
+
+    act(() => handle.setCapabilities({ render_width: 296, render_height: 128, color_scheme: 0x01 }))
+
+    expect(resolution()).toHaveTextContent(/296\s*×\s*128/)
+    expect(picker().selectedOptions[0]?.textContent).toBe('Host display')
+    expect(optionLabels()).toEqual([
+      'Host display',
+      'Kitchen tag',
+      'Office display',
+      'Virtual display',
+    ])
+  })
+
+  it('applies a targets push made before the designer has committed anything', () => {
+    // Pre-registration window: the push queues and drains during the commit,
+    // so the first frame a host can observe already carries it — and it wins
+    // over the mount option, which is itself defined as an initial push.
+    let handle!: MountHandle
+    act(() => {
+      handle = mount(container, { payload: PAYLOAD, targets: [KITCHEN] })
+      handle.setTargets([OFFICE, HALLWAY])
+    })
+    handles.push(handle)
+
+    expect(optionLabels()).toEqual(['Office display', 'Hallway 7.5"', 'Virtual display'])
+  })
+
+  it('offers no targets channel to the standalone app', () => {
+    const standalone = createStandaloneHost()
+    expect(standalone.targets).toBeUndefined()
+    expect(standalone.onTargetSelected).toBeUndefined()
+  })
+
+  it('rejects a malformed targets list loudly, at the push that carries it', () => {
+    const handle = mountDesigner({ payload: PAYLOAD, targets: [KITCHEN] })
+
+    expect(() => handle.setTargets([KITCHEN, { ...KITCHEN, label: 'Copy' }])).toThrow(/duplicate/i)
+    expect(() => handle.setTargets([{ ...KITCHEN, id: '  ' }])).toThrow(/id/i)
+    expect(() => handle.setTargets([{ ...KITCHEN, label: '' }])).toThrow(/label/i)
+    expect(() =>
+      handle.setTargets([{ id: 'a', label: 'A' } as unknown as HostTarget]),
+    ).toThrow(/capabilities/i)
+    expect(() =>
+      handle.setTargets({ length: 1 } as unknown as readonly HostTarget[]),
+    ).toThrow(/array/i)
+    // A sparse array: `map` skips its holes, so a hole that survives
+    // validation renders as an entry that selects nothing at all.
+    expect(() => handle.setTargets(new Array<HostTarget>(1))).toThrow(/entry 0/i)
+    // A non-iterable `available_colors` must fail with this module's own loud
+    // message, not a bare "is not iterable" from the copy.
+    expect(() =>
+      handle.setTargets([
+        {
+          ...KITCHEN,
+          capabilities: { available_colors: 'red' as unknown as string[] },
+        },
+      ]),
+    ).toThrow(/Invalid host targets: .*available_colors/i)
+
+    // The rejected pushes changed nothing.
+    expect(optionLabels()).toEqual(['Kitchen tag', 'Virtual display'])
+  })
+
+  it('rejects malformed mount targets before touching the container', () => {
+    expect(() => mount(container, { targets: [KITCHEN, { ...KITCHEN }] })).toThrow(/duplicate/i)
+
+    expect(container.shadowRoot).toBeNull()
+    expect(container.childElementCount).toBe(0)
+  })
+
+  it('rejects setTargets on a destroyed mount', () => {
+    const handle = mountDesigner({ payload: PAYLOAD, targets: [KITCHEN] })
+    act(() => handle.destroy())
+
+    expect(() => handle.setTargets([OFFICE])).toThrow(/after destroy/i)
+  })
+
+  it('trims host text and keeps the host from mutating a pushed target', () => {
+    const mutable: HostTarget = {
+      id: '  display.office  ',
+      label: '  Office display  ',
+      capabilities: { render_width: 400, render_height: 300, color_scheme: 0x00 },
+    }
+    const onTargetSelected = vi.fn()
+    mountDesigner({ payload: PAYLOAD, targets: [mutable], onTargetSelected })
+
+    // Mutating the object the host still holds must not reach the designer.
+    mutable.label = 'Renamed behind the designer'
+    mutable.capabilities.render_width = 9999
+
+    expect(optionLabels()).toEqual(['Office display', 'Virtual display'])
+    selectDisplay('Office display')
+    expect(onTargetSelected.mock.calls).toEqual([['display.office']])
+    expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
+  })
+})

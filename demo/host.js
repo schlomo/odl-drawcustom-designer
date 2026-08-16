@@ -1,8 +1,8 @@
 // Fake host page for the embeddable designer (issue #20). Loads the library
 // build from the same directory (see vite.lib.config.ts publicDir wiring),
-// mounts the designer, pushes fake states/capabilities and receives Save
-// requests — the same integration surface a real host (e.g. the OpenDisplay
-// HA integration panel) uses. Serve with:
+// mounts the designer, pushes fake states/capabilities/targets and receives
+// Save requests — the same integration surface a real host (e.g. the
+// OpenDisplay HA integration panel) uses. Serve with:
 //   npm run build:lib && python3 -m http.server -d dist-lib
 //
 // Also pushes a self-mutating `sensor.demo_clock` state once per second
@@ -75,8 +75,59 @@ const CAPABILITIES_296X128_BWR = {
   palette_measured: true,
 }
 
+// Display targets (issue #106, ADR-018): the displays this fake host "knows
+// about". Ids are opaque to the designer — it echoes them back through
+// `onTargetSelected` and `onAction`'s context and never interprets them. Each
+// carries the same capabilities payload shape the `capabilities` channel takes,
+// so picking one resizes and re-palettes the canvas through the same mapping.
+const CAPABILITIES_400X300_BW = {
+  render_width: 400,
+  render_height: 300,
+  color_scheme: 0x00,
+  available_colors: ['black', 'white'],
+}
+
+const CAPABILITIES_800X480_BWRY = {
+  render_width: 800,
+  render_height: 480,
+  color_scheme: 0x03,
+  available_colors: ['black', 'white', 'red', 'yellow'],
+}
+
+const CAPABILITIES_800X480_BWRY_PORTRAIT = {
+  render_width: 480,
+  render_height: 800,
+  rotation_degrees: 90,
+  color_scheme: 0x03,
+  available_colors: ['black', 'white', 'red', 'yellow'],
+}
+
+const CAPABILITIES_152X152_BW = {
+  pixel_width: 152,
+  pixel_height: 152,
+  color_scheme: 0x00,
+}
+
+const INITIAL_TARGETS = [
+  {
+    id: 'display.kitchen',
+    label: 'Kitchen tag (296×128 BWR)',
+    capabilities: CAPABILITIES_296X128_BWR,
+  },
+  { id: 'display.office', label: 'Office display (400×300 BW)', capabilities: CAPABILITIES_400X300_BW },
+  { id: 'display.hallway', label: 'Hallway 7.5" (800×480 BWRY, portrait)', capabilities: CAPABILITIES_800X480_BWRY_PORTRAIT },
+]
+
+// The display this host "discovers" later — the hot-update demo.
+const LATE_TARGET = {
+  id: 'display.garage',
+  label: 'Garage tag (152×152 BW)',
+  capabilities: CAPABILITIES_152X152_BW,
+}
+
 const savedPayload = document.getElementById('saved-payload')
 const actionLog = document.getElementById('action-log')
+const targetLog = document.getElementById('target-log')
 
 // Host-registered actions (issue #108, ADR-018): the host owns what each
 // button means — this page fakes a display transmission and a payload check.
@@ -128,17 +179,35 @@ function demoPushStates(states) {
 }
 window.demoPushStates = demoPushStates
 
+// The host's own view of the display inventory and of what the user picked in
+// the designer's picker — kept in sync through `onTargetSelected` below, which
+// is the only way this page learns about a selection before an action fires.
+let targets = INITIAL_TARGETS
+let selectedTargetId = null
+
 const handle = mount(document.getElementById('designer'), {
   payload: PAYLOAD,
   states: { ...WARM_STATES, ...currentClockState() },
   capabilities: CAPABILITIES_296X128_BWR,
   theme: 'light',
+  targets: INITIAL_TARGETS,
+  onTargetSelected(targetId) {
+    // `null` = the user switched to the virtual display (or unlocked the
+    // display config), so the design is no longer pinned to real hardware.
+    selectedTargetId = targetId
+    targetLog.textContent =
+      targetId === null
+        ? 'Virtual display — no target selected'
+        : `Selected display: ${targetId}`
+  },
   actions: buildActions(displayOnline),
-  onAction(id, payload) {
-    // The designer reports only which button fired plus the current payload;
-    // everything below is host-side meaning.
+  onAction(id, payload, context) {
+    // The designer reports only which button fired, the current payload and
+    // the opaque id of the display it is pinned to; everything below is
+    // host-side meaning.
     if (id === 'send') {
-      actionLog.textContent = `Sent ${payload.length} bytes to the display:\n${payload}`
+      const to = context.targetId ?? 'the virtual display (no target selected)'
+      actionLog.textContent = `Sent ${payload.length} bytes to ${to}:\n${payload}`
       return
     }
     if (id === 'validate') {
@@ -182,6 +251,29 @@ document.getElementById('toggle-connection').addEventListener('click', (event) =
   displayOnline = !displayOnline
   handle.setActions(buildActions(displayOnline))
   event.target.textContent = displayOnline ? 'Simulate display offline' : 'Simulate display online'
+})
+// Targets are hot-updateable (ADR-018): a display the host learns about later
+// appears in the picker without a reload.
+document.getElementById('add-display').addEventListener('click', () => {
+  if (targets.some((target) => target.id === LATE_TARGET.id)) {
+    targetLog.textContent = `${LATE_TARGET.label} is already in the list`
+    return
+  }
+  targets = [...targets, LATE_TARGET]
+  handle.setTargets(targets)
+  targetLog.textContent = `Added ${LATE_TARGET.label} — it is in the picker now`
+})
+// Keep-and-mark-stale: removing the *selected* display must not switch the
+// designer to another one or unlock it — it keeps the last-known display config
+// and marks the selection unavailable.
+document.getElementById('remove-selected-display').addEventListener('click', () => {
+  if (selectedTargetId === null) {
+    targetLog.textContent = 'Pick a display in the designer first'
+    return
+  }
+  targets = targets.filter((target) => target.id !== selectedTargetId)
+  handle.setTargets(targets)
+  targetLog.textContent = `Removed ${selectedTargetId} — the designer keeps its last-known display config`
 })
 document.getElementById('theme').addEventListener('change', (event) => {
   handle.setTheme(event.target.value)

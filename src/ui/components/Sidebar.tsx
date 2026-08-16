@@ -2,6 +2,7 @@ import { mdiLock, mdiLockOpen } from '@mdi/js'
 import { useMemo, useState } from 'react'
 import type { AssetKind, AssetUploadResult, DrawElement, TagColorMode } from '../../core'
 import type { HaMockContext } from '../../core'
+import type { HostTarget } from '../../embed/types'
 import {
   applyResolutionSelectValue,
   CUSTOM_RESOLUTION_VALUE,
@@ -15,6 +16,7 @@ import { getColorClampStatusMessage } from '../lib/color-clamp-status-messages'
 import { SIDEBAR_WIDTH_STORAGE_KEY } from '../preferences/keys'
 import { shell } from '../styles/shell'
 import { ContentManager } from './ContentManager'
+import { DisplayTargetSelect } from './DisplayTargetSelect'
 import { ElementList } from './ElementList'
 import { IconButton } from './IconButton'
 import type { PanelListScope } from './PanelScopeToggle'
@@ -43,6 +45,18 @@ interface SidebarProps {
    */
   displayLock?: 'locked' | 'unlocked' | null
   onToggleDisplayLock?: () => void
+  /**
+   * Host-pushed display targets (issue #106, ADR-018). Absent or empty
+   * (standalone, or an embed that pushes none) renders no picker at all —
+   * unless a selection is remembered, which the picker is how you leave.
+   */
+  targets?: readonly HostTarget[]
+  /** The remembered picker selection; kept while unlocked and while stale. */
+  selectedTargetId?: string | null
+  /** The selection's last-known label, for a target the host has removed. */
+  selectedTargetLabel?: string | null
+  /** Picker choice: a target id, or null for the virtual display. */
+  onSelectDisplayTarget?: (targetId: string | null) => void
   onSetMockState: (entityId: string, value: string) => void
   onAddMockEntity: (entityId: string, value: string) => void
   onRemoveMockEntity: (entityId: string) => void
@@ -101,6 +115,10 @@ export function Sidebar({
   onRotationChange,
   displayLock = null,
   onToggleDisplayLock,
+  targets,
+  selectedTargetId = null,
+  selectedTargetLabel = null,
+  onSelectDisplayTarget,
   onSetMockState,
   onAddMockEntity,
   onRemoveMockEntity,
@@ -186,6 +204,20 @@ export function Sidebar({
         ) : (
           <h2 className={shell.heading}>Display config</h2>
         )}
+        {/* Display picker (issue #106): conditional chrome — a designer with no
+            host targets renders exactly what it did before. A remembered
+            selection keeps the picker alive even once the host's list is empty,
+            locked or not: it is the control the user switches away with, and a
+            control must not vanish from under the person using it. */}
+        {(targets != null && targets.length > 0) || selectedTargetId != null ? (
+          <DisplayTargetSelect
+            targets={targets}
+            selectedTargetId={selectedTargetId}
+            selectedTargetLabel={selectedTargetLabel}
+            locked={displayLocked}
+            onSelect={(targetId) => onSelectDisplayTarget?.(targetId)}
+          />
+        ) : null}
         <label className={`mt-2 block text-xs ${shell.muted}`}>
           Resolution
           <ResolutionSelect
@@ -253,6 +285,10 @@ export function Sidebar({
         {canvas.colorMode === 'rgb' ? (
           <p className={`mt-1 text-[10px] ${shell.muted}`}>Preview only — tag export uses palette colors, not full RGB.</p>
         ) : null}
+        {/* Lock scope is dimensions + color mode/palette only (maintainer
+            ruling 2026-08-16): rotation is a user choice — portrait mounting
+            of the same physical display — so it stays editable while locked,
+            unlike every other control in this section. */}
         <div className="mt-2 flex gap-1">
           {ROTATION_OPTIONS.map((value) => (
             <button
@@ -263,7 +299,6 @@ export function Sidebar({
                   ? 'border-[var(--shell-accent)] bg-[var(--shell-accent)] text-white'
                   : shell.button
               }`}
-              disabled={displayLocked}
               onClick={() => onRotationChange(value)}
             >
               {value}°
