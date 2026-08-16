@@ -39,7 +39,8 @@
         margin: 1rem;
         border: 2px dashed #a8a29e;
       }
-      #saved-payload {
+      #saved-payload,
+      #action-log {
         margin: 1rem;
         padding: 0.75rem;
         background: #fafaf9;
@@ -66,6 +67,7 @@
       <button id="push-warm">Push warm states</button>
       <button id="push-cold">Push cold states</button>
       <button id="push-capabilities">Push 296×128 BWR display</button>
+      <button id="toggle-connection">Simulate display offline</button>
       <select id="theme" aria-label="Host theme">
         <option value="light">light</option>
         <option value="dark">dark</option>
@@ -73,6 +75,8 @@
       <button id="destroy">Destroy</button>
     </header>
     <div id="designer"></div>
+    <h2 style="margin: 1rem">Last host action</h2>
+    <pre id="action-log" data-testid="action-log">(no action fired yet)</pre>
     <h2 style="margin: 1rem">Last saved payload</h2>
     <pre id="saved-payload" data-testid="saved-payload">(nothing saved yet)</pre>
     <div class="host-filler">

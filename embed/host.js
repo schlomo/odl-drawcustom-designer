@@ -76,6 +76,30 @@ const CAPABILITIES_296X128_BWR = {
 }
 
 const savedPayload = document.getElementById('saved-payload')
+const actionLog = document.getElementById('action-log')
+
+// Host-registered actions (issue #108, ADR-018): the host owns what each
+// button means — this page fakes a display transmission and a payload check.
+// `severity: 'caution'` is the reference case: Send drives real hardware.
+// `icon` takes any Material Design Icon name — the same vocabulary a payload
+// icon element accepts, so `monitor-dashboard` needs no special casing.
+function buildActions(displayOnline) {
+  return [
+    {
+      id: 'send',
+      label: 'Send to display',
+      icon: 'send',
+      severity: 'caution',
+      disabledReason: displayOnline ? undefined : 'Display offline — reconnect to send',
+    },
+    { id: 'validate', label: 'Validate', icon: 'check' },
+    // Host-side UI that never reads the design: `needsPayload: false` keeps
+    // it clickable even while the YAML editor is blocked by a syntax error.
+    { id: 'settings', label: 'Display settings', icon: 'monitor-dashboard', needsPayload: false },
+  ]
+}
+
+let displayOnline = true
 
 // The temperature reading the ticker's next tick should keep pushing
 // alongside the clock — updated by the warm/cold buttons below so a push
@@ -109,6 +133,25 @@ const handle = mount(document.getElementById('designer'), {
   states: { ...WARM_STATES, ...currentClockState() },
   capabilities: CAPABILITIES_296X128_BWR,
   theme: 'light',
+  actions: buildActions(displayOnline),
+  onAction(id, payload) {
+    // The designer reports only which button fired plus the current payload;
+    // everything below is host-side meaning.
+    if (id === 'send') {
+      actionLog.textContent = `Sent ${payload.length} bytes to the display:\n${payload}`
+      return
+    }
+    if (id === 'validate') {
+      const elementCount = payload.split(/^- /m).length - 1
+      actionLog.textContent = `Validated ${elementCount} element(s).`
+      return
+    }
+    if (id === 'settings') {
+      actionLog.textContent = 'Opened the host-side display settings (no payload needed).'
+      return
+    }
+    actionLog.textContent = `Unhandled action: ${id}`
+  },
   onSaveRequest(payload) {
     savedPayload.textContent = payload
   },
@@ -131,6 +174,14 @@ document.getElementById('push-cold').addEventListener('click', () => {
 })
 document.getElementById('push-capabilities').addEventListener('click', () => {
   handle.setCapabilities(CAPABILITIES_296X128_BWR)
+})
+// Actions are re-pushable (ADR-018): the whole list goes back whenever host
+// state changes, and the designer diffs it — here a fake connection drop
+// disables Send with a reason, live.
+document.getElementById('toggle-connection').addEventListener('click', (event) => {
+  displayOnline = !displayOnline
+  handle.setActions(buildActions(displayOnline))
+  event.target.textContent = displayOnline ? 'Simulate display offline' : 'Simulate display online'
 })
 document.getElementById('theme').addEventListener('change', (event) => {
   handle.setTheme(event.target.value)
