@@ -193,6 +193,35 @@ function applySnap(
   )
 }
 
+/** Separator that cannot occur inside an asset key (filenames / `/local/` paths). */
+const ASSET_KEY_SEPARATOR = '\u0000'
+
+/**
+ * Collect asset keys from `elements` into a list whose IDENTITY only changes
+ * when the collected keys themselves change.
+ *
+ * The asset key lists below are recomputed from `elements`, so every element
+ * edit — every pointermove of a drag — produced a fresh array, and through
+ * `displayAssetImages` a fresh `assetImages` Map. That broke the
+ * `CanvasElementSlot` memo for EVERY element and re-ran the whole stack's
+ * canvas draw effects (opentype glyph draw plus the per-pixel palette
+ * quantize pass) once per move, defeating the `frozenElements` snapshot whose
+ * entire job is to hold the base layers still during a drag.
+ *
+ * The signal these consumers actually want is "the set of referenced assets
+ * changed", not "some element changed" — this restores that weaker signal.
+ */
+function useStableAssetKeys(
+  elements: DrawElement[],
+  collect: (elements: readonly DrawElement[]) => string[],
+): string[] {
+  const signature = useMemo(() => collect(elements).join(ASSET_KEY_SEPARATOR), [collect, elements])
+  return useMemo(
+    () => (signature === '' ? [] : signature.split(ASSET_KEY_SEPARATOR)),
+    [signature],
+  )
+}
+
 export function DesignerCanvas({
   elements,
   editElements,
@@ -356,7 +385,7 @@ export function DesignerCanvas({
     writeCanvasZoomMode(zoomMode)
   }, [zoomMode])
 
-  const fontAssetKeys = useMemo(() => collectFontKeysFromElements(elements), [elements])
+  const fontAssetKeys = useStableAssetKeys(elements, collectFontKeysFromElements)
 
   // resolveElementHitBounds re-invokes safeRenderElement, so its result
   // depends on the core opentype.js font registry AND the core image
@@ -396,10 +425,7 @@ export function DesignerCanvas({
     [editElements],
   )
 
-  const dlimgAssetKeys = useMemo(
-    () => collectDlimgAssetKeysFromElements(elements),
-    [elements],
-  )
+  const dlimgAssetKeys = useStableAssetKeys(elements, collectDlimgAssetKeysFromElements)
 
   const fontsLoading = useMemo(() => {
     if (fontAssetKeys.length === 0) {
