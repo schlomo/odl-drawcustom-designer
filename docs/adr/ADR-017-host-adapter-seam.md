@@ -110,6 +110,17 @@ shell (`useProjectState`); the adapter supplies only the writers.
   `setPayload()` on the standalone handle behave exactly like embed pushes
   (a standalone capabilities push locks the display config, unlockable as
   usual). One push path, no per-adapter carve-out.
+- **The push target registers in a layout effect, not a passive one**
+  ([issue #115](https://github.com/schlomo/odl-drawcustom-designer/issues/115)).
+  It is the shell's imperative handle to the host and, like
+  `useImperativeHandle`, has to exist the moment the DOM does. Passive
+  registration left a macrotask-wide window — far wider under CPU contention —
+  between the commit and the queue drain, in which a push the host had already
+  made was neither applied nor visible: the host painted a frame of default,
+  unlocked display config, and anything sampling that frame saw the push as
+  lost. Registering at commit time drains the pre-registration queue
+  synchronously, so **the first frame a host can observe already reflects
+  everything it pushed** (pinned in `tests/embed/mount-lifecycle.test.tsx`).
 - Document-level theme stays **adapter** code (`applyStoredDocumentTheme` in
   [`src/embed/standalone.tsx`](../../src/embed/standalone.tsx), plus `useThemePreference`'s
   `applyToDocument`): the shared mount internals still never touch

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   applyPlotPropertyUpdate,
   BUNDLED_SHOWCASE_IMAGE_KEY,
@@ -358,7 +358,18 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
   // owns the pre-registration queue, so adapters never implement this). Each
   // applier runs from a MountHandle setter call — an external host event,
   // which is exactly where React wants external-state-driven setState to live.
-  useEffect(() => {
+  //
+  // A *layout* effect, deliberately (issue #115): this is the shell's
+  // imperative handle to the host, and like `useImperativeHandle` it has to
+  // exist the moment the DOM does. Registering it passively left a window
+  // between the commit and React's passive-effect flush — a whole macrotask
+  // wide, and much wider under CPU contention — in which a host push already
+  // sitting in the mount's pre-registration queue was neither applied nor
+  // visible. The host then paints a frame of default, unlocked display config
+  // before the pushed capabilities land. Registering at commit time drains the
+  // queue synchronously, so the first frame the host can observe already
+  // reflects everything it pushed.
+  useLayoutEffect(() => {
     if (!host.registerPushTarget) {
       return
     }

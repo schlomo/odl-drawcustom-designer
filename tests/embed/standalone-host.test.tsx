@@ -253,12 +253,9 @@ describe('standalone host adapter', () => {
         color_scheme: 0x01,
       }),
     )
-    // The push queues until the mount's registerPushTarget effect flushes
-    // (a passive effect, scheduled asynchronously); poll for it rather than
-    // asserting in the same tick as the push.
-    await waitFor(() => {
-      expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
-    })
+    // Once the designer's DOM exists its push target is registered (a layout
+    // effect, issue #115), so the push lands in this tick — no polling.
+    expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
 
     // …and a later failing `#d=` navigation keeps what the user is working in
     // instead of remounting a fresh default app over it.
@@ -307,13 +304,11 @@ describe('standalone host adapter', () => {
       }),
     )
 
-    // The push queues until the mount's registerPushTarget effect flushes
-    // (a passive effect, scheduled asynchronously); poll for it rather than
-    // asserting in the same tick as the push — this was the source of a
-    // flaky failure here under CI's slower/less predictable scheduling.
-    await waitFor(() => {
-      expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
-    })
+    // No polling: the shell registers its push target in a layout effect, so
+    // by the time the designer's DOM is observable the push applies in the
+    // same tick it is made. Polling here hid issue #115 — the push was applied
+    // a macrotask later, which under CI contention outran the wait.
+    expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
     expect(designer().getByLabelText('Resolution')).toBeDisabled()
     expect(designer().getByLabelText('Resolution')).toHaveTextContent(/296\s*×\s*128/)
 

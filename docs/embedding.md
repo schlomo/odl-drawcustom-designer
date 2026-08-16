@@ -59,6 +59,11 @@ handle.destroy()                                      // unmount and empty the c
   `mount()` leaves the container exactly as it was — nothing rendered, nothing
   to clean up — so retrying into the same container is safe.
 - Multiple mounts on one page are possible; each handle is independent — including per-instance light/dark themes.
+- Pushes are safe from the moment `mount()` returns: a push made before the
+  designer has rendered anything is queued and applied while it renders, so the
+  first frame you can observe already reflects it. A host that pushes
+  capabilities immediately after `mount()` never shows a frame of default,
+  unlocked display config first (issue #115).
 
 ### Version
 
