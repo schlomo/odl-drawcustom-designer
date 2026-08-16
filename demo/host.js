@@ -4,6 +4,13 @@
 // requests — the same integration surface a real host (e.g. the OpenDisplay
 // HA integration panel) uses. Serve with:
 //   npm run build:lib && python3 -m http.server -d dist-lib
+//
+// Also pushes a self-mutating `sensor.demo_clock` state once per second
+// (issue #119, ADR-018) — the living example of the `setStates()` push
+// channel, not just a one-time seed. The friendly_name row's template
+// concatenates it onto the existing element so the demo payload keeps its
+// element count (3) that other e2e specs assert against; see
+// tests/e2e/embed-host-live-ticker.spec.ts for the ticking proof.
 import { mount } from './odl-drawcustom-designer.js'
 
 const PAYLOAD = `- type: text
@@ -12,7 +19,7 @@ const PAYLOAD = `- type: text
   y: 10
   size: 24
 - type: text
-  value: "{{ state_attr('sensor.demo_temperature', 'friendly_name') }}"
+  value: "{{ state_attr('sensor.demo_temperature', 'friendly_name') }} · {{ states('sensor.demo_clock') }}"
   x: 10
   y: 44
   size: 16
@@ -39,6 +46,20 @@ const COLD_STATES = {
   },
 }
 
+// Ownership contract (docs/embedding.md#states — issue #110): a pushed
+// `states` object is an immutable snapshot, diffed by value against the
+// last-applied push. Mutate-and-repush is invisible to that diff, so this
+// constructs a fresh object every tick instead of mutating a cached one.
+function currentClockState() {
+  const time = new Date().toTimeString().slice(0, 8) // "HH:MM:SS"
+  return {
+    'sensor.demo_clock': {
+      state: time,
+      attributes: { friendly_name: 'Demo clock' },
+    },
+  }
+}
+
 // Measured panel palette (issue #68): the red hex is deliberately NOT the
 // canonical #ff0000 — the designer preview must visibly adopt it.
 const CAPABILITIES_296X128_BWR = {
@@ -56,9 +77,19 @@ const CAPABILITIES_296X128_BWR = {
 
 const savedPayload = document.getElementById('saved-payload')
 
+// The temperature reading the ticker's next tick should keep pushing
+// alongside the clock — updated by the warm/cold buttons below so a push
+// mid-tick never clobbers the other's latest value (setStates() replaces
+// the whole map, so every push must carry both).
+let temperatureStates = WARM_STATES
+
+function pushCombinedStates() {
+  handle.setStates({ ...temperatureStates, ...currentClockState() })
+}
+
 const handle = mount(document.getElementById('designer'), {
   payload: PAYLOAD,
-  states: WARM_STATES,
+  states: { ...WARM_STATES, ...currentClockState() },
   capabilities: CAPABILITIES_296X128_BWR,
   theme: 'light',
   onSaveRequest(payload) {
@@ -69,11 +100,19 @@ const handle = mount(document.getElementById('designer'), {
 // Expose for the Playwright e2e suite and for console experiments.
 window.designerHandle = handle
 
+// Ticker (issue #119): proves the live-update push channel end to end,
+// not just a one-time seed. Starts right after mount (the initial states
+// option above already covers the first frame); cleaned up on Destroy so a
+// destroyed handle never gets an interval calling setStates() on it.
+const tickerIntervalId = setInterval(pushCombinedStates, 1000)
+
 document.getElementById('push-warm').addEventListener('click', () => {
-  handle.setStates(WARM_STATES)
+  temperatureStates = WARM_STATES
+  pushCombinedStates()
 })
 document.getElementById('push-cold').addEventListener('click', () => {
-  handle.setStates(COLD_STATES)
+  temperatureStates = COLD_STATES
+  pushCombinedStates()
 })
 document.getElementById('push-capabilities').addEventListener('click', () => {
   handle.setCapabilities(CAPABILITIES_296X128_BWR)
@@ -82,5 +121,6 @@ document.getElementById('theme').addEventListener('change', (event) => {
   handle.setTheme(event.target.value)
 })
 document.getElementById('destroy').addEventListener('click', () => {
+  clearInterval(tickerIntervalId)
   handle.destroy()
 })
