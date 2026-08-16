@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { MdiIcon } from './MdiIcon'
 import { ToolbarTooltip } from './ToolbarTooltip'
-import { shell } from '../styles/shell'
+import { disabledButton, shell } from '../styles/shell'
 
 type IconButtonVariant = 'default' | 'destructive'
 
@@ -41,11 +41,9 @@ export function IconButton({
   const resolvedSurface =
     surfaceClass ??
     (variant === 'destructive' ? shell.buttonDestructiveIcon : shell.button)
-  const disabledClass =
-    'disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[var(--shell-surface-2)]'
   const baseClass = compact
-    ? `${resolvedSurface} ${disabledClass} flex h-7 w-7 shrink-0 items-center justify-center gap-1.5 p-0`.trim()
-    : `${resolvedSurface} ${disabledClass} inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-2 py-1`.trim()
+    ? `${resolvedSurface} ${disabledButton} flex h-7 w-7 shrink-0 items-center justify-center gap-1.5 p-0`.trim()
+    : `${resolvedSurface} ${disabledButton} inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-2 py-1`.trim()
 
   const button = (
     <button

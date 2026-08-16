@@ -69,7 +69,8 @@ import {
   mockStatesEqual,
 } from '../../embed/hostContract'
 import type { DesignerHost } from '../../embed/host'
-import type { HostStates } from '../../embed/types'
+import { hostActionsEqual, NO_HOST_ACTIONS } from '../../embed/hostActions'
+import type { HostAction, HostStates } from '../../embed/types'
 import { useTemplatePreviewClock } from './useTemplatePreviewClock'
 
 export type { AddElementResult } from '../lib/add-element-guards'
@@ -192,6 +193,13 @@ export function useProjectState(
   // controls start enabled until the user locks back onto them.
   const [displayLocked, setDisplayLocked] = useState(
     bootstrap.hostDisplay != null && (bootstrap.hostDisplayLocked ?? true),
+  )
+  // Host-registered action buttons (issue #108, ADR-018). Seeded from the
+  // adapter — the `actions` mount option is defined as an initial push, so it
+  // must be on the first painted frame — and replaced wholesale by later
+  // `setActions()` pushes.
+  const [hostActions, setHostActions] = useState<readonly HostAction[]>(
+    host.actions ?? NO_HOST_ACTIONS,
   )
   const [assetRevision, setAssetRevision] = useState(0)
   const [snapGrid, setSnapGrid] = useState<SnapGridPrefs>(() => readSnapGridPrefs())
@@ -444,6 +452,14 @@ export function useProjectState(
         setHostDisplay(next)
         displayLockedRef.current = lock
         setDisplayLocked(lock)
+      },
+      applyActions: (actions) => {
+        // Re-pushable by contract (ADR-018): hosts re-push the whole list to
+        // flip a `disabledReason` or relabel a button. Returning `current`
+        // for an unchanged list makes React bail out of the render entirely,
+        // and keeps the list identity stable for downstream memoization —
+        // same diff-before-setState shape as `applyStates` above.
+        setHostActions((current) => (hostActionsEqual(current, actions) ? current : actions))
       },
       applyPayload: (nextElements) => {
         // The parent replaced the payload wholesale — undo history from the
@@ -1267,6 +1283,8 @@ export function useProjectState(
         : ('unlocked' as const)
       : null,
     toggleDisplayLock,
+    /** Host-registered action buttons, newest push wins (issue #108). */
+    hostActions,
     mockContext,
     previewMockContext,
     setMockState,

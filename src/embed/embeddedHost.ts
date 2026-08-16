@@ -2,6 +2,7 @@ import { parseYamlPayload } from '../core'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import { DEFAULT_DISPLAY_CONFIG } from '../ui/preferences/displayConfig'
 import type { DesignerHost } from './host'
+import { assertActionsAreHandled, normalizeHostActions } from './hostActions'
 import { capabilitiesToCanvas, hostStatesToMockData } from './hostContract'
 import type { MountOptions } from './types'
 
@@ -34,6 +35,13 @@ function buildEmbedBootstrap(options: MountOptions): AppBootstrap {
  * payload and receives it through `onSaveRequest` (ADR-010).
  */
 export function createEmbeddedHost(options: MountOptions): DesignerHost {
+  // Validated eagerly, before `mount()` touches the container: a malformed
+  // action list must throw out of `mount()` itself (same contract as invalid
+  // `payload` YAML), not half-mount and then fail while rendering.
+  const actions = options.actions ? normalizeHostActions(options.actions) : undefined
+  if (actions) {
+    assertActionsAreHandled(actions, options.onAction, 'mount()')
+  }
   return {
     styleScope: 'shadow',
     theme: { owner: 'host', value: options.theme ?? 'light' },
@@ -41,6 +49,8 @@ export function createEmbeddedHost(options: MountOptions): DesignerHost {
     shareLink: false,
     persistence: null,
     onSaveRequest: options.onSaveRequest,
+    actions,
+    onAction: options.onAction,
     // Synchronous: invalid `payload` YAML must throw out of `mount()` itself.
     loadBootstrap: () => buildEmbedBootstrap(options),
   }

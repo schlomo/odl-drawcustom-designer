@@ -2,7 +2,14 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { TOOLBAR_TOOLTIP_SHOW_DELAY_MS } from '../lib/toolbar-tooltip'
 
 interface ToolbarTooltipProps {
-  label: string
+  /**
+   * Bubble text. Absent or empty renders the wrapper **without** a bubble, so
+   * a caller whose label comes and goes (a host action's `disabledReason`,
+   * issue #108) can render this component unconditionally: swapping the
+   * element type instead remounts the wrapped button and drops its keyboard
+   * focus mid-interaction.
+   */
+  label?: string
   children: ReactNode
   /**
    * Horizontal anchor for the bubble: `center` over the button, or `end` to
@@ -68,17 +75,19 @@ export function ToolbarTooltip({
           bubble keeps its layout box and inflates the scrollable overflow of
           ancestor scrollers (issue #83: permanent horizontal scrollbar on the
           property panel from the hidden template-toggle tooltips). */}
-      <span
-        role="tooltip"
-        aria-hidden={!visible}
-        className={`pointer-events-none absolute z-50 whitespace-nowrap rounded-md border border-[var(--shell-border)] bg-[var(--shell-text)] px-2 py-1 text-xs text-[var(--shell-surface)] shadow-md ${
-          placement === 'below' ? 'top-[calc(100%+6px)]' : 'bottom-[calc(100%+6px)]'
-        } ${align === 'end' ? 'right-0' : 'left-1/2 -translate-x-1/2'} ${
-          visible ? 'visible' : 'hidden'
-        }`}
-      >
-        {label}
-      </span>
+      {label ? (
+        <span
+          role="tooltip"
+          aria-hidden={!visible}
+          className={`pointer-events-none absolute z-50 whitespace-nowrap rounded-md border border-[var(--shell-border)] bg-[var(--shell-text)] px-2 py-1 text-xs text-[var(--shell-surface)] shadow-md ${
+            placement === 'below' ? 'top-[calc(100%+6px)]' : 'bottom-[calc(100%+6px)]'
+          } ${align === 'end' ? 'right-0' : 'left-1/2 -translate-x-1/2'} ${
+            visible ? 'visible' : 'hidden'
+          }`}
+        >
+          {label}
+        </span>
+      ) : null}
     </span>
   )
 }

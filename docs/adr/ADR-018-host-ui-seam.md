@@ -76,8 +76,8 @@ data contract — no new lifecycle, no new adapter shape:
   referenced-states panel shows only the states the current payload actually
   references, with host display names, as a compact visual aid. The full
   catalog remains reachable via YAML/template autocomplete, unchanged.
-- **Actions** — `actions: [{ id, label, icon?, severity?, disabledReason? }]`
-  + `onAction(id, payload, targetId)`. The designer renders the button list
+- **Actions** — `actions: [{ id, label, icon?, severity?, needsPayload?, disabledReason? }]`
+  + `onAction(id, payload, { targetId })`. The designer renders the button list
   in its own chrome; meaning, auth, and the actual service call are entirely
   host-side. `severity: 'normal' | 'caution' | 'danger'` maps to regular /
   orange / red button chrome (the HA Send-to-display is `caution` — it
@@ -89,6 +89,26 @@ data contract — no new lifecycle, no new adapter shape:
   the built-in Save button are removed — the actions seam is the only
   save/send channel. This is deliberately **not** a plugin API: a typed,
   closed list of buttons, never host-rendered UI inside the shadow root.
+  *Shipped shape* (issue #108, `docs/embedding.md`):
+
+  - The opaque ids travel in a **context object** — `onAction(id, payload,
+    { targetId })` — so the targets seam below is additive rather than a
+    signature change.
+  - `icon` is **any Material Design Icon name**, resolved exactly as the
+    payload's `icon` element resolves it (`mdi:` prefix optional). One icon
+    vocabulary, not two: the full MDI set is already bundled deliberately for
+    the payload's icon element (bundle-audited, issue #22), so hosts get
+    every name that element accepts at zero added size and with no icon
+    dependency of their own. An unknown name is rejected at the push, the
+    same behavior class as an unknown icon in the payload.
+  - `needsPayload` (default `true`) says whether an action reads the design.
+    A blocked YAML document disables only the actions that need the payload —
+    an action that does not (host-side settings, a reconnect) stays clickable
+    throughout.
+  - `onAction` is **required** alongside a non-empty `actions` list. It is
+    fixed at mount (functions are not pushed), so a mount without one could
+    never take an action; both `mount()` and `setActions()` reject rather
+    than render permanently inert buttons.
 - **Preview provider** — `renderPreview(payload, targetId) => Promise<image>`,
   optional; when present the designer offers a server-rendered dry-run as an
   overlay/compare view next to its own client preview. The HA adapter
@@ -103,7 +123,7 @@ Every seam above follows one shape, and any future addition must fit it:
 - **Data flows in as typed pushed values** (`targets`, `states`, host-side
   `renderPreview`) — same direction as `states`/`capabilities` today.
 - **Intent flows out as callbacks carrying payload plus opaque ids**
-  (`onAction(id, payload, targetId)`) — same direction as `onSaveRequest`
+  (`onAction(id, payload, { targetId })`) — same direction as `onSaveRequest`
   today.
 - **No bidirectional shared state.** The host never reads designer internals
   back out except through these typed values; the designer never reaches

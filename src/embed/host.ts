@@ -1,7 +1,7 @@
 import type { SessionWritePayload, StoredVariables } from '../storage'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import type { MockData } from '../ui/preferences/mockStates'
-import type { EmbedTheme, HostPushTarget } from './types'
+import type { EmbedTheme, HostAction, HostActionHandler, HostPushTarget } from './types'
 
 /**
  * Host-adapter seam (issue #72, ADR-017).
@@ -58,6 +58,19 @@ export interface DesignerHost {
    * one to save to (standalone persists continuously instead).
    */
   readonly onSaveRequest?: (payload: string) => void
+  /**
+   * Host action buttons the shell paints before the first push (issue #108,
+   * ADR-018): the adapter's rendering of the `actions` mount option, which
+   * the seam grammar defines as an initial push. Later pushes arrive through
+   * {@link HostPushTarget.applyActions} and replace this wholesale.
+   * Pre-validated by `normalizeHostActions`.
+   */
+  readonly actions?: readonly HostAction[]
+  /**
+   * Action channel: which button the user clicked, plus the current payload.
+   * Absent for a host that registers no actions (standalone never does).
+   */
+  readonly onAction?: HostActionHandler
   /**
    * Initial designer state. May be async so an adapter can read IndexedDB
    * and the `#d=` share hash; a synchronous return renders in the same tick

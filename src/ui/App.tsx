@@ -27,6 +27,7 @@ import { useThemePreference } from './hooks/useThemePreference'
 import { useYamlBlockedVisibility } from './hooks/useYamlBlockedVisibility'
 import { useYamlSelectionCoupling } from './hooks/useYamlSelectionCoupling'
 import { ExportIconButton } from './components/ExportIconButton'
+import { HostActionButtons } from './components/HostActionButtons'
 import { TextButton } from './components/TextButton'
 import { shell } from './styles/shell'
 import { hostSuppliedTheme, type DesignerHost } from '../embed/host'
@@ -121,6 +122,7 @@ export function App({ bootstrap, host }: AppProps) {
     setRotation,
     displayLock,
     toggleDisplayLock,
+    hostActions,
     setElements,
     mockContext,
     previewMockContext,
@@ -174,10 +176,15 @@ export function App({ bootstrap, host }: AppProps) {
     elementsRef.current = elements
   }, [elements])
 
-  // getPayload() flushes through `yamlFlushPendingRef` before serializing, so
-  // it forces the same debounce commit a real blur/Save click would trigger,
-  // instead of a second, independently-timed read.
-  //
+  // The one payload read the designer hands outward (issue #104, #108): the
+  // pending YAML-editor debounce is flushed first, so a read never lags text
+  // the user already typed, and both host channels — `getPayload()` and an
+  // action click — report the very same string from the very same serializer.
+  const readCurrentPayload = useCallback(() => {
+    yamlFlushPendingRef.current?.()
+    return serializeYamlPayload(getElementsSnapshot())
+  }, [getElementsSnapshot])
+
   // useLayoutEffect, not useEffect (issue #115/#116 commit-window fix): this
   // is the read-side mirror of `registerPushTarget` (useProjectState), which
   // is committed synchronously at layout time (PR #117). A passive effect
@@ -191,11 +198,8 @@ export function App({ bootstrap, host }: AppProps) {
     if (!host.registerPayloadSource) {
       return
     }
-    return host.registerPayloadSource(() => {
-      yamlFlushPendingRef.current?.()
-      return serializeYamlPayload(getElementsSnapshot())
-    })
-  }, [host, getElementsSnapshot])
+    return host.registerPayloadSource(readCurrentPayload)
+  }, [host, readCurrentPayload])
 
   useEffect(() => {
     if (bootstrap.importSource === 'hash') {
@@ -248,6 +252,18 @@ export function App({ bootstrap, host }: AppProps) {
   const handleSaveRequest = useCallback(() => {
     host.onSaveRequest?.(serializeYamlPayload(elements))
   }, [elements, host])
+
+  // Host-registered action clicked (issue #108): the designer reports the id
+  // and the current payload, nothing else — meaning, auth and the actual call
+  // are host-side (ADR-018). The context object is the extension point the
+  // targets seam (#106) fills with `targetId`; there is no picker yet, so it
+  // is empty rather than absent, and hosts can destructure it today.
+  const handleHostAction = useCallback(
+    (id: string) => {
+      host.onAction?.(id, readCurrentPayload(), {})
+    },
+    [host, readCurrentPayload],
+  )
 
   const handleShare = useCallback(async () => {
     const payload = buildSharePayload({
@@ -484,11 +500,25 @@ export function App({ bootstrap, host }: AppProps) {
               Load Demo
             </TextButton>
           </div>
+          {/* Save is the designer's own action button and the only one until
+              the host registers some; at 2.0 it becomes an ordinary action
+              instance rendered by HostActionButtons below (issue #121). */}
           {host.onSaveRequest ? (
             <div className={toolbarGroupRow} role="group" aria-label="Save">
               <TextButton onClick={handleSaveRequest} disabled={yamlBlocked}>
                 Save
               </TextButton>
+            </div>
+          ) : null}
+          {hostActions.length > 0 ? (
+            <div className={toolbarGroupRow} role="group" aria-label="Actions">
+              <HostActionButtons
+                actions={hostActions}
+                designerDisabledReason={
+                  yamlBlocked ? 'Fix the YAML errors before running this action' : null
+                }
+                onAction={handleHostAction}
+              />
             </div>
           ) : null}
           {/* Share links and the theme toggle are host policy: an embedding
