@@ -9,7 +9,11 @@ export {
 } from './scan'
 export { evaluateTemplate, TemplateEvaluationError } from './evaluate'
 export { coerceAttributeValue, attributeValueEquals } from './attribute-values'
-export { applyTemplateContextToPayload } from './preview'
+export {
+  applyTemplateContextToElement,
+  applyTemplateContextToPayload,
+  elementHasTemplates,
+} from './preview'
 export {
   resolvePreviewClockInterval,
   templateNeedsSecondPrecision,

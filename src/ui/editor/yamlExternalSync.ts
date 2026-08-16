@@ -1,14 +1,23 @@
 import type { SelectionSource } from '../hooks/useProjectState'
 
-/** Whether canvas/property edits should defer pushing serialized YAML into the editor. */
+/**
+ * Whether canvas/property edits should defer pushing serialized YAML into the
+ * editor.
+ *
+ * A canvas drag defers for the whole gesture, whatever the YAML coupling mode
+ * (issue #124): each pointermove commits a new `elements` array, and echoing
+ * it into the editor means re-serializing the payload and replacing the whole
+ * CodeMirror document — a full lezer re-parse and re-highlight, ~500 DOM nodes
+ * churned — per move. Measured headed on the production build with the demo
+ * payload, that was ~7 ms of ~24 ms per move (unlinking the editor dropped the
+ * drag to the ~17 ms single-rectangle floor). The gesture's end re-runs the
+ * sync effect and lands the final geometry in one write.
+ */
 export function shouldDeferYamlExternalSync(options: {
   propertyEditing: boolean
   canvasDragging: boolean
-  couplingEnabled: boolean
 }): boolean {
-  return (
-    options.propertyEditing || (!options.couplingEnabled && options.canvasDragging)
-  )
+  return options.propertyEditing || options.canvasDragging
 }
 
 /**

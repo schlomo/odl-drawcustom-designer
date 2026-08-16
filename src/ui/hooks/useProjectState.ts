@@ -8,7 +8,12 @@ import {
   type ServiceOptions,
 } from '../../core'
 import type { AssetKind, AssetUploadResult, RenderContext, TagColorMode } from '../../core'
-import { applyTemplateContextToPayload, resolvePreviewClockInterval, scanPayloadForTemplates } from '../../core'
+import {
+  applyTemplateContextToElement,
+  elementHasTemplates,
+  resolvePreviewClockInterval,
+  scanPayloadForTemplates,
+} from '../../core'
 import {
   persistAsset,
   removePersistedAsset,
@@ -139,14 +144,14 @@ export type CanvasConfig = DisplayConfig
 type MockEntityAttributes = NonNullable<HaMockContext['attributes']>
 
 function buildEffectiveMockContext(
-  elements: DrawElement[],
+  templateEntityIds: readonly string[],
   mockStates: HaMockContext['states'],
   mockAttributes: MockEntityAttributes,
   variables: StoredVariables,
 ): HaMockContext {
   const states = { ...mockStates }
 
-  for (const entityId of scanPayloadForTemplates(elements).entityIds) {
+  for (const entityId of templateEntityIds) {
     if (!(entityId in states)) {
       states[entityId] = 'unknown'
     }
@@ -497,9 +502,25 @@ export function useProjectState(
 
   const previewNow = useTemplatePreviewClock(previewClockInterval)
 
+  // The entity ids the payload's templates reference, as a list whose IDENTITY
+  // only changes when the referenced set does (issue #124). `mockContext` seeds
+  // an `unknown` state for each of them, so keyed on `elements` it churned on
+  // every canvas pointermove — and through it `previewElements`, which reuses
+  // its previous evaluation only while the context is unchanged. Geometry
+  // edits cannot change which entities are referenced. Signature-string
+  // technique as in `useStableAssetKeys`.
+  const templateEntityIdSignature = useMemo(
+    () => JSON.stringify(scanPayloadForTemplates(elements).entityIds),
+    [elements],
+  )
+  const templateEntityIds = useMemo(
+    () => JSON.parse(templateEntityIdSignature) as string[],
+    [templateEntityIdSignature],
+  )
+
   const mockContext = useMemo(
-    () => buildEffectiveMockContext(elements, mockStates, mockAttributes, variables),
-    [elements, mockStates, mockAttributes, variables],
+    () => buildEffectiveMockContext(templateEntityIds, mockStates, mockAttributes, variables),
+    [templateEntityIds, mockStates, mockAttributes, variables],
   )
 
   const previewMockContext = useMemo(
@@ -526,9 +547,52 @@ export function useProjectState(
     ],
   )
 
+  // Only the templated elements cost anything to evaluate (issue #124): every
+  // canvas pointermove ran the whole payload through the evaluator — a
+  // nunjucks compile per templated field, a deep clone of every element — to
+  // move the geometry of one. The signature below is scoped to just the
+  // templated slots (a template-free element folds to `null` regardless of
+  // its content, the identity-stabilising technique of `useStableAssetKeys`),
+  // so moving a template-free element never touches it and this map stays
+  // cached across that move; `previewElements` below passes such elements
+  // straight through.
+  //
+  // This is ONE combined signature over ALL templated slots together, not a
+  // per-element cache: editing any templated element's own content changes
+  // the whole signature string, so the recompute below re-evaluates EVERY
+  // templated element, not just the one that changed. A drag of a templated
+  // element (e.g. an icon with a templated `size`) does not get the same
+  // per-move win a template-free drag does — an accepted, subset-bounded
+  // trade rather than per-slot caching. A context change — Simulator edit,
+  // host states push, preview clock tick — always re-evaluates every
+  // templated element regardless.
+  const templatedSlotsSignature = useMemo(
+    () =>
+      JSON.stringify(elements.map((element) => (elementHasTemplates(element) ? element : null))),
+    [elements],
+  )
+
+  const templatedPreviews = useMemo(() => {
+    const slots = JSON.parse(templatedSlotsSignature) as (DrawElement | null)[]
+    const previews = new Map<number, DrawElement>()
+    slots.forEach((element, index) => {
+      if (element != null) {
+        previews.set(index, applyTemplateContextToElement(element, previewMockContext))
+      }
+    })
+    return previews
+  }, [previewMockContext, templatedSlotsSignature])
+
+  // Slots without a precomputed preview are the template-free ones, for which
+  // evaluation is the element itself (normalized) — so this stays correct
+  // whatever the map holds, and the dragged geometry flows through untouched.
   const previewElements = useMemo(
-    () => applyTemplateContextToPayload(elements, previewMockContext),
-    [elements, previewMockContext],
+    () =>
+      elements.map(
+        (element, index) =>
+          templatedPreviews.get(index) ?? applyTemplateContextToElement(element, previewMockContext),
+      ),
+    [elements, previewMockContext, templatedPreviews],
   )
 
   const extraEntityIds = useMemo(() => Object.keys(mockContext.states).sort(), [mockContext.states])

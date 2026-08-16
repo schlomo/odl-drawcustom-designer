@@ -123,6 +123,21 @@ Contract:
 
 **Tests:** `tests/ui/components/yaml-panel-blocked-sync.test.tsx` (real `EditorView` mount: dep toggles never rewrite a broken doc; blocked-state bubbling; type-completion accept unblocks and syncs; typing through a transient invalid state keeps typed text; drag toggle during the debounce window keeps newer text), `tests/ui/hooks/use-yaml-blocked-visibility.test.ts` (grace-period timing, fake timers), `isYamlDocBlocked` cases in `tests/ui/editor/yaml-elements-sync.test.ts`, and the e2e flow `tests/e2e/yaml-blocked-state.spec.ts` (break YAML → overlays appear, canvas clicks inert, edit not reverted → fix YAML → editing resumes).
 
+### A canvas drag suspends the external sync (issue #124)
+
+**Failure mode (fixed 2026-08-16, issue #124):** every canvas pointermove commits a new `elements` array, and the external-sync effect echoed each one into the editor — re-serializing the whole payload and replacing the CodeMirror document, so lezer re-parsed and re-highlighted it and ~500 DOM nodes churned, per move. Measured headed on the production build with the demo payload (22 elements): ~24 ms per move against a ~17 ms single-rectangle floor, essentially all of the gap (unlinking the editor removed it).
+
+Contract:
+
+- `shouldDeferYamlExternalSync` defers for the **whole gesture** while `canvasDragging`, whatever the coupling mode. Serialization itself moved **into** the effect, so a suspended run serializes nothing.
+- The gesture's end re-runs the same effect (`canvasDragging` is a dependency) and performs **one** sync with the final geometry. No new sync entry point exists — the echo contract above (broken doc / pending debounce, both read via refs) still gates it.
+- **The suspension consumes the self-echo suppression** (`skipExternalSyncRef`). A canvas pointerdown blurs the editor, so a debounced draft's flush — which arms that flag — commits in the very batch that starts the drag. Left armed, it would swallow the drag-end sync and strand the editor on pre-drag geometry.
+- The drag-originated scroll decision (issue #37 above) reads a `dragSuspendedSyncRef` set while the suspension was in force, because by the time the single sync runs `canvasDragging` is already false. Practically, this means the issue #37 "scroll YAML to the element I just grabbed" affordance now lands once, at **pointerup** (gesture end), rather than continuously through the drag — the sync itself is suspended for the gesture's duration, so there is nothing to scroll to until it ends. The ref is cleared as soon as a deferred run can't land yet either (doc blocked or a parse still pending the debounce), so it can never outlive its own drag and mis-attribute a later, unrelated sync as canvas-originated.
+- A host payload push mid-drag stays authoritative in `elements` exactly as before; only its echo into the editor waits for the gesture to end, which lands whatever `elements` is at that moment.
+- Hit targets (`DesignerCanvas.tsx`'s `hitTargets`, derived from `baseElements`) and template preview evaluation (`useProjectState.ts`'s `templatedPreviews`/`previewElements`) are frozen for the same gesture, for the same reason — see the `preview.ts` and `useProjectState.ts` doc comments for the preview-evaluation contract. One accepted gap: a second pointer's hit-test during an active single-pointer drag tests against these pre-drag, frozen bounds rather than live geometry — touch-only (mice have one pointer), and accepted rather than built out.
+
+**Tests:** `tests/ui/components/yaml-panel-drag-sync.test.tsx` (real `EditorView`: doc untouched across ten moves, one final sync, mid-drag push, a drag starting right after a same-render YAML flush, a drag ending while the doc is blocked does not mis-attribute a later unrelated sync), `tests/ui/editor/yaml-external-sync.test.ts`.
+
 ### Selection stability when the element list changes (layer reorder)
 
 Layer buttons (Front / Back / ↑ / ↓), drag-reorder in the layer list, and YAML block moves all change **array index** without changing element identity. Linked mode must keep the **same element** selected for the property panel, canvas handles, and YAML cursor.
