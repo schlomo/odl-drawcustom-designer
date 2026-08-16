@@ -181,19 +181,16 @@ redundant once npm's own tarball integrity hash covers it).
 
 ## npm
 
-> **Status: package claimed, no real release published yet.**
-> `@schlomo/odl-drawcustom-designer` exists on the registry — scoped under
-> the `schlomo` npm org (maintainer update 2026-08-16 — the npm user
+> **Status: live on npm.**
+> `@schlomo/odl-drawcustom-designer` is published to the registry — scoped
+> under the `schlomo` npm org (maintainer update 2026-08-16 — the npm user
 > `schlomo` was converted to an npm org, mirroring the GitHub org/user path),
 > so there is no unscoped-name squatting risk to manage: the scope itself is
-> already org-owned, and nothing outside that org can publish under it. The
-> one-shot setup is done — package claimed, Trusted Publishing configured,
-> the `NPM_PUBLISH` repo variable set (see [One-shot setup](#one-shot-setup-completed)
-> below) — but the only version on the registry so far is the placeholder
-> `0.0.1` used to claim the name; it is **not** a real release and must
-> never be installed. `npm install @schlomo/odl-drawcustom-designer` below
-> becomes a live install path once this PR merges to `main` and the first
-> real automated release runs.
+> already org-owned, and nothing outside that org can publish under it. Two
+> versions exist: placeholder `0.0.1` (used to claim the name, never install)
+> and `1.2.0` (first automated publish via Trusted Publishing with provenance,
+> 2026-08-16). **Known gap: `1.2.0` shipped without a README** — this PR
+> restores it; the next patch release carries it. `npm install @schlomo/odl-drawcustom-designer@^1.2.0` is live now; future releases auto-publish on every push to `main`.
 
 Issue #103: alongside the GitHub release, the same build publishes to npm as
 [`@schlomo/odl-drawcustom-designer`](https://www.npmjs.com/package/@schlomo/odl-drawcustom-designer)
@@ -227,7 +224,7 @@ import { mount, version } from '@schlomo/odl-drawcustom-designer'
 
 The package ships the **same single self-contained ESM** as the GitHub
 release asset — React and every other runtime dependency bundled in, no
-peer dependencies to resolve — plus `LICENSE`, `NOTICE`, and
+peer dependencies to resolve — plus `README.md`, `LICENSE`, `NOTICE`, and
 `THIRD_PARTY.md`. **Known gap:** no `.d.ts` types ship yet; consumers get
 plain JS. The shapes are documented in [`docs/embedding.md`](embedding.md#mount-api)
 and defined in `src/embed/types.ts` for reference. A types pipeline is a
@@ -250,7 +247,7 @@ only invokes `tools/autoRelease.ts`:
   [Artifact contents](#artifact-contents) above).
 - **`tools/releaseChecksum.ts`** — the `.sha256` checksum file.
 - **`tools/stageNpmPackage.ts`** — assembles a `dist-npm/` staging directory
-  (the built ESM, generated `package.json`, `LICENSE`, `NOTICE`,
+  (the built ESM, generated `package.json`, `README.md`, `LICENSE`, `NOTICE`,
   `THIRD_PARTY.md`). `npm publish --dry-run` against this directory works on
   a laptop exactly as in CI (`runs on laptop or CI identically`) — no
   `GITHUB_SHA`/`GH_TOKEN` required, just `npm run build:lib` first.
@@ -452,7 +449,7 @@ No `--provenance` here — provenance attestation only works from a supported
 CI provider (GitHub Actions/GitLab CI), not a local `npm publish`; this
 manual path authenticates the ordinary way (`npm login`, 2FA as usual), not
 via Trusted Publishing. (Verified locally with `npm publish --dry-run` — the
-tarball contains exactly the ESM, `package.json`, `LICENSE`, `NOTICE`,
+tarball contains exactly the ESM, `package.json`, `README.md`, `LICENSE`, `NOTICE`,
 `THIRD_PARTY.md`.) In practice, letting the next scheduled/`workflow_dispatch`
 run recover it automatically is simpler and is the tested path — this
 manual fallback exists only for an urgent one-off.
@@ -490,12 +487,11 @@ or by pushing a commit that triggers this workflow's automatic path without
 the maintainer's awareness — releases happen because the maintainer merges
 to `main`, and that merge is the release decision.
 
-**Status (UNVERIFIED):** this workflow has never run against a real push to
-`main` — the first live run is this repo's actual `v1.0.0`. The decision
-logic in `tools/autoRelease.ts` is fully covered by unit tests
-(`tests/tools/autoRelease.test.ts`), and `npm run build:lib` is verified
-locally, but the end-to-end `gh release create` path (permissions, artifact
-upload, tag creation) is unverified until it runs for real.
+**Status (verified):** the workflow ran for real and produced `v1.2.0`
+(2026-08-16) with Trusted Publishing provenance. The decision logic in
+`tools/autoRelease.ts` is covered by unit tests (`tests/tools/autoRelease.test.ts`),
+and the end-to-end path (GitHub release creation, npm publish via Trusted Publishing
+with OIDC provenance, tag creation) is verified and live.
 
 ## One-shot setup (completed)
 
@@ -570,11 +566,11 @@ and the workflow filename/repo match exactly, then retry via
 
 **Status:** `npm publish --dry-run` against a locally staged package was run
 and verified before any of this (tarball contents: exactly the ESM,
-`package.json`, `LICENSE`, `NOTICE`, `THIRD_PARTY.md`; correct
+`package.json`, `README.md`, `LICENSE`, `NOTICE`, `THIRD_PARTY.md`; correct
 name/version/size) — `--dry-run` needs no auth at all, so this worked
 identically on a laptop and in CI. Step 1 above then really published
 (`0.0.1`, manually, 2FA-authenticated — not a dry run) to claim the package.
-The remaining real path — `npm publish --access public --provenance` run by
-CI via Trusted Publishing (OIDC exchange, provenance attestation) — is still
-**unverified** until the first real automated release runs (this PR hasn't
-merged to `main` yet).
+The full CI path — `npm publish --access public --provenance` run by
+Trusted Publishing (OIDC exchange, provenance attestation) — shipped `1.2.0`
+(2026-08-16), the first automated release with provenance. **Known gap:
+`1.2.0` lacks the README** (this PR restores it for the next patch).

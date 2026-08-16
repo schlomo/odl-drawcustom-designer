@@ -8,16 +8,15 @@ Consumed as a **versioned release** ([issue #23](https://github.com/schlomo/odl-
 
 **npm (primary):**
 
-> **Status: package claimed, no real release published yet.**
-> `@schlomo/odl-drawcustom-designer` — scoped under the `schlomo` npm org —
-> exists on the registry and the one-shot publishing setup (claim, Trusted
-> Publishing, `NPM_PUBLISH` variable) is done, but the only version on the
-> registry so far is a placeholder used to claim the name. The `npm install`
-> command below is not a live install path until the first real automated
-> release runs (see [`docs/releasing.md#npm`](releasing.md#npm)).
+> **Status: live on npm.**
+> `@schlomo/odl-drawcustom-designer` is published to the registry — scoped
+> under the `schlomo` npm org. Versions include placeholder `0.0.1` (never install)
+> and `1.2.0` (first automated release, 2026-08-16). **Known gap: `1.2.0` lacks
+> the README** — it's restored for the next patch. The `npm install` command
+> below is live now (see [`docs/releasing.md#npm`](releasing.md#npm)).
 
 ```bash
-npm install @schlomo/odl-drawcustom-designer@1.0.0
+npm install @schlomo/odl-drawcustom-designer@^1.2.0
 ```
 
 ```js
