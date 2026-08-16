@@ -78,6 +78,7 @@ Full contract: [`docs/embedding.md`](docs/embedding.md) (ADR-010, ADR-017).
 - Library build = single self-contained ESM, React bundled, no code splitting (deliberate — composition, wire sizes, and rejected alternatives documented in [`docs/bundle-audit.md`](docs/bundle-audit.md), issue #22); `dist-lib` must work from any dumb static file server.
 - Clipboard/capability features must capability-detect (`window.isSecureContext`, presence checks) and surface visible explanations — insecure-LAN Home Assistant boxes are the PRIMARY deployment, not an edge case (PRs #77/#81).
 - Hidden overlays/tooltips must use `display:none`, not `visibility:hidden`/`invisible` — hidden layout boxes widen scrollers (horizontal-scrollbar bug class, PR #85; see issue #86 for remaining instances).
+- Floating UI (tooltips, dropdowns, popovers) must render within the mount boundary — never assume space exists outside the frame, since an embedded host (HA panel iframe/shadow container) may give the mount zero space on any side. Top-row chrome (`ToolbarTooltip`/`IconButton`'s `placement`/`tooltipPlacement="below"`) must always open downward; controls deeper in the layout may keep an upward placement only where their own container has visible headroom (maintainer ruling 2026-08-16, screenshot evidence: a disabled host-action tooltip opening above the top toolbar row, `HostActionButtons.tsx`).
 
 ## Build-time defines
 

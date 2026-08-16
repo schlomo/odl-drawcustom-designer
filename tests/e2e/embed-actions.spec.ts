@@ -101,6 +101,57 @@ test('a disabled caution action keeps its own surface while hovered', async ({ p
   expect(await background()).toBe(CAUTION_BG)
 })
 
+// Maintainer ruling (2026-08-16, screenshot evidence): a disabled action's
+// tooltip opened *above* the top toolbar row — outside the designer's own
+// boundary. An embedded host (HA panel iframe/shadow container) may give the
+// mount zero space above it, so the bubble is clipped or paints over host
+// chrome. Floating UI must always stay within the designer's own frame;
+// top-row chrome must never assume space exists outside it. Bounding boxes
+// (not `elementFromPoint`, which the tooltip's `pointer-events-none` always
+// resolves through to the control behind it) prove the bubble renders fully
+// inside the mount instead — pattern from embed-display-lock.spec.ts.
+test('a disabled host-action tooltip opens below, inside the designer boundary', async ({
+  page,
+}) => {
+  await page.getByRole('button', { name: 'Simulate display offline' }).click()
+
+  const send = page.getByRole('button', { name: 'Send to display' })
+  await expect(send).toBeDisabled()
+
+  await send.hover({ force: true })
+  const tooltip = page
+    .getByRole('tooltip')
+    .filter({ hasText: 'Display offline — reconnect to send' })
+  await expect(tooltip).toBeVisible()
+
+  const geometry = await page.evaluate(() => {
+    function findShadowRoot(node: Element): ShadowRoot | null {
+      if (node.shadowRoot) return node.shadowRoot
+      for (const child of Array.from(node.children)) {
+        const found = findShadowRoot(child)
+        if (found) return found
+      }
+      return null
+    }
+    const shadowRoot = findShadowRoot(document.body)
+    const tooltipEl = shadowRoot?.querySelector('[role="tooltip"]')
+    const designerRoot = shadowRoot?.querySelector('[data-odl-designer-root]')
+    if (!tooltipEl || !designerRoot) return null
+    const tooltipBox = tooltipEl.getBoundingClientRect()
+    const rootBox = designerRoot.getBoundingClientRect()
+    return {
+      opensBelowTrigger: tooltipBox.top >= rootBox.top,
+      fullyWithinDesignerRoot:
+        tooltipBox.top >= rootBox.top &&
+        tooltipBox.bottom <= rootBox.bottom &&
+        tooltipBox.left >= rootBox.left &&
+        tooltipBox.right <= rootBox.right,
+    }
+  })
+
+  expect(geometry?.fullyWithinDesignerRoot).toBe(true)
+})
+
 test('an action that does not need the payload survives a blocked YAML document', async ({
   page,
 }) => {

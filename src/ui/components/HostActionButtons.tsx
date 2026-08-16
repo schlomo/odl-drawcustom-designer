@@ -93,8 +93,19 @@ export function HostActionButtons({
         // swaps the element type on every `disabledReason` push, which
         // remounts the button and drops keyboard focus. An absent label
         // renders the wrapper with no bubble (see ToolbarTooltip).
+        //
+        // `placement="below"` (maintainer ruling 2026-08-16, actions toolbar
+        // screenshot): these buttons sit in the designer's own top row. An
+        // embedded host (HA panel iframe/shadow container) may give the
+        // mount zero space above it, so an upward bubble is clipped by the
+        // frame or paints over host chrome — floating UI must never assume
+        // space exists outside the designer's own boundary.
         return (
-          <ToolbarTooltip key={action.id} label={disabledReason ?? undefined}>
+          <ToolbarTooltip
+            key={action.id}
+            label={disabledReason ?? undefined}
+            placement="below"
+          >
             {button}
             {reasonId ? (
               <span id={reasonId} className="sr-only">
