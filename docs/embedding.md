@@ -2,7 +2,37 @@
 
 The designer ships as an embeddable component ([issue #20](https://github.com/schlomo/odl-drawcustom-designer/issues/20), [ADR-010](adr/ADR-010-ha-embed-mode.md)): a host application — the concrete target is the [OpenDisplay HA integration](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/44) custom panel — mounts it into a container, pushes entity states and display capabilities, and receives the drawcustom YAML payload on Save. Styles are isolated via Shadow DOM at the mount boundary ([issue #21](https://github.com/schlomo/odl-drawcustom-designer/issues/21)); live HA data is a later milestone ([#24](https://github.com/schlomo/odl-drawcustom-designer/issues/24)).
 
-Consumed as a **versioned GitHub-release artifact** ([issue #23](https://github.com/schlomo/odl-drawcustom-designer/issues/23)) — release procedure, semver policy, and consumer story: [`docs/releasing.md`](releasing.md).
+Consumed as a **versioned release** ([issue #23](https://github.com/schlomo/odl-drawcustom-designer/issues/23), npm publish added [issue #103](https://github.com/schlomo/odl-drawcustom-designer/issues/103)) — release procedure, semver policy, and full consumer story: [`docs/releasing.md`](releasing.md).
+
+### Getting the library
+
+**npm (primary):**
+
+> **Status: not yet published.** `@schlomo/odl-drawcustom-designer` — scoped
+> under the `schlomo` npm org — has not been published yet. The
+> `npm install` command below is not a live install path until the
+> maintainer runbook lands (see [`docs/releasing.md#npm`](releasing.md#npm)).
+
+```bash
+npm install @schlomo/odl-drawcustom-designer@1.0.0
+```
+
+```js
+import { mount, version } from '@schlomo/odl-drawcustom-designer'
+```
+
+Same self-contained ESM as below, plus `LICENSE`/`NOTICE`/`THIRD_PARTY.md` in
+the package. No `.d.ts` types ship yet (known gap — plain JS, shapes
+documented here and in `src/embed/types.ts`). Rationale (content-hash cache
+invalidation, staged Trusted Publishing rollout) and the maintainer setup story:
+[`docs/releasing.md#npm`](releasing.md#npm).
+
+**GitHub release asset (fallback):** download the tagged release's
+`odl-drawcustom-designer.js`, `LICENSE`, `NOTICE`, `THIRD_PARTY.md`, and
+`odl-drawcustom-designer.js.sha256` (verify with
+`shasum -a 256 -c odl-drawcustom-designer.js.sha256` — `-a 256` matters,
+bare `shasum -c` defaults to SHA-1), and vendor the ESM as a static file —
+the path the OpenDisplay HA integration uses today.
 
 ## Library build
 
