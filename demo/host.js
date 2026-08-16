@@ -87,6 +87,23 @@ function pushCombinedStates() {
   handle.setStates({ ...temperatureStates, ...currentClockState() })
 }
 
+// Single source of truth for "current non-clock states" (Copilot review on
+// PR #128): every push driving this page — the warm/cold buttons below, or
+// an e2e fixture standing in for a host push mid-drag — must go through
+// here so it lands in `temperatureStates`. A push made any other way (e.g.
+// straight through `designerHandle.setStates()`) is invisible to the
+// ticker: the next 1s tick would re-push the stale `temperatureStates`
+// snapshot from mount and silently clobber it. Routing every push through
+// this updater means the ticker's next re-push always carries forward
+// whatever was last set, by construction. Exposed on `window` for the e2e
+// suite (tests/e2e/embed-host-push-mid-drag.spec.ts,
+// tests/e2e/embed-host-live-ticker.spec.ts) and console experiments.
+function demoPushStates(states) {
+  temperatureStates = states
+  pushCombinedStates()
+}
+window.demoPushStates = demoPushStates
+
 const handle = mount(document.getElementById('designer'), {
   payload: PAYLOAD,
   states: { ...WARM_STATES, ...currentClockState() },
@@ -107,12 +124,10 @@ window.designerHandle = handle
 const tickerIntervalId = setInterval(pushCombinedStates, 1000)
 
 document.getElementById('push-warm').addEventListener('click', () => {
-  temperatureStates = WARM_STATES
-  pushCombinedStates()
+  demoPushStates(WARM_STATES)
 })
 document.getElementById('push-cold').addEventListener('click', () => {
-  temperatureStates = COLD_STATES
-  pushCombinedStates()
+  demoPushStates(COLD_STATES)
 })
 document.getElementById('push-capabilities').addEventListener('click', () => {
   handle.setCapabilities(CAPABILITIES_296X128_BWR)
@@ -121,6 +136,9 @@ document.getElementById('theme').addEventListener('change', (event) => {
   handle.setTheme(event.target.value)
 })
 document.getElementById('destroy').addEventListener('click', () => {
+  // Order matters: clearInterval() runs synchronously before destroy(), so
+  // no queued tick can ever fire pushCombinedStates() -> handle.setStates()
+  // against an already-destroyed handle (which throws — see mount.tsx).
   clearInterval(tickerIntervalId)
   handle.destroy()
 })
