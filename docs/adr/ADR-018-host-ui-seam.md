@@ -8,6 +8,10 @@ collaboration with @jonasniesner. Extends [ADR-017](ADR-017-host-adapter-seam.md
 (host-adapter seam) and [ADR-010](ADR-010-ha-embed-mode.md) (embed mode).
 Revised 2026-08-16 with the 2.0 forward-only rulings (no live consumers exist;
 PR #100 was exploration — design for the best interface, not for migration).
+Amended 2026-08-16: the [display-config lock](../embedding.md#display-config-lock-issue-70)'s
+scope is dimensions and color mode/palette **only** — rotation is a user
+choice (portrait mounting of the same physical display) and stays editable
+while locked, on both display channels (`targets` and anonymous `capabilities`).
 
 ## Context
 
@@ -112,6 +116,19 @@ data contract — no new lifecycle, no new adapter shape:
     `setCapabilities()` push carries, so it lands the same way: canvas follows
     (canonical base) and stays locked; unlocked, the values are stored and
     re-locking applies them. A relabel alone moves nothing.
+  - **Lock scope excludes rotation** (amendment, maintainer ruling
+    2026-08-16). The lock covers dimensions and color mode/palette only —
+    rotation is a user choice (portrait mounting), stays editable while
+    locked on both channels, and changing it never unlocks or clears a
+    selection. The re-apply and re-lock rules above therefore both carve
+    rotation out: a re-push preserves a rotation the user changed since
+    picking the target and only adopts the target's freshly-declared rotation
+    when the user left it untouched since that pick; re-locking restores the
+    locked dimensions/palette but leaves rotation exactly as it currently is,
+    since it was never lock-owned. The anonymous `capabilities` channel keeps
+    its existing, simpler rule unchanged (a pushed `rotation_degrees` always
+    wins) — it has no "pick" to baseline against, and it dies at 2.0 (issue
+    #121).
   - **`onTargetSelected(id | null)` is optional and fires on change only.** A
     host that merely needs the id when something happens reads `onAction`'s
     `context.targetId` (same value; `undefined` where the callback reports

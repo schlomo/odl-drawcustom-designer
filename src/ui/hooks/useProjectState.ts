@@ -264,6 +264,14 @@ export function useProjectState(
   const hostDisplayRef = useRef(hostDisplay)
   const displayLockedRef = useRef(displayLocked)
   const selectedTargetRef = useRef(selectedTarget)
+  // Rotation is outside the lock's scope (maintainer ruling 2026-08-16): the
+  // user may repoint a locked display's rotation freely (portrait mounting),
+  // so a re-apply of the *same* selected target's capabilities must not clobber
+  // it. This tracks "has the user touched rotation since the last pick" —
+  // cleared on every pick (including re-picking the same id), set on every
+  // manual rotation change. A ref, not state: read only inside the push
+  // appliers below and `selectDisplayTarget`, never a render dependency.
+  const rotationOverriddenSincePickRef = useRef(false)
   const serviceRef = useRef(service)
   const selectedIndicesRef = useRef(selectedIndices)
   const [editHistory] = useState(() => createEditHistory(bootstrap.editHistory))
@@ -504,6 +512,14 @@ export function useProjectState(
         // says so ("Host display") rather than keeping a selection the pushed
         // values need not match. Last write wins; the channels never merge.
         commitSelectedTarget(null)
+        // Anonymous channel choice (maintainer ruling 2026-08-16): unlike the
+        // named-target path below, this channel dies at 2.0 (issue #121), so
+        // rotation here stays "plain always-adopt" — `capabilitiesToCanvas`
+        // above already takes the pushed `rotation_degrees` whenever the push
+        // carries one, falling back to the current rotation only when it does
+        // not. No override tracking needed; clearing the ref keeps a later
+        // named pick's baseline honest regardless of what happened here.
+        rotationOverriddenSincePickRef.current = false
       },
       applyActions: (actions) => {
         // Re-pushable by contract (ADR-018): hosts re-push the whole list to
@@ -548,12 +564,19 @@ export function useProjectState(
         // same re-assert principle a `setCapabilities` push carries (maintainer
         // ruling 2026-08-16). Locked, the canvas follows it and stays locked;
         // unlocked, the user owns the canvas, so this only updates what
-        // re-locking will apply.
+        // re-locking will apply. Rotation is carved out of that follow (lock
+        // scope, maintainer ruling 2026-08-16): a user who repointed rotation
+        // since picking this target keeps it; only an untouched rotation
+        // adopts what the target now declares.
         const next = targetCapabilitiesToCanvas(pushed.capabilities, canvasRef.current)
         hostDisplayRef.current = next
         setHostDisplay(next)
         if (displayLockedRef.current) {
-          commitCanvas(next)
+          commitCanvas(
+            rotationOverriddenSincePickRef.current
+              ? { ...next, rotation: canvasRef.current.rotation }
+              : next,
+          )
         }
       },
       applyPayload: (nextElements) => {
@@ -757,6 +780,12 @@ export function useProjectState(
 
   const setRotation = useCallback(
     (rotation: CanvasRotation) => {
+      // Outside the lock's scope (maintainer ruling 2026-08-16): rotation is
+      // the user's mounting choice, so this never checks — let alone flips —
+      // the lock, and never touches the target selection. It does mark the
+      // rotation as touched since the last pick, so a later re-apply of that
+      // target's capabilities preserves it instead of overwriting it.
+      rotationOverriddenSincePickRef.current = true
       commitCanvas((current) => ({ ...current, rotation }))
     },
     [commitCanvas],
@@ -1122,10 +1151,15 @@ export function useProjectState(
     setDisplayLocked(nextLocked)
     const hostConfig = hostDisplayRef.current
     if (nextLocked && hostConfig) {
-      // Re-locking returns to the host-pushed values; the preview dither mode
-      // is a designer-only setting and survives (issue #70).
+      // Re-locking returns to the host-pushed dimensions/color mode/palette;
+      // the preview dither mode is a designer-only setting and survives
+      // (issue #70). Rotation is outside the lock's scope (maintainer ruling
+      // 2026-08-16) — it was never lock-owned, so re-locking keeps whatever
+      // it currently is rather than snapping back to the host's declared
+      // value.
       commitCanvas((current) => ({
         ...hostConfig,
+        rotation: current.rotation,
         previewDitherMode: current.previewDitherMode,
       }))
     }
@@ -1146,6 +1180,10 @@ export function useProjectState(
    */
   const selectDisplayTarget = useCallback(
     (targetId: string | null) => {
+      // A pick — including re-picking the same id — is a fresh rotation
+      // baseline (maintainer ruling 2026-08-16): whatever the user did to
+      // rotation before this no longer counts as "since the pick".
+      rotationOverriddenSincePickRef.current = false
       if (targetId === null) {
         displayLockedRef.current = false
         setDisplayLocked(false)

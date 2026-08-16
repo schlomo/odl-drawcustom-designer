@@ -90,7 +90,10 @@ describe('display config lock (issue #70)', () => {
     expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
     expect(designer().getByLabelText('Resolution')).toBeDisabled()
     expect(designer().getByLabelText('Color mode')).toBeDisabled()
-    expect(designer().getByRole('button', { name: '90°' })).toBeDisabled()
+    // Lock scope is dimensions + color mode/palette only (maintainer ruling
+    // 2026-08-16): rotation is a user choice (portrait mounting) and stays
+    // editable while locked.
+    expect(designer().getByRole('button', { name: '90°' })).toBeEnabled()
   })
 
   it('a later setCapabilities push locks the display config', () => {

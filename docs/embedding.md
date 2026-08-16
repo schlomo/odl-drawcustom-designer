@@ -266,15 +266,17 @@ Known gaps: `palette_measured` itself is informational only (the hexes apply whe
 
 #### Display config lock ([issue #70](https://github.com/schlomo/odl-drawcustom-designer/issues/70))
 
-When the mount received `capabilities` — at `mount()` or via `setCapabilities()` — the display config is **host-owned**: a lock icon appears next to the "Display config" heading, and the resolution, rotation and color mode controls follow its state.
+When the mount received `capabilities` — at `mount()` or via `setCapabilities()` — the display config is **host-owned**: a lock icon appears next to the "Display config" heading, and the resolution and color mode controls follow its state.
 
-- **Locked (default)** — the controls are disabled. Both `mount({ capabilities })` and `handle.setCapabilities(capabilities)` lock **by default** (`lock` defaults to `true`), so existing hosts that never pass `lock` see unchanged behavior.
-- **Unlock (`lock: false`, or clicking the lock)** — the "virtual display" escape hatch: the user may configure any resolution/rotation/color mode immediately, and the preview no longer matches the host's physical display. Pass `lock: false` to `mount()` or `setCapabilities(capabilities, { lock: false })` to *seed* a display this way — e.g. a host that wants to hand the user a starting point without pinning them to it. The pushed values still land on the canvas and the lock icon still appears (showing its unlocked state) so the user can lock onto them later.
-- **Re-lock** (click the lock, whether it was unlocked by the user or seeded via `lock: false`) — restores the last-pushed host display values (the designer-only preview dither setting survives).
-- **A new `setCapabilities()` push** re-asserts the host display and, by default, re-locks the controls; pass `{ lock: false }` to keep them unlocked instead.
-- **Load Demo while locked** loads the demo payload and simulator seed but **keeps** the host-defined resolution/rotation/palette. Accepted consequence: on small displays the demo layout may look bad. Unlocked (including the `lock: false` seed), Load Demo applies the showcase display config as in standalone.
+**Lock scope excludes rotation** (maintainer ruling 2026-08-16, amending the original issue #70 shape): the lock covers **dimensions and color mode/palette only**. Rotation is a user choice — how the same physical display is mounted (portrait vs. landscape) — so the rotation buttons stay **enabled whether or not the display config is locked**, changing rotation never unlocks the display or clears a target selection, and the base (unrotated) dimensions the lock stores are unaffected by it; only the rotated *presentation* (on-screen stage, PNG export) swaps, through the same `computeRotatedCanvasBounds` both already share.
+
+- **Locked (default)** — the resolution and color-mode controls are disabled; rotation stays enabled. Both `mount({ capabilities })` and `handle.setCapabilities(capabilities)` lock **by default** (`lock` defaults to `true`), so existing hosts that never pass `lock` see unchanged behavior for those two controls.
+- **Unlock (`lock: false`, or clicking the lock)** — the "virtual display" escape hatch: the user may configure any resolution/color mode immediately (rotation was already theirs), and the preview no longer matches the host's physical display's dimensions/palette. Pass `lock: false` to `mount()` or `setCapabilities(capabilities, { lock: false })` to *seed* a display this way — e.g. a host that wants to hand the user a starting point without pinning them to it. The pushed values still land on the canvas and the lock icon still appears (showing its unlocked state) so the user can lock onto them later.
+- **Re-lock** (click the lock, whether it was unlocked by the user or seeded via `lock: false`) — restores the last-pushed host dimensions/color mode/palette (the designer-only preview dither setting survives too). **Rotation is left exactly as it currently is** — it was never lock-owned, so re-locking never snaps it back to whatever the host declared.
+- **A new `setCapabilities()` push** re-asserts the host display and, by default, re-locks the controls; pass `{ lock: false }` to keep them unlocked instead. Rotation follows the anonymous-channel rule below.
+- **Load Demo while locked** loads the demo payload and simulator seed but **keeps** the host-defined resolution/palette (and the rotation currently in effect, whatever the user set it to). Accepted consequence: on small displays the demo layout may look bad. Unlocked (including the `lock: false` seed), Load Demo applies the showcase display config as in standalone.
 - **No `capabilities`** (standalone, or an embed that never pushes them): no lock icon, controls behave exactly as before.
-- **With [`targets`](#targets--ontargetselected-issue-106)** the same lock serves the display picker: selecting a display locks onto it, "Virtual display" is the unlocked state, and re-locking returns to the selected display. Nothing about the lock itself changes.
+- **With [`targets`](#targets--ontargetselected-issue-106)** the same lock serves the display picker: selecting a display locks onto it, "Virtual display" is the unlocked state, and re-locking returns to the selected display's dimensions/palette. Nothing about the lock itself changes — and the rotation carve-out above applies identically, with its own re-apply rule spelled out below.
 
 ### `targets` / `onTargetSelected` ([issue #106](https://github.com/schlomo/odl-drawcustom-designer/issues/106))
 
@@ -339,7 +341,13 @@ handle.setTargets([...targets, discoveredDisplay])   // appears in the picker, n
   re-assert principle a `setCapabilities()` push carries — so the canvas follows
   it (canonical base, as above) and stays locked. Unlocked, the user owns the
   canvas: the new values are stored, and re-locking applies them. A push that
-  only *relabels* the target moves nothing.
+  only *relabels* the target moves nothing. **Rotation is the one field this
+  re-apply does not always follow** (lock scope, maintainer ruling
+  2026-08-16): if the user changed rotation since picking this target, that
+  rotation survives the re-apply; only a rotation left untouched since the
+  pick adopts what the target now declares. Picking the target (again, or for
+  the first time) always resets this — the freshly-picked rotation is the new
+  baseline "since the pick" measures from.
 - **"Virtual display" is the picker's name for unlocked.** Picking it is
   identical to clicking the lock open: the controls become editable and the
   design is no longer pinned to real hardware. The selection is *remembered*
