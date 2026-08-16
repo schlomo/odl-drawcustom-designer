@@ -6,6 +6,8 @@ Accepted — maintainer ruling 2026-08-15, from upstream
 [PR #100](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/100)
 collaboration with @jonasniesner. Extends [ADR-017](ADR-017-host-adapter-seam.md)
 (host-adapter seam) and [ADR-010](ADR-010-ha-embed-mode.md) (embed mode).
+Revised 2026-08-16 with the 2.0 forward-only rulings (no live consumers exist;
+PR #100 was exploration — design for the best interface, not for migration).
 
 ## Context
 
@@ -60,20 +62,33 @@ data contract — no new lifecycle, no new adapter shape:
   display-config area. Selecting a target locks to its capabilities, using
   the existing lock UX unchanged — unlocking still means "virtual display,"
   it does not forget the selection. The target id round-trips opaquely
-  through callbacks; the designer never learns what it names. `onAction`
-  (below) carries it; the save channel grows an **additive** context
-  argument — `onSaveRequest(payload, context?: { targetId? })` — so a host
-  can associate a save with the selected target while existing
-  payload-only hosts keep working unchanged.
+  through callbacks (`onAction` carries it); the designer never learns what
+  it names. Targets are **hot-updateable** (`setTargets(next)`) — a display
+  added on the host side appears in the picker without a reload. If a push
+  removes the currently-selected target, the designer **keeps the last-known
+  capabilities and marks the selection stale** ("display no longer
+  available") and offers the picker — it never silently switches or unlocks.
+  At 2.0 the targets seam **subsumes** the `capabilities`/`setCapabilities`/
+  `lock` channel entirely: a single-display host passes a one-element
+  `targets` array (auto-selected, locked); "virtual display" is a picker
+  state, not an option flag.
 - **State catalog** — states gain an optional friendly-name field; a new
   referenced-states panel shows only the states the current payload actually
   references, with host display names, as a compact visual aid. The full
   catalog remains reachable via YAML/template autocomplete, unchanged.
-- **Actions** — `actions: [{ id, label, icon?, disabledReason? }]` +
-  `onAction(id, payload, targetId)`. The designer renders the button list in
-  its own chrome; meaning, auth, and the actual service call are entirely
-  host-side. This is deliberately **not** a plugin API: a typed, closed list
-  of buttons, never host-rendered UI inside the shadow root.
+- **Actions** — `actions: [{ id, label, icon?, severity?, disabledReason? }]`
+  + `onAction(id, payload, targetId)`. The designer renders the button list
+  in its own chrome; meaning, auth, and the actual service call are entirely
+  host-side. `severity: 'normal' | 'caution' | 'danger'` maps to regular /
+  orange / red button chrome (the HA Send-to-display is `caution` — it
+  drives physical hardware). Disabled actions render visibly disabled with
+  `disabledReason` surfaced through the existing tooltip pattern. Actions
+  are **re-pushable** — the host re-pushes the list to update
+  `disabledReason`/labels live; the designer diffs. **The designer's own
+  Save button is itself an action instance**: at 2.0, `onSaveRequest` and
+  the built-in Save button are removed — the actions seam is the only
+  save/send channel. This is deliberately **not** a plugin API: a typed,
+  closed list of buttons, never host-rendered UI inside the shadow root.
 - **Preview provider** — `renderPreview(payload, targetId) => Promise<image>`,
   optional; when present the designer offers a server-rendered dry-run as an
   overlay/compare view next to its own client preview. The HA adapter
@@ -95,13 +110,22 @@ Every seam above follows one shape, and any future addition must fit it:
   into host state.
 - **No host code inside the shadow root, ever.** Actions are a typed button
   list, not a slot.
+- **Mount options are atomic initial pushes.** `mount(el, { states })` is
+  defined as `mount(el)` + `setStates(states)` applied before the first
+  painted frame — same types, same semantics (the commit-time registration
+  from [ADR-017](ADR-017-host-adapter-seam.md)/issue #115 makes the
+  equivalence exact). Options stay for one-shot setups (a designer embedded
+  in a single display's details page); **everything pushed at mount is
+  re-pushable on the handle; functions are stable closures** with no update
+  channel.
+- **Read and push channels register together, at commit.** No window may
+  exist where a push is already visible but a handle read (e.g.
+  `getPayload()`) still answers from stale bootstrap.
 - **Vocabulary stays domain-neutral.** "Target", "display", "state" —
-  never "entity", "hass", "service" — in **new seam declarations**. The
-  designer must stay meaningful to a non-HA host. Already-published names
-  ([`HostEntityState`](../../src/embed/types.ts) and the "entity state"
-  wording around `HostStates`) are explicitly grandfathered: renaming them
-  is a breaking change under [`docs/releasing.md`](../releasing.md)'s semver
-  policy for zero behavioral gain.
+  never "entity", "hass", "service". The designer must stay meaningful to a
+  non-HA host. The 2026-08-16 forward-only ruling dissolves the earlier
+  grandfather clause: legacy "entity"-named published types
+  ([`HostEntityState`](../../src/embed/types.ts)) are renamed at 2.0.
 
 **Litmus test for any addition to this seam:** a non-HA host must be able to
 implement it meaningfully, *and* the UI it drives must be testable in Vitest
@@ -125,9 +149,12 @@ than a hidden Simulator with no substitute.
 
 ## Consequences
 
-- All four seams are purely additive growth on `MountOptions`/`MountHandle` —
-  minor releases under the semver policy in
-  [`docs/releasing.md`](../releasing.md), same as any other optional field.
+- Seams may land 1.x-additive as convenient, but **all breaking removals
+  batch into one `feat!:` PR** (issue
+  [#121](https://github.com/schlomo/odl-drawcustom-designer/issues/121)) —
+  a single clean 2.0.0 under [`docs/releasing.md`](../releasing.md)'s
+  automation. No compat shims, aliases, or deprecation windows in between:
+  nothing is live, the upstream PR gets updated against the final interface.
 - [Issue #24](https://github.com/schlomo/odl-drawcustom-designer/issues/24)'s
   open precedence question is resolved by the Simulator policy above.
 - The preview provider seam becomes the [ADR-007](ADR-007-hybrid-rendering.md)
@@ -140,7 +167,10 @@ than a hidden Simulator with no substitute.
   scope shifts from building the panel wrapper from scratch to supporting
   PR #100 through these seams (see the issue comment linking this ADR).
 - The demo host page ([`demo/`](../../demo/)) grows mocks for all four seams
-  and stays the e2e harness proving them.
+  and stays the e2e harness proving them — including a **live mutating state**
+  (per-second ticker via `setStates`, issue
+  [#119](https://github.com/schlomo/odl-drawcustom-designer/issues/119)) so
+  the push channel is demonstrated and exercised, not just seeded once.
 
 ## Alternatives rejected
 
