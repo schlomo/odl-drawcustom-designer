@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "perf/issue-110-state-push-diff", ae = "f8dbaa8", k = "288a4e4", A = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "perf/issue-110-state-push-diff", ae = "bbe552b", k = "9745ce9", A = "0.0.0-dev";
 function j(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -75457,7 +75457,7 @@ function eln(e, t) {
 		ue,
 		f,
 		n
-	]), (0, v.useEffect)(() => {
+	]), (0, v.useLayoutEffect)(() => {
 		if (t.registerPushTarget) return t.registerPushTarget({
 			applyStates: (e) => {
 				if (ie.current !== null && Bcn(ie.current, e)) return;
