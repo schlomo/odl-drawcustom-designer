@@ -21,7 +21,7 @@ Audit of draw element parity: [OpenDisplay Language (WIP)](https://opendisplay.o
 | Field | OEPL | ODL | Schema | UI | Notes |
 |-------|------|-----|--------|-----|-------|
 | `background` | ✅ | ✅ | ✅ | — | Schema + session/share only |
-| `rotate` | ✅ | ✅ | ✅ | ❌ | **Not emitted** (issue #139). The designer's rotation control chooses the *orientation of the logical drawing surface* (W/H swap); it is never written into the payload, session or share hash as `rotate`. The send-time value is per-target output metadata — target base rotation + the user's orientation — and lands via the service-options seam ([issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105)) |
+| `rotate` | ✅ | ✅ | ✅ | ❌ | **Not emitted** (issue #139). The designer's rotation control chooses the *orientation of the logical drawing surface* (W/H swap); it is never written into the payload, session or share hash as `rotate`. That rotation is **absolute** — seeded from the host, changed by the user, never summed with a base rotation. The send-time value is per-target output metadata and lands via the service-options seam ([issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105)), which carries the canvas rotation as-is (or a value the host computes per target from it) |
 | `dither` | ✅ | ✅ | ✅ | ✅ | Canvas preview dither toggle → share/session |
 | `ttl` | ✅ | ✅ | ✅ | — | Schema + session/share only |
 | `dry-run` | ✅ | ✅ | ✅ | — | Schema + session/share only |

@@ -153,6 +153,17 @@ function colorMode(): HTMLElement {
 }
 
 /**
+ * Which orientation button is active — the way round the adopted display is
+ * held. The resolution control names a display by its *pair* of dimensions and
+ * is orientation-insensitive by design (issue #139), so the two together are
+ * what pins the adopted surface down: pair + orientation.
+ */
+function activeRotation(): string | null {
+  const buttons = designer().getAllByRole('button', { name: /^\d+°$/ })
+  return buttons.find((button) => button.getAttribute('aria-pressed') === 'true')?.textContent ?? null
+}
+
+/**
  * The colour the first layer row's swatch actually paints — the adopted
  * palette, one step from the canvas (issue #68: swatches, preview and PNG
  * export share one palette source of truth).
@@ -224,11 +235,16 @@ describe('host targets (issue #106)', () => {
     mountDesigner({ payload: PAYLOAD, targets: [ROTATED_OFFICE, UPRIGHT_KITCHEN] })
 
     selectDisplay('Office display')
-    expect(resolution()).toHaveTextContent(/300\s*×\s*400/)
+    expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
+    expect(activeRotation()).toBe('90°')
 
     selectDisplay('Kitchen tag')
 
+    // Upright, as that display declares — not the previous display's quarter
+    // turn inherited by a display that never mentioned one, which would leave
+    // the 296×128 panel standing on end.
     expect(resolution()).toHaveTextContent(/296\s*×\s*128/)
+    expect(activeRotation()).toBe('0°')
   })
 
   it('drops the previous display’s measured palette when the next declares none', () => {

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DrawElement, RenderContext } from '../../../src/core'
 import { DesignerCanvas } from '../../../src/ui/components/DesignerCanvas'
 import { writeCanvasZoomMode } from '../../../src/ui/preferences/canvasZoom'
+import { expectUprightScale } from '../support/css-transform'
 
 /**
  * Issue #139: the designer must present the logical drawing surface
@@ -135,9 +136,11 @@ describe('the canvas presents the logical drawing surface upright (issue #139)',
     // The stage is the paper's visible envelope: portrait, same shape.
     expect(stage.style.width).toBe('480px')
     expect(stage.style.height).toBe('800px')
-    // …and the paper carries no quarter turn: a rotating transform has a
-    // non-zero skew/rotation term, which a pure scale never does.
-    expect(paper.style.transform).not.toMatch(/rotate|matrix\(\s*0/)
+    // …and the paper is only ever magnified: the transform's geometry is read,
+    // not its source text, so a quarter turn (non-zero shear terms) *and* a half
+    // turn (negative scale — the case a "no rotate() in the string" check sails
+    // past) both fail here. At 100% zoom the magnification is exactly 1.
+    expectUprightScale(paper.style.transform, 1)
   })
 
   it('a drag moves the element the way the pointer moved', () => {

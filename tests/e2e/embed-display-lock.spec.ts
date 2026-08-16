@@ -32,11 +32,14 @@ test.describe('embedded with host capabilities', () => {
     await page.getByRole('button', { name: '90°' }).click()
 
     await expect(page.getByRole('button', { name: 'Unlock display config' })).toBeVisible()
-    await expect(page.getByRole('button', { name: '90°' })).toHaveAttribute('class', /shell-accent/)
+    await expect(page.getByRole('button', { name: '90°' })).toHaveAttribute('aria-pressed', 'true')
     // The orientation choice re-orients the logical drawing surface itself
-    // (issue #139): the same panel, held portrait. The lock is untouched — the
-    // resolution control stays disabled, and follows the orientation.
-    await expect(page.getByRole('button', { name: 'Resolution' })).toContainText(/128\s*×\s*296/)
+    // (issue #139): the same panel, held portrait. The resolution control names
+    // that panel by its two dimensions and is orientation-insensitive (F3), so
+    // it keeps reading as the 296×128 pick rather than flipping to "Custom" —
+    // and the lock is untouched, so it stays disabled.
+    await expect(page.getByRole('button', { name: 'Resolution' })).toContainText(/296\s*×\s*128/)
+    await expect(page.getByRole('button', { name: 'Resolution' })).not.toContainText(/Custom/i)
     await expect(page.getByRole('button', { name: 'Resolution' })).toBeDisabled()
   })
 

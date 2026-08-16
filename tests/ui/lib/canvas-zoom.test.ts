@@ -11,6 +11,7 @@ import {
   paperTransform,
   refineCanvasPointerPoint,
 } from '../../../src/ui/lib/canvas-zoom'
+import { applyCssTransform, expectUprightScale, parseCssTransform } from '../support/css-transform'
 
 /**
  * The canvas config's width/height are the logical drawing surface, already
@@ -166,30 +167,59 @@ describe('canvas pointer refinement', () => {
 })
 
 describe('canvas paper transform', () => {
+  const canvasWidth = 480
+  const canvasHeight = 800
+
+  /**
+   * The paper's rect as the browser would report it: the canvas corners put
+   * through the **real** transform, then bounded. Composing the transform this
+   * way is the point — a round-trip that assumes the transform is a scale can
+   * only ever confirm its own arithmetic (issue #139 review, F5).
+   */
+  function paintedPaperRect(scale: number): DOMRect {
+    const matrix = parseCssTransform(paperTransform(scale))
+    const corners = [
+      [0, 0],
+      [canvasWidth, 0],
+      [0, canvasHeight],
+      [canvasWidth, canvasHeight],
+    ].map(([x, y]) => applyCssTransform(matrix, x!, y!))
+    const xs = corners.map((corner) => corner.x)
+    const ys = corners.map((corner) => corner.y)
+    const left = Math.min(...xs)
+    const top = Math.min(...ys)
+    return {
+      left,
+      top,
+      width: Math.max(...xs) - left,
+      height: Math.max(...ys) - top,
+    } as DOMRect
+  }
+
   it('scales the paper from its top-left corner and never turns it', () => {
-    const canvasWidth = 480
-    const canvasHeight = 800
-
     for (const scale of [0.5, 1, 2]) {
-      const transform = paperTransform(scale)
-      expect(transform).toBe(`scale(${scale})`)
+      expectUprightScale(paperTransform(scale), scale)
+    }
+  })
 
-      // Round-trip: a canvas point lands where the pointer path reads it back.
-      const paperRect = {
-        left: 0,
-        top: 0,
-        width: canvasWidth * scale,
-        height: canvasHeight * scale,
-      } as DOMRect
+  it('a canvas point painted through the transform reads back as itself', () => {
+    for (const scale of [0.5, 1, 2]) {
+      const matrix = parseCssTransform(paperTransform(scale))
+      const paperRect = paintedPaperRect(scale)
+
       for (const [cx, cy] of [
         [0, 0],
         [canvasWidth, 0],
         [0, canvasHeight],
         [canvasWidth, canvasHeight],
+        [123, 456],
       ] as const) {
+        // Where the transform actually paints this canvas point…
+        const painted = applyCssTransform(matrix, cx, cy)
+        // …must be where the pointer path reads that same point back.
         const roundTrip = clientPointToCanvasCoords(
-          cx * scale,
-          cy * scale,
+          painted.x,
+          painted.y,
           paperRect,
           canvasWidth,
           canvasHeight,

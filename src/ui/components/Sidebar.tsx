@@ -34,7 +34,11 @@ interface SidebarProps {
   mockContext: HaMockContext
   assetRevision: number
   onSelectElement: (index: number, options?: SelectElementOptions) => void
-  onApplyResolution: (width: number, height: number) => void
+  /**
+   * Set the canvas dimensions literally. Both the resolution quick-picks and
+   * the manual W/H inputs land here: the picks are oriented to the canvas
+   * first (issue #139), the typed numbers are taken as typed.
+   */
   onCanvasSizeChange: (width: number, height: number) => void
   onColorModeChange: (colorMode: TagColorMode) => void
   onRotationChange: (rotation: CanvasRotation) => void
@@ -109,7 +113,6 @@ export function Sidebar({
   mockContext,
   assetRevision,
   onSelectElement,
-  onApplyResolution,
   onCanvasSizeChange,
   onColorModeChange,
   onRotationChange,
@@ -228,7 +231,8 @@ export function Sidebar({
             onSelectValue={(nextValue) => {
               applyResolutionSelectValue(nextValue, {
                 setEditingCustom: setResolutionEditingCustom,
-                onApplyResolution,
+                rotation: canvas.rotation,
+                onCanvasSizeChange,
               })
             }}
           />
@@ -298,6 +302,10 @@ export function Sidebar({
             <button
               key={value}
               type="button"
+              // The orientation in effect is state, not just a colour: announce
+              // it, so screen readers (and tests) read the same thing the accent
+              // fill shows.
+              aria-pressed={canvas.rotation === value}
               className={`flex-1 rounded-md border px-1 py-1 text-[10px] disabled:cursor-not-allowed disabled:opacity-40 ${
                 canvas.rotation === value
                   ? 'border-[var(--shell-accent)] bg-[var(--shell-accent)] text-white'

@@ -140,9 +140,9 @@ OpenDisplay uses the same payload shape with `action: opendisplay.drawcustom`.
 
 ### Display configuration
 
-- **Resolution** — common tag WxH quick-picks plus custom width/height
+- **Resolution** — common tag WxH quick-picks plus custom width/height. A quick-pick names a display's two dimensions, not an orientation: it lands the way the panel is currently held, and a turned panel keeps reading as its own pick
 - **Color mode** — drives accent / half_accent preview mapping
-- **Orientation (0°–270°)** — which way round the panel is: it orients the logical drawing surface the payload is authored against (the design stays upright, as `imagegen` draws it). Not emitted as drawcustom `rotate` today — that is per-target send metadata ([issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105))
+- **Orientation (0°–270°)** — which way round the panel is, and the only control that decides it: it orients the logical drawing surface the payload is authored against (the design stays upright, as `imagegen` draws it). Absolute, not cumulative, and — like the other display settings — outside undo. Not emitted as drawcustom `rotate` today: that is per-target send metadata ([issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105))
 - **Preview dither toggle** — flat vs ordered **d=2**; maps to drawcustom **`dither`** in session and share links
 - **Session persistence** — display settings restored with last design
 

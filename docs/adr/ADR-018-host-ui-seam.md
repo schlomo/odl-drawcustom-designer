@@ -111,7 +111,7 @@ data contract — no new lifecycle, no new adapter shape:
 
     | channel | base | rationale |
     |---------|------|-----------|
-    | `capabilities` push | the **current canvas** (`capabilitiesToCanvas`) | a partial push re-asserts *some* facts about the display already in effect — `{ rotation_degrees: 90 }` turns it |
+    | `capabilities` push | the **current canvas** (`capabilitiesToCanvas`) | a partial push re-asserts *some* facts about the display already in effect — `{ rotation_degrees: 90 }` re-declares its orientation |
     | `targets` pick | the **designer defaults** (`targetCapabilitiesToCanvas`) | picking names a *different* display; the same target must yield the same canvas whatever preceded it, and inheriting the previous display's rotation or measured `color_map` corrupts ADR-007 parity |
 
     The preview dither mode is designer-only and survives both, as it survives
@@ -136,7 +136,21 @@ data contract — no new lifecycle, no new adapter shape:
     panel, the user owns which way round it goes. The anonymous `capabilities` channel keeps
     its existing, simpler rule unchanged (a pushed `rotation_degrees` always
     wins) — it has no "pick" to baseline against, and it dies at 2.0 (issue
-    #121).
+    #121). Its consequence for that channel: a push carrying
+    `rotation_degrees` and **no** size fields adopts the rotation and keeps the
+    dimensions, i.e. re-declares *those* dimensions as being in the pushed
+    orientation — so the next turn of the canvas swaps them from there. Hosts
+    that mean "different surface" push the sizes alongside, or use `targets`,
+    which always carries both.
+  - **Dimensions and rotation are one adopted fact** (issue #139 review). Every
+    adoption — mount seed, `capabilities` push, target pick, re-push re-apply,
+    re-lock — stores a display's two dimensions together with the rotation they
+    are expressed in, and every re-orientation turns that pair as a unit; the
+    helper takes the pair as a single argument so a rotation from one adoption
+    can never be applied to dimensions from another. The host-side half of this
+    contract: `rotation_degrees` must state the orientation `render_*` is
+    **already** in (effective), never a base rotation still to be applied to
+    them. The designer cannot detect a host that gets this wrong.
   - **`onTargetSelected(id | null)` is optional and fires on change only.** A
     host that merely needs the id when something happens reads `onAction`'s
     `context.targetId` (same value; `undefined` where the callback reports

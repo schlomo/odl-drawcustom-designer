@@ -60,9 +60,12 @@ step 3:
   clockwise, i.e. 180° away from Pillow for 90/270 — if a "physical panel
   bitmap" export is ever wanted, it is a separate explicit affordance and must
   turn **counter-clockwise**.
-- The rotation the user picks is *orientation*, and the effective send-time
-  `rotate` is per-target output metadata (issue #105) — never baked into the
-  payload.
+- The rotation the user picks is *orientation*, and it is **absolute, never
+  cumulative**: seeded from the host, replaced outright when the user or a host
+  push sets it. The send-time `rotate` is per-target output metadata (issue
+  #105) — never baked into the payload, and never this rotation *summed* with a
+  base rotation: the seam carries it as-is, or a value the host derives per
+  target from it.
 
 Regression fixture (maintainer's real automation): one payload, `rotate: 0` on
 one panel and `rotate: 270` on another of the same resolution, must show the

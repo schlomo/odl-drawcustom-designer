@@ -432,7 +432,7 @@ describe('useProjectState history integration', () => {
     const { result } = renderHook(() => useProjectState(bootstrapWithText(), STANDALONE_HOST))
 
     act(() => {
-      result.current.applyResolution(296, 128)
+      result.current.setCanvasSize(296, 128)
       result.current.setColorMode('bwy')
       result.current.setRotation(90)
       result.current.togglePreviewDither()

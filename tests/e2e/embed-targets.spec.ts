@@ -189,9 +189,14 @@ test('picking a portrait display gives an upright portrait editing surface (issu
   })
   expect([b, c], 'paper transform carries no rotation').toEqual([0, 0])
 
-  // Rotation is seeded: the 90° button shows as active (accent color)
-  // and rotation buttons remain editable (not disabled by the lock).
-  await expect(page.getByRole('button', { name: '90°' })).toHaveAttribute('class', /shell-accent/)
+  // Rotation is seeded: the 90° button is the pressed one (the accent fill is
+  // only a colour — `aria-pressed` is the state), and the orientation buttons
+  // remain editable (not disabled by the lock).
+  await expect(page.getByRole('button', { name: '90°' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: '0°', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  )
 })
 
 test('the exported PNG is the upright logical canvas (issue #139)', async ({ page }) => {
