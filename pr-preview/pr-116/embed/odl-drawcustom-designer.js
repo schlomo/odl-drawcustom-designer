@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/issue-104-getpayload", ae = "060971d", k = "0ea0ec5", A = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/issue-104-getpayload", ae = "6ae6226", k = "5cb6eb6", A = "0.0.0-dev";
 function j(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -76481,7 +76481,7 @@ function aln(e, t) {
 			return;
 		}
 		a.push(e);
-	}, s = null, c = {
+	}, s = null, c = null, l = {
 		...t,
 		registerPushTarget(e) {
 			i = e;
@@ -76495,62 +76495,62 @@ function aln(e, t) {
 				s === e && (s = null);
 			};
 		}
-	}, l = !1, u = null, d = 0, f = 0, p = (0, y.createRoot)(r.element), m = () => {
-		u && p.render(/* @__PURE__ */ (0, K.jsx)(v.StrictMode, { children: /* @__PURE__ */ (0, K.jsx)($cn, {
-			bootstrap: u,
-			host: c
-		}, d) }));
-	}, h = (e) => {
-		u = e, d += 1, m();
+	}, u = !1, d = null, f = 0, p = 0, m = (0, y.createRoot)(r.element), h = () => {
+		d && m.render(/* @__PURE__ */ (0, K.jsx)(v.StrictMode, { children: /* @__PURE__ */ (0, K.jsx)($cn, {
+			bootstrap: d,
+			host: l
+		}, f) }));
 	}, g = (e) => {
-		let t = f += 1;
+		d = e, f += 1, h();
+	}, _ = (e) => {
+		let t = p += 1;
 		if (!(e instanceof Promise)) {
-			h(e);
+			g(e);
 			return;
 		}
 		e.then((e) => {
-			l || t !== f || h(e);
+			u || t !== p || g(e);
 		}).catch((e) => {
 			console.error("Designer bootstrap failed", e);
 		});
-	}, _ = () => {
-		g(t.loadBootstrap());
+	}, b = () => {
+		_(t.loadBootstrap());
 	};
 	try {
-		g(n);
+		_(n);
 	} catch (e) {
-		throw p.unmount(), r.cleanup(), e;
+		throw m.unmount(), r.cleanup(), e;
 	}
-	let b = t.subscribeBootstrapChanges?.(_), x = () => {
-		if (l) throw Error("MountHandle used after destroy()");
+	let x = t.subscribeBootstrapChanges?.(b), S = () => {
+		if (u) throw Error("MountHandle used after destroy()");
 	};
 	return {
 		version: A,
 		destroy() {
-			x(), l = !0, b?.(), p.unmount(), r.cleanup();
+			S(), u = !0, x?.(), m.unmount(), r.cleanup();
 		},
 		setStates(e) {
-			x(), o((t) => t.applyStates(e));
+			S(), o((t) => t.applyStates(e));
 		},
 		setCapabilities(e, t) {
-			x(), o((n) => n.applyCapabilities(e, t));
+			S(), o((n) => n.applyCapabilities(e, t));
 		},
 		setPayload(e) {
-			x();
+			S();
 			let t = Xr(e);
-			o((e) => e.applyPayload(t));
+			i || (c = t), o((e) => e.applyPayload(t));
 		},
 		setTheme(e) {
-			x(), r.setTheme(e), c = {
-				...c,
+			S(), r.setTheme(e), l = {
+				...l,
 				theme: {
 					owner: "host",
 					value: e
 				}
-			}, m();
+			}, h();
 		},
 		getPayload() {
-			return x(), s ? s() : fi(u?.elements ?? []);
+			return S(), s ? s() : fi(c ?? d?.elements ?? []);
 		}
 	};
 }
