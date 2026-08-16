@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import cssText from '../index.css?inline'
-import { APP_VERSION, parseYamlPayload, serializeYamlPayload } from '../core'
+import { APP_VERSION, parseYamlPayload, serializeYamlPayload, type DrawElement } from '../core'
 import { App } from '../ui/App'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import { createEmbeddedHost } from './embeddedHost'
@@ -141,6 +141,16 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
   // has no "later" to replay into; it must answer synchronously, right now).
   let payloadSource: (() => string) | null = null
 
+  // The latest `setPayload()` accepted into `pendingPushes` during the
+  // pre-registration window (Copilot finding on #104): once
+  // `registerPushTarget` runs, queued pushes drain in order into
+  // `applyPayload`, so this is exactly the elements the designer is about to
+  // adopt as its payload. The `getPayload()` fallback below must serialize
+  // *this*, not the original bootstrap — `setStates`/`setCapabilities` never
+  // touch payload, so only `setPayload` ever updates it, and parsing already
+  // happened in `setPayload` (throw semantics on invalid YAML unchanged).
+  let pendingPayloadElements: DrawElement[] | null = null
+
   let bridge: DesignerHost = {
     ...host,
     registerPushTarget(target) {
@@ -257,6 +267,9 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
     setPayload(payload) {
       assertMounted()
       const elements = parseYamlPayload(payload)
+      if (!pushTarget) {
+        pendingPayloadElements = elements
+      }
       push((target) => target.applyPayload(elements))
     },
     setTheme(nextTheme) {
@@ -273,9 +286,11 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
       }
       // Nothing registered yet (pre-registration window, or the initial
       // bootstrap load is still in flight for an async host): report the
-      // bootstrap payload — the same `elements` the shell is about to seed
-      // its state from — rather than throwing or returning nothing.
-      return serializeYamlPayload(bootstrap?.elements ?? [])
+      // latest queued `setPayload()` push if one exists — the drained queue
+      // will apply it as the designer's payload the moment registration
+      // happens — otherwise the bootstrap payload, rather than throwing or
+      // returning nothing.
+      return serializeYamlPayload(pendingPayloadElements ?? bootstrap?.elements ?? [])
     },
   }
 }

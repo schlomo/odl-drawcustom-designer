@@ -376,3 +376,49 @@ describe('setPayload push vs. a pending debounced YAML edit', () => {
     expect(onSaveRequest.mock.calls[0]![0]).toBe(handle.getPayload())
   })
 })
+
+/**
+ * A `setPayload()` accepted into the pending-push queue during the
+ * pre-registration window (before the shell's `registerPushTarget` effect has
+ * flushed) is what the drained queue will apply as the designer's payload the
+ * moment registration happens. `getPayload()`'s pre-registration fallback
+ * must serialize *that*, not the original bootstrap — otherwise
+ * `mount(...); handle.setPayload(next); handle.getPayload()` reads stale
+ * bootstrap YAML even though `next` is what the designer is about to become.
+ * Deliberately not wrapped in `act()`: the point is to observe state strictly
+ * before React commits and flushes the registration effect (same rationale
+ * as "returns the bootstrap payload synchronously" above).
+ */
+describe('getPayload() fallback vs. a setPayload queued before registration', () => {
+  it('reflects a single pre-registration setPayload, not the original bootstrap', () => {
+    const handle = mount(container, { payload: PAYLOAD })
+    handles.push(handle)
+
+    handle.setPayload(PUSHED_PAYLOAD)
+
+    const expected = serializeYamlPayload(parseYamlPayload(PUSHED_PAYLOAD))
+    expect(handle.getPayload()).toBe(expected)
+  })
+
+  it('last setPayload wins when several are queued before registration', () => {
+    const handle = mount(container, { payload: PAYLOAD })
+    handles.push(handle)
+
+    const third = ['- type: text', '  value: Third', '  x: 7', '  y: 7', ''].join('\n')
+    handle.setPayload(PAYLOAD)
+    handle.setPayload(PUSHED_PAYLOAD)
+    handle.setPayload(third)
+
+    const expected = serializeYamlPayload(parseYamlPayload(third))
+    expect(handle.getPayload()).toBe(expected)
+  })
+
+  it('setPayload immediately followed by destroy() before registration: no leak, no throw weirdness', () => {
+    const handle = mount(container, { payload: PAYLOAD })
+    handles.push(handle)
+
+    expect(() => handle.setPayload(PUSHED_PAYLOAD)).not.toThrow()
+    expect(() => handle.destroy()).not.toThrow()
+    expect(() => handle.getPayload()).toThrow('MountHandle used after destroy()')
+  })
+})
