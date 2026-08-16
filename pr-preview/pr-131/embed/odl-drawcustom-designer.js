@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "perf/issue-124-drag-sync-suspend", k = "4bec262", A = "1d75ef8", j = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "perf/issue-124-drag-sync-suspend", k = "351f3dc", A = "65dfe6d", j = "0.0.0-dev";
 function M(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
