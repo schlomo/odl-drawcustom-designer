@@ -1,18 +1,54 @@
 # ODL/OEPL Drawcustom Designer
 
-**[Open the designer →](https://schlomo.github.io/odl-drawcustom-designer/)**
+[![npm version](https://img.shields.io/npm/v/%40schlomo%2Fodl-drawcustom-designer)](https://www.npmjs.com/package/@schlomo/odl-drawcustom-designer)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/schlomo/odl-drawcustom-designer/blob/main/LICENSE)
+
+Visual [feature-rich](#features) editor for **[OpenDisplay Language](https://opendisplay.org/protocol/open-display-language.html)** (ODL) and [OpenEPaperLink](https://github.com/openepaperlink/Home_Assistant_Integration/blob/main/docs/drawcustom/supported_types.md) (OEPL) drawcustom YAML. Design layouts in the browser, preview them with realistic tag palettes and dithering, export HA-clean YAML or PNG, and share designs via URL. Simulate Home Assistant entity states for template preview. Add custom fonts and images to your designs.
 
 **Client-side only** — the app runs entirely in the browser. Designs, fonts, and images stay in local storage (IndexedDB). **Share links** embed the design in the URL hash (`#d=…`) — copied to clipboard, not uploaded anywhere.
 
-Visual [feature-rich](#features) editor for **[OpenDisplay Language](https://opendisplay.org/protocol/open-display-language.html)** (ODL) and [OpenEPaperLink](https://github.com/openepaperlink/Home_Assistant_Integration/blob/main/docs/drawcustom/supported_types.md) (OEPL) drawcustom YAML. Paste exported element lists into Home Assistant’s **`drawcustom`** service (OpenEPaperLink or OpenDisplay custom integrations below).
+**[Open the standalone designer →](https://schlomo.github.io/odl-drawcustom-designer/)** · **[Live embed demo →](https://schlomo.github.io/odl-drawcustom-designer/embed/)**
 
-Design layouts in the browser, preview them with realistic tag palettes and dithering, export HA-clean YAML or PNG, and share designs via URL. Simulate Home Assistant entity states for template preview. Add custom fonts and images to your designs.
+![ODL/OEPL Drawcustom Designer — canvas editor with element toolbar, layers, YAML panel, and e-paper preview](https://raw.githubusercontent.com/schlomo/odl-drawcustom-designer/main/docs/assets/designer-screenshot.png)
 
-![ODL/OEPL Drawcustom Designer — canvas editor with element toolbar, layers, YAML panel, and e-paper preview](docs/odl-designer-screenshot.webp)
+## Use it in your own app
+
+```bash
+npm install @schlomo/odl-drawcustom-designer
+```
+
+Ships as **one self-contained ESM file** — React and every other runtime dependency bundled in, no peer dependencies to resolve.
+
+```js
+import { mount } from '@schlomo/odl-drawcustom-designer'
+
+const handle = mount(document.getElementById('designer'), {
+  payload: yamlString,          // initial drawcustom YAML (list of elements)
+  states: { 'sensor.temperature': '21.5' },   // entity states, for template preview
+  capabilities: { pixel_width: 296, pixel_height: 128, color_scheme: 0x01 }, // display description -> canvas + palette
+  theme: 'dark',                // 'light' | 'dark', scoped to the container
+  actions: [{ id: 'send', label: 'Send to display' }], // host-registered toolbar buttons
+  onAction(id, payload, context) {
+    // user clicked one of your buttons — do the host-side thing
+  },
+  onSaveRequest(payload) {
+    // user hit Save — persist the YAML; the designer never writes it itself
+  },
+})
+
+handle.setStates(newStates)          // replace the entity-state map
+handle.setCapabilities(newCapabilities) // re-map canvas size/rotation/palette, re-lock
+handle.getPayload()                  // read the current payload YAML at any time
+handle.destroy()                     // unmount and empty the container
+```
+
+The container needs an explicit height; the designer fills it. Styles and DOM are isolated in a shadow root at the mount boundary — host CSS never leaks in, and the designer never touches the host document.
+
+Full mount API (`setActions`, `setTheme`, the `lock` option, and every host-data field), the host data contract, and the release/versioning story: [`docs/embedding.md`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/embedding.md). Live demo: see the link above; its full source (a fake host page pushing states, capabilities and actions) is at [`demo/`](https://github.com/schlomo/odl-drawcustom-designer/tree/main/demo).
 
 ## Home Assistant integrations (`drawcustom`)
 
-These **custom components** (install via [HACS](https://www.hacs.xyz/)) expose a **`drawcustom`** action. Copy the designer’s YAML `payload` list into the service call.
+Paste the designer's exported YAML `payload` list into one of these **custom components'** (install via [HACS](https://www.hacs.xyz/)) `drawcustom` service call.
 
 | Integration | Service | Hardware | Install |
 |-------------|---------|----------|---------|
@@ -47,8 +83,8 @@ OpenDisplay uses the same payload shape with `action: opendisplay.drawcustom`.
 | [OpenDisplay Language (ODL)](https://opendisplay.org/protocol/open-display-language.html) | [OpenDisplay](https://github.com/OpenDisplay) spec — canonical draw payload YAML format |
 | [OpenDisplay Basic Standard](https://opendisplay.org/protocol/basic-standard.html) | [OpenDisplay](https://github.com/OpenDisplay) spec — BLE/Wi‑Fi wire protocol (display announcement, image encoding); complementary to ODL |
 | [OpenEPaperLink](https://github.com/OpenEPaperLink) | Open-source firmware and ecosystem for supported e-paper tags |
-| [HA drawcustom — supported types](docs/spec/supported_types.md) | Vendored element reference (all 16 types) — [OpenEPaperLink upstream](https://github.com/OpenEPaperLink/Home_Assistant_Integration/blob/main/docs/drawcustom/supported_types.md) |
-| [ODL gap report](docs/spec/odl-gap-report.md) | Parity audit: ODL vs vendored HA spec vs this editor |
+| [HA drawcustom — supported types](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/spec/supported_types.md) | Vendored element reference (all 16 types) — [OpenEPaperLink upstream](https://github.com/OpenEPaperLink/Home_Assistant_Integration/blob/main/docs/drawcustom/supported_types.md) |
+| [ODL gap report](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/spec/odl-gap-report.md) | Parity audit: ODL vs vendored HA spec vs this editor |
 
 ## Features
 
@@ -92,7 +128,7 @@ OpenDisplay uses the same payload shape with `action: opendisplay.drawcustom`.
 
 - **State Simulator** — add mock entities and edit their state strings so template preview can resolve `states('…')`, `is_state`, and similar patterns
 - **Global mock store** — persists in IndexedDB across sessions (not included in share links)
-- **Nunjucks evaluator** — `states`, `is_state`, filters, and common HA patterns (see [ADR-004](docs/adr/ADR-004-template-evaluator-scope.md))
+- **Nunjucks evaluator** — `states`, `is_state`, filters, and common HA patterns (see [ADR-004](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/adr/ADR-004-template-evaluator-scope.md))
 - **Entity scan** — discover entity IDs referenced in the payload
 
 ### Assets & content manager
@@ -113,7 +149,7 @@ OpenDisplay uses the same payload shape with `action: opendisplay.drawcustom`.
 ### Session, demo & sharing
 
 - **Auto-save** — last design, undo history, and mocks restored on reload
-- **Load Demo** — one-click showcase bundle in [`src/assets/showcase/`](src/assets/showcase/): `showcase.yml` (payload), `showcase.json` (canvas + State Simulator seed), `showcase.png` (bundled dlimg)
+- **Load Demo** — one-click showcase bundle in [`src/assets/showcase/`](https://github.com/schlomo/odl-drawcustom-designer/tree/main/src/assets/showcase): `showcase.yml` (payload), `showcase.json` (canvas + State Simulator seed), `showcase.png` (bundled dlimg)
 - **Share link** — `#d=eJ…<data>` URL fragment encodes name, canvas, service options (when set), and elements (pako-deflated, base64url; assets/mocks stay local)
 - **Undo / redo** — 50-step history with drag coalescing
 
@@ -131,11 +167,11 @@ The designer aims for a **close** match to what OEPL/OpenDisplay HA integrations
 | **Layout** (anchors, positions) | Good for text when using bundled/custom fonts | Small (1–2 px) possible; templated values need mock states |
 | **Tag palette & dither** | Color modes and `finalizeTagImageData` clamp to tag colours | Wrong-accent colours clamp to grey on BWR/BWY |
 | **Text glyphs** | Readable; hard-edge filter approximates Pillow `fontmode = "1"` | Glyph edges differ (opentype.js vs Pillow/FreeType) |
-| **SVG shapes & lines** | Rectangles, icons generally usable | Thin **lines** on coloured backgrounds may export as **grey** instead of black; SVG antialiasing vs Pillow integer pixels ([ADR-007](docs/adr/ADR-007-hybrid-rendering.md)) |
+| **SVG shapes & lines** | Rectangles, icons generally usable | Thin **lines** on coloured backgrounds may export as **grey** instead of black; SVG antialiasing vs Pillow integer pixels ([ADR-007](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/adr/ADR-007-hybrid-rendering.md)) |
 | **Templates** | Mock entity states in the State Simulator | Live HA evaluation can differ |
 | **Assets** | Local fonts/images by YAML path | Share links do not include uploaded blobs |
 
-Use preview and PNG export to **sanity-check** layouts before deploying to a tag; compare against a real HA render when exact appearance matters. Details: [ADR-007](docs/adr/ADR-007-hybrid-rendering.md) · [gap report](docs/spec/odl-gap-report.md).
+Use preview and PNG export to **sanity-check** layouts before deploying to a tag; compare against a real HA render when exact appearance matters. Details: [ADR-007](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/adr/ADR-007-hybrid-rendering.md) · [gap report](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/spec/odl-gap-report.md).
 
 ### Preview rendering fidelity
 
@@ -156,13 +192,21 @@ Use preview and PNG export to **sanity-check** layouts before deploying to a tag
 
 See `docs/adr/` for rationale (especially ADR-010, ADR-012).
 
-## Embedding
+## Embedding — building from source
 
-The designer also ships as an **embeddable component**: a single self-contained ESM file (React and styles included) exposing `mount(container, options)`. The host application — e.g. the OpenDisplay Home Assistant integration panel — mounts the designer into a container, pushes entity states and display capabilities, and receives the drawcustom YAML payload via `onSaveRequest` when the user hits Save. Full mount API and host data contract: [`docs/embedding.md`](docs/embedding.md). Consumed as a versioned GitHub-release artifact — release procedure and semver policy: [`docs/releasing.md`](docs/releasing.md).
+Contributing to or vendoring the library build straight from this repo (rather than npm):
 
-**[Live embed demo →](https://schlomo.github.io/odl-drawcustom-designer/embed/)** — a fake host page that mounts the designer, pushes warm/cold entity states and a 296×128 BWR display description, switches themes, and shows every saved payload.
+```bash
+npm run build:lib
+```
 
-Run the same demo locally:
+Emits **one self-contained ESM file** — React, styles, and bundled fonts included:
+
+```
+dist-lib/odl-drawcustom-designer.js
+```
+
+Try the demo locally:
 
 ```bash
 npm run build:site && npm run preview
@@ -172,11 +216,13 @@ npm run build:site && npm run preview
 No dedicated server needed beyond that: the demo is plain static files, so any
 static file server works too (e.g. `python3 -m http.server -d dist-lib`).
 
+Full mount API, host data contract, and library build details: [`docs/embedding.md`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/embedding.md). Release procedure and semver policy: [`docs/releasing.md`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/releasing.md).
+
 ## Development
 
 Requires **Node.js ^26** (see `.nvmrc`).
 
-**AI assistants:** read [`AGENTS.md`](AGENTS.md) before changing code (TDD, ADRs, HA parity). Also: [`CLAUDE.md`](CLAUDE.md) · [`.github/copilot-instructions.md`](.github/copilot-instructions.md).
+**AI assistants:** read [`AGENTS.md`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/AGENTS.md) before changing code (TDD, ADRs, HA parity). Also: [`CLAUDE.md`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/CLAUDE.md) · [`.github/copilot-instructions.md`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/.github/copilot-instructions.md).
 
 ```bash
 npm install
@@ -186,11 +232,9 @@ npm run dev
 npm run build
 ```
 
-**Deployment, GitHub Pages, and build-time environment variables** (base path, legal header HTML, git metadata): [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+**Deployment, GitHub Pages, and build-time environment variables** (base path, legal header HTML, git metadata): [`docs/DEPLOYMENT.md`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/DEPLOYMENT.md).
 
-**Embedding the designer in a host application** (mount API, host data contract, library build, demo host page): [`docs/embedding.md`](docs/embedding.md).
-
-**Bundle composition and wire sizes** (what the big JS chunk is, verified compression, why code splitting was rejected): [`docs/bundle-audit.md`](docs/bundle-audit.md).
+**Bundle composition and wire sizes** (what the big JS chunk is, verified compression, why code splitting was rejected): [`docs/bundle-audit.md`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/bundle-audit.md).
 
 ## Architecture
 
@@ -199,19 +243,19 @@ npm run build
 - `src/ui/` — React 19 application shell
 - `src/ui/data/showcase.ts` — loads the built-in demo bundle (`src/assets/showcase/`)
 - `src/storage/` — Dexie IndexedDB (assets, mocks, variables, session)
-- `src/embed/` — embeddable `mount()` API + host data contract ([`docs/embedding.md`](docs/embedding.md))
+- `src/embed/` — embeddable `mount()` API + host data contract ([`docs/embedding.md`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/embedding.md))
 - `src/assets/showcase/` — **demo bundle**: `showcase.yml` (payload), `showcase.json` (canvas + simulator seed), `showcase.png` (bundled image)
 - `docs/adr/` — architecture decision records
 
-Start with [ADR-001](docs/adr/ADR-001-core-ui-separation.md) (core/UI boundary), [ADR-007](docs/adr/ADR-007-hybrid-rendering.md) (HA preview parity), [ADR-015](docs/adr/ADR-015-showcase-demo-bundle.md) (file-based demo), and [ADR-006](docs/adr/ADR-006-ui-framework-react.md) (React shell).
+Start with [ADR-001](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/adr/ADR-001-core-ui-separation.md) (core/UI boundary), [ADR-007](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/adr/ADR-007-hybrid-rendering.md) (HA preview parity), [ADR-015](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/adr/ADR-015-showcase-demo-bundle.md) (file-based demo), and [ADR-006](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/adr/ADR-006-ui-framework-react.md) (React shell).
 
 ## License
 
-**ODL/OEPL Drawcustom Designer** is licensed under the **[Apache License 2.0](LICENSE)**.
+**ODL/OEPL Drawcustom Designer** is licensed under the **[Apache License 2.0](https://github.com/schlomo/odl-drawcustom-designer/blob/main/LICENSE)**.
 
 Copyright © 2026 Schlomo Schapiro
 
-Third-party and upstream attributions: [`NOTICE`](NOTICE) · [`docs/THIRD_PARTY.md`](docs/THIRD_PARTY.md) · [`docs/spec/ATTRIBUTION.md`](docs/spec/ATTRIBUTION.md)
+Third-party and upstream attributions: [`NOTICE`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/NOTICE) · [`docs/THIRD_PARTY.md`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/THIRD_PARTY.md) · [`docs/spec/ATTRIBUTION.md`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/spec/ATTRIBUTION.md)
 
 This project is **not** affiliated with OpenEPaperLink, OpenDisplay, or Home Assistant. Upstream firmware and integrations may use **different licenses** (see third-party docs).
 

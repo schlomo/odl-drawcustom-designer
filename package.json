@@ -17,7 +17,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "build:lib": "vite build --config vite.lib.config.ts",
-    "build:site": "npm run build && npm run build:lib && node tools/assembleSite.ts"
+    "build:site": "npm run build && npm run build:lib && node tools/assembleSite.ts",
+    "screenshot": "node tools/screenshot.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
