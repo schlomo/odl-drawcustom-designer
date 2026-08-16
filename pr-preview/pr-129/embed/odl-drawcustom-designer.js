@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/issue-108-actions-seam", ae = "086016a", oe = "964dff9", k = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/issue-108-actions-seam", ae = "420a99e", oe = "eb6646e", k = "0.0.0-dev";
 function A(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -76153,6 +76153,7 @@ function vln({ actions: e, designerDisabledReason: t, onAction: n }) {
 		});
 		return /* @__PURE__ */ (0, K.jsxs)(hq, {
 			label: o ?? void 0,
+			placement: "below",
 			children: [u, c ? /* @__PURE__ */ (0, K.jsx)("span", {
 				id: c,
 				className: "sr-only",
