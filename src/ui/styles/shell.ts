@@ -17,5 +17,15 @@ export const shell = {
   /** Compact icon button — same destructive palette as {@link shell.buttonDestructive}. */
   buttonDestructiveIcon:
     'rounded-md border border-[var(--shell-danger-border)] bg-[var(--shell-surface-2)] text-[var(--shell-danger)] transition-colors hover:bg-[var(--shell-danger-hover)]',
+  /**
+   * Amber "this reaches beyond the designer" surface — one step below
+   * destructive red (host action `severity: 'caution'`, issue #108; same
+   * palette as the standing export warning).
+   */
+  buttonCaution:
+    'rounded-md border border-[var(--shell-warning-border)] bg-[var(--shell-warning-bg)] px-2 py-1 text-xs text-[var(--shell-warning-fg)] transition-colors hover:bg-[var(--shell-warning-hover)]',
+  /** Compact icon button — same caution palette as {@link shell.buttonCaution}. */
+  buttonCautionIcon:
+    'rounded-md border border-[var(--shell-warning-border)] bg-[var(--shell-warning-bg)] text-[var(--shell-warning-fg)] transition-colors hover:bg-[var(--shell-warning-hover)]',
   buttonActive: 'bg-[var(--shell-hover)]',
 } as const

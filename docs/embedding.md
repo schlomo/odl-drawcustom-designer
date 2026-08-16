@@ -58,7 +58,7 @@ npm run build:site && npm run preview
 No dedicated server needed beyond that: the demo is plain static files, so any
 static file server works too (e.g. `python3 -m http.server -d dist-lib`).
 
-The demo page mounts the designer, pushes fake warm/cold states and a 296×128 BWR capabilities payload, switches themes, and shows every `onSaveRequest` payload in a `<pre>`. It doubles as the Playwright e2e fixture ([`tests/e2e/embed-mount.spec.ts`](../tests/e2e/embed-mount.spec.ts)).
+The demo page mounts the designer, pushes fake warm/cold states and a 296×128 BWR capabilities payload, registers two host actions (and re-pushes them to simulate a display going offline), switches themes, and shows every `onSaveRequest` payload and fired action in a `<pre>`. It doubles as the Playwright e2e fixture ([`tests/e2e/embed-mount.spec.ts`](../tests/e2e/embed-mount.spec.ts), [`tests/e2e/embed-actions.spec.ts`](../tests/e2e/embed-actions.spec.ts)).
 
 The same demo is published from `main` at **<https://schlomo.github.io/odl-drawcustom-designer/embed/>** — `npm run build:site` assembles the deployed site (app at `/`, `dist-lib/` copied to `/embed/` by [`tools/assembleSite.ts`](../tools/assembleSite.ts)); PR previews get their own `/embed/` the same way.
 
@@ -73,6 +73,10 @@ const handle = mount(document.getElementById('designer'), {
   capabilities: { /* below */ },// display description -> canvas + palette
   lock: true,                   // optional, default true — see "Display config lock" below
   theme: 'dark',                // 'light' | 'dark', scoped to the container
+  actions: [ /* see below */ ], // host buttons in the designer toolbar
+  onAction(id, payload, context) {
+    // user clicked one of your buttons — do the host-side thing
+  },
   onSaveRequest(payload) {
     // user hit Save — persist the YAML; the designer never writes it itself
   },
@@ -82,6 +86,7 @@ handle.setStates(states)                              // replace the entity-stat
 handle.setCapabilities(capabilities)                  // re-map canvas size/rotation/palette, re-lock
 handle.setCapabilities(capabilities, { lock: false })  // same, but leaves the controls unlocked
 handle.setPayload(yamlString)                         // replace the payload (throws on bad YAML)
+handle.setActions(actions)                            // replace the host action buttons
 handle.getPayload()                                   // read the current payload YAML — see below
 handle.setTheme('light')                              // switch the container-scoped theme
 handle.destroy()                                      // unmount and empty the container
@@ -263,6 +268,78 @@ When the mount received `capabilities` — at `mount()` or via `setCapabilities(
 - **Load Demo while locked** loads the demo payload and simulator seed but **keeps** the host-defined resolution/rotation/palette. Accepted consequence: on small displays the demo layout may look bad. Unlocked (including the `lock: false` seed), Load Demo applies the showcase display config as in standalone.
 - **No `capabilities`** (standalone, or an embed that never pushes them): no lock icon, controls behave exactly as before.
 
+### `actions` / `onAction` ([issue #108](https://github.com/schlomo/odl-drawcustom-designer/issues/108))
+
+The host registers a **typed, closed list of buttons**; the designer renders
+them in its own toolbar and reports back which one fired, with the current
+payload ([ADR-018](adr/ADR-018-host-ui-seam.md) actions seam). Meaning, auth
+and the actual service call stay entirely host-side — this is deliberately
+*not* a plugin API, and no host markup ever enters the designer's shadow root.
+
+```js
+const actions = (displayOnline) => [
+  {
+    id: 'send',                    // opaque, host-defined; echoed back to onAction
+    label: 'Send to display',      // button text and accessible name
+    icon: 'send',                  // optional, from the closed vocabulary below
+    severity: 'caution',           // 'normal' (default) | 'caution' | 'danger'
+    disabledReason: displayOnline ? undefined : 'Display offline — reconnect to send',
+  },
+  { id: 'validate', label: 'Validate', icon: 'check' },
+]
+
+const handle = mount(el, {
+  actions: actions(true),
+  onAction(id, payload, context) {
+    // payload === handle.getPayload() at this instant; context.targetId is
+    // reserved for the targets seam (#106) and undefined today.
+    if (id === 'send') void sendToDisplay(payload)
+  },
+})
+
+// Re-push whenever host state changes — this is the normal way to work:
+handle.setActions(actions(false))   // Send is now disabled, with its reason
+handle.setActions([])               // no action buttons at all
+```
+
+- **Mount option ≡ initial push.** `mount(el, { actions })` is exactly
+  `mount(el)` + `setActions(actions)` applied before the first painted frame,
+  and everything pushed at mount is re-pushable afterwards. `onAction` itself
+  is a stable closure — there is no update channel for functions.
+- **Re-pushable, and diffed.** Push the *whole* list again on every host state
+  change; the designer compares it structurally and does nothing at all when
+  it is unchanged, so a host may re-push on a timer. Unlike
+  [`states`](#states), the pushed actions are copied on the way in, so
+  mutate-and-repush works too.
+- **Severity is presentation only:** `normal` regular chrome, `caution`
+  orange, `danger` red — in both themes. `caution` is the reference case for
+  an action that reaches beyond the designer (the OpenDisplay integration's
+  Send-to-display drives physical hardware). The designer never infers
+  behavior from it: no confirmation dialog, no interception.
+- **`disabledReason` disables the button** and is what the user reads when
+  hovering it — the field hosts flip live ("Display offline", "No target
+  selected"). Clearing it re-enables the button.
+- **`icon` is a closed vocabulary** the designer bundles, so a host needs no
+  icon dependency: `alert`, `check`, `delete`, `download`, `play`, `preview`,
+  `refresh`, `save`, `send`, `settings`, `upload` (exported as
+  `HOST_ACTION_ICON_NAMES`). Arbitrary Material Design Icon names are not
+  resolvable — that would mean bundling all ~7000 paths into the single-file
+  build.
+- **Malformed lists throw** at the push that carries them (unknown `icon` or
+  `severity`, missing or duplicate `id`, missing `label`), like invalid
+  `payload` YAML does, and leave the designer untouched. A bad list passed to
+  `mount()` throws before the container is touched.
+- **While the YAML editor is blocked** by a parse/schema error, every action
+  is disabled — same rule as Save — and says so on hover. A host
+  `disabledReason` takes precedence over that message.
+- The designer's built-in **Save button is the same species of control** and
+  becomes an ordinary action instance at 2.0, when `onSaveRequest` and the
+  built-in button are removed ([issue #121](https://github.com/schlomo/odl-drawcustom-designer/issues/121)).
+
+The demo host page registers both example actions and a "Simulate display
+offline" toggle that re-pushes the list ([`demo/host.js`](../demo/host.js),
+guarded by [`tests/e2e/embed-actions.spec.ts`](../tests/e2e/embed-actions.spec.ts)).
+
 ### `payload` / `onSaveRequest`
 
 The payload is the drawcustom **element list YAML** (what the YAML panel shows). The parent owns persistence: session autosave is disabled in embedded mode, the share-link button is hidden, and `onSaveRequest(payload)` fires only on an explicit Save click.
@@ -308,6 +385,7 @@ Everything that used to be an `embedded` conditional in the React shell is polic
 | `shareLink` | `true` | `false` |
 | `persistence` | IndexedDB writers | `null` — the parent owns the payload |
 | `onSaveRequest` | absent (persists continuously) | present → Save button |
+| `actions` / `onAction` | absent — no action chrome | host-registered buttons (issue #108) |
 | `loadBootstrap` | async: session + `#d=` hash | sync: `payload`/`states`/`capabilities` options |
 
 The interface is **internal on purpose** — it references internal types, so publishing it would freeze designer internals under semver ([`docs/releasing.md`](releasing.md)). The public embedded surface (`mount`, `MountOptions`, `MountHandle`, the host data contract) is unchanged by the convergence. The M4 HA panel ([issue #25](https://github.com/schlomo/odl-drawcustom-designer/issues/25)) becomes a third adapter, not a third mode.

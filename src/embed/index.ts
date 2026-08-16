@@ -18,9 +18,16 @@ export { APP_VERSION as version } from '../core'
 export type {
   CapabilitiesPushOptions,
   EmbedTheme,
+  HostAction,
+  HostActionContext,
+  HostActionHandler,
+  HostActionSeverity,
   HostCapabilities,
   HostEntityState,
   HostStates,
   MountHandle,
   MountOptions,
 } from './types'
+/** The closed icon vocabulary for {@link HostAction.icon} (issue #108). */
+export type { HostActionIcon } from './hostActionIcons'
+export { HOST_ACTION_ICON_NAMES } from './hostActionIcons'

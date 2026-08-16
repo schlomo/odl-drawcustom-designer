@@ -6,6 +6,7 @@ import { App } from '../ui/App'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import { createEmbeddedHost } from './embeddedHost'
 import { hostSuppliedTheme, type DesignerHost } from './host'
+import { normalizeHostActions } from './hostActions'
 import type {
   CapabilitiesPushOptions,
   EmbedTheme,
@@ -271,6 +272,14 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
         pendingPayloadElements = elements
       }
       push((target) => target.applyPayload(elements))
+    },
+    setActions(actions) {
+      assertMounted()
+      // Validate before queueing, so a malformed list throws at the push that
+      // carries it and leaves the designer untouched — a queued push cannot
+      // report its own failure to the host later.
+      const normalized = normalizeHostActions(actions)
+      push((target) => target.applyActions(normalized))
     },
     setTheme(nextTheme) {
       assertMounted()

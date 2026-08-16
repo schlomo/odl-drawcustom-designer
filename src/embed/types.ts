@@ -1,7 +1,83 @@
 import type { DrawElement } from '../core'
+import type { HostActionIcon } from './hostActionIcons'
 
 /** Theme applied to the mount container (never `document.documentElement`). */
 export type EmbedTheme = 'light' | 'dark'
+
+/**
+ * How prominently an action's button warns before it is clicked (issue #108,
+ * ADR-018):
+ *
+ * - `'normal'` (default) — regular button chrome.
+ * - `'caution'` — orange: the action reaches beyond the designer, e.g. the
+ *   OpenDisplay integration's Send-to-display drives physical hardware.
+ * - `'danger'` — red: the action destroys or overwrites something.
+ *
+ * Severity is *presentation only*. The designer never infers meaning from it
+ * — confirmation, auth and the actual call stay host-side.
+ */
+export type HostActionSeverity = 'normal' | 'caution' | 'danger'
+
+/**
+ * One host-registered toolbar button (issue #108, ADR-018 actions seam).
+ *
+ * The host owns what the button means; the designer owns how it looks and
+ * reports which one fired, with the current payload (`onAction`). This is a
+ * typed, closed button list — deliberately not a plugin API: no host markup,
+ * styles or components ever enter the designer's shadow root (ADR-017).
+ */
+export interface HostAction {
+  /**
+   * Opaque, host-defined identity, echoed back by `onAction`. Also the list's
+   * diff key: re-pushing the same id updates that button in place rather than
+   * replacing it. Must be unique within a push.
+   */
+  id: string
+  /** Button text, shown as-is. Also its accessible name. */
+  label: string
+  /**
+   * Optional icon from the designer's closed vocabulary
+   * ({@link HostActionIcon}) — the designer bundles the paths, so a host
+   * needs no icon dependency. An unknown name is rejected, not ignored.
+   */
+  icon?: HostActionIcon
+  /** Button chrome; defaults to `'normal'`. */
+  severity?: HostActionSeverity
+  /**
+   * When set, the button renders visibly disabled and this text is what the
+   * user gets on hover ("Display offline", "No target selected"). Clearing it
+   * in a later push re-enables the button — this is the field hosts re-push
+   * as their own state changes.
+   */
+  disabledReason?: string
+}
+
+/**
+ * Third argument of `onAction` — the opaque ids that accompany the payload.
+ *
+ * Typed today so the targets seam
+ * ([#106](https://github.com/schlomo/odl-drawcustom-designer/issues/106)) is
+ * additive rather than a signature change; the designer has no target picker
+ * yet, so `targetId` is always `undefined` for now.
+ */
+export interface HostActionContext {
+  /** The selected target's opaque host id, once the targets seam exists. */
+  targetId?: string
+}
+
+/**
+ * Fired when the user clicks a host-registered action.
+ *
+ * `payload` is the current drawcustom YAML — the exact string
+ * {@link MountHandle.getPayload} returns at that instant (same serializer,
+ * same pending-edit flush), so a host never has to reconcile two readings of
+ * the same design.
+ */
+export type HostActionHandler = (
+  id: string,
+  payload: string,
+  context: HostActionContext,
+) => void
 
 /** A pushed entity state with optional attributes. */
 export interface HostEntityState {
@@ -89,9 +165,27 @@ export interface MountOptions {
   /** Initial theme; defaults to 'light'. */
   theme?: EmbedTheme
   /**
+   * Initial host action buttons (issue #108). A mount option *is* an initial
+   * push (ADR-018 seam grammar): identical to calling
+   * {@link MountHandle.setActions} before the first painted frame, and
+   * re-pushable from then on. A malformed list throws out of `mount()`, like
+   * an invalid `payload`.
+   */
+  actions?: readonly HostAction[]
+  /**
+   * Called when the user clicks one of the {@link MountOptions.actions}.
+   * A stable closure — there is no update channel for it (ADR-018: data is
+   * pushed, functions are not).
+   */
+  onAction?: HostActionHandler
+  /**
    * Called with the current drawcustom YAML payload when the user hits Save.
    * The parent owns persistence in embedded mode — the designer never writes
    * the payload anywhere itself (ADR-010).
+   *
+   * Superseded in spirit by {@link MountOptions.actions}: the built-in Save
+   * button is just an action instance, and both it and this callback are
+   * removed at 2.0 (issue #121) in favour of the actions seam.
    */
   onSaveRequest?: (payload: string) => void
 }
@@ -126,6 +220,18 @@ export interface MountHandle {
   setCapabilities(capabilities: HostCapabilities, options?: CapabilitiesPushOptions): void
   /** Replace the current payload with new drawcustom YAML (throws on invalid YAML). */
   setPayload(payload: string): void
+  /**
+   * Replace the host action buttons (issue #108). Everything pushed at mount
+   * is re-pushable (ADR-018), and this is the channel hosts use to keep
+   * labels and `disabledReason`s live: push the full list again whenever host
+   * state changes (connection lost, target deselected). The designer diffs —
+   * an unchanged list costs no re-render — and an empty list removes all
+   * action chrome.
+   *
+   * Throws on a malformed list (unknown `icon` or `severity`, missing or
+   * duplicate `id`, missing `label`) without changing what is on screen.
+   */
+  setActions(actions: readonly HostAction[]): void
   /** Switch the container-scoped theme. */
   setTheme(theme: EmbedTheme): void
   /**
@@ -172,4 +278,6 @@ export interface HostPushTarget {
   applyStates(states: HostStates): void
   applyCapabilities(capabilities: HostCapabilities, options?: CapabilitiesPushOptions): void
   applyPayload(elements: DrawElement[]): void
+  /** Pre-validated by `normalizeHostActions` at the handle boundary. */
+  applyActions(actions: readonly HostAction[]): void
 }

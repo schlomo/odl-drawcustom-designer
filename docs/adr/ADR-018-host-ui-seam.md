@@ -89,6 +89,13 @@ data contract — no new lifecycle, no new adapter shape:
   the built-in Save button are removed — the actions seam is the only
   save/send channel. This is deliberately **not** a plugin API: a typed,
   closed list of buttons, never host-rendered UI inside the shadow root.
+  *Shipped shape* (issue #108, `docs/embedding.md`): the opaque ids travel in
+  a context object — `onAction(id, payload, { targetId })` — so the targets
+  seam below is additive rather than a signature change; and `icon` is a
+  **closed name vocabulary** the designer bundles (`HOST_ACTION_ICON_NAMES`)
+  rather than free-form icon data, since resolving arbitrary Material Design
+  Icon names would mean bundling all ~7000 paths into the single-file library
+  build (issue #22).
 - **Preview provider** — `renderPreview(payload, targetId) => Promise<image>`,
   optional; when present the designer offers a server-rendered dry-run as an
   overlay/compare view next to its own client preview. The HA adapter
