@@ -1,7 +1,14 @@
 import type { SessionWritePayload, StoredVariables } from '../storage'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import type { MockData } from '../ui/preferences/mockStates'
-import type { EmbedTheme, HostAction, HostActionHandler, HostPushTarget } from './types'
+import type {
+  EmbedTheme,
+  HostAction,
+  HostActionHandler,
+  HostPushTarget,
+  HostTarget,
+  HostTargetSelectedHandler,
+} from './types'
 
 /**
  * Host-adapter seam (issue #72, ADR-017).
@@ -71,6 +78,19 @@ export interface DesignerHost {
    * Absent for a host that registers no actions (standalone never does).
    */
   readonly onAction?: HostActionHandler
+  /**
+   * Display targets the shell paints in its picker before the first push
+   * (issue #106, ADR-018): the adapter's rendering of the `targets` mount
+   * option, which the seam grammar defines as an initial push. Later pushes
+   * arrive through {@link HostPushTarget.applyTargets} and replace this
+   * wholesale. Pre-validated by `normalizeHostTargets`.
+   */
+  readonly targets?: readonly HostTarget[]
+  /**
+   * Selection channel: which target the user picked, or `null` for the
+   * virtual display. Absent for a host that pushes no targets.
+   */
+  readonly onTargetSelected?: HostTargetSelectedHandler
   /**
    * Initial designer state. May be async so an adapter can read IndexedDB
    * and the `#d=` share hash; a synchronous return renders in the same tick

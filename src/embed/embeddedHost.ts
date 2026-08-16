@@ -3,6 +3,7 @@ import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import { DEFAULT_DISPLAY_CONFIG } from '../ui/preferences/displayConfig'
 import type { DesignerHost } from './host'
 import { assertActionsAreHandled, normalizeHostActions } from './hostActions'
+import { normalizeHostTargets } from './hostTargets'
 import { capabilitiesToCanvas, hostStatesToMockData } from './hostContract'
 import type { MountOptions } from './types'
 
@@ -42,6 +43,7 @@ export function createEmbeddedHost(options: MountOptions): DesignerHost {
   if (actions) {
     assertActionsAreHandled(actions, options.onAction, 'mount()')
   }
+  const targets = options.targets ? normalizeHostTargets(options.targets) : undefined
   return {
     styleScope: 'shadow',
     theme: { owner: 'host', value: options.theme ?? 'light' },
@@ -51,6 +53,8 @@ export function createEmbeddedHost(options: MountOptions): DesignerHost {
     onSaveRequest: options.onSaveRequest,
     actions,
     onAction: options.onAction,
+    targets,
+    onTargetSelected: options.onTargetSelected,
     // Synchronous: invalid `payload` YAML must throw out of `mount()` itself.
     loadBootstrap: () => buildEmbedBootstrap(options),
   }

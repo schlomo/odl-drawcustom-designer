@@ -68,14 +68,14 @@ export interface HostAction {
 
 /**
  * Third argument of `onAction` — the opaque ids that accompany the payload.
- *
- * Typed today so the targets seam
- * ([#106](https://github.com/schlomo/odl-drawcustom-designer/issues/106)) is
- * additive rather than a signature change; the designer has no target picker
- * yet, so `targetId` is always `undefined` for now.
  */
 export interface HostActionContext {
-  /** The selected target's opaque host id, once the targets seam exists. */
+  /**
+   * The selected target's opaque host id (issue #106), or `undefined` when
+   * the design is not pinned to one — no targets pushed, none picked yet, or
+   * the user switched to the virtual display. Always the same value the last
+   * {@link MountOptions.onTargetSelected} call reported.
+   */
   targetId?: string
 }
 
@@ -147,6 +147,48 @@ export interface HostCapabilities {
 }
 
 /**
+ * One display the host knows about (issue #106, ADR-018 targets seam).
+ *
+ * The host pushes the list, the designer renders a picker inside its own
+ * display-config area, and selecting an entry adopts that display's
+ * capabilities behind the existing lock (issue #70). The id is **opaque**: it
+ * round-trips through `onTargetSelected` and `onAction`'s context untouched,
+ * and the designer never learns what it names (ADR-018: domain-neutral
+ * vocabulary — "target", never "entity").
+ */
+export interface HostTarget {
+  /**
+   * Opaque, host-defined identity, echoed back by `onTargetSelected` and
+   * `onAction`. Also the list's diff key: re-pushing the same id keeps a
+   * selection on it. Must be unique within a push.
+   */
+  id: string
+  /** Picker entry text, shown as-is (surrounding whitespace trimmed). */
+  label: string
+  /**
+   * The display this target *is* — the same shape the `capabilities` channel
+   * takes, mapped onto the canvas by exactly the same code. Only the
+   * documented {@link HostCapabilities} fields are retained; the copy the
+   * designer keeps is frozen, so mutating the pushed object afterwards
+   * cannot change what the picker applies.
+   */
+  capabilities: HostCapabilities
+}
+
+/**
+ * Called when the effective display target changes (issue #106).
+ *
+ * `null` means "no target": the user picked the virtual display, unlocked the
+ * display config, or has not picked anything yet. Fires only on a *change*,
+ * never for the initial (target-less) state, and never as a side effect of a
+ * `setTargets` push — a push that removes the selected display keeps it
+ * (marked stale) rather than switching, so there is nothing new to report.
+ *
+ * A stable closure fixed at mount: ADR-018 pushes data, never functions.
+ */
+export type HostTargetSelectedHandler = (targetId: string | null) => void
+
+/**
  * Options accompanying a `capabilities` push (issue #70). Kept separate from
  * `HostCapabilities` itself, which mirrors the OpenDisplay HA integration's
  * `capabilities.py` payload verbatim — `lock` is an embedding-only directive,
@@ -196,6 +238,27 @@ export interface MountOptions {
    * take actions, at mount time or through a later `setActions()`.
    */
   onAction?: HostActionHandler
+  /**
+   * Initial display targets (issue #106). A mount option *is* an initial push
+   * (ADR-018 seam grammar): identical to calling
+   * {@link MountHandle.setTargets} before the first painted frame, and
+   * re-pushable from then on. A malformed list throws out of `mount()`, like
+   * an invalid `payload`.
+   *
+   * Pushing targets only says what the user *can* pick — it never moves the
+   * canvas by itself. Seeding the display the designer starts on stays
+   * {@link MountOptions.capabilities}'s job in 1.x (at 2.0 the targets seam
+   * subsumes it, issue #121).
+   */
+  targets?: readonly HostTarget[]
+  /**
+   * Called when the selected display target changes, including to `null` for
+   * the virtual display. Optional: a host that only needs the id when
+   * something happens gets it from `onAction`'s context instead. Hosts that
+   * *react* to the selection — re-pushing `actions` with a
+   * `disabledReason: 'No display selected'`, say — want this.
+   */
+  onTargetSelected?: HostTargetSelectedHandler
   /**
    * Called with the current drawcustom YAML payload when the user hits Save.
    * The parent owns persistence in embedded mode — the designer never writes
@@ -252,6 +315,23 @@ export interface MountHandle {
    * handler is fixed at mount, so those buttons could never fire.
    */
   setActions(actions: readonly HostAction[]): void
+  /**
+   * Replace the display targets the picker offers (issue #106). Everything
+   * pushed at mount is re-pushable (ADR-018), and targets are the channel a
+   * host uses as its own display inventory changes: a display that appears
+   * shows up in the picker without a reload, and the designer diffs the list
+   * so an unchanged re-push costs no re-render.
+   *
+   * A push never moves the canvas on its own, and never overrides the user:
+   * if it **removes the currently selected target**, the designer keeps that
+   * display's last-known capabilities and lock state and marks the selection
+   * stale ("display no longer available") instead of silently switching or
+   * unlocking. Pushing the target back clears the stale marker.
+   *
+   * Throws on a malformed list (missing or duplicate `id`, missing `label`,
+   * missing `capabilities`) without changing what is on screen.
+   */
+  setTargets(targets: readonly HostTarget[]): void
   /** Switch the container-scoped theme. */
   setTheme(theme: EmbedTheme): void
   /**
@@ -300,4 +380,6 @@ export interface HostPushTarget {
   applyPayload(elements: DrawElement[]): void
   /** Pre-validated by `normalizeHostActions` at the handle boundary. */
   applyActions(actions: readonly HostAction[]): void
+  /** Pre-validated by `normalizeHostTargets` at the handle boundary. */
+  applyTargets(targets: readonly HostTarget[]): void
 }

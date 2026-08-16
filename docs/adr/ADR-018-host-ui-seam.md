@@ -72,6 +72,43 @@ data contract — no new lifecycle, no new adapter shape:
   `lock` channel entirely: a single-display host passes a one-element
   `targets` array (auto-selected, locked); "virtual display" is a picker
   state, not an option flag.
+
+  *Shipped shape* (issue #106, `docs/embedding.md`):
+
+  - **The two display channels coexist through 1.x with a stated precedence.**
+    A bare `capabilities` push is an **anonymous target**: a real display that
+    carries no id, behaving exactly as it always has (adopt + lock, or seed
+    unlocked with `lock: false`), and the picker names it "Host display".
+    Pushing `targets` declares only what the user *can* pick — it never moves
+    the canvas by itself, and nothing is auto-selected in 1.x (auto-selection
+    belongs to the 2.0 subsumption, not to two consecutive behaviors). An
+    explicit pick selects a named target and wins over the anonymous display;
+    a later `capabilities` push wins back and clears the named selection.
+    **Last write wins; the channels never merge** — in particular, pushed
+    capabilities are never matched against a target's capabilities to infer
+    which display they are, since that would guess at the identity the seam
+    deliberately keeps opaque.
+  - **Lock state and selection are one control, not two.** Selecting a target
+    adopts its capabilities through the same `capabilitiesToCanvas` pipeline
+    the `capabilities` channel uses (one display pipeline) and locks the
+    display config — the issue #70 lock UX unchanged. "Virtual display" *is*
+    the lock's open state: picking it and clicking the lock open are the same
+    action, and the selection survives it, so re-locking returns to the
+    selected target. What the picker reads is therefore always the display the
+    design is pinned to right now.
+  - **`onTargetSelected(id | null)` is optional and fires on change only.** A
+    host that merely needs the id when something happens reads `onAction`'s
+    `context.targetId` (same value; `undefined` where the callback reports
+    `null`). A host that *reacts* to the selection needs the notification —
+    the reference case is re-pushing `actions` with a
+    `disabledReason: 'No display selected'`, which the actions seam already
+    documents as its live-state field. The two channels agree by rule: an
+    unlocked (virtual) display reports no target on both.
+  - **Keep-and-mark-stale is derived, not stored.** "Unavailable" is the
+    selection no longer appearing in the pushed list, so pushing the display
+    back heals the state by construction and no push can strand a stale flag.
+    The removal changes nothing else — canvas, lock and selection all stay —
+    so it reports nothing to the host either.
 - **State catalog** — states gain an optional friendly-name field; a new
   referenced-states panel shows only the states the current payload actually
   references, with host display names, as a compact visual aid. The full
