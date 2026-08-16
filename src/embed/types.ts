@@ -128,6 +128,37 @@ export interface MountHandle {
   setPayload(payload: string): void
   /** Switch the container-scoped theme. */
   setTheme(theme: EmbedTheme): void
+  /**
+   * The designer's current drawcustom YAML payload (issue #104) — exactly
+   * the string `onSaveRequest` would receive if the user hit Save at this
+   * instant. Same serializer, same underlying elements state; there is no
+   * second source of truth.
+   *
+   * - **Never returns `undefined`, and throws only after `destroy()`** — like
+   *   every other method on this handle, it rejects a destroyed mount
+   *   (`MountHandle used after destroy()`). On a live mount it always answers
+   *   with a string, including in the brief window right after
+   *   `mount()`/`mountStandaloneApp()` return but before React has committed
+   *   and run its effects, when it reports the bootstrap payload the designer
+   *   is about to render.
+   * - **Never lags a pending edit.** The YAML editor commits typed text to
+   *   the canvas model on an 80ms debounce (or on blur); `getPayload()`
+   *   forces that flush first, so a call made mid-keystroke reflects the
+   *   text already typed — the same content a real Save click would send
+   *   (a click blurs the editor, which flushes the debounce, before Save
+   *   reads the payload).
+   * - **Never resurrects a pre-push draft.** A `setPayload()` push is
+   *   authoritative: it discards any debounced edit typed before it, so the
+   *   flush above can only ever commit text typed *after* the last push.
+   * - **While the YAML editor is blocked** by a parse/schema error (Save is
+   *   disabled), returns the last valid payload — the canvas model is frozen
+   *   there too, so this is exactly what Save would have sent last, and the
+   *   only way to read anything at all.
+   *
+   * See [`docs/embedding.md`](../../docs/embedding.md#getpayload-issue-104)
+   * for the full semantics and rationale.
+   */
+  getPayload(): string
 }
 
 /**

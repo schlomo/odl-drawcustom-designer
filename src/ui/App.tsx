@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   buildSharePayload,
   buildShareUrl,
@@ -92,10 +92,20 @@ export function App({ bootstrap, host }: AppProps) {
   const yamlBlockedVisible = useYamlBlockedVisibility(yamlBlocked)
   const [elementAddNotice, setElementAddNotice] = useState<StatusMessage | null>(null)
   const { flashSuccess, flashError, getFeedback, getFeedbackMessage } = useExportActionFeedback()
+  // The two handles on YamlPanel's debounced edit (issue #104), published by
+  // the panel and called from outside it:
+  // - flush: `getPayload()` forces the same commit a blur or the 80ms timer
+  //   would, so a host read never lags text the user already typed;
+  // - discard: a host payload push overrules a draft typed before it, so the
+  //   push applier drops that draft instead of letting a later flush commit it
+  //   back over the pushed payload.
+  const yamlFlushPendingRef = useRef<(() => void) | null>(null)
+  const yamlDiscardPendingRef = useRef<(() => void) | null>(null)
   const {
     sessionName,
     service,
     elements,
+    getElementsSnapshot,
     previewElements,
     selectedIndices,
     selectedIndex,
@@ -156,13 +166,36 @@ export function App({ bootstrap, host }: AppProps) {
     canRedo,
     beginEditCoalesce,
     endEditCoalesce,
-  } = useProjectState(bootstrap, host)
+  } = useProjectState(bootstrap, host, { yamlDiscardPendingRef })
 
   const elementsRef = useRef(elements)
 
   useEffect(() => {
     elementsRef.current = elements
   }, [elements])
+
+  // getPayload() flushes through `yamlFlushPendingRef` before serializing, so
+  // it forces the same debounce commit a real blur/Save click would trigger,
+  // instead of a second, independently-timed read.
+  //
+  // useLayoutEffect, not useEffect (issue #115/#116 commit-window fix): this
+  // is the read-side mirror of `registerPushTarget` (useProjectState), which
+  // is committed synchronously at layout time (PR #117). A passive effect
+  // here would flush after that — a real window where a host push already
+  // applied live (pushTarget registered) while `getPayload()` still fell back
+  // to the stale bootstrap (payloadSource not yet registered). Registering at
+  // layout time is safe even before #117 lands: this effect only *installs* a
+  // pure read callback, touches no DOM and schedules no state update, so
+  // running it earlier cannot misorder anything — it only closes the window.
+  useLayoutEffect(() => {
+    if (!host.registerPayloadSource) {
+      return
+    }
+    return host.registerPayloadSource(() => {
+      yamlFlushPendingRef.current?.()
+      return serializeYamlPayload(getElementsSnapshot())
+    })
+  }, [host, getElementsSnapshot])
 
   useEffect(() => {
     if (bootstrap.importSource === 'hash') {
@@ -585,6 +618,8 @@ export function App({ bootstrap, host }: AppProps) {
             elementScrollRequest={elementScrollRequest}
             canvasDragging={canvasDragging}
             propertyEditing={propertyEditing}
+            flushPendingRef={yamlFlushPendingRef}
+            discardPendingRef={yamlDiscardPendingRef}
           />
         </div>
 

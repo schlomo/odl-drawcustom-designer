@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import {
   applyPlotPropertyUpdate,
   BUNDLED_SHOWCASE_IMAGE_KEY,
@@ -154,7 +154,22 @@ function buildEffectiveMockContext(
   return { states, attributes: mockAttributes, variables }
 }
 
-export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
+export interface ProjectStateEditorHooks {
+  /**
+   * Points at `YamlPanel`'s `discardPendingYamlEdit` (issue #104 review): a
+   * host payload push is authoritative, so the push applier below invalidates
+   * any debounced YAML draft before committing the pushed elements. A ref, not
+   * a callback prop, so the shell can hand it over before the panel mounts and
+   * the push registration never re-runs because of it.
+   */
+  yamlDiscardPendingRef?: RefObject<(() => void) | null>
+}
+
+export function useProjectState(
+  bootstrap: AppBootstrap,
+  host: DesignerHost,
+  { yamlDiscardPendingRef }: ProjectStateEditorHooks = {},
+) {
   const [sessionName, setSessionName] = useState(bootstrap.sessionName)
   const [elements, setElements] = useState<DrawElement[]>(bootstrap.elements)
   const [selectedIndices, setSelectedIndices] = useState<number[]>([])
@@ -432,13 +447,24 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
       },
       applyPayload: (nextElements) => {
         // The parent replaced the payload wholesale — undo history from the
-        // previous payload no longer applies.
+        // previous payload no longer applies, and neither does a YAML edit the
+        // user typed before the push: invalidate that draft *first*, in this
+        // same synchronous path, so the commit below cannot be undone later by
+        // its debounce flush (issue #104 review).
+        yamlDiscardPendingRef?.current?.()
         resetEditHistory()
         commitElements(structuredClone(nextElements))
         commitSelectedIndices([])
       },
     })
-  }, [host, commitCanvas, commitElements, commitSelectedIndices, resetEditHistory])
+  }, [
+    host,
+    commitCanvas,
+    commitElements,
+    commitSelectedIndices,
+    resetEditHistory,
+    yamlDiscardPendingRef,
+  ])
 
   useEffect(() => {
     writeSnapGridPrefs(snapGrid)
@@ -1203,6 +1229,13 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
     [commitElements, dispatchHistory],
   )
 
+  // Synchronous accessor onto `elementsRef` (issue #104): `commitElements`
+  // updates the ref before the React state setter, so this is always the
+  // latest committed elements even mid-callback, before a re-render — what
+  // `MountHandle.getPayload()` needs to read immediately after forcing a
+  // flush of any pending YAML-editor debounce.
+  const getElementsSnapshot = useCallback(() => elementsRef.current, [])
+
   return {
     sessionName,
     setSessionName,
@@ -1210,6 +1243,7 @@ export function useProjectState(bootstrap: AppBootstrap, host: DesignerHost) {
     setService: commitService,
     elements,
     setElements: setElementsWithHistory,
+    getElementsSnapshot,
     previewElements,
     selectedIndices,
     selectedIndex,

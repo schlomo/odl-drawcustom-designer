@@ -50,6 +50,7 @@ handle.setStates(states)                              // replace the entity-stat
 handle.setCapabilities(capabilities)                  // re-map canvas size/rotation/palette, re-lock
 handle.setCapabilities(capabilities, { lock: false })  // same, but leaves the controls unlocked
 handle.setPayload(yamlString)                         // replace the payload (throws on bad YAML)
+handle.getPayload()                                   // read the current payload YAML — see below
 handle.setTheme('light')                              // switch the container-scoped theme
 handle.destroy()                                      // unmount and empty the container
 ```
@@ -64,6 +65,56 @@ handle.destroy()                                      // unmount and empty the c
   first frame you can observe already reflects it. A host that pushes
   capabilities immediately after `mount()` never shows a frame of default,
   unlocked display config first (issue #115).
+
+### `getPayload()` (issue #104)
+
+`handle.getPayload()` returns the designer's current drawcustom YAML —
+exactly the string `onSaveRequest` would receive if the user hit Save at that
+instant. It exists so a host can *read* the payload directly instead of
+simulating a Save click: the upstream OpenDisplay HA integration
+([PR #100](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/100))
+DOM-scraped the designer's shadow root for the Save button and called
+`.click()` on it, which silently did nothing whenever a YAML error had
+disabled the button (see [ADR-018](adr/ADR-018-host-ui-seam.md)).
+
+`getPayload()` reuses the exact same serialization path as `onSaveRequest` —
+there is no second serializer to drift out of sync with it — and resolves
+four edge cases so it can never disagree with what Save would send:
+
+- **Before React has committed anything** (a synchronous call right after
+  `mount()`/`mountStandaloneApp()` returns, before the mount's internal push/read
+  registration effect has run): reports the **bootstrap payload** — the same
+  `elements` the shell is about to seed its state from for a synchronous host
+  (`mount({ payload })`), or a safe empty-list default while an async
+  bootstrap (the standalone SPA's IndexedDB/share-hash load) is still in
+  flight. Always a string, never `undefined`.
+- **Mid-keystroke, while a debounced YAML edit is still pending:** the YAML
+  editor commits typed text to the canvas model on an 80ms debounce (or
+  immediately on blur). `getPayload()` forces that flush before reading, so a
+  call made moments after typing reflects the already-typed text — matching
+  a real Save click, which always blurs the editor (flushing the debounce)
+  before it reads the payload. `getPayload()` never lags behind what a click
+  would send.
+- **While the YAML editor is blocked** by a parse/schema error (Save itself
+  is disabled): returns the **last valid payload**. The canvas model
+  (`elements`) freezes at its last-valid state while the live document is
+  broken — the same state Save would have sent last, and, with Save
+  disabled, the only way for a host to read anything at all.
+- **Right after a `setPayload()` push, with an edit still pending:** the push
+  wins. A host push is authoritative — it replaces the payload wholesale, so
+  it also **discards** any debounced edit typed before it, and the editor is
+  re-serialized from the pushed payload. Without that, the flush above (which
+  `getPayload()` itself triggers) would have committed the pre-push draft over
+  the payload the host had just pushed.
+
+Like every other method on the handle, `getPayload()` throws
+`MountHandle used after destroy()` once the mount has been destroyed. On a
+live mount it never throws.
+
+The payload read channel (`registerPayloadSource`) registers in the same
+commit as the push channel (`registerPushTarget`) — both are `useLayoutEffect`
+— so there is no window where a host push has already applied but a read
+still reports stale, pre-push data.
 
 ### Version
 
