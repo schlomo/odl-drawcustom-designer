@@ -8,6 +8,10 @@ import { stageNpmPackage } from '../../tools/stageNpmPackage'
 // function — the built ESM, a generated package.json with the real derived
 // version, and LICENSE/NOTICE/THIRD_PARTY.md — so `npm publish --dry-run`
 // against the staged dir works on a laptop, same as CI.
+//
+// README unification (maintainer ruling 2026-08-16): one README.md at the
+// repo root serves both GitHub and npmjs.com — docs/npm-README.md is gone,
+// and staging copies the root README.md instead.
 
 function writeFixtureRepo(workDir: string): { repoRoot: string; distLibJsPath: string } {
   const repoRoot = join(workDir, 'repo')
@@ -18,8 +22,7 @@ function writeFixtureRepo(workDir: string): { repoRoot: string; distLibJsPath: s
   writeFileSync(distLibJsPath, 'export const version = "1.2.3"')
   writeFileSync(join(repoRoot, 'LICENSE'), 'Apache License text')
   writeFileSync(join(repoRoot, 'NOTICE'), 'Copyright notice text')
-  mkdirSync(join(repoRoot, 'docs'), { recursive: true })
-  writeFileSync(join(repoRoot, 'docs', 'npm-README.md'), '# @schlomo/odl-drawcustom-designer\n')
+  writeFileSync(join(repoRoot, 'README.md'), '# @schlomo/odl-drawcustom-designer\n')
   return { repoRoot, distLibJsPath }
 }
 
