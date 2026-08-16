@@ -77,6 +77,16 @@ export interface DesignerHost {
    * that never push simply never see it invoked.
    */
   registerPushTarget?(target: HostPushTarget): () => void
+  /**
+   * Registers the shell's current-payload getter (issue #104): the mirror of
+   * {@link registerPushTarget} for the one read the host pulls back out
+   * instead of pushing in. Supplied by the mount lifecycle, never by an
+   * adapter — `MountHandle.getPayload()` calls whatever was last registered,
+   * or falls back to the bootstrap payload before this has ever run (ADR-018
+   * seam grammar: no bidirectional shared state, just a typed read of
+   * designer output).
+   */
+  registerPayloadSource?(getPayload: () => string): () => void
 }
 
 /**

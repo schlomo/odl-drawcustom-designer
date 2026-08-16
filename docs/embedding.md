@@ -2,7 +2,39 @@
 
 The designer ships as an embeddable component ([issue #20](https://github.com/schlomo/odl-drawcustom-designer/issues/20), [ADR-010](adr/ADR-010-ha-embed-mode.md)): a host application — the concrete target is the [OpenDisplay HA integration](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/44) custom panel — mounts it into a container, pushes entity states and display capabilities, and receives the drawcustom YAML payload on Save. Styles are isolated via Shadow DOM at the mount boundary ([issue #21](https://github.com/schlomo/odl-drawcustom-designer/issues/21)); live HA data is a later milestone ([#24](https://github.com/schlomo/odl-drawcustom-designer/issues/24)).
 
-Consumed as a **versioned GitHub-release artifact** ([issue #23](https://github.com/schlomo/odl-drawcustom-designer/issues/23)) — release procedure, semver policy, and consumer story: [`docs/releasing.md`](releasing.md).
+Consumed as a **versioned release** ([issue #23](https://github.com/schlomo/odl-drawcustom-designer/issues/23), npm publish added [issue #103](https://github.com/schlomo/odl-drawcustom-designer/issues/103)) — release procedure, semver policy, and full consumer story: [`docs/releasing.md`](releasing.md).
+
+### Getting the library
+
+**npm (primary):**
+
+> **Status: live on npm.**
+> `@schlomo/odl-drawcustom-designer` is published to the registry — scoped
+> under the `schlomo` npm org. Versions include placeholder `0.0.1` (never install)
+> and `1.2.0` (first automated release, 2026-08-16). **Known gap: `1.2.0` lacks
+> the README** — it's restored for the next patch. The `npm install` command
+> below is live now (see [`docs/releasing.md#npm`](releasing.md#npm)).
+
+```bash
+npm install @schlomo/odl-drawcustom-designer@^1.2.0
+```
+
+```js
+import { mount, version } from '@schlomo/odl-drawcustom-designer'
+```
+
+Same self-contained ESM as below, plus `LICENSE`/`NOTICE`/`THIRD_PARTY.md` in
+the package. No `.d.ts` types ship yet (known gap — plain JS, shapes
+documented here and in `src/embed/types.ts`). Rationale (content-hash cache
+invalidation, staged Trusted Publishing rollout) and the maintainer setup story:
+[`docs/releasing.md#npm`](releasing.md#npm).
+
+**GitHub release asset (fallback):** download the tagged release's
+`odl-drawcustom-designer.js`, `LICENSE`, `NOTICE`, `THIRD_PARTY.md`, and
+`odl-drawcustom-designer.js.sha256` (verify with
+`shasum -a 256 -c odl-drawcustom-designer.js.sha256` — `-a 256` matters,
+bare `shasum -c` defaults to SHA-1), and vendor the ESM as a static file —
+the path the OpenDisplay HA integration uses today.
 
 ## Library build
 
@@ -50,6 +82,7 @@ handle.setStates(states)                              // replace the entity-stat
 handle.setCapabilities(capabilities)                  // re-map canvas size/rotation/palette, re-lock
 handle.setCapabilities(capabilities, { lock: false })  // same, but leaves the controls unlocked
 handle.setPayload(yamlString)                         // replace the payload (throws on bad YAML)
+handle.getPayload()                                   // read the current payload YAML — see below
 handle.setTheme('light')                              // switch the container-scoped theme
 handle.destroy()                                      // unmount and empty the container
 ```
@@ -59,6 +92,61 @@ handle.destroy()                                      // unmount and empty the c
   `mount()` leaves the container exactly as it was — nothing rendered, nothing
   to clean up — so retrying into the same container is safe.
 - Multiple mounts on one page are possible; each handle is independent — including per-instance light/dark themes.
+- Pushes are safe from the moment `mount()` returns: a push made before the
+  designer has rendered anything is queued and applied while it renders, so the
+  first frame you can observe already reflects it. A host that pushes
+  capabilities immediately after `mount()` never shows a frame of default,
+  unlocked display config first (issue #115).
+
+### `getPayload()` (issue #104)
+
+`handle.getPayload()` returns the designer's current drawcustom YAML —
+exactly the string `onSaveRequest` would receive if the user hit Save at that
+instant. It exists so a host can *read* the payload directly instead of
+simulating a Save click: the upstream OpenDisplay HA integration
+([PR #100](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/100))
+DOM-scraped the designer's shadow root for the Save button and called
+`.click()` on it, which silently did nothing whenever a YAML error had
+disabled the button (see [ADR-018](adr/ADR-018-host-ui-seam.md)).
+
+`getPayload()` reuses the exact same serialization path as `onSaveRequest` —
+there is no second serializer to drift out of sync with it — and resolves
+four edge cases so it can never disagree with what Save would send:
+
+- **Before React has committed anything** (a synchronous call right after
+  `mount()`/`mountStandaloneApp()` returns, before the mount's internal push/read
+  registration effect has run): reports the **bootstrap payload** — the same
+  `elements` the shell is about to seed its state from for a synchronous host
+  (`mount({ payload })`), or a safe empty-list default while an async
+  bootstrap (the standalone SPA's IndexedDB/share-hash load) is still in
+  flight. Always a string, never `undefined`.
+- **Mid-keystroke, while a debounced YAML edit is still pending:** the YAML
+  editor commits typed text to the canvas model on an 80ms debounce (or
+  immediately on blur). `getPayload()` forces that flush before reading, so a
+  call made moments after typing reflects the already-typed text — matching
+  a real Save click, which always blurs the editor (flushing the debounce)
+  before it reads the payload. `getPayload()` never lags behind what a click
+  would send.
+- **While the YAML editor is blocked** by a parse/schema error (Save itself
+  is disabled): returns the **last valid payload**. The canvas model
+  (`elements`) freezes at its last-valid state while the live document is
+  broken — the same state Save would have sent last, and, with Save
+  disabled, the only way for a host to read anything at all.
+- **Right after a `setPayload()` push, with an edit still pending:** the push
+  wins. A host push is authoritative — it replaces the payload wholesale, so
+  it also **discards** any debounced edit typed before it, and the editor is
+  re-serialized from the pushed payload. Without that, the flush above (which
+  `getPayload()` itself triggers) would have committed the pre-push draft over
+  the payload the host had just pushed.
+
+Like every other method on the handle, `getPayload()` throws
+`MountHandle used after destroy()` once the mount has been destroyed. On a
+live mount it never throws.
+
+The payload read channel (`registerPayloadSource`) registers in the same
+commit as the push channel (`registerPushTarget`) — both are `useLayoutEffect`
+— so there is no window where a host push has already applied but a read
+still reports stale, pre-push data.
 
 ### Version
 
@@ -77,6 +165,11 @@ Pages app build) has no `APP_VERSION` set and reports `'0.0.0-dev'`. Same
 string as `MountHandle.version`, whichever is more convenient for a host to
 log or report. See [`docs/releasing.md`](releasing.md) for the release
 procedure and semver policy that governs this API.
+
+`MountHandle.version` is used in production by the OpenDisplay HA panel
+(status line version indicator); see their [reference host adapter](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/100)
+(`custom_components/opendisplay/designer/`) for a live example. First-party
+HA support is tracked in [#25](https://github.com/schlomo/odl-drawcustom-designer/issues/25).
 
 ### Shadow DOM at the mount boundary ([issue #21](https://github.com/schlomo/odl-drawcustom-designer/issues/21))
 
@@ -130,6 +223,8 @@ Entity-id → state value, or `{ state, attributes }`:
 ```
 
 When provided, this **replaces** the State Simulator's persisted mock source for template preview (`states()`, `is_state()`, `state_attr()`, dotted access). Each push replaces the whole map. Simulator edits made inside an embedded mount stay in memory only — nothing is written to the standalone profile.
+
+**Ownership contract (issue #110):** a pushed `states` object is treated as an **immutable snapshot** at the moment `setStates()` is called. Unchanged pushes are diffed structurally against the last-applied object and skipped for cost (no re-render, no template re-evaluation) — this compares by value, not by cloning, so **mutate-and-repush is unsupported**: if a host mutates the same object in place and calls `setStates()` again with that same reference, the mutation is invisible to the diff and the push is incorrectly treated as unchanged. Construct a fresh object (or a fresh copy of the changed parts) per push instead — the reference implementation for this contract is the OpenDisplay HA integration adapter, which already builds a new object per tick rather than mutating a cached one.
 
 ### `capabilities`
 

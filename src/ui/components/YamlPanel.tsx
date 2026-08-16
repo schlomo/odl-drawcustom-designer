@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import {
   resolveCursorSelection,
   serializeYamlPayload,
@@ -76,6 +76,50 @@ interface YamlPanelProps {
    * panel interactions while true.
    */
   onYamlBlockedChange?: (blocked: boolean) => void
+  /**
+   * Kept pointed at the current `flushYamlElementsSync` (issue #104): lets
+   * the parent force a flush of a pending debounced valid edit — e.g. before
+   * `MountHandle.getPayload()` reads `elements` — the same flush that
+   * normally runs on the editor's own blur or an 80ms timer.
+   */
+  flushPendingRef?: RefObject<(() => void) | null>
+  /**
+   * Kept pointed at the current `discardPendingYamlEdit` (issue #104 review):
+   * an external payload push is authoritative, so the parent calls this in the
+   * same synchronous path — *before* it commits the pushed elements — to
+   * invalidate any debounced draft typed before the push.
+   */
+  discardPendingRef?: RefObject<(() => void) | null>
+}
+
+/**
+ * Keep a parent-owned ref pointed at the live callback while mounted, and
+ * release it on unmount without stomping a newer owner.
+ *
+ * useLayoutEffect, not useEffect (issue #115/#116 commit-window class):
+ * `flushPendingRef`/`discardPendingRef` are read by `getPayload()` and by the
+ * `applyPayload` push applier (both now commit-time, see App.tsx and
+ * useProjectState.ts), so this publication must not lag behind at passive
+ * timing either. No YAML draft can exist at the very first commit (the
+ * editor has not mounted yet), so today this is benign — but co-timing it
+ * now closes the same class of window before a future caller relies on it
+ * being available any earlier than a real Save/push.
+ */
+function usePublishedCallback(
+  ref: RefObject<(() => void) | null> | undefined,
+  callback: () => void,
+): void {
+  useLayoutEffect(() => {
+    if (!ref) {
+      return
+    }
+    ref.current = callback
+    return () => {
+      if (ref.current === callback) {
+        ref.current = null
+      }
+    }
+  }, [callback, ref])
 }
 
 export function YamlPanel({
@@ -95,6 +139,8 @@ export function YamlPanel({
   propertyEditing = false,
   mockContext,
   onYamlBlockedChange,
+  flushPendingRef,
+  discardPendingRef,
 }: YamlPanelProps) {
   const serialized = useMemo(() => serializeYamlPayload(elements), [elements])
   const [yamlText, setYamlText] = useState(serialized)
@@ -243,6 +289,29 @@ export function YamlPanel({
     onElementsChange(pending)
   }, [onElementsChange])
 
+  /**
+   * Drop the debounced draft instead of committing it (issue #104 review): an
+   * external payload push overrules whatever the user had typed before it, so
+   * the parked parse must not survive to be flushed afterwards — by the 80ms
+   * timer, by a blur, or by `MountHandle.getPayload()` forcing a flush.
+   *
+   * Cancels the timer *and* clears the parse, so a timer that somehow still
+   * fires finds nothing to commit. Also clears the self-echo suppression: the
+   * elements the sync effect is about to see come from the host, not from our
+   * own flush, so the external sync must write them into the editor.
+   *
+   * Only refs are touched — no state, no render — so the caller can run this
+   * synchronously right before committing the pushed elements.
+   */
+  const discardPendingYamlEdit = useCallback(() => {
+    if (syncTimerRef.current != null) {
+      window.clearTimeout(syncTimerRef.current)
+      syncTimerRef.current = null
+    }
+    pendingParsedRef.current = null
+    skipExternalSyncRef.current = false
+  }, [])
+
   useEffect(
     () => () => {
       if (syncTimerRef.current != null) {
@@ -251,6 +320,12 @@ export function YamlPanel({
     },
     [],
   )
+
+  // Publish the flush to the parent (issue #104): MountHandle.getPayload()
+  // calls through it before reading `elements`, so it always forces the same
+  // flush a real blur/timeout would.
+  usePublishedCallback(flushPendingRef, flushYamlElementsSync)
+  usePublishedCallback(discardPendingRef, discardPendingYamlEdit)
 
   const handleYamlChange = useCallback(
     (text: string) => {

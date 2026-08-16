@@ -69,6 +69,13 @@ function stubHost(overrides: Partial<DesignerHost>): DesignerHost {
   }
 }
 
+const CAPABILITIES_296X128_BWR = {
+  pixel_width: 296,
+  pixel_height: 128,
+  rotation_degrees: 0,
+  color_scheme: 0x01,
+}
+
 let container: HTMLElement
 const handles: MountHandle[] = []
 
@@ -104,6 +111,59 @@ beforeEach(() => {
 })
 
 describe('mount lifecycle (ADR-017)', () => {
+  it('drains a pre-registration push into the first rendered frame (issue #115)', async () => {
+    // The HA panel pushes capabilities in the same task as mount(), long
+    // before an async bootstrap has rendered anything, so the push waits in
+    // the lifecycle's pre-registration queue. It must be drained while the
+    // shell commits, not a macrotask later: a queue drained after the commit
+    // paints one frame of default, unlocked display config first, and anything
+    // that samples that frame — a CI test, a screenshot, a host reading the
+    // DOM — sees the push as lost.
+    let resolveBootstrap!: (bootstrap: AppBootstrap) => void
+    const handle = mountInto(
+      stubHost({
+        loadBootstrap: () =>
+          new Promise<AppBootstrap>((resolve) => {
+            resolveBootstrap = resolve
+          }),
+      }),
+    )
+
+    handle.setCapabilities(CAPABILITIES_296X128_BWR)
+
+    // Samples the first DOM that carries the designer. MutationObserver
+    // callbacks are microtasks, so this runs before any macrotask React could
+    // use to finish work it deferred past the commit.
+    let firstFrameLocked: boolean | null = null
+    const shadowRoot = container.shadowRoot!
+    const observer = new MutationObserver(() => {
+      if (firstFrameLocked !== null || designer().queryAllByTestId('element-list-row').length === 0) {
+        return
+      }
+      firstFrameLocked =
+        designer().queryAllByRole('button', { name: 'Unlock display config' }).length > 0
+    })
+    observer.observe(shadowRoot, { childList: true, subtree: true })
+
+    // Deliberately outside act(): act() collapses the commit, React's
+    // passive-effect flush and any follow-up render into one synchronous
+    // flush, which is exactly the interleaving this test must not assume.
+    // A real host — and CI — runs them as separate tasks.
+    globalThis.IS_REACT_ACT_ENVIRONMENT = false
+    try {
+      resolveBootstrap(bootstrapWith('Stub'))
+      await waitFor(() => {
+        expect(firstFrameLocked).not.toBeNull()
+      })
+    } finally {
+      globalThis.IS_REACT_ACT_ENVIRONMENT = true
+      observer.disconnect()
+    }
+
+    expect(firstFrameLocked).toBe(true)
+    expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+  })
+
   it('refuses setTheme for a designer-owned theme even when the DOM is shadow-scoped', async () => {
     // Theme ownership is the reason setTheme() is refused — the standalone
     // adapter happens to also be page-scoped, but the M4 HA panel could own
