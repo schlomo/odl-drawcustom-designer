@@ -160,6 +160,7 @@ Commit titles also **drive the semver bump** (auto-release derives it from conve
 - Only the maintainer merges PRs. AI agents/assistants never merge and never enable auto-merge.
 - **TDD red-first means proving the new test can fail:** run it against pre-fix code (or a deliberate revert) and record the failure before claiming red→green.
 - Review-bot comments (e.g. Copilot) may target a stale revision — verify each claim against the current pushed commit before acting; reply-and-resolve with evidence when a finding is already fixed or refuted.
+- **Every PR body carries two sections** (maintainer ruling 2026-08-16): **Verified** — what was tested and how (gate results, red-first evidence, review passes, e2e), and **Maintainer validation** — what only the human should check before merging (manual test steps, policy calls baked in, explicitly UNVERIFIED items). Update both when the PR changes.
 
 ## Parallel agents / git worktrees
 
