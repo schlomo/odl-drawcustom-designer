@@ -21,6 +21,7 @@ export type {
   HostActionContext,
   HostActionHandler,
   HostActionSeverity,
+  HostAssetResolver,
   HostCapabilities,
   HostPreviewContext,
   HostPreviewDisplayGeometry,

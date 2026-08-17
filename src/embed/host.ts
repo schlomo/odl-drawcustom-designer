@@ -1,6 +1,7 @@
 import type { SessionWritePayload, StoredVariables } from '../storage'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import type { MockData } from '../ui/preferences/mockStates'
+import type { HostAssetResolver } from '../core'
 import type {
   EmbedTheme,
   HostAction,
@@ -111,6 +112,13 @@ export interface DesignerHost {
    * closure fixed at mount, like `onAction`.
    */
   readonly renderPreview?: HostPreviewRenderer
+  /**
+   * Asset channel (issue #138): resolves payload asset names the designer's own
+   * tiers could not (`MountOptions.resolveAsset`). The mount lifecycle installs
+   * it as the last resolution tier for as long as the mount lives; absent for
+   * the standalone adapter, which resolves assets locally only.
+   */
+  readonly resolveAsset?: HostAssetResolver
   /**
    * Initial designer state. May be async so an adapter can read IndexedDB
    * and the `#d=` share hash; a synchronous return renders in the same tick

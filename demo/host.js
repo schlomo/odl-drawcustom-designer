@@ -157,6 +157,72 @@ const savedPayload = document.getElementById('saved-payload')
 const actionLog = document.getElementById('action-log')
 const targetLog = document.getElementById('target-log')
 const previewLog = document.getElementById('preview-log')
+const assetLog = document.getElementById('asset-log')
+
+// Host asset resolver (issue #138, ADR-002's last tier): the payload below
+// references a font and an image by bare name — the way a hand-written
+// drawcustom payload addresses the integration's own font/media directories.
+// This host "has" two of them under demo/assets/ and deliberately does not
+// have the third, so the demo shows both halves of the contract: the
+// round-trip, and the explicit render error for a name nobody can supply.
+//
+// Two answer shapes on purpose: the font is answered with a URL string (what a
+// host with a media HTTP route does), the image with a Blob (what a host with
+// bytes in hand does, and the shape that needs no CORS).
+const HOST_FONTS = { 'demo-host-font.ttf': 'assets/demo-host-font.ttf' }
+const HOST_IMAGES = { 'demo-host-logo.png': 'assets/demo-host-logo.png' }
+
+function logAssetRequest(line) {
+  assetLog.textContent = `${line}\n${assetLog.textContent === '(no asset requested yet)' ? '' : assetLog.textContent}`.trim()
+}
+
+async function resolveAsset(kind, name) {
+  if (kind === 'font') {
+    const url = HOST_FONTS[name]
+    if (!url) {
+      logAssetRequest(`resolveAsset('font', '${name}') -> null (this host has no such font)`)
+      return null
+    }
+    logAssetRequest(`resolveAsset('font', '${name}') -> '${url}' (URL answer)`)
+    return url
+  }
+
+  const url = HOST_IMAGES[name]
+  if (!url) {
+    logAssetRequest(`resolveAsset('image', '${name}') -> null (this host has no such image)`)
+    return null
+  }
+  const response = await fetch(url)
+  if (!response.ok) {
+    // A rejection is a first-class answer: the designer reports the reason on
+    // the elements referencing the asset instead of rendering something wrong.
+    throw new Error(`${url} -> HTTP ${response.status}`)
+  }
+  logAssetRequest(`resolveAsset('image', '${name}') -> Blob from '${url}'`)
+  return await response.blob()
+}
+
+// The payload the "Push host-asset payload" button sends: two names only this
+// host can resolve, and one nobody can.
+const HOST_ASSET_PAYLOAD = `- type: text
+  value: Host font
+  x: 6
+  y: 4
+  size: 24
+  font: demo-host-font.ttf
+- type: dlimg
+  url: demo-host-logo.png
+  x: 6
+  y: 40
+  xsize: 56
+  ysize: 56
+- type: text
+  value: Missing on purpose
+  x: 72
+  y: 48
+  size: 14
+  font: no-such-host-font.ttf
+`
 
 // Host-registered actions (issue #108, ADR-018): the host owns what each button
 // means — this page fakes persistence, a display transmission and a payload
@@ -284,6 +350,10 @@ const handle = mount(document.getElementById('designer'), {
     const designPng = await handle.getPngBlob()
     return stampHostPreview(designPng, context)
   },
+  // Asset seam (issue #138): a stable closure, consulted for every font/image
+  // reference the designer cannot resolve locally. Search paths are this host's
+  // business — the designer only ever asks by name.
+  resolveAsset,
   actions: buildActions(displayOnline),
   onAction(id, payload, context) {
     // The designer reports only which button fired, the current payload and
@@ -389,6 +459,15 @@ document.getElementById('fail-preview').addEventListener('click', (event) => {
   previewLog.textContent = previewShouldFail
     ? 'The next renderPreview call will reject'
     : 'renderPreview will answer normally again'
+})
+// Host-resolved assets (issue #138): pushes a payload whose font and image are
+// named the way the host's own directories name them. Two resolve through
+// `resolveAsset` above; the third resolves nowhere, and must show the
+// designer's explicit render-error state rather than a silent or wrong render.
+document.getElementById('push-host-assets').addEventListener('click', () => {
+  handle.setPayload(HOST_ASSET_PAYLOAD)
+  actionLog.textContent =
+    'Pushed a payload referencing demo-host-font.ttf, demo-host-logo.png and no-such-host-font.ttf'
 })
 document.getElementById('theme').addEventListener('change', (event) => {
   handle.setTheme(event.target.value)

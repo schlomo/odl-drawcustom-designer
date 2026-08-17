@@ -18,12 +18,16 @@ interface ContentManagerProps {
 const STATUS_LABEL = {
   resolved: 'Resolved',
   bundled: 'Bundled',
+  // Supplied by the embedding host's asset resolver (issue #138): present, but
+  // from outside the designer — an upload would take precedence over it.
+  host: 'Host',
   missing: 'Missing',
 } as const
 
 const STATUS_CLASS = {
   resolved: 'bg-emerald-600/15 text-emerald-700 dark:text-emerald-400',
   bundled: 'bg-sky-600/15 text-sky-700 dark:text-sky-400',
+  host: 'bg-violet-600/15 text-violet-700 dark:text-violet-400',
   missing: 'bg-amber-600/15 text-amber-800 dark:text-amber-400',
 } as const
 

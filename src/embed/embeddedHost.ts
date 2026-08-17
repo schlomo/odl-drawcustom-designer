@@ -83,6 +83,9 @@ export function createEmbeddedHost(options: MountOptions): DesignerHost {
     targets,
     onTargetSelected: options.onTargetSelected,
     renderPreview: options.renderPreview,
+    // Last asset tier (issue #138): the mount lifecycle installs it, so the
+    // very first frame can already paint host-supplied fonts and images.
+    resolveAsset: options.resolveAsset,
     // Synchronous: invalid `payload` YAML must throw out of `mount()` itself.
     loadBootstrap: () => buildEmbedBootstrap(options, targets),
   }

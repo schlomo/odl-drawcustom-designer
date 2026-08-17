@@ -1,7 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import cssText from '../index.css?inline'
-import { APP_VERSION, parseYamlPayload, serializeYamlPayload, type DrawElement } from '../core'
+import {
+  APP_VERSION,
+  installHostAssetResolver,
+  parseYamlPayload,
+  serializeYamlPayload,
+  type DrawElement,
+} from '../core'
 import { App } from '../ui/App'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import { createEmbeddedHost } from './embeddedHost'
@@ -113,6 +119,14 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
   // otherwise every failed attempt strands a shadow root, a wrapper and a
   // React root the host can never reach to clean up.
   const initialBootstrap = host.loadBootstrap()
+
+  // The host's asset tier goes live before the first frame is rendered (issue
+  // #138): the initial payload's own fonts and images resolve through it, so a
+  // host-supplied font never flashes as a render error on the way in. Torn down
+  // with the mount, which also forgets everything this mount cached.
+  const uninstallAssetResolver = host.resolveAsset
+    ? installHostAssetResolver(host.resolveAsset)
+    : undefined
 
   const target = createRenderTarget(container, host)
 
@@ -250,6 +264,7 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
     // hand the container back untouched instead of half-mounted.
     root.unmount()
     target.cleanup()
+    uninstallAssetResolver?.()
     throw error
   }
   const unsubscribeBootstrap = host.subscribeBootstrapChanges?.(loadAndRender)
@@ -268,6 +283,7 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
       unsubscribeBootstrap?.()
       root.unmount()
       target.cleanup()
+      uninstallAssetResolver?.()
     },
     setStates(states) {
       assertMounted()

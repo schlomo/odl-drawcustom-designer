@@ -1,4 +1,14 @@
-import { BUNDLED_FONT_KEYS, collectRequiredFontKeys, fontFamilyNameForKey, isSupportedFontKey, resolveAsset, type DrawElement } from '../../core'
+import {
+  BUNDLED_FONT_KEYS,
+  collectRequiredFontKeys,
+  fontFamilyNameForKey,
+  hasHostAssetResolver,
+  hasHostSuppliedAsset,
+  isSupportedFontKey,
+  resolveAsset,
+  resolveHostAsset,
+  type DrawElement,
+} from '../../core'
 import { bundledFontUrl } from './font-url'
 
 const bundledFontKeys = new Set<string>(BUNDLED_FONT_KEYS)
@@ -12,7 +22,12 @@ export function collectFontKeysFromElements(elements: readonly DrawElement[]): s
 
 function isFontKeyAvailable(key: string): boolean {
   const resolution = resolveAsset(key)
-  return resolution.status === 'resolved' || resolution.status === 'bundled' || bundledFontKeys.has(key)
+  return (
+    resolution.status === 'resolved' ||
+    resolution.status === 'bundled' ||
+    bundledFontKeys.has(key) ||
+    hasHostSuppliedAsset(key)
+  )
 }
 
 function evictStaleFontFamilyEntries(keys: readonly string[]): void {
@@ -48,6 +63,30 @@ export async function loadFontFamilyMap(keys: readonly string[]): Promise<Map<st
 
         if (resolution.status === 'bundled' || bundledFontKeys.has(key)) {
           const face = new FontFace(family, `url(${bundledFontUrl(key)})`)
+          await face.load()
+          document.fonts.add(face)
+          fontFamilyCache.set(key, family)
+          return
+        }
+
+        // Last tier (issue #138): a font the payload names but the designer has
+        // never seen — the host supplies it, and canvas text gets the same CSS
+        // family a locally uploaded font would get. A host that cannot supply
+        // it needs no handling here: the opentype loader
+        // (load-opentype-fonts.ts) is what turns that into the visible
+        // render-error state, and this map only ever adds a family.
+        if (hasHostAssetResolver()) {
+          const supplied = await resolveHostAsset('font', key)
+          const source =
+            supplied.status === 'blob'
+              ? await supplied.blob.arrayBuffer()
+              : supplied.status === 'url'
+                ? `url(${supplied.url})`
+                : null
+          if (source == null) {
+            return
+          }
+          const face = new FontFace(family, source)
           await face.load()
           document.fonts.add(face)
           fontFamilyCache.set(key, family)

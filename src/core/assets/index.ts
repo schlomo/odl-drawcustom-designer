@@ -5,6 +5,16 @@ export {
   type FontReference,
 } from './font-requirements'
 export { listLibraryFontKeys } from './font-library'
+export {
+  HOST_ASSET_RETRY_DELAY_MS,
+  hasHostAssetResolver,
+  hasHostSuppliedAsset,
+  installHostAssetResolver,
+  resetHostAssetResolvers,
+  resolveHostAsset,
+  type HostAssetResolution,
+  type HostAssetResolver,
+} from './host-resolver'
 export { scanPayloadForAssets } from './scanner'
 export {
   BUNDLED_FONT_KEYS,

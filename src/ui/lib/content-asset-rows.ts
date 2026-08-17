@@ -1,4 +1,4 @@
-import type { AssetKind, AssetResolutionStatus, DrawElement } from '../../core'
+import type { AssetKind, DrawElement } from '../../core'
 import {
   BUNDLED_FONT_KEYS,
   guessMimeFromAssetKey,
@@ -8,7 +8,7 @@ import {
   scanPayloadForAssets,
   type AssetScanResult,
 } from '../../core'
-import { resolveContentAssetStatus } from './content-asset-status'
+import { resolveContentAssetStatus, type ContentAssetStatus } from './content-asset-status'
 
 const bundledFontKeys = new Set<string>(BUNDLED_FONT_KEYS)
 
@@ -16,7 +16,7 @@ export interface ContentAssetRow {
   key: string
   kind: AssetKind
   paths: string[]
-  status: AssetResolutionStatus
+  status: ContentAssetStatus
 }
 
 function inferAssetKind(key: string, fromScan?: AssetKind): AssetKind {

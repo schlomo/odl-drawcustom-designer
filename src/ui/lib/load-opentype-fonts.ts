@@ -2,10 +2,13 @@ import opentype from 'opentype.js'
 import {
   BUNDLED_FONT_KEYS,
   clearFontUnavailable,
+  hasHostAssetResolver,
+  hasHostSuppliedAsset,
   markFontUnavailable,
   parseFont,
   registerFont,
   resolveAsset,
+  resolveHostAsset,
   isSupportedFontKey,
   unsupportedFontFormatMessage,
   unregisterFont,
@@ -15,12 +18,16 @@ import type { FontLoadBatchResult, FontLoadOutcome } from './font-load-outcome'
 
 const opentypeFontCache = new Map<string, opentype.Font>()
 
+/** A font the host already supplied counts as available: it resolves exactly
+ * as a locally uploaded one does (issue #138), so the cached parse stays valid
+ * and a stale unavailable mark clears as soon as the retry starts. */
 function isFontAssetAvailable(key: string): boolean {
   const resolution = resolveAsset(key)
   return (
     resolution.status === 'resolved' ||
     resolution.status === 'bundled' ||
-    BUNDLED_FONT_KEYS.includes(key as (typeof BUNDLED_FONT_KEYS)[number])
+    BUNDLED_FONT_KEYS.includes(key as (typeof BUNDLED_FONT_KEYS)[number]) ||
+    hasHostSuppliedAsset(key)
   )
 }
 
@@ -67,6 +74,64 @@ function readyOutcome(key: string): FontLoadOutcome {
 function unavailableOutcome(key: string, status: 'missing' | 'failed', message: string): FontLoadOutcome {
   markFontUnavailable(key, message)
   return { key, status, message }
+}
+
+/** The local-only message, unchanged from before the host tier existed. */
+function missingFontMessage(key: string): string {
+  return `${key} is not uploaded — add it in Content Manager or use ppb.ttf / rbm.ttf.`
+}
+
+/**
+ * Ask the host for a font the designer could not resolve locally (issue #138,
+ * the last tier). Returns the parsed font, or the settled failure outcome that
+ * puts the explicit render-error marker on every element referencing it.
+ */
+async function loadHostFont(
+  key: string,
+): Promise<{ font: opentype.Font } | { outcome: FontLoadOutcome }> {
+  const supplied = await resolveHostAsset('font', key)
+
+  if (supplied.status === 'blob') {
+    return { font: parseFont(await supplied.blob.arrayBuffer()) }
+  }
+
+  if (supplied.status === 'url') {
+    const response = await fetch(supplied.url)
+    if (!response.ok) {
+      return {
+        outcome: unavailableOutcome(
+          key,
+          'failed',
+          `${key} could not be fetched from the host (${response.status} ${response.statusText}).`,
+        ),
+      }
+    }
+    return { font: parseFont(await response.arrayBuffer()) }
+  }
+
+  if (supplied.status === 'failed') {
+    return {
+      outcome: unavailableOutcome(
+        key,
+        'failed',
+        `${key} could not be supplied by the host (${supplied.message}).`,
+      ),
+    }
+  }
+
+  if (supplied.status === 'declined') {
+    return {
+      outcome: unavailableOutcome(
+        key,
+        'missing',
+        `${key} could not be supplied by the host — upload it in Content Manager or use ppb.ttf / rbm.ttf.`,
+      ),
+    }
+  }
+
+  // 'absent': the mount was destroyed while this load was in flight, so there
+  // is no host to blame — report the local-only message.
+  return { outcome: unavailableOutcome(key, 'missing', missingFontMessage(key)) }
 }
 
 async function loadOpentypeFont(key: string): Promise<FontLoadOutcome> {
@@ -118,12 +183,16 @@ async function loadOpentypeFont(key: string): Promise<FontLoadOutcome> {
         )
       }
       font = parseFont(await response.arrayBuffer())
+    } else if (hasHostAssetResolver()) {
+      // Last tier (issue #138): the payload names an asset this designer has
+      // never seen — the host resolves it from its own font directory.
+      const fromHost = await loadHostFont(key)
+      if ('outcome' in fromHost) {
+        return fromHost.outcome
+      }
+      font = fromHost.font
     } else {
-      return unavailableOutcome(
-        key,
-        'missing',
-        `${key} is not uploaded — add it in Content Manager or use ppb.ttf / rbm.ttf.`,
-      )
+      return unavailableOutcome(key, 'missing', missingFontMessage(key))
     }
 
     opentypeFontCache.set(key, font)
