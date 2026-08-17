@@ -8,7 +8,7 @@ export function getMissingAssetMessages(elements: DrawElement[]): StatusMessage[
   const missingKeys = new Map<string, string[]>()
 
   for (const ref of scan.references) {
-    if (resolveContentAssetStatus(ref.key) !== 'missing') {
+    if (resolveContentAssetStatus(ref.key, ref.kind) !== 'missing') {
       continue
     }
     const paths = missingKeys.get(ref.key)

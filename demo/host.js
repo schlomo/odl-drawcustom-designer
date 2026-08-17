@@ -162,9 +162,12 @@ const assetLog = document.getElementById('asset-log')
 // Host asset resolver (issue #138, ADR-002's last tier): the payload below
 // references a font and an image by bare name — the way a hand-written
 // drawcustom payload addresses the integration's own font/media directories.
-// This host "has" two of them under demo/assets/ and deliberately does not
-// have the third, so the demo shows both halves of the contract: the
-// round-trip, and the explicit render error for a name nobody can supply.
+// This host "has" two of them under assets/ and deliberately does not have the
+// third, so the demo shows both halves of the contract: the round-trip, and the
+// explicit render error for a name nobody can supply. The font is a copy of the
+// designer's bundled rbm.ttf, emitted into the build output rather than
+// committed twice (tools/demoHostAssets.ts) — the point is that the *designer*
+// has never seen this name.
 //
 // Two answer shapes on purpose: the font is answered with a URL string (what a
 // host with a media HTTP route does), the image with a Blob (what a host with

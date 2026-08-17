@@ -7,6 +7,7 @@ import {
   markFontUnavailable,
   parseFont,
   registerFont,
+  registerHostAssetEvictor,
   resolveAsset,
   resolveHostAsset,
   isSupportedFontKey,
@@ -27,7 +28,7 @@ function isFontAssetAvailable(key: string): boolean {
     resolution.status === 'resolved' ||
     resolution.status === 'bundled' ||
     BUNDLED_FONT_KEYS.includes(key as (typeof BUNDLED_FONT_KEYS)[number]) ||
-    hasHostSuppliedAsset(key)
+    hasHostSuppliedAsset('font', key)
   )
 }
 
@@ -35,6 +36,33 @@ export function evictOpentypeFont(key: string): void {
   opentypeFontCache.delete(key)
   unregisterFont(key)
 }
+
+/**
+ * A host-supplied font lives in two caches that outlive the mount that fetched
+ * it — this parsed-font map and the core font registry `getFont` reads. When
+ * that mount goes away its bytes must go with it (issue #138): otherwise a
+ * second host on the same page renders the *first* host's font for the same
+ * name, and after the last mount the designer would keep painting a font
+ * nothing can supply any more.
+ *
+ * Dropping it is not enough on its own: an unregistered font with no
+ * "confirmed unavailable" mark reads to the renderer as *still loading*, which
+ * is the silent-wrong-render state issue #10 rules out. So mark it — unless
+ * another live mount still vouches for the name, in which case the next load
+ * pass legitimately re-fetches it.
+ */
+registerHostAssetEvictor((kind, name) => {
+  if (kind !== 'font') {
+    return
+  }
+  evictOpentypeFont(name)
+  if (!hasHostSuppliedAsset('font', name)) {
+    markFontUnavailable(
+      name,
+      `${name} was supplied by an embedding host that is no longer connected — upload it in Content Manager or use ppb.ttf / rbm.ttf.`,
+    )
+  }
+})
 
 export function getCachedOpentypeFont(key: string): opentype.Font | undefined {
   return opentypeFontCache.get(key)

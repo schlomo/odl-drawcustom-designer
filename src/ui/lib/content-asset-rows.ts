@@ -52,7 +52,7 @@ function rowsFromScan(scan: AssetScanResult): ContentAssetRow[] {
       key: ref.key,
       kind: ref.kind,
       paths: [ref.path],
-      status: resolveContentAssetStatus(ref.key),
+      status: resolveContentAssetStatus(ref.key, ref.kind),
     })
   }
 
@@ -93,11 +93,12 @@ function rowsFromStored(scan: AssetScanResult): ContentAssetRow[] {
   return [...allKeys]
     .map((key) => {
       const fromScan = refsByKey.get(key)
+      const kind = inferAssetKind(key, fromScan?.kind)
       return {
         key,
-        kind: inferAssetKind(key, fromScan?.kind),
+        kind,
         paths: fromScan?.paths ?? [],
-        status: resolveContentAssetStatus(key),
+        status: resolveContentAssetStatus(key, kind),
       }
     })
     .sort((a, b) => a.key.localeCompare(b.key))

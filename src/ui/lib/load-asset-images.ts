@@ -33,7 +33,7 @@ function isImageAssetAvailable(key: string): boolean {
   // A host-supplied image (issue #138) is as available as an uploaded one —
   // the host resolver is the last tier behind the content map and the bundled
   // assets, not a different kind of asset.
-  return resolution.status === 'bundled' || hasHostSuppliedAsset(key)
+  return resolution.status === 'bundled' || hasHostSuppliedAsset('image', key)
 }
 
 interface ImageLoadAttempt {
@@ -300,7 +300,7 @@ export function pruneAssetImagesForKeys(
     // A host-supplied image has no content-map entry to prove it resolves
     // (issue #138) — without this it would be pruned out of the render map on
     // the next repaint and the canvas would lose an image it just loaded.
-    if (hasHostSuppliedAsset(key) && current.has(key)) {
+    if (hasHostSuppliedAsset('image', key) && current.has(key)) {
       next.set(key, current.get(key)!)
       continue
     }

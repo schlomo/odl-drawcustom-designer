@@ -1,6 +1,11 @@
-import type { DrawElement, HostAssetResolver } from '../core'
+import type { AssetKind, DrawElement, HostAssetResolver } from '../core'
 
-export type { HostAssetResolver }
+/**
+ * Published together (issue #138): a host writing `resolveAsset` in TypeScript
+ * has to be able to name the discriminator it switches on, so re-exporting the
+ * function type without its parameter type would leave that unsayable.
+ */
+export type { AssetKind, HostAssetResolver }
 
 /** Theme applied to the mount container (never `document.documentElement`). */
 export type EmbedTheme = 'light' | 'dark'

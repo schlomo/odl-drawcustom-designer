@@ -47,12 +47,18 @@ Consequences:
   designer implements no search order of its own.
 - Anything the host cannot supply reaches the user as the existing explicit
   render-error state, naming the asset and the host; never a substituted font
-  or a silent gap (issue #10).
-- Caching is per mount, per `(kind, name)`: supplied assets for the mount's
-  life, unsupplied ones briefly (30s) and then retried, so a host store that
-  comes back needs no remount. Full contract:
+  or a silent gap (issue #10). A resolver that never settles counts as "cannot
+  supply" after 15s — silence must not read as "still loading" forever.
+- Caching is per mount, per `(kind, name)` — the two kinds share no namespace.
+  Supplied assets are cached for the mount's life; an unsupplied one is asked
+  again on the **next asset-affecting load pass that runs 30s or more after the
+  decline**. There is no background timer and nothing wakes the designer, so
+  healing is edit-driven, not clock-driven. Full contract:
   [`docs/embedding.md`](../embedding.md#resolveasset-issue-138).
-- Content Manager badges such a key `HOST` rather than `MISSING`, and the
+- A mount's disposal is the boundary of the host's bytes: the parsed font, the
+  font registry entry and the CSS `@font-face` a host supplied are all evicted
+  with it, so a second host on the same page cannot inherit them.
+- Content Manager badges such a key **Host** rather than **Missing**, and the
   missing-asset warning does not fire for it.
 
 ## Alternatives considered

@@ -2,7 +2,7 @@
 import { act } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '../../src/embed'
-import type { MountHandle } from '../../src/embed'
+import type { AssetKind, MountHandle } from '../../src/embed'
 import {
   hasHostAssetResolver,
   resetHostAssetResolvers,
@@ -15,6 +15,10 @@ import {
  * mount (ADR-018: data is pushed, functions are not), live from before the
  * first painted frame until `destroy()`.
  */
+
+// The kind discriminator is part of the published surface: a host writing an
+// adapter in TypeScript has to be able to name it (issue #138 layer 1).
+const PUBLISHED_KINDS: AssetKind[] = ['font', 'image']
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean | undefined
@@ -77,6 +81,10 @@ beforeEach(() => {
 })
 
 describe('mount({ resolveAsset }) — host asset seam (issue #138)', () => {
+  it('publishes the asset kinds a host adapter has to switch on', () => {
+    expect(PUBLISHED_KINDS).toEqual(['font', 'image'])
+  })
+
   it('routes unresolvable asset names to the host closure, kind and name intact', async () => {
     const blob = new Blob(['bytes'], { type: 'font/ttf' })
     const resolveAsset = vi.fn(async () => blob)
@@ -99,9 +107,58 @@ describe('mount({ resolveAsset }) — host asset seam (issue #138)', () => {
     await expect(resolveHostAsset('image', 'logo.png')).resolves.toEqual({ status: 'absent' })
   })
 
+  it('has the host tier installed before the designer creates any DOM', () => {
+    // Call-order probe (the issue #115 pattern): the first thing the lifecycle
+    // does to the container is attach its shadow root, so recording the tier's
+    // state there pins the install position — an install moved after DOM setup
+    // leaves a window in which the first frame resolves assets locally only.
+    const seen: boolean[] = []
+    const realAttachShadow = container.attachShadow.bind(container)
+    container.attachShadow = ((init: ShadowRootInit) => {
+      seen.push(hasHostAssetResolver())
+      return realAttachShadow(init)
+    }) as HTMLElement['attachShadow']
+
+    mountWith({ resolveAsset: async () => null })
+
+    expect(seen).toEqual([true])
+  })
+
+  it("resolves the initial payload's own host assets through the host, not as a later repaint", async () => {
+    // `mount({ payload })` renders in the same tick, so the very first frame
+    // already references this font: the host must be consulted for it without
+    // the caller pushing anything.
+    const resolveAsset = vi.fn(async () => null)
+    mountWith({
+      payload: '- type: text\n  value: Hi\n  x: 1\n  y: 1\n  font: host-initial.ttf\n',
+      resolveAsset,
+    })
+
+    await act(async () => {})
+
+    expect(resolveAsset).toHaveBeenCalledWith('font', 'host-initial.ttf')
+  })
+
   it('leaves asset resolution local-only for a mount that passes none', () => {
     mountWith({})
 
     expect(hasHostAssetResolver()).toBe(false)
+  })
+
+  it('uninstalls the resolver when the mount fails, so a retry does not stack tiers', () => {
+    // A container that already carries a CLOSED shadow root cannot be mounted
+    // into: `container.shadowRoot` reads null, so the lifecycle tries to attach
+    // one and the DOM rejects it. The container must come back untouched
+    // (issue #116) — and that pristine guarantee covers the asset tier too,
+    // which is installed before any of this runs.
+    container.attachShadow({ mode: 'closed' })
+    const resolveAsset = vi.fn(async () => null)
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      expect(() => mount(container, { resolveAsset })).toThrow()
+      expect(hasHostAssetResolver()).toBe(false)
+    }
+
+    expect(resolveAsset).not.toHaveBeenCalled()
   })
 })

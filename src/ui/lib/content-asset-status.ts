@@ -2,6 +2,7 @@ import {
   BUNDLED_SHOWCASE_IMAGE_KEY,
   hasHostSuppliedAsset,
   resolveAsset,
+  type AssetKind,
   type AssetResolutionStatus,
 } from '../../core'
 import { isShowcaseBundledSuppressed } from '../preferences/showcaseAsset'
@@ -16,8 +17,15 @@ import { isShowcaseBundledSuppressed } from '../preferences/showcaseAsset'
  */
 export type ContentAssetStatus = AssetResolutionStatus | 'host'
 
-/** Content-map status with user dismiss applied for the bundled showcase image. */
-export function resolveContentAssetStatus(key: string): ContentAssetStatus {
+/**
+ * Content-map status with user dismiss applied for the bundled showcase image.
+ *
+ * `kind` is what the payload uses the key **as** (the asset scan knows, and
+ * infers it from the name otherwise): the host tier answers per `(kind, name)`,
+ * so a host that has a *font* called `logo.png` must not badge the *image* row
+ * of that name as host-supplied — nor silence its missing-asset warning.
+ */
+export function resolveContentAssetStatus(key: string, kind: AssetKind): ContentAssetStatus {
   const resolution = resolveAsset(key)
   if (
     key === BUNDLED_SHOWCASE_IMAGE_KEY &&
@@ -26,7 +34,7 @@ export function resolveContentAssetStatus(key: string): ContentAssetStatus {
   ) {
     return 'missing'
   }
-  if (resolution.status === 'missing' && hasHostSuppliedAsset(key)) {
+  if (resolution.status === 'missing' && hasHostSuppliedAsset(kind, key)) {
     return 'host'
   }
   return resolution.status
