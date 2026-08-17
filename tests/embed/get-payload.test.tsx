@@ -9,6 +9,10 @@ import { mountStandaloneApp } from '../../src/embed/standalone'
 import type { MountHandle } from '../../src/embed'
 import { parseYamlPayload, serializeYamlPayload } from '../../src/core'
 
+// Full-designer mounts under parallel load exceed vitest's 5s default on
+// 2-core CI runners — the documented gotcha, not a slow test.
+vi.setConfig({ testTimeout: 30_000 })
+
 /**
  * `MountHandle.getPayload()` (issue #104, ADR-018): a host reads the current
  * drawcustom YAML directly instead of scraping the designer's DOM for a button

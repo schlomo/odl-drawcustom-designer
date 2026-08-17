@@ -23,6 +23,7 @@ export type {
   HostActionSeverity,
   HostCapabilities,
   HostPreviewContext,
+  HostPreviewDisplayGeometry,
   HostPreviewRenderer,
   HostPreviewServiceOptions,
   HostState,

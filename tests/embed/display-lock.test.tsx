@@ -5,6 +5,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '../../src/embed'
 import type { MountHandle } from '../../src/embed'
 
+// Full-designer mounts under parallel load exceed vitest's 5s default on
+// 2-core CI runners — the documented gotcha, not a slow test.
+vi.setConfig({ testTimeout: 30_000 })
+
 /**
  * Display config lock (issue #70): when the design is pinned to a host display
  * — at 2.0 always a pushed `targets` entry (issue #121) — the display config

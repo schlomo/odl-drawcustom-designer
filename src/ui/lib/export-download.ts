@@ -18,6 +18,17 @@ export function buildPngDownloadFilename(sessionName: string): string {
   return sanitizeExportFilename(sessionName, 'png')
 }
 
+/**
+ * The host's own render of the design, not the designer's (issue #109).
+ *
+ * Prefixed so the two exports of the same session land side by side in the
+ * download folder instead of colliding — comparing them is the whole point of
+ * the preview seam (the ADR-007 parity reference).
+ */
+export function buildDisplayPreviewPngDownloadFilename(sessionName: string): string {
+  return sanitizeExportFilename(`display-preview-${sessionName}`, 'png')
+}
+
 export function createYamlDownloadBlob(yaml: string): Blob {
   return new Blob([yaml], { type: 'text/yaml;charset=utf-8' })
 }

@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DitherMode } from '../../core'
-import type { HostPreviewRenderer } from '../../embed/types'
+import type { HostPreviewDisplayGeometry, HostPreviewRenderer } from '../../embed/types'
 
 /**
- * Payload edits collapse into one host render request (issue #109): a host
- * render is a round trip to real hardware or a real rasterizer, so it must not
- * fire per keystroke. Long enough to swallow typing, short enough that the
- * preview visibly follows the design.
+ * A burst of changes collapses into one host render request (issue #109): a
+ * host render is a round trip to real hardware or a real rasterizer, so it must
+ * not fire per change. What can change while the preview shows is a host
+ * `setPayload()` push, the display config (a resolution pick, a
+ * re-orientation), the selected display and the dither control — the design
+ * itself cannot, since every editing affordance is inert. Long enough to
+ * swallow a burst, short enough that the preview visibly follows.
  */
 export const DISPLAY_PREVIEW_DEBOUNCE_MS = 250
 
@@ -20,6 +23,18 @@ export const DISPLAY_PREVIEW_NOT_READY_MESSAGE = 'Display preview is still rende
 export const DISPLAY_PREVIEW_NO_IMAGE_MESSAGE = 'The host returned no preview image'
 
 /**
+ * Why the toggle is disabled while the YAML doc is broken (maintainer ruling
+ * 2026-08-17). Entering a preview of a *broken* document would render the
+ * last-valid payload — an image of something other than what the editor shows —
+ * and the alternative, a YAML-error overlay painted over a host render, would
+ * explain the preview as an error state, which it never is. Refusing to enter is
+ * also what makes preview mode unbreakable from inside: the editor is read-only
+ * there and a host push parses or throws, so the document cannot go bad while a
+ * render is on screen.
+ */
+export const DISPLAY_PREVIEW_YAML_BLOCKED_REASON = 'Fix the YAML errors to preview'
+
+/**
  * The Display preview seam as the designer chrome sees it (issue #109,
  * ADR-018 preview provider). `available` is the whole of the conditional-chrome
  * rule: no host provider, no toggle and no other visual trace.
@@ -29,6 +44,13 @@ export interface DisplayPreviewView {
   available: boolean
   /** The host render is showing in place of the designer's own preview. */
   active: boolean
+  /**
+   * Why the toggle refuses to enter preview mode right now, `null` when it does
+   * not — the same disabled-with-a-stated-reason pattern the host action buttons
+   * use. Never set while {@link DisplayPreviewView.active}: leaving must always
+   * be possible.
+   */
+  disabledReason: string | null
   toggle: () => void
   /** What the canvas area points its `<img>` at, or `null` before the first answer. */
   imageUrl: string | null
@@ -50,8 +72,21 @@ interface DisplayPreviewOptions {
   readPayload: () => string
   /** The dither control's current value — a change re-requests the render. */
   ditherMode: DitherMode
+  /**
+   * The logical surface the payload is authored against — a change to it (a
+   * resolution pick, a re-orientation) re-requests the render, because a host
+   * that rendered the old geometry is showing a picture of a different canvas.
+   * Must be a **stable object** (the caller memoizes it): it is an effect
+   * dependency, so a fresh identity per render would re-request forever.
+   */
+  display: HostPreviewDisplayGeometry
   /** The display the design is pinned to, as `onAction` reports it. */
   targetId?: string
+  /**
+   * Why entering preview mode is refused right now (a blocked YAML document),
+   * or `null`/absent when it is not.
+   */
+  blockedReason?: string | null
   /**
    * Identity changes exactly when the payload can have changed (the live
    * `elements` array): the trigger for a debounced re-request. Read as an
@@ -84,7 +119,9 @@ export function useDisplayPreview({
   renderPreview,
   readPayload,
   ditherMode,
+  display,
   targetId,
+  blockedReason = null,
   payloadRevision,
 }: DisplayPreviewOptions): DisplayPreviewView {
   const available = renderPreview != null
@@ -123,7 +160,16 @@ export function useDisplayPreview({
 
   useEffect(() => releaseOwnedUrl, [releaseOwnedUrl])
 
+  // Leaving is always allowed; only entering can be refused.
+  const disabledReason = active ? null : blockedReason
+
   const toggle = useCallback(() => {
+    // The button is disabled, so this is belt and braces — but a preview of a
+    // document the editor does not show must be unreachable, not merely hard to
+    // reach.
+    if (!active && blockedReason != null) {
+      return
+    }
     // Invalidate whatever is in flight before the mode flips, so a render that
     // answers after the user left cannot repaint the canvas, and re-entering
     // starts from a clean slate rather than a remembered old image.
@@ -132,7 +178,7 @@ export function useDisplayPreview({
     setLoading(false)
     setError(null)
     clearImage()
-  }, [clearImage])
+  }, [active, blockedReason, clearImage])
 
   useEffect(() => {
     if (!active || !renderPreview) {
@@ -151,6 +197,7 @@ export function useDisplayPreview({
         answer = Promise.resolve(
           renderPreview(readPayloadRef.current(), {
             targetId,
+            display,
             service: { dither: ditherMode },
           }),
         )
@@ -194,8 +241,25 @@ export function useDisplayPreview({
       )
     }, DISPLAY_PREVIEW_DEBOUNCE_MS)
 
-    return () => window.clearTimeout(timer)
-  }, [active, clearImage, ditherMode, payloadRevision, releaseOwnedUrl, renderPreview, targetId])
+    return () => {
+      window.clearTimeout(timer)
+      // Retire this run's token as the run ends — on supersession *and* on
+      // unmount. Without it, a response arriving after the component is gone
+      // still passed the token check and minted an object URL nothing would
+      // ever revoke (the release effect has already run): one leaked blob per
+      // in-flight render, for the lifetime of the host page.
+      requestTokenRef.current += 1
+    }
+  }, [
+    active,
+    clearImage,
+    display,
+    ditherMode,
+    payloadRevision,
+    releaseOwnedUrl,
+    renderPreview,
+    targetId,
+  ])
 
   const getImageBlob = useCallback(async (): Promise<Blob | null> => {
     if (!image) {
@@ -214,6 +278,7 @@ export function useDisplayPreview({
   return {
     available,
     active: available && active,
+    disabledReason,
     toggle,
     imageUrl: image?.url ?? null,
     loading,

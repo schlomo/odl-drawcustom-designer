@@ -79,6 +79,15 @@ test('shows the host render, follows the dither option, and restores editing on 
   await expect(page.getByTestId('preview-log')).toContainText('dither=2')
   await expect.poll(() => previewSignature(page)).not.toBe(flat)
 
+  // The canvas geometry travels with every request: a quarter turn re-orients
+  // the logical surface (issue #139), so the host renders the new one and the
+  // real decoded image follows it.
+  await page.getByRole('button', { name: '90°', exact: true }).click()
+  await expect(page.getByTestId('preview-log')).toContainText('canvas=128x296@90°')
+  await expect.poll(() => previewSignature(page)).toContain('128x296')
+  await page.getByRole('button', { name: '0°', exact: true }).click()
+  await expect(page.getByTestId('preview-log')).toContainText('canvas=296x128@0°')
+
   // Copy/Download PNG stay live against the host render.
   await expect(page.getByRole('button', { name: 'Download PNG' })).toBeEnabled()
   // Editing does not.

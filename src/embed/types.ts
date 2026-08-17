@@ -238,9 +238,27 @@ export interface HostPreviewServiceOptions {
 }
 
 /**
+ * The **logical drawing surface** the payload is authored against — the
+ * coordinate space its `x`/`y` values live in, and therefore what a host has to
+ * render at for the image to mean anything beside the design.
+ *
+ * Already oriented: {@link HostPreviewDisplayGeometry.width}/`height` are
+ * swapped for a quarter turn (issue #139), exactly as upstream `imagegen`
+ * creates its canvas before drawing, and `rotation` says which way round the
+ * panel holds that surface. Never the raw physical panel size, and never a
+ * transform to apply to the returned image.
+ */
+export interface HostPreviewDisplayGeometry {
+  width: number
+  height: number
+  /** The orientation `width`/`height` are already expressed in. */
+  rotation: 0 | 90 | 180 | 270
+}
+
+/**
  * Second argument of {@link HostPreviewRenderer} — the same
  * "payload plus opaque ids" shape {@link HostActionContext} carries, extended
- * with the service options the render depends on.
+ * with the geometry and the service options the render depends on.
  */
 export interface HostPreviewContext {
   /**
@@ -249,6 +267,15 @@ export interface HostPreviewContext {
    * reports at the same instant.
    */
   targetId?: string
+  /**
+   * The canvas the payload is authored against. Always present: a payload's
+   * coordinates are meaningless without the surface they refer to, and the
+   * designer always knows it — a display-config change (resolution pick,
+   * re-orientation) re-requests the render, so a provider that renders at its
+   * own idea of the size answers a changed request with an image of the wrong
+   * shape, which the designer letterboxes visibly rather than stretching.
+   */
+  display: HostPreviewDisplayGeometry
   /**
    * The service options this render must honour. Always present — the designer
    * always knows its own dither mode, so a host never has to guard for it.
@@ -275,10 +302,13 @@ export interface HostPreviewContext {
  * - **Reject to report failure.** The designer shows an explicit error in the
  *   preview area — the rejection's `message` when it has one — and shows no
  *   image at all: a stated error beats a stale or wrong render.
- * - Called again (debounced) whenever the payload, the selected target or the
- *   dither option changes while the preview is showing. Responses are matched
+ * - Called again (debounced) whenever anything it was given changes while the
+ *   preview shows: a `setPayload()` push, the display config (resolution,
+ *   orientation), the selected target, the dither option. Responses are matched
  *   to their request, so a slow answer that a newer request has already
  *   superseded is discarded rather than painted.
+ * - Must be a function when supplied — anything else throws out of `mount()`,
+ *   like a malformed action or target list does.
  *
  * A stable closure fixed at mount: ADR-018 pushes data, never functions.
  */

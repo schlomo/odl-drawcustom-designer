@@ -61,6 +61,12 @@ export function createEmbeddedHost(options: MountOptions): DesignerHost {
     assertActionsAreHandled(actions, options.onAction, 'mount()')
   }
   const targets = options.targets ? normalizeHostTargets(options.targets) : undefined
+  // The preview provider gets the same eager contract (issue #109): a
+  // non-function would otherwise surface as a TypeError from inside a render,
+  // long after `mount()` returned successfully and painted its toggle.
+  if (options.renderPreview != null && typeof options.renderPreview !== 'function') {
+    throw new TypeError('Invalid host preview renderer: renderPreview must be a function')
+  }
   return {
     styleScope: 'shadow',
     theme: { owner: 'host', value: options.theme ?? 'light' },

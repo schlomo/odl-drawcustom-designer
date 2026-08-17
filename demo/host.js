@@ -233,19 +233,6 @@ let selectedTargetId = null
 /** Flipped by the "Simulate preview failure" button — exercises the error path. */
 let previewShouldFail = false
 
-/**
- * What the host knows about the display it is asked to render for. A real host
- * renders on the device itself; this page renders at that display's declared
- * size, falling back to the display it mounted with when the design is pinned
- * to nothing (the virtual display).
- */
-function capabilitiesForTarget(targetId) {
-  return (
-    targets.find((target) => target.id === targetId)?.capabilities ??
-    KITCHEN_TARGET.capabilities
-  )
-}
-
 const handle = mount(document.getElementById('designer'), {
   payload: PAYLOAD,
   states: { ...WARM_STATES, ...UNREFERENCED_STATES, ...currentClockState() },
@@ -275,19 +262,29 @@ const handle = mount(document.getElementById('designer'), {
   // a crude host-side rasterizer standing in for a Pillow render, so the image
   // differs visibly from the designer's — including the dither, which travels
   // in `context.service` and re-requests when the user flips it.
+  //
+  // The render is a SNAPSHOT, by design: it resolves the ticking clock state
+  // once, at request time, so the seconds visibly freeze while the preview
+  // shows — a real display render is a moment in time too, and the designer
+  // re-requests when something it sent changes, not when this page's clock
+  // ticks. Turn the preview off and on to render "now" again.
   async renderPreview(payload, context) {
     previewLog.textContent =
       `renderPreview: ${payload.length} bytes` +
       ` · dither=${context.service.dither}` +
-      ` · display=${context.targetId ?? '(virtual)'}`
+      ` · display=${context.targetId ?? '(virtual)'}` +
+      ` · canvas=${context.display.width}x${context.display.height}@${context.display.rotation}°`
     await delay(PREVIEW_RENDER_DELAY_MS)
     if (previewShouldFail) {
       // Rejecting is how a host reports failure; the designer states it in the
       // preview area and shows no image rather than a stale one.
       throw new Error('the display did not answer the render request')
     }
+    // Rendered at `context.display` — the canvas the payload is authored
+    // against, which the designer re-requests for on every resolution or
+    // orientation change. Rendering at this page's own stored capabilities
+    // instead would answer a re-orientation with a picture of the wrong shape.
     return renderPayloadOnFakeDisplay(payload, context, {
-      capabilities: capabilitiesForTarget(context.targetId),
       states: { ...temperatureStates, ...currentClockState() },
     })
   },

@@ -6,6 +6,10 @@ import { mount } from '../../src/embed'
 import type { HostTarget, MountHandle } from '../../src/embed'
 import { createStandaloneHost } from '../../src/embed/standaloneHost'
 
+// Full-designer mounts under parallel load exceed vitest's 5s default on
+// 2-core CI runners — the documented gotcha, not a slow test.
+vi.setConfig({ testTimeout: 30_000 })
+
 /**
  * Targets seam (issue #106, ADR-018): the host pushes the displays it knows
  * about — `{ id, label, capabilities }`, the id opaque — and the designer

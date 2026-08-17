@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -67,6 +68,7 @@ import {
 } from '../lib/canvas-zoom'
 import { renderPayloadToPngBlob } from '../lib/canvas-png-export'
 import {
+  buildDisplayPreviewPngDownloadFilename,
   buildPngDownloadFilename,
   copyBlobToClipboard,
   triggerBlobDownload,
@@ -103,6 +105,7 @@ import { DisplayPreviewImage } from './DisplayPreviewImage'
 import { DisplayPreviewStatus } from './DisplayPreviewStatus'
 import { FeatureToggle } from './FeatureToggle'
 import { MdiIcon } from './MdiIcon'
+import { ToolbarTooltip } from './ToolbarTooltip'
 import { TOOL_ICONS } from '../lib/mdi-tool-icons'
 import {
   DISPLAY_PREVIEW_NOT_READY_MESSAGE,
@@ -251,6 +254,8 @@ export function DesignerCanvas({
   displayPreview,
 }: DesignerCanvasProps) {
   const previewActive = displayPreview?.active ?? false
+  const previewDisabledReason = displayPreview?.disabledReason ?? null
+  const previewReasonId = useId()
   const containerRef = useRef<HTMLDivElement>(null)
   const dragSessionRef = useRef<DragSession | null>(null)
   const pointerCaptureTargetRef = useRef<HTMLElement | null>(null)
@@ -1331,12 +1336,20 @@ export function DesignerCanvas({
         flashError('download-png', DISPLAY_PREVIEW_NOT_READY_MESSAGE)
         return
       }
-      triggerBlobDownload(blob, buildPngDownloadFilename(sessionName))
+      triggerBlobDownload(
+        blob,
+        // The host's render is a different image of the same session — name it
+        // so it can sit next to the designer's own export and be diffed
+        // (issue #109 review ruling), not overwrite it.
+        previewActive
+          ? buildDisplayPreviewPngDownloadFilename(sessionName)
+          : buildPngDownloadFilename(sessionName),
+      )
       flashSuccess('download-png')
     } catch {
       flashError('download-png', 'PNG export failed')
     }
-  }, [exportPreviewPng, flashError, flashSuccess, sessionName])
+  }, [exportPreviewPng, flashError, flashSuccess, previewActive, sessionName])
 
   const toolbarProps = {
     showLabels: showCanvasLabels,
@@ -1375,22 +1388,41 @@ export function DesignerCanvas({
         >
           <h2 className={`${shell.heading} shrink-0`}>Canvas</h2>
           {/* Conditional chrome (issue #109): the toggle exists only where a
-              host registered a preview provider — standalone renders nothing
+              host registered a preview provider — standalone renders no control
               here at all. Always labelled: it switches the canvas into another
-              mode, so it must not collapse into an unexplained icon. */}
+              mode, so it must not collapse into an unexplained icon.
+
+              Disabled-with-a-stated-reason while the YAML document is broken
+              (maintainer ruling 2026-08-17), the same pattern the host action
+              buttons use: entering would render the last-valid payload, an image
+              of something other than what the editor shows. The hover bubble is
+              the sighted reader's channel (a disabled button takes no pointer
+              events); the sr-only description is what assistive tech gets. */}
           {displayPreview?.available ? (
-            <FeatureToggle
-              enabled={previewActive}
-              onToggle={displayPreview.toggle}
-              textLabel="Display preview"
-              detailedTitle="Show the display's own render of this design instead of the designer preview (editing is paused)"
-              data-testid="display-preview-toggle"
-            >
-              <span className="flex items-center gap-1">
-                <MdiIcon path={TOOL_ICONS.displayPreview} size={16} className="shrink-0" />
-                <span>Display preview</span>
-              </span>
-            </FeatureToggle>
+            <ToolbarTooltip label={previewDisabledReason ?? undefined} placement="below">
+              <FeatureToggle
+                enabled={previewActive}
+                onToggle={displayPreview.toggle}
+                textLabel="Display preview"
+                detailedTitle={
+                  previewDisabledReason ??
+                  "Show the display's own render of this design instead of the designer preview (editing is paused)"
+                }
+                disabled={previewDisabledReason != null}
+                aria-describedby={previewDisabledReason != null ? previewReasonId : undefined}
+                data-testid="display-preview-toggle"
+              >
+                <span className="flex items-center gap-1">
+                  <MdiIcon path={TOOL_ICONS.displayPreview} size={16} className="shrink-0" />
+                  <span>Display preview</span>
+                </span>
+              </FeatureToggle>
+              {previewDisabledReason != null ? (
+                <span id={previewReasonId} className="sr-only">
+                  {previewDisabledReason}
+                </span>
+              ) : null}
+            </ToolbarTooltip>
           ) : null}
         </div>
         <div ref={canvasToolbarRef} className="shrink-0">
@@ -1437,7 +1469,12 @@ export function DesignerCanvas({
             {formatCanvasPointerCoords(pointer, renderContext.width, renderContext.height)}
           </div>
         ) : null}
-        {blockedVisible ? (
+        {/* Never over a host render (maintainer ruling 2026-08-17): preview mode
+            is not an error state, and entering one is refused while the document
+            is broken — so this can only ever explain the designer's own canvas.
+            The `!previewActive` guard makes that structural rather than merely
+            true today. */}
+        {blockedVisible && !previewActive ? (
           <div
             data-testid="canvas-blocked-overlay"
             role="status"

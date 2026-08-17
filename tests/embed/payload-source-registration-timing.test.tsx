@@ -9,6 +9,10 @@ import type { DesignerHost } from '../../src/embed/host'
 import type { HostPushTarget } from '../../src/embed/types'
 import type { AppBootstrap } from '../../src/ui/bootstrap/appBootstrap'
 
+// Full-designer mounts under parallel load exceed vitest's 5s default on
+// 2-core CI runners — the documented gotcha, not a slow test.
+vi.setConfig({ testTimeout: 30_000 })
+
 /**
  * Integration testing against PR #117 (fix/issue-115-push-race) surfaced a
  * commit-window defect: #117 makes `registerPushTarget` (useProjectState) a

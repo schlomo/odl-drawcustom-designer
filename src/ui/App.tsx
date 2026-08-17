@@ -20,7 +20,10 @@ import { requestLoadDemoConfirm, shouldConfirmLoadDemo } from './lib/load-demo'
 import { toolbarGroupRow, toolbarGroupsRow } from './lib/export-action-feedback'
 import { getMissingAssetMessages } from './lib/missing-asset-messages'
 import type { StatusMessage } from './lib/status-messages'
-import { useDisplayPreview } from './hooks/useDisplayPreview'
+import {
+  DISPLAY_PREVIEW_YAML_BLOCKED_REASON,
+  useDisplayPreview,
+} from './hooks/useDisplayPreview'
 import { useExportActionFeedback } from './hooks/useExportActionFeedback'
 import { useProjectState } from './hooks/useProjectState'
 import { useElementSize } from './hooks/useElementSize'
@@ -207,6 +210,16 @@ export function App({ bootstrap, host }: AppProps) {
     return host.registerPayloadSource(readCurrentPayload)
   }, [host, readCurrentPayload])
 
+  /**
+   * The surface a host render must be produced at: the oriented logical canvas
+   * the payload's coordinates live in (issue #139). Memoized because the hook
+   * takes it as an effect dependency — a fresh object per render would
+   * re-request the preview forever.
+   */
+  const previewDisplayGeometry = useMemo(
+    () => ({ width: canvas.width, height: canvas.height, rotation: canvas.rotation }),
+    [canvas.height, canvas.rotation, canvas.width],
+  )
   // Host-rendered display preview (issue #109, ADR-018 preview seam). It reads
   // the same payload every other host channel does, so the image the user sees
   // is a render of exactly what an action would send.
@@ -214,7 +227,11 @@ export function App({ bootstrap, host }: AppProps) {
     renderPreview: host.renderPreview,
     readPayload: readCurrentPayload,
     ditherMode: canvas.previewDitherMode,
+    display: previewDisplayGeometry,
     targetId: activeTargetId ?? undefined,
+    // Entering a preview of a broken document is refused rather than explained
+    // by an error overlay over the host render (maintainer ruling 2026-08-17).
+    blockedReason: yamlBlocked ? DISPLAY_PREVIEW_YAML_BLOCKED_REASON : null,
     payloadRevision: elements,
   })
   /**
