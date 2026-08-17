@@ -2,22 +2,23 @@ import { expect, test } from '@playwright/test'
 
 /**
  * Display config lock (issue #70) against the real library bundle on the demo
- * host page: the host mounts with a 296×128 BWR capabilities payload, so the
- * display config is host-owned — locked by default, unlockable as a virtual
- * display, and Load Demo keeps the host display while locked. Vitest covers
- * the state logic; this proves the flow through the built artifact. The
- * standalone app must stay lock-free.
+ * host page: the host mounts with a single 296×128 BWR display target, which
+ * the designer adopts and locks onto without a pick (issue #121), so the
+ * display config is host-owned — unlockable as a virtual display, and Load Demo
+ * keeps the host display while locked. Vitest covers the state logic; this
+ * proves the flow through the built artifact. The standalone app must stay
+ * lock-free.
  */
 
 const embedUrl = () => `http://localhost:${process.env.PW_EMBED_PORT}/`
 
-test.describe('embedded with host capabilities', () => {
+test.describe('embedded with a host display', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(embedUrl())
     await expect(page.getByTestId('element-list-row')).toHaveCount(3)
   })
 
-  test('host capabilities lock the display config behind a lock icon', async ({ page }) => {
+  test('the adopted host display locks the display config behind a lock icon', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Unlock display config' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Resolution' })).toBeDisabled()
     await expect(page.getByRole('combobox', { name: 'Color mode' })).toBeDisabled()

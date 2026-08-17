@@ -69,11 +69,15 @@ function stubHost(overrides: Partial<DesignerHost>): DesignerHost {
   }
 }
 
-const CAPABILITIES_296X128_BWR = {
-  pixel_width: 296,
-  pixel_height: 128,
-  rotation_degrees: 0,
-  color_scheme: 0x01,
+const KITCHEN_296X128_BWR = {
+  id: 'display.kitchen',
+  label: 'Kitchen tag',
+  capabilities: {
+    pixel_width: 296,
+    pixel_height: 128,
+    rotation_degrees: 0,
+    color_scheme: 0x01,
+  },
 }
 
 let container: HTMLElement
@@ -112,7 +116,7 @@ beforeEach(() => {
 
 describe('mount lifecycle (ADR-017)', () => {
   it('drains a pre-registration push into the first rendered frame (issue #115)', async () => {
-    // The HA panel pushes capabilities in the same task as mount(), long
+    // The HA panel pushes its display in the same task as mount(), long
     // before an async bootstrap has rendered anything, so the push waits in
     // the lifecycle's pre-registration queue. It must be drained while the
     // shell commits, not a macrotask later: a queue drained after the commit
@@ -129,7 +133,7 @@ describe('mount lifecycle (ADR-017)', () => {
       }),
     )
 
-    handle.setCapabilities(CAPABILITIES_296X128_BWR)
+    handle.setTargets([KITCHEN_296X128_BWR])
 
     // Samples the first DOM that carries the designer. MutationObserver
     // callbacks are microtasks, so this runs before any macrotask React could

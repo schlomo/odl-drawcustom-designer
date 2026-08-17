@@ -6,6 +6,14 @@ Accepted — implemented in [issue #72](https://github.com/schlomo/odl-drawcusto
 [ADR-010](ADR-010-ha-embed-mode.md) (embed mode) and
 [ADR-006](ADR-006-ui-framework-react.md) (React shell).
 
+Amended at 2.0 ([issue #121](https://github.com/schlomo/odl-drawcustom-designer/issues/121)):
+the `onSaveRequest` policy field and the `setCapabilities()` push are **gone**.
+Save/send is the [ADR-018](ADR-018-host-ui-seam.md) actions seam, and `targets`
+is the only display channel. The adapter shape, the one-lifecycle decision and
+the uniform-push rule below are unchanged — read `onSaveRequest` /
+`setCapabilities()` below as the historical record of the members they replaced
+(`actions`/`onAction`, `setTargets()`).
+
 ## Context
 
 [Issue #20](https://github.com/schlomo/odl-drawcustom-designer/issues/20) made the designer embeddable and [PR #67](https://github.com/schlomo/odl-drawcustom-designer/pull/67) split mounting in two:

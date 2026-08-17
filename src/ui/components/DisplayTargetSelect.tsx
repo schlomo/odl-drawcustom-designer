@@ -8,8 +8,6 @@ import { StatusHint } from './StatusHint'
  * same reason: an opaque host id must never be mistaken for a sentinel.
  */
 const VIRTUAL_DISPLAY_VALUE = ''
-/** The display a bare `capabilities` push defined: real, but unnamed. */
-const ANONYMOUS_HOST_VALUE = 'host'
 const TARGET_VALUE_PREFIX = 'target:'
 
 const STALE_TARGET_STATUS_TITLE = 'Display no longer available'
@@ -34,9 +32,9 @@ interface DisplayTargetSelectProps {
  * What the picker shows is the display the design is *pinned to*, so it reads
  * the same way as the lock next to it:
  *
- * - a selected target while locked onto it;
- * - "Host display" while locked onto an unnamed display (a bare
- *   `capabilities` push — an anonymous target);
+ * - the selected target while locked onto it — every display the designer can
+ *   be pinned to is a named target (issue #121: there is no unnamed display
+ *   channel left);
  * - "Virtual display" whenever the config is unlocked, which is what unlocking
  *   means. The selection is still remembered: re-locking (or picking the
  *   target again) returns to it.
@@ -66,13 +64,11 @@ export function DisplayTargetSelect({
     !targets?.some((target) => target.id === selectedTargetId)
       ? selectedTargetId
       : null
-  const showAnonymousHostDisplay = locked && selectedTargetId == null
 
-  const value = !locked
-    ? VIRTUAL_DISPLAY_VALUE
-    : selectedTargetId != null
+  const value =
+    locked && selectedTargetId != null
       ? `${TARGET_VALUE_PREFIX}${selectedTargetId}`
-      : ANONYMOUS_HOST_VALUE
+      : VIRTUAL_DISPLAY_VALUE
 
   return (
     <>
@@ -87,16 +83,9 @@ export function DisplayTargetSelect({
               onSelect(null)
               return
             }
-            if (next === ANONYMOUS_HOST_VALUE) {
-              // Only ever rendered as the current value; nothing to switch to.
-              return
-            }
             onSelect(next.slice(TARGET_VALUE_PREFIX.length))
           }}
         >
-          {showAnonymousHostDisplay ? (
-            <option value={ANONYMOUS_HOST_VALUE}>Host display</option>
-          ) : null}
           {staleTargetId != null ? (
             <option value={`${TARGET_VALUE_PREFIX}${staleTargetId}`}>
               {`${selectedTargetLabel ?? staleTargetId} (unavailable)`}

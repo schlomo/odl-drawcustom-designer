@@ -34,7 +34,7 @@ vi.mock('../../src/ui/bootstrap/appBootstrap', async (importOriginal) => {
  * the standalone user observes must stay exactly as before the convergence —
  * page-DOM rendering (no shadow root), document-level theme, IndexedDB
  * session autosave, `#d=` share-hash bootstrap and re-bootstrap, share link
- * and theme toggle in the chrome, no host Save button.
+ * and theme toggle in the chrome, no host action buttons.
  */
 
 declare global {
@@ -79,6 +79,23 @@ function shareHash(value: string): string {
       elements: [{ type: 'text', value, x: 0, y: 0 }],
     }),
   )}`
+}
+
+/**
+ * One display pushed onto the standalone handle. A single-target push is
+ * adopted and locked without a pick (issue #121) — deliberate uniformity
+ * (ADR-017): the standalone app is a host adapter over the same lifecycle, so
+ * a push behaves there exactly as it does in an embed.
+ */
+const STANDALONE_DISPLAY = {
+  id: 'display.kitchen',
+  label: 'Kitchen tag',
+  capabilities: {
+    pixel_width: 296,
+    pixel_height: 128,
+    rotation_degrees: 0,
+    color_scheme: 0x01,
+  },
 }
 
 let container: HTMLElement
@@ -209,7 +226,7 @@ describe('standalone host adapter', () => {
     })
   })
 
-  it('offers the standalone chrome: share link and theme toggle, no host Save button', async () => {
+  it('offers the standalone chrome: share link and theme toggle, no host actions', async () => {
     mountStandalone()
 
     await waitFor(() => {
@@ -245,14 +262,7 @@ describe('standalone host adapter', () => {
     })
     // …which then accumulates live state (a display lock here — any App state
     // works; a re-bootstrap remounts the shell and destroys all of it).
-    act(() =>
-      handle.setCapabilities({
-        pixel_width: 296,
-        pixel_height: 128,
-        rotation_degrees: 0,
-        color_scheme: 0x01,
-      }),
-    )
+    act(() => handle.setTargets([STANDALONE_DISPLAY]))
     // Once the designer's DOM exists its push target is registered (a layout
     // effect, issue #115), so the push lands in this tick — no polling.
     expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
@@ -285,7 +295,7 @@ describe('standalone host adapter', () => {
     expect(document.documentElement.dataset.theme).toBe('dark')
   })
 
-  it('accepts capabilities pushes on the standalone handle: locks the display, unlock works', async () => {
+  it('accepts display pushes on the standalone handle: locks the display, unlock works', async () => {
     // Deliberate uniformity (ADR-017): a push on the standalone handle behaves
     // exactly like an embed push — one lifecycle, one push path.
     const handle = mountStandalone()
@@ -295,14 +305,7 @@ describe('standalone host adapter', () => {
     })
     expect(designer().queryByRole('button', { name: 'Unlock display config' })).toBeNull()
 
-    act(() =>
-      handle.setCapabilities({
-        pixel_width: 296,
-        pixel_height: 128,
-        rotation_degrees: 0,
-        color_scheme: 0x01,
-      }),
-    )
+    act(() => handle.setTargets([STANDALONE_DISPLAY]))
 
     // No polling: the shell registers its push target in a layout effect, so
     // by the time the designer's DOM is observable the push applies in the

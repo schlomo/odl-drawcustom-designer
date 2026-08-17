@@ -50,11 +50,10 @@ export interface HostAction {
    * Whether this action reads the designer's payload; defaults to `true`.
    *
    * A payload-carrying action is disabled while the YAML editor is blocked by
-   * a parse/schema error — the same rule that disables Save. An action that
-   * does *not* need the payload (host-side settings, a reconnect, a help
-   * link) sets `false` and stays clickable throughout; it still receives the
-   * last valid payload, exactly as {@link MountHandle.getPayload} documents
-   * for a blocked document.
+   * a parse/schema error. An action that does *not* need the payload
+   * (host-side settings, a reconnect, a help link) sets `false` and stays
+   * clickable throughout; it still receives the last valid payload, exactly
+   * as {@link MountHandle.getPayload} documents for a blocked document.
    */
   needsPayload?: boolean
   /**
@@ -80,7 +79,8 @@ export interface HostActionContext {
 }
 
 /**
- * Fired when the user clicks a host-registered action.
+ * Fired when the user clicks a host-registered action. Save and send are host
+ * actions — the designer has no save channel of its own (ADR-018).
  *
  * `payload` is the current drawcustom YAML — the exact string
  * {@link MountHandle.getPayload} returns at that instant (same serializer,
@@ -93,16 +93,19 @@ export type HostActionHandler = (
   context: HostActionContext,
 ) => void
 
-/** A pushed entity state with optional attributes. */
-export interface HostEntityState {
+/** A pushed state value with optional attributes. */
+export interface HostState {
   state: string | number | boolean
   attributes?: Record<string, unknown>
 }
 
 /**
- * Host-pushed entity states: entity-id -> state value or {state, attributes}.
+ * Host-pushed states: state key -> state value or {state, attributes}. The
+ * keys are the host's own identifiers, opaque to the designer — they are what
+ * a payload's templates name (`states('…')`, `state_attr('…', '…')`).
+ *
  * When provided, this replaces the State Simulator's persisted mock source
- * for template preview (ADR-010; live HA feed is a later milestone).
+ * for template preview (ADR-010).
  *
  * Ownership contract (issue #110): treated as an **immutable snapshot** at
  * the moment `setStates()` is called. Repeated pushes are diffed
@@ -115,13 +118,15 @@ export interface HostEntityState {
  * "unchanged". Construct a fresh object per push instead (see
  * docs/embedding.md's `states` section).
  */
-export type HostStates = Record<string, string | number | boolean | HostEntityState>
+export type HostStates = Record<string, string | number | boolean | HostState>
 
 /**
- * Display description driving canvas setup. Mirrors the payload shape of the
- * OpenDisplay HA integration's `capabilities.py` (OpenDisplay HA PR #44) so a
- * host-side adapter can pass it through unchanged. All fields optional —
- * unknown or missing fields leave the corresponding canvas setting untouched.
+ * What a display *is* — the description driving canvas setup, carried by every
+ * {@link HostTarget}. Mirrors the payload shape of the OpenDisplay HA
+ * integration's `capabilities.py` so a host-side adapter can pass it through
+ * unchanged. All fields optional; anything a display does not declare comes
+ * from the designer's canonical defaults, never from the display previously in
+ * effect.
  */
 export interface HostCapabilities {
   /** Physical panel width in pixels (before rotation). */
@@ -147,11 +152,14 @@ export interface HostCapabilities {
 }
 
 /**
- * One display the host knows about (issue #106, ADR-018 targets seam).
+ * One display the host knows about (issue #106, ADR-018 targets seam) — the
+ * designer's single display channel.
  *
  * The host pushes the list, the designer renders a picker inside its own
  * display-config area, and selecting an entry adopts that display's
- * capabilities behind the existing lock (issue #70). The id is **opaque**: it
+ * capabilities behind the existing lock (issue #70). A **one-element list is
+ * adopted and locked without a pick** (issue #121): that is how a
+ * single-display host says "this is the display". The id is **opaque**: it
  * round-trips through `onTargetSelected` and `onAction`'s context untouched,
  * and the designer never learns what it names (ADR-018: domain-neutral
  * vocabulary — "target", never "entity").
@@ -179,45 +187,21 @@ export interface HostTarget {
  * Called when the effective display target changes (issue #106).
  *
  * `null` means "no target": the user picked the virtual display, unlocked the
- * display config, or has not picked anything yet. Fires only on a *change*,
- * never for the initial (target-less) state, and never as a side effect of a
- * `setTargets` push — a push that removes the selected display keeps it
- * (marked stale) rather than switching, so there is nothing new to report.
+ * display config, or has not picked anything yet. Fires only on a *change* —
+ * including the one a single-element `targets` push makes by adopting that
+ * display (issue #121) — and never as a side effect of a `setTargets` push
+ * that leaves the selection alone: a push that removes the selected display
+ * keeps it (marked stale) rather than switching.
  *
  * A stable closure fixed at mount: ADR-018 pushes data, never functions.
  */
 export type HostTargetSelectedHandler = (targetId: string | null) => void
 
-/**
- * Options accompanying a `capabilities` push (issue #70). Kept separate from
- * `HostCapabilities` itself, which mirrors the OpenDisplay HA integration's
- * `capabilities.py` payload verbatim — `lock` is an embedding-only directive,
- * not a physical display property, so it travels alongside the capabilities
- * payload rather than inside it.
- */
-export interface CapabilitiesPushOptions {
-  /**
-   * Whether the pushed display locks the display config controls.
-   * Default `true` — unchanged behavior for hosts that never pass this.
-   * `false` seeds a "virtual display": the canvas adopts the pushed values,
-   * controls stay enabled, and the lock icon shows unlocked (still present,
-   * so the user can lock onto the pushed values later).
-   */
-  lock?: boolean
-}
-
 export interface MountOptions {
   /** Initial drawcustom YAML payload (list of draw elements). */
   payload?: string
-  /** Initial entity states for template preview. */
+  /** Initial states for template preview. */
   states?: HostStates
-  /** Initial display capabilities. */
-  capabilities?: HostCapabilities
-  /**
-   * Whether the initial `capabilities` lock the display config controls.
-   * Only meaningful alongside `capabilities`. Default `true`.
-   */
-  lock?: boolean
   /** Initial theme; defaults to 'light'. */
   theme?: EmbedTheme
   /**
@@ -239,16 +223,16 @@ export interface MountOptions {
    */
   onAction?: HostActionHandler
   /**
-   * Initial display targets (issue #106). A mount option *is* an initial push
-   * (ADR-018 seam grammar): identical to calling
-   * {@link MountHandle.setTargets} before the first painted frame, and
-   * re-pushable from then on. A malformed list throws out of `mount()`, like
-   * an invalid `payload`.
+   * Initial display targets (issue #106) — the designer's only display
+   * channel. A mount option *is* an initial push (ADR-018 seam grammar):
+   * identical to calling {@link MountHandle.setTargets} before the first
+   * painted frame, and re-pushable from then on. A malformed list throws out
+   * of `mount()`, like an invalid `payload`.
    *
-   * Pushing targets only says what the user *can* pick — it never moves the
-   * canvas by itself. Seeding the display the designer starts on stays
-   * {@link MountOptions.capabilities}'s job in 1.x (at 2.0 the targets seam
-   * subsumes it, issue #121).
+   * A list the user can choose between only says what they *can* pick — it
+   * never moves the canvas by itself. A **one-element** list says "this is the
+   * display": it is adopted and locked straight away, so a single-display host
+   * needs no pick and no seeding option (issue #121).
    */
   targets?: readonly HostTarget[]
   /**
@@ -259,16 +243,6 @@ export interface MountOptions {
    * `disabledReason: 'No display selected'`, say — want this.
    */
   onTargetSelected?: HostTargetSelectedHandler
-  /**
-   * Called with the current drawcustom YAML payload when the user hits Save.
-   * The parent owns persistence in embedded mode — the designer never writes
-   * the payload anywhere itself (ADR-010).
-   *
-   * Superseded in spirit by {@link MountOptions.actions}: the built-in Save
-   * button is just an action instance, and both it and this callback are
-   * removed at 2.0 (issue #121) in favour of the actions seam.
-   */
-  onSaveRequest?: (payload: string) => void
 }
 
 export interface MountHandle {
@@ -286,19 +260,12 @@ export interface MountHandle {
   /** Unmount the designer and remove everything from the container. */
   destroy(): void
   /**
-   * Push a full replacement entity-state map for template preview. Treat the
-   * passed object as an immutable snapshot — see `HostStates`'s ownership
-   * contract above; mutating it and calling `setStates()` again with the
-   * same reference is unsupported and gets treated as a no-op push.
+   * Push a full replacement state map for template preview. Treat the passed
+   * object as an immutable snapshot — see `HostStates`'s ownership contract
+   * above; mutating it and calling `setStates()` again with the same reference
+   * is unsupported and gets treated as a no-op push.
    */
   setStates(states: HostStates): void
-  /**
-   * Push a display description; maps onto canvas size, rotation and palette.
-   * `options.lock` (default `true`) controls whether this push locks the
-   * display config controls (issue #70) — `false` seeds an unlocked "virtual
-   * display" the user is free to change immediately.
-   */
-  setCapabilities(capabilities: HostCapabilities, options?: CapabilitiesPushOptions): void
   /** Replace the current payload with new drawcustom YAML (throws on invalid YAML). */
   setPayload(payload: string): void
   /**
@@ -322,8 +289,13 @@ export interface MountHandle {
    * shows up in the picker without a reload, and the designer diffs the list
    * so an unchanged re-push costs no re-render.
    *
-   * A push never moves the canvas on its own, and never overrides the user:
-   * if it **removes the currently selected target**, the designer keeps that
+   * A **one-element** push is adopted and locked straight away (issue #121) —
+   * a single display is not a choice — but only while the user has made no
+   * display choice of their own; after that, nothing but a pick moves the
+   * canvas.
+   *
+   * Otherwise a push never moves the canvas on its own, and never overrides
+   * the user: if it **removes the currently selected target**, the designer keeps that
    * display's last-known capabilities and lock state and marks the selection
    * stale ("display no longer available") instead of silently switching or
    * unlocking. Pushing the target back clears the stale marker.
@@ -335,10 +307,9 @@ export interface MountHandle {
   /** Switch the container-scoped theme. */
   setTheme(theme: EmbedTheme): void
   /**
-   * The designer's current drawcustom YAML payload (issue #104) — exactly
-   * the string `onSaveRequest` would receive if the user hit Save at this
-   * instant. Same serializer, same underlying elements state; there is no
-   * second source of truth.
+   * The designer's current drawcustom YAML payload (issue #104) — exactly the
+   * string an `onAction` callback receives at this instant. Same serializer,
+   * same underlying elements state; there is no second source of truth.
    *
    * - **Never returns `undefined`, and throws only after `destroy()`** — like
    *   every other method on this handle, it rejects a destroyed mount
@@ -350,16 +321,16 @@ export interface MountHandle {
    * - **Never lags a pending edit.** The YAML editor commits typed text to
    *   the canvas model on an 80ms debounce (or on blur); `getPayload()`
    *   forces that flush first, so a call made mid-keystroke reflects the
-   *   text already typed — the same content a real Save click would send
-   *   (a click blurs the editor, which flushes the debounce, before Save
-   *   reads the payload).
+   *   text already typed — the same content an action click sends (a click
+   *   blurs the editor, which flushes the debounce, before the payload is
+   *   read).
    * - **Never resurrects a pre-push draft.** A `setPayload()` push is
    *   authoritative: it discards any debounced edit typed before it, so the
    *   flush above can only ever commit text typed *after* the last push.
-   * - **While the YAML editor is blocked** by a parse/schema error (Save is
-   *   disabled), returns the last valid payload — the canvas model is frozen
-   *   there too, so this is exactly what Save would have sent last, and the
-   *   only way to read anything at all.
+   * - **While the YAML editor is blocked** by a parse/schema error (every
+   *   payload-carrying action is disabled), returns the last valid payload —
+   *   the canvas model is frozen there too, so this is exactly what the last
+   *   action would have sent, and the only way to read anything at all.
    *
    * See [`docs/embedding.md`](../../docs/embedding.md#getpayload-issue-104)
    * for the full semantics and rationale.
@@ -376,7 +347,6 @@ export interface MountHandle {
  */
 export interface HostPushTarget {
   applyStates(states: HostStates): void
-  applyCapabilities(capabilities: HostCapabilities, options?: CapabilitiesPushOptions): void
   applyPayload(elements: DrawElement[]): void
   /** Pre-validated by `normalizeHostActions` at the handle boundary. */
   applyActions(actions: readonly HostAction[]): void

@@ -8,13 +8,7 @@ import { createEmbeddedHost } from './embeddedHost'
 import { hostSuppliedTheme, type DesignerHost } from './host'
 import { assertActionsAreHandled, normalizeHostActions } from './hostActions'
 import { normalizeHostTargets } from './hostTargets'
-import type {
-  CapabilitiesPushOptions,
-  EmbedTheme,
-  HostPushTarget,
-  MountHandle,
-  MountOptions,
-} from './types'
+import type { EmbedTheme, HostPushTarget, MountHandle, MountOptions } from './types'
 
 const STYLE_MARKER = 'data-odl-designer-styles'
 
@@ -148,8 +142,8 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
   // `registerPushTarget` runs, queued pushes drain in order into
   // `applyPayload`, so this is exactly the elements the designer is about to
   // adopt as its payload. The `getPayload()` fallback below must serialize
-  // *this*, not the original bootstrap — `setStates`/`setCapabilities` never
-  // touch payload, so only `setPayload` ever updates it, and parsing already
+  // *this*, not the original bootstrap — no other push channel touches the
+  // payload, so only `setPayload` ever updates it, and parsing already
   // happened in `setPayload` (throw semantics on invalid YAML unchanged).
   let pendingPayloadElements: DrawElement[] | null = null
 
@@ -262,10 +256,6 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
       assertMounted()
       push((target) => target.applyStates(states))
     },
-    setCapabilities(capabilities, options?: CapabilitiesPushOptions) {
-      assertMounted()
-      push((target) => target.applyCapabilities(capabilities, options))
-    },
     setPayload(payload) {
       assertMounted()
       const elements = parseYamlPayload(payload)
@@ -324,9 +314,10 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
  * isolated in both directions.
  *
  * The host pushes data through the returned handle; the designer never
- * persists the payload itself — it hands the current drawcustom YAML to
- * `onSaveRequest` when the user hits Save. Invalid `payload` YAML throws
- * synchronously (here and in `setPayload`).
+ * persists the payload itself — the host reads the current drawcustom YAML
+ * through `getPayload()`, or receives it with the action the user clicked
+ * (ADR-018). Invalid `payload` YAML throws synchronously (here and in
+ * `setPayload`).
  *
  * This is the embedded host adapter over {@link mountDesigner} (ADR-017);
  * the standalone SPA is a sibling adapter over the same lifecycle.

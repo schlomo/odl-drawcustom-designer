@@ -3,9 +3,10 @@ import { expect, test, type Page } from '@playwright/test'
 
 /**
  * Targets seam (issue #106, ADR-018) against the real library build on the demo
- * host page: the host pushes three displays, the designer renders the picker
- * inside its own display-config area, and picking one drives the canvas through
- * the same capabilities mapping the `capabilities` channel uses. Vitest covers
+ * host page — the designer's one display channel (issue #121). The demo mounts
+ * as a single-display host (adopted and locked with no pick), then pushes its
+ * full inventory on demand; the designer renders the picker inside its own
+ * display-config area, and picking a display drives the canvas. Vitest covers
  * the state model; this proves the flow through the built artifact — including
  * that a picked display reaches the render surface, not just the form controls.
  *
@@ -31,19 +32,40 @@ const paperSize = (page: Page) =>
       return `${parseFloat(width)}×${parseFloat(height)}`
     })
 
+/** The host grows from one display to its full inventory (demo/host.js). */
+const pushDisplayList = async (page: Page) => {
+  await page.getByRole('button', { name: 'Push display list' }).click()
+  await expect(picker(page).getByRole('option')).toHaveCount(4)
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto(embedUrl())
   await expect(page.getByTestId('element-list-row')).toHaveCount(3)
 })
 
+test('the only pushed display is adopted and locked without a pick (issue #121)', async ({
+  page,
+}) => {
+  // A one-element `targets` list is how a single-display host says "this is the
+  // display" — there is no `capabilities` channel to seed one with any more, and
+  // no anonymous "Host display" entry to fall back to.
+  await expect.poll(() => selectedDisplay(page)).toBe('Kitchen tag (296×128 BWR)')
+  await expect(page.getByTestId('target-log')).toHaveText('Selected display: display.kitchen')
+  expect(await paperSize(page)).toBe('296×128')
+  await expect(page.getByRole('button', { name: 'Unlock display config' })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Color mode' })).toBeDisabled()
+
+  await expect(picker(page).getByRole('option')).toHaveCount(2)
+  const labels = await picker(page).evaluate((select) =>
+    Array.from((select as HTMLSelectElement).options, (option) => option.textContent),
+  )
+  expect(labels).toEqual(['Kitchen tag (296×128 BWR)', 'Virtual display'])
+})
+
 test('picking a display resizes the canvas, locks the config and tells the host', async ({
   page,
 }) => {
-  // The demo mounts with a bare 296×128 capabilities push: a real but unnamed
-  // display, so the picker starts on the anonymous host display.
-  await expect.poll(() => selectedDisplay(page)).toBe('Host display')
-  await expect(page.getByTestId('target-log')).toHaveText('(nothing selected yet)')
-  expect(await paperSize(page)).toBe('296×128')
+  await pushDisplayList(page)
 
   await picker(page).selectOption({ label: 'Office display (400×300 BW)' })
 
@@ -65,6 +87,7 @@ test('picking a display resizes the canvas, locks the config and tells the host'
 test('removing the selected display keeps its config and marks the selection stale', async ({
   page,
 }) => {
+  await pushDisplayList(page)
   await picker(page).selectOption({ label: 'Office display (400×300 BW)' })
   await expect(page.getByRole('button', { name: 'Resolution' })).toContainText(/400\s*×\s*300/)
 
@@ -88,17 +111,18 @@ test('removing the selected display keeps its config and marks the selection sta
 })
 
 test('a display added after mount shows up in the picker without a reload', async ({ page }) => {
-  // Three pushed targets, plus the anonymous host display and Virtual display.
-  await expect(picker(page).getByRole('option')).toHaveCount(5)
+  // Three pushed displays plus the Virtual display entry.
+  await pushDisplayList(page)
 
   await page.getByRole('button', { name: 'Add a display' }).click()
 
-  await expect(picker(page).getByRole('option')).toHaveCount(6)
+  await expect(picker(page).getByRole('option')).toHaveCount(5)
   await picker(page).selectOption({ label: 'Garage tag (152×152 BW)' })
   await expect(page.getByRole('button', { name: 'Resolution' })).toContainText(/152\s*×\s*152/)
 })
 
 test('the virtual display entry unlocks the display config', async ({ page }) => {
+  await pushDisplayList(page)
   await picker(page).selectOption({ label: 'Office display (400×300 BW)' })
   await expect(page.getByRole('combobox', { name: 'Color mode' })).toBeDisabled()
 
@@ -141,7 +165,7 @@ test('a very long host label never widens the sidebar', async ({ page }) => {
     ])
   })
 
-  await expect(picker(page).getByRole('option')).toHaveCount(3)
+  await expect(picker(page).getByRole('option')).toHaveCount(2)
 
   const sidebar = page.locator('aside').first()
   const metrics = await sidebar.evaluate((el) => ({
@@ -166,6 +190,7 @@ test('picking a portrait display gives an upright portrait editing surface (issu
   // must present that logical surface **upright**, the way upstream
   // `imagegen` draws it: portrait paper, horizontal text. It used to CSS-turn
   // the paper into a landscape stage with the design on its side (issue #139).
+  await pushDisplayList(page)
   await picker(page).selectOption({ label: 'Hallway 7.5" (800×480 BWRY, portrait)' })
 
   // The logical drawing surface is portrait: 800→height, 480→width.
@@ -204,6 +229,7 @@ test('the exported PNG is the upright logical canvas (issue #139)', async ({ pag
   // *before* its own final `rotate`. The designer used to rotate the raster
   // itself (and clockwise, 180° off Pillow's counter-clockwise), so a portrait
   // 480×800 canvas came out as an 800×480 file.
+  await pushDisplayList(page)
   await picker(page).selectOption({ label: 'Hallway 7.5" (800×480 BWRY, portrait)' })
   await expect.poll(() => paperSize(page)).toBe('480×800')
 

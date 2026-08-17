@@ -3,11 +3,12 @@ import { expect, test } from '@playwright/test'
 /**
  * M3 acceptance test (issue #20): the demo host page (demo/, shipped inside
  * dist-lib by the library build) loads the single-file library bundle,
- * mounts the designer, pushes fake states + capabilities and receives the
- * payload via onSaveRequest. This exercises the real embed wiring end to
- * end — library bundle self-containment (fonts, styles, React), host pushes
- * through the MountHandle, and the Save round-trip — none of which
- * Vitest/jsdom can prove against the built artifact.
+ * mounts the designer, pushes fake states and one display target, and receives
+ * the payload through its own Save **action** (issue #121: the designer has no
+ * save channel of its own). This exercises the real embed wiring end to end —
+ * library bundle self-containment (fonts, styles, React), host pushes through
+ * the MountHandle, and the save round-trip — none of which Vitest/jsdom can
+ * prove against the built artifact.
  *
  * Served by the second Playwright webServer (python3 http.server on
  * dist-lib, port PW_EMBED_PORT — see playwright.config.ts).
@@ -20,10 +21,11 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByTestId('element-list-row')).toHaveCount(3)
 })
 
-test('mounts self-contained: capabilities drive the canvas, host states drive template preview', async ({
+test('mounts self-contained: the pushed display drives the canvas, host states drive template preview', async ({
   page,
 }) => {
-  // Capabilities push (296x128 BWR) landed on the display config.
+  // The single pushed display (296x128 BWR) was adopted without a pick and
+  // locked (issue #121), so it is on the display config from the first frame.
   await expect(page.getByRole('button', { name: 'Resolution' })).toContainText(/296\s*×\s*128/)
   await expect(page.getByLabel('Color mode')).toHaveValue('bwr')
 
@@ -35,7 +37,8 @@ test('mounts self-contained: capabilities drive the canvas, host states drive te
   // fetch a host page cannot serve (this failed before fonts were inlined).
   await expect(page.getByText('Font failed to load')).toHaveCount(0)
 
-  // Embedded chrome: Save offered, share link (standalone-only) absent.
+  // Embedded chrome: the host's Save action offered, share link
+  // (standalone-only) absent.
   await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeVisible()
   await expect(page.getByLabel('Copy share link')).toHaveCount(0)
 })
@@ -58,7 +61,7 @@ test('a later host states push re-evaluates the template preview', async ({ page
   await expect(page.getByTestId('element-list-row').filter({ hasText: 'Balcony' })).toBeVisible()
 })
 
-test('editing an element and hitting Save hands the payload YAML to the host', async ({
+test('editing an element and clicking the host Save action hands over the payload YAML', async ({
   page,
 }) => {
   await page.getByTestId('element-list-row').filter({ hasText: '21.5 °C' }).click()

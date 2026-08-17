@@ -18,6 +18,16 @@ presents that surface upright, always. `render_*`/`pixel_*` seeding is
 unchanged and still correct; what changed is that nothing downstream re-applies
 the rotation as a transform.
 
+**Executed at 2.0** ([issue #121](https://github.com/schlomo/odl-drawcustom-designer/issues/121)):
+every "at 2.0" clause below has shipped as one `feat!:` cut — the targets seam
+subsumed the `capabilities`/`setCapabilities`/`lock` channel (a one-element
+`targets` push is adopted and locked with no pick), `onSaveRequest` and the
+built-in Save button are gone in favour of the actions seam, and
+`HostEntityState` is `HostState`. The 1.x transition text kept below — the two
+coexisting display channels, their last-write-wins precedence, the anonymous
+"Host display" entry, the two mapping bases — is **historical record, not
+current behavior**; the live contract is [`docs/embedding.md`](../embedding.md).
+
 ## Context
 
 [PR #100](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/100)

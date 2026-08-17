@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { act } from 'react'
-import { fireEvent, waitFor, within } from '@testing-library/react'
+import { waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, version } from '../../src/embed'
 import type { MountHandle } from '../../src/embed'
@@ -9,8 +9,8 @@ import { readSessionFromDb } from '../../src/storage'
 /**
  * Embeddable mount API (issue #20): behavior an embedding host observes —
  * render into an arbitrary container, container-scoped theme, host-pushed
- * states/capabilities, onSaveRequest, destroy. ADR-010: parent owns
- * persistence in embedded mode.
+ * states and displays, destroy. ADR-010: parent owns persistence in embedded
+ * mode; save/send is the actions seam, not a designer channel (issue #121).
  */
 
 declare global {
@@ -125,16 +125,22 @@ describe('mount', () => {
     })
   })
 
-  it('setCapabilities drives the canvas resolution', async () => {
+  it('a pushed display target drives the canvas resolution', async () => {
     const handle = mountDesigner({ payload: PAYLOAD })
 
     act(() =>
-      handle.setCapabilities({
-        pixel_width: 296,
-        pixel_height: 128,
-        rotation_degrees: 0,
-        color_map: { black: '#000000', white: '#ffffff', red: '#ff0000' },
-      }),
+      handle.setTargets([
+        {
+          id: 'display.kitchen',
+          label: 'Kitchen tag',
+          capabilities: {
+            pixel_width: 296,
+            pixel_height: 128,
+            rotation_degrees: 0,
+            color_map: { black: '#000000', white: '#ffffff', red: '#ff0000' },
+          },
+        },
+      ]),
     )
 
     await waitFor(() => {
@@ -142,18 +148,26 @@ describe('mount', () => {
     })
   })
 
-  it('Save requests hand the current payload YAML to the host; no share link is offered', () => {
+  it('offers no capabilities display channel on the handle (2.0, issue #121)', () => {
+    // The targets seam is the single display channel: `setCapabilities`, the
+    // `capabilities`/`lock` options and their last-write-wins precedence are
+    // gone, not deprecated.
+    const handle = mountDesigner({ payload: PAYLOAD })
+
+    expect((handle as unknown as Record<string, unknown>).setCapabilities).toBeUndefined()
+  })
+
+  it('renders no built-in Save button, and a legacy onSaveRequest option is inert', () => {
+    // 2.0 (issue #121): save/send is the actions seam only. A 1.x host that
+    // still passes `onSaveRequest` gets no button and no callback — never a
+    // Save control that quietly reaches nobody.
     const onSaveRequest = vi.fn()
-    mountDesigner({ payload: PAYLOAD, onSaveRequest })
+    mountDesigner({ payload: PAYLOAD, onSaveRequest } as Parameters<typeof mount>[1])
 
     expect(designer().queryByLabelText('Copy share link')).toBeNull()
-
-    fireEvent.click(designer().getByRole('button', { name: 'Save' }))
-
-    expect(onSaveRequest).toHaveBeenCalledTimes(1)
-    const saved = onSaveRequest.mock.calls[0]![0] as string
-    expect(saved).toContain('type: text')
-    expect(saved).toContain("states('sensor.demo_temperature')")
+    expect(designer().queryByRole('button', { name: 'Save' })).toBeNull()
+    expect(designer().queryByRole('group', { name: 'Save' })).toBeNull()
+    expect(onSaveRequest).not.toHaveBeenCalled()
   })
 
   it('does not autosave the session locally — the parent owns persistence (ADR-010)', async () => {

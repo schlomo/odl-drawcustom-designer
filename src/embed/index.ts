@@ -16,14 +16,13 @@ export { mount } from './mount'
  */
 export { APP_VERSION as version } from '../core'
 export type {
-  CapabilitiesPushOptions,
   EmbedTheme,
   HostAction,
   HostActionContext,
   HostActionHandler,
   HostActionSeverity,
   HostCapabilities,
-  HostEntityState,
+  HostState,
   HostStates,
   HostTarget,
   HostTargetSelectedHandler,

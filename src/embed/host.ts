@@ -61,11 +61,6 @@ export interface DesignerHost {
    */
   readonly persistence: DesignerPersistence | null
   /**
-   * Save channel. Presence shows the Save button; absence means there is no
-   * one to save to (standalone persists continuously instead).
-   */
-  readonly onSaveRequest?: (payload: string) => void
-  /**
    * Host action buttons the shell paints before the first push (issue #108,
    * ADR-018): the adapter's rendering of the `actions` mount option, which
    * the seam grammar defines as an initial push. Later pushes arrive through
@@ -75,7 +70,8 @@ export interface DesignerHost {
   readonly actions?: readonly HostAction[]
   /**
    * Action channel: which button the user clicked, plus the current payload.
-   * Absent for a host that registers no actions (standalone never does).
+   * The designer's only save/send channel (ADR-018, issue #121). Absent for a
+   * host that registers no actions (standalone never does).
    */
   readonly onAction?: HostActionHandler
   /**

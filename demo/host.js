@@ -1,8 +1,8 @@
 // Fake host page for the embeddable designer (issue #20). Loads the library
 // build from the same directory (see vite.lib.config.ts publicDir wiring),
-// mounts the designer, pushes fake states/capabilities/targets and receives
-// Save requests — the same integration surface a real host (e.g. the
-// OpenDisplay HA integration panel) uses. Serve with:
+// mounts the designer, pushes fake states and display targets, and handles the
+// Save and Send actions it registers — the same integration surface a real host
+// (e.g. the OpenDisplay HA integration panel) uses. Serve with:
 //   npm run build:lib && python3 -m http.server -d dist-lib
 //
 // Also pushes a self-mutating `sensor.demo_clock` state once per second
@@ -76,10 +76,11 @@ const CAPABILITIES_296X128_BWR = {
 }
 
 // Display targets (issue #106, ADR-018): the displays this fake host "knows
-// about". Ids are opaque to the designer — it echoes them back through
-// `onTargetSelected` and `onAction`'s context and never interprets them. Each
-// carries the same capabilities payload shape the `capabilities` channel takes,
-// so picking one resizes and re-palettes the canvas through the same mapping.
+// about" — the designer's only display channel (issue #121). Ids are opaque to
+// the designer: it echoes them back through `onTargetSelected` and `onAction`'s
+// context and never interprets them. Picking one resizes and re-palettes the
+// canvas; a host with exactly one display pushes a one-element list, which the
+// designer adopts and locks without a pick.
 const CAPABILITIES_400X300_BW = {
   render_width: 400,
   render_height: 300,
@@ -108,12 +109,17 @@ const CAPABILITIES_152X152_BW = {
   color_scheme: 0x00,
 }
 
-const INITIAL_TARGETS = [
-  {
-    id: 'display.kitchen',
-    label: 'Kitchen tag (296×128 BWR)',
-    capabilities: CAPABILITIES_296X128_BWR,
-  },
+const KITCHEN_TARGET = {
+  id: 'display.kitchen',
+  label: 'Kitchen tag (296×128 BWR)',
+  capabilities: CAPABILITIES_296X128_BWR,
+}
+
+// The full inventory a multi-display host offers. This page starts as the
+// single-display host instead (see the mount below) — the reference shape, and
+// the one that shows the auto-adopt rule — and pushes this list on demand.
+const ALL_TARGETS = [
+  KITCHEN_TARGET,
   { id: 'display.office', label: 'Office display (400×300 BW)', capabilities: CAPABILITIES_400X300_BW },
   { id: 'display.hallway', label: 'Hallway 7.5" (800×480 BWRY, portrait)', capabilities: CAPABILITIES_800X480_BWRY_PORTRAIT },
 ]
@@ -129,13 +135,16 @@ const savedPayload = document.getElementById('saved-payload')
 const actionLog = document.getElementById('action-log')
 const targetLog = document.getElementById('target-log')
 
-// Host-registered actions (issue #108, ADR-018): the host owns what each
-// button means — this page fakes a display transmission and a payload check.
+// Host-registered actions (issue #108, ADR-018): the host owns what each button
+// means — this page fakes persistence, a display transmission and a payload
+// check. Save is one of them and nothing special (issue #121): the designer has
+// no save channel of its own, so a host that wants a Save button registers one.
 // `severity: 'caution'` is the reference case: Send drives real hardware.
 // `icon` takes any Material Design Icon name — the same vocabulary a payload
 // icon element accepts, so `monitor-dashboard` needs no special casing.
 function buildActions(displayOnline) {
   return [
+    { id: 'save', label: 'Save' },
     {
       id: 'send',
       label: 'Send to display',
@@ -182,15 +191,18 @@ window.demoPushStates = demoPushStates
 // The host's own view of the display inventory and of what the user picked in
 // the designer's picker — kept in sync through `onTargetSelected` below, which
 // is the only way this page learns about a selection before an action fires.
-let targets = INITIAL_TARGETS
+let targets = [KITCHEN_TARGET]
 let selectedTargetId = null
 
 const handle = mount(document.getElementById('designer'), {
   payload: PAYLOAD,
   states: { ...WARM_STATES, ...currentClockState() },
-  capabilities: CAPABILITIES_296X128_BWR,
   theme: 'light',
-  targets: INITIAL_TARGETS,
+  // One display = "this is the display" (issue #121): the designer adopts and
+  // locks onto it without a pick, so the first painted frame is already this
+  // 296×128 BWR panel with its measured palette. Push "Push display list" to
+  // become a multi-display host and get the picker's choices.
+  targets: [KITCHEN_TARGET],
   onTargetSelected(targetId) {
     // `null` = the user switched to the virtual display (or unlocked the
     // display config), so the design is no longer pinned to real hardware.
@@ -205,6 +217,12 @@ const handle = mount(document.getElementById('designer'), {
     // The designer reports only which button fired, the current payload and
     // the opaque id of the display it is pinned to; everything below is
     // host-side meaning.
+    if (id === 'save') {
+      // What `onSaveRequest` used to be (issue #121): a host action like any
+      // other, with the payload the designer would hand `getPayload()`.
+      savedPayload.textContent = payload
+      return
+    }
     if (id === 'send') {
       const to = context.targetId ?? 'the virtual display (no target selected)'
       actionLog.textContent = `Sent ${payload.length} bytes to ${to}:\n${payload}`
@@ -220,9 +238,6 @@ const handle = mount(document.getElementById('designer'), {
       return
     }
     actionLog.textContent = `Unhandled action: ${id}`
-  },
-  onSaveRequest(payload) {
-    savedPayload.textContent = payload
   },
 })
 
@@ -241,8 +256,14 @@ document.getElementById('push-warm').addEventListener('click', () => {
 document.getElementById('push-cold').addEventListener('click', () => {
   demoPushStates(COLD_STATES)
 })
-document.getElementById('push-capabilities').addEventListener('click', () => {
-  handle.setCapabilities(CAPABILITIES_296X128_BWR)
+// Targets are the one display channel (issue #121): this is the same host
+// growing from "one display" to "an inventory the user picks from". The display
+// already adopted stays adopted — a push only ever *offers* displays once the
+// designer is pinned to one.
+document.getElementById('push-display-list').addEventListener('click', () => {
+  targets = ALL_TARGETS
+  handle.setTargets(targets)
+  targetLog.textContent = `Pushed ${targets.length} displays — pick one in the designer`
 })
 // Actions are re-pushable (ADR-018): the whole list goes back whenever host
 // state changes, and the designer diffs it — here a fake connection drop

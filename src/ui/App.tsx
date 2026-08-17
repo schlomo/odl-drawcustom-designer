@@ -253,10 +253,6 @@ export function App({ bootstrap, host }: AppProps) {
     loadDemo()
   }, [elements.length, loadDemo])
 
-  const handleSaveRequest = useCallback(() => {
-    host.onSaveRequest?.(serializeYamlPayload(elements))
-  }, [elements, host])
-
   // Host-registered action clicked (issue #108): the designer reports the id,
   // the current payload and the opaque id of the display the design is pinned
   // to (issue #106) — nothing else; meaning, auth and the actual call are
@@ -504,16 +500,9 @@ export function App({ bootstrap, host }: AppProps) {
               Load Demo
             </TextButton>
           </div>
-          {/* Save is the designer's own action button and the only one until
-              the host registers some; at 2.0 it becomes an ordinary action
-              instance rendered by HostActionButtons below (issue #121). */}
-          {host.onSaveRequest ? (
-            <div className={toolbarGroupRow} role="group" aria-label="Save">
-              <TextButton onClick={handleSaveRequest} disabled={yamlBlocked}>
-                Save
-              </TextButton>
-            </div>
-          ) : null}
+          {/* Save and send are host actions (ADR-018, issue #121): the designer
+              has no save channel of its own, so it renders no Save button —
+              a host registers one and owns what it means. */}
           {hostActions.length > 0 ? (
             <div className={toolbarGroupRow} role="group" aria-label="Actions">
               <HostActionButtons

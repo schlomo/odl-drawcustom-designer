@@ -181,6 +181,24 @@ export function hostTargetsEqual(a: readonly HostTarget[], b: readonly HostTarge
   })
 }
 
+/**
+ * The display a pushed list adopts without being picked, or `null` when the
+ * list is a choice (issue #121, ADR-018's 2.0 subsumption of the
+ * `capabilities` channel).
+ *
+ * A one-element list is a host saying "this is the display", not offering
+ * alternatives — the designer adopts and locks onto it so the first frame is
+ * already that display, which is exactly what `capabilities` used to be for.
+ * Anything else selects nothing: a list the user can choose between only says
+ * what they *can* pick.
+ *
+ * Whether a *later* push may still adopt is the caller's call — it must not
+ * override a display choice the user already made (see `useProjectState`).
+ */
+export function autoAdoptedHostTarget(targets: readonly HostTarget[]): HostTarget | null {
+  return targets.length === 1 ? targets[0]! : null
+}
+
 /** The pushed target with this id, or `null` — the picker's lookup. */
 export function findHostTarget(
   targets: readonly HostTarget[],

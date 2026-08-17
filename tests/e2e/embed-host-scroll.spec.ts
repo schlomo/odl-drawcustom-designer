@@ -19,7 +19,7 @@ import { dragCanvasPoint } from './fixtures/canvas'
 
 const embedUrl = () => `http://localhost:${process.env.PW_EMBED_PORT}/`
 
-// Demo capabilities push: 296x128 BWR panel.
+// Demo display target: the 296x128 BWR panel adopted at mount.
 const CANVAS = { width: 296, height: 128 }
 
 // Inside the demo rectangle (4,4)-(200,70), clear of both text elements.
