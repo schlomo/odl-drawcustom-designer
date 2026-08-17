@@ -62,6 +62,31 @@ test('the only pushed display is adopted and locked without a pick (issue #121)'
   expect(labels).toEqual(['Kitchen tag (296×128 BWR)', 'Virtual display'])
 })
 
+test('several displays pushed at mount are a choice, not an adoption (issue #121)', async ({
+  page,
+}) => {
+  // The other half of the auto-adopt rule, on the *first paint* — the state the
+  // mount option and a later push must agree on: a list the user can choose
+  // between renders the picker unselected and moves nothing. `?displays=all`
+  // makes the demo page a multi-display host (demo/host.js).
+  await page.goto(`${embedUrl()}?displays=all`)
+  await expect(page.getByTestId('element-list-row')).toHaveCount(3)
+
+  await expect(picker(page).getByRole('option')).toHaveCount(4)
+  // Nothing pinned: the picker reads "Virtual display", the config is unlocked
+  // and editable, and the host was told nothing.
+  await expect.poll(() => selectedDisplay(page)).toBe('Virtual display')
+  await expect(page.getByRole('combobox', { name: 'Color mode' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Lock display config' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Unlock display config' })).toHaveCount(0)
+  await expect(page.getByTestId('target-log')).toHaveText('')
+
+  // …and one pick still does everything it does anywhere else.
+  await picker(page).selectOption({ label: 'Office display (400×300 BW)' })
+  await expect.poll(() => paperSize(page)).toBe('400×300')
+  await expect(page.getByTestId('target-log')).toHaveText('Selected display: display.office')
+})
+
 test('picking a display resizes the canvas, locks the config and tells the host', async ({
   page,
 }) => {
@@ -151,6 +176,10 @@ test('a very long host label never widens the sidebar', async ({ page }) => {
   // bug — a too-wide box inside an `overflow-hidden` panel is content the user
   // simply cannot reach). Native `<select>` truncation of the option text is
   // fine; a widened panel is not.
+  // A relabel of the display already adopted (`display.kitchen`), so this is
+  // purely the layout question: same id, same capabilities, absurd label.
+  // Pushing a *different* id would re-pin the design to another display
+  // (issue #121 mirroring) and make this a test of two things at once.
   await page.evaluate(() => {
     ;(
       window as unknown as {
@@ -158,14 +187,28 @@ test('a very long host label never widens the sidebar', async ({ page }) => {
       }
     ).designerHandle.setTargets([
       {
-        id: 'display.verbose',
+        id: 'display.kitchen',
         label: `Kitchen tag on the second shelf next to the coffee machine ${'and more '.repeat(30)}`,
-        capabilities: { render_width: 296, render_height: 128 },
+        capabilities: {
+          pixel_width: 296,
+          pixel_height: 128,
+          rotation_degrees: 0,
+          render_width: 296,
+          render_height: 128,
+          color_scheme: 0x01,
+          accent_color: 'red',
+          available_colors: ['black', 'white', 'red'],
+          color_map: { black: '#000000', white: '#ffffff', red: '#c53929' },
+          palette_measured: true,
+        },
       },
     ])
   })
 
   await expect(picker(page).getByRole('option')).toHaveCount(2)
+  // Still the same display, now under its long name.
+  await expect.poll(() => selectedDisplay(page)).toContain('Kitchen tag on the second shelf')
+  await expect(page.getByRole('button', { name: 'Resolution' })).toContainText(/296\s*×\s*128/)
 
   const sidebar = page.locator('aside').first()
   const metrics = await sidebar.evaluate((el) => ({

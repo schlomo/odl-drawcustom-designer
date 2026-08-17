@@ -33,10 +33,10 @@ function requireText(value: unknown, field: string, where: string): string {
  * Frozen copy of a target's capabilities.
  *
  * Field *values* are not validated here on purpose: `capabilitiesToCanvas`
- * already tolerates junk (a non-quarter rotation keeps the current one, a
- * zero size is ignored), and the bare `capabilities` channel has always
- * behaved that way. A second, stricter contract for the same payload shape
- * would mean two answers to "what is a valid display?".
+ * already tolerates junk (a non-quarter rotation falls back to the canonical
+ * one, a zero size is ignored) rather than refusing a display the host says
+ * exists. A second, stricter contract for the same payload shape would mean
+ * two answers to "what is a valid display?".
  */
 function copyCapabilities(value: unknown, where: string): HostCapabilities {
   if (value == null || typeof value !== 'object' || Array.isArray(value)) {

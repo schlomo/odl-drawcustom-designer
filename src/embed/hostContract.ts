@@ -76,12 +76,12 @@ function hostStateValueEqual(
 
 /**
  * Structural equality between two host `states` pushes (issue #110). The
- * upstream OpenDisplay HA integration pushes its *entire* state registry —
- * every attribute, on every key — up to 4x/s even when nothing changed, so
- * this is the guard that keeps an unchanged tick from costing more than this
- * scan: linear in key + attribute count, short-circuits on the first
- * difference, and never allocates an intermediate string (unlike a
- * `JSON.stringify` comparison) or a converted mock-data copy.
+ * upstream OpenDisplay HA integration pushes its *entire* state map — every
+ * attribute, on every key — up to 4x/s even when nothing changed, so this is
+ * the guard that keeps an unchanged tick from costing more than this scan:
+ * linear in key + attribute count, short-circuits on the first difference, and
+ * never allocates an intermediate string (unlike a `JSON.stringify`
+ * comparison) or a converted mock-data copy.
  */
 export function hostStatesEqual(a: HostStates, b: HostStates): boolean {
   if (a === b) {
@@ -103,11 +103,11 @@ export function mockStatesEqual(a: MockData['states'], b: MockData['states']): b
 }
 
 /**
- * Merge a freshly converted attribute map onto the previous one, reusing
- * each entity's previous attribute object when its content is unchanged
- * (issue #110) — so any future per-entity memoization (e.g. a
- * referenced-states panel row, ADR-018) can skip work for entities a push
- * did not touch. The returned top-level map is always new; call this only
+ * Merge a freshly converted attribute map onto the previous one, reusing a
+ * state key's previous attribute object when its content is unchanged
+ * (issue #110) — so any future per-key memoization (e.g. a referenced-states
+ * panel row, ADR-018) can skip work for the keys a push did not touch. The
+ * returned top-level map is always new; call this only
  * after `hostStatesEqual` already established the push changed something —
  * this does not itself detect "nothing changed" (that is
  * `hostStatesEqual`'s job, before any conversion happens).

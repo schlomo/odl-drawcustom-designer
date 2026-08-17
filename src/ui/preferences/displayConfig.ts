@@ -43,13 +43,22 @@ export interface DisplayConfig {
 const ROTATIONS = new Set<CanvasRotation>([0, 90, 180, 270])
 const PREVIEW_DITHER_MODES = new Set<PreviewDitherMode>([0, 2])
 
-export const DEFAULT_DISPLAY_CONFIG: DisplayConfig = {
+/**
+ * The canonical display every adoption resolves from (`capabilitiesToCanvas`)
+ * and every bootstrap without a host display starts at.
+ *
+ * Frozen: it is handed out **by reference** (here and from `readDisplayConfig`)
+ * and lands in live designer state from there, so an in-place edit anywhere
+ * downstream would redefine the canonical defaults for every later adoption.
+ * A caller that needs a config of its own spreads a copy.
+ */
+export const DEFAULT_DISPLAY_CONFIG: DisplayConfig = Object.freeze({
   width: DEFAULT_RESOLUTION.width,
   height: DEFAULT_RESOLUTION.height,
   rotation: 0,
   colorMode: 'bwr',
   previewDitherMode: 0,
-}
+})
 
 function isRotation(value: unknown): value is CanvasRotation {
   return typeof value === 'number' && ROTATIONS.has(value as CanvasRotation)

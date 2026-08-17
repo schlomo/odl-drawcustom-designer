@@ -174,11 +174,12 @@ export interface HostTarget {
   /** Picker entry text, shown as-is (surrounding whitespace trimmed). */
   label: string
   /**
-   * The display this target *is* — the same shape the `capabilities` channel
-   * takes, mapped onto the canvas by exactly the same code. Only the
-   * documented {@link HostCapabilities} fields are retained; the copy the
-   * designer keeps is frozen, so mutating the pushed object afterwards
-   * cannot change what the picker applies.
+   * The display this target *is* ({@link HostCapabilities}) — what the canvas,
+   * palette and orientation are set from when this target is adopted. Only the
+   * documented fields are retained; the copy the designer keeps is frozen, so
+   * mutating the pushed object afterwards cannot change what the picker
+   * applies, and a re-push carrying different values is recognised as the host
+   * re-defining this display.
    */
   capabilities: HostCapabilities
 }

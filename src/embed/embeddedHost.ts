@@ -19,9 +19,11 @@ function buildEmbedBootstrap(
   // frame is already that display, locked — no host-visible window of default,
   // unlocked config, and no separate seeding option to keep in sync with it.
   const adopted = targets ? autoAdoptedHostTarget(targets) : null
+  // A copy of the canonical defaults, never the shared object itself: the
+  // bootstrap's canvas becomes live, mutable-by-setState designer state.
   const canvas = adopted
     ? capabilitiesToCanvas(adopted.capabilities, DEFAULT_DISPLAY_CONFIG.previewDitherMode)
-    : DEFAULT_DISPLAY_CONFIG
+    : { ...DEFAULT_DISPLAY_CONFIG }
   return {
     sessionName: 'Untitled',
     elements: options.payload ? parseYamlPayload(options.payload) : [],
