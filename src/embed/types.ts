@@ -215,7 +215,12 @@ export type HostTargetSelectedHandler = (targetId: string | null) => void
 export interface MountOptions {
   /** Initial drawcustom YAML payload (list of draw elements). */
   payload?: string
-  /** Initial states for template preview. */
+  /**
+   * Initial states for template preview. A mount option *is* an initial push
+   * (ADR-018 seam grammar): identical to calling {@link MountHandle.setStates}
+   * before the first painted frame, validated the same way — a malformed map
+   * throws out of `mount()`, like an invalid `payload`.
+   */
   states?: HostStates
   /** Initial theme; defaults to 'light'. */
   theme?: EmbedTheme
@@ -279,6 +284,14 @@ export interface MountHandle {
    * object as an immutable snapshot — see `HostStates`'s ownership contract
    * above; mutating it and calling `setStates()` again with the same reference
    * is unsupported and gets treated as a no-op push.
+   *
+   * Throws on a malformed map (a non-primitive or missing `state`, a
+   * non-object `attributes`, a non-string `name`, or a `states` argument that
+   * is not an object) with a message naming the offending key, and **changes
+   * nothing** when it does: no values, no names, no Simulator-off latch, and
+   * the rejected map never becomes the last-applied push the diff compares
+   * against — so the same bad map fails again rather than being deduped, and a
+   * corrected one applies normally.
    */
   setStates(states: HostStates): void
   /** Replace the current payload with new drawcustom YAML (throws on invalid YAML). */
@@ -361,6 +374,7 @@ export interface MountHandle {
  * setState from.
  */
 export interface HostPushTarget {
+  /** Pre-validated by `assertHostStates` at the handle boundary. */
   applyStates(states: HostStates): void
   applyPayload(elements: DrawElement[]): void
   /** Pre-validated by `normalizeHostActions` at the handle boundary. */

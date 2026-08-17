@@ -25,6 +25,7 @@ import { ReferencedStatesPanel } from './ReferencedStatesPanel'
 import { ResolutionSelect } from './ResolutionSelect'
 import { StateSimulator } from './StateSimulator'
 import { StatusHint } from './StatusHint'
+import { VariablesEditor } from './VariablesEditor'
 
 /**
  * `simulator` and `states` are one slot under two policies (issue #107,
@@ -411,7 +412,27 @@ export function Sidebar({
         ) : null}
         {activeTab === 'states' && hostStateCatalog ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <ReferencedStatesPanel elements={elements} catalog={hostStateCatalog} />
+            <ReferencedStatesPanel
+              elements={elements}
+              catalog={hostStateCatalog}
+              onFocusEntity={onFocusSimulatorEntity}
+            />
+            {/* Variables are the designer's, not the host's (maintainer ruling
+                2026-08-17): no push channel supplies them, so the Simulator-off
+                policy covers states only and this stays editable. Fixed `all`
+                scope — this panel has no scope toggle, and a variable the user
+                just added is not referenced by the payload yet. */}
+            <div className="mt-2 max-h-[45%] shrink-0 overflow-y-auto">
+              <VariablesEditor
+                elements={elements}
+                variables={variables}
+                scope="all"
+                onSetVariable={onSetVariable}
+                onAddVariable={onAddVariable}
+                onRenameVariable={onRenameVariable}
+                onRemoveVariable={onRemoveVariable}
+              />
+            </div>
           </div>
         ) : null}
         {activeTab === 'content' ? (

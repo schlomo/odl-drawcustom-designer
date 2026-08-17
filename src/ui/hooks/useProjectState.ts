@@ -714,6 +714,15 @@ export function useProjectState(
         if (lastHostStatesRef.current !== null && hostStatesEqual(lastHostStatesRef.current, states)) {
           return
         }
+        // Convert first, latch second (maintainer ruling 2026-08-17). Pushes are
+        // pre-validated at the handle boundary (`assertHostStates`), so nothing
+        // here is expected to throw — but the *order* is what makes a push
+        // all-or-nothing: anything that did throw mid-conversion would otherwise
+        // leave the host-fed latch set and this reference retained, and the
+        // identical re-push would then be deduped as "unchanged" instead of
+        // failing again (the reviewer's wedge on PR #142).
+        const mock = hostStatesToMockData(states)
+        const names = hostStatesToNames(states)
         lastHostStatesRef.current = states
         // A host that feeds states owns them (issue #107): the Simulator is off
         // and the referenced-states panel takes its tab from here on. Latching
@@ -722,8 +731,6 @@ export function useProjectState(
         // designer is a no-op React bails out of.
         hostStatesFedRef.current = true
         setHostStatesFed(true)
-        const mock = hostStatesToMockData(states)
-        const names = hostStatesToNames(states)
         // Functional updaters: bail per-part when that half of the push
         // didn't actually change (e.g. only attributes moved), and reuse the
         // attribute object of every state key the push left alone (bounded

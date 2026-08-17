@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import type { DrawElement } from '../../../src/core'
 import { ReferencedStatesPanel } from '../../../src/ui/components/ReferencedStatesPanel'
 import type { HostStateCatalog } from '../../../src/embed/hostContract'
@@ -95,6 +95,67 @@ describe('ReferencedStatesPanel', () => {
     render(<ReferencedStatesPanel elements={PAYLOAD} catalog={catalog()} />)
 
     expect(screen.queryAllByRole('textbox')).toHaveLength(0)
+    expect(screen.queryAllByRole('button')).toHaveLength(0)
+  })
+
+  // Issue #107 review: the panel and the evaluator must agree on what a payload
+  // reads. Dotted access is evaluated (`states.sensor.e.state`), so it must be
+  // listed — with its attribute base folded into the same row.
+  it('lists a state the payload reads through dotted access', () => {
+    render(
+      <ReferencedStatesPanel
+        elements={[{ type: 'text', value: '{{ states.sensor.temperature.state }}', x: 0, y: 0 }]}
+        catalog={catalog()}
+      />,
+    )
+
+    const row = screen.getByTestId('referenced-state-row-sensor.temperature')
+    expect(row).toHaveTextContent('Living-room temperature')
+    expect(row).toHaveTextContent('21.5')
+  })
+
+  it('lists a dotted attribute read as one row: the state, its name and the attribute', () => {
+    render(
+      <ReferencedStatesPanel
+        elements={[
+          { type: 'text', value: '{{ states.weather.home.attributes.humidity }}', x: 0, y: 0 },
+        ]}
+        catalog={catalog()}
+      />,
+    )
+
+    const rows = screen.getAllByTestId(/^referenced-state-row-/)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toHaveTextContent('weather.home')
+    expect(rows[0]).toHaveTextContent('humidity')
+    expect(rows[0]).toHaveTextContent('64')
+  })
+
+  // Parity with the Simulator's entity coupling (`onFocusEntity`): picking a
+  // state jumps the YAML editor to where the design reads it. Offered only when
+  // the shell supplies the channel — nothing else about the panel is clickable.
+  it('reports the picked state to the shell when entity coupling is wired', () => {
+    const onFocusEntity = vi.fn()
+    render(
+      <ReferencedStatesPanel
+        elements={PAYLOAD}
+        catalog={catalog()}
+        onFocusEntity={onFocusEntity}
+      />,
+    )
+
+    // The row's label is the friendly name where the host supplied one — the
+    // accessible name is what the user reads, and it reports the raw key.
+    fireEvent.click(screen.getByRole('button', { name: 'Living-room temperature' }))
+    expect(onFocusEntity).toHaveBeenCalledWith('sensor.temperature')
+
+    fireEvent.click(screen.getByRole('button', { name: 'weather.home' }))
+    expect(onFocusEntity).toHaveBeenLastCalledWith('weather.home')
+  })
+
+  it('stays inert text when no coupling channel is supplied', () => {
+    render(<ReferencedStatesPanel elements={PAYLOAD} catalog={catalog()} />)
+
     expect(screen.queryAllByRole('button')).toHaveLength(0)
   })
 

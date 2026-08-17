@@ -39,13 +39,16 @@ const TEMPLATE_ELEMENTS: AppBootstrap['elements'] = [
   { type: 'text', value: "{{ states('sensor.demo_temperature') }}", x: 10, y: 10 },
 ]
 
-function createTestHost(states?: HostStates): {
+function createTestHost(
+  states?: HostStates,
+  elements: AppBootstrap['elements'] = TEMPLATE_ELEMENTS,
+): {
   host: DesignerHost
   bootstrap: AppBootstrap
   getPushTarget: () => HostPushTarget
 } {
   let captured: HostPushTarget | null = null
-  const bootstrap = bootstrapWith(TEMPLATE_ELEMENTS, states)
+  const bootstrap = bootstrapWith(elements, states)
   const host: DesignerHost = {
     styleScope: 'shadow',
     theme: { owner: 'host', value: 'light' },
@@ -164,6 +167,79 @@ describe('host-fed state catalog (issue #107)', () => {
     expect(result.current.previewElements).toBe(previewElementsRef)
   })
 
+  // Names are chrome (issue #107 review): a push that moves only a label must
+  // update the panel and nothing else. It used to cost a full template
+  // re-evaluation, because the attribute merge handed back a fresh top-level map
+  // even when no attribute had moved, invalidating `mockContext` through it.
+  it('a rename-only push updates the panel without re-evaluating any template', () => {
+    const { host, bootstrap, getPushTarget } = createTestHost()
+    let renderCount = 0
+    const { result } = renderHook(() => {
+      renderCount += 1
+      return useProjectState(bootstrap, host)
+    })
+
+    act(() => {
+      getPushTarget().applyStates({
+        'sensor.demo_temperature': {
+          state: '21.5',
+          name: 'Living room',
+          attributes: { unit_of_measurement: '°C' },
+        },
+      })
+    })
+
+    const rendersAfterFirstPush = renderCount
+    const mockContextRef = result.current.mockContext
+    const previewElementsRef = result.current.previewElements
+    const valuesRef = result.current.hostStateCatalog?.values
+
+    act(() => {
+      getPushTarget().applyStates({
+        'sensor.demo_temperature': {
+          state: '21.5',
+          name: 'Balcony',
+          attributes: { unit_of_measurement: '°C' },
+        },
+      })
+    })
+
+    // The panel's label follows the push...
+    expect(result.current.hostStateCatalog?.names).toEqual({
+      'sensor.demo_temperature': 'Balcony',
+    })
+    // ...at the cost of exactly one render, with the template context and the
+    // evaluated preview (and so the canvas) untouched.
+    expect(renderCount).toBe(rendersAfterFirstPush + 1)
+    expect(result.current.mockContext).toBe(mockContextRef)
+    expect(result.current.previewElements).toBe(previewElementsRef)
+    expect(result.current.hostStateCatalog?.values).toBe(valuesRef)
+  })
+
+  it('costs nothing at all when a re-push only re-pads a name (issue #107 review)', () => {
+    const { host, bootstrap, getPushTarget } = createTestHost()
+    let renderCount = 0
+    renderHook(() => {
+      renderCount += 1
+      return useProjectState(bootstrap, host)
+    })
+
+    act(() => {
+      getPushTarget().applyStates({
+        'sensor.demo_temperature': { state: '21.5', name: 'Living room' },
+      })
+    })
+    const rendersAfterFirstPush = renderCount
+
+    act(() => {
+      getPushTarget().applyStates({
+        'sensor.demo_temperature': { state: '21.5', name: '  Living room  ' },
+      })
+    })
+
+    expect(renderCount).toBe(rendersAfterFirstPush)
+  })
+
   it('keeps the whole catalog in YAML autocomplete, referenced or not', () => {
     const { host, bootstrap, getPushTarget } = createTestHost()
     const { result } = renderHook(() => useProjectState(bootstrap, host))
@@ -176,6 +252,40 @@ describe('host-fed state catalog (issue #107)', () => {
     })
 
     expect(result.current.extraEntityIds).toContain('sensor.never_referenced')
+  })
+})
+
+/**
+ * Variables stay the designer's under host-fed states (maintainer ruling
+ * 2026-08-17): they are preview substitutions the design carries, not host
+ * state — no push channel supplies them — so the Simulator-off ruling covers
+ * states only, and the variables editor must stay reachable and effective.
+ */
+describe('variables under host-fed states (ruling 2026-08-17)', () => {
+  it('are editable and re-evaluate the templates that read them', () => {
+    const { host, bootstrap, getPushTarget } = createTestHost(
+      { 'sensor.demo_temperature': '21.5' },
+      [{ type: 'text', value: '{{ uv_fill }}', x: 10, y: 10 }],
+    )
+    const { result } = renderHook(() => useProjectState(bootstrap, host))
+
+    expect(result.current.hostStateCatalog).not.toBeNull()
+
+    act(() => {
+      result.current.setVariable('uv_fill', 'red')
+    })
+
+    expect(result.current.mockContext.variables).toEqual({ uv_fill: 'red' })
+    expect(result.current.previewElements[0]).toMatchObject({ type: 'text', value: 'red' })
+
+    // A later host push replaces the states wholesale; it must not touch the
+    // variables the user set (there is no host channel for them).
+    act(() => {
+      getPushTarget().applyStates({ 'sensor.demo_temperature': '3.2' })
+    })
+
+    expect(result.current.mockContext.variables).toEqual({ uv_fill: 'red' })
+    expect(result.current.previewElements[0]).toMatchObject({ value: 'red' })
   })
 })
 

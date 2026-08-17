@@ -635,6 +635,7 @@ export function App({ bootstrap, host }: AppProps) {
             sessionName={sessionName}
             extraEntityIds={extraEntityIds}
             mockContext={previewMockContext}
+            hostStatesFed={hostStateCatalog != null}
             onElementsChange={handleYamlElementsChange}
             onSelectElement={selectElement}
             onStatusMessagesChange={setYamlStatusMessages}

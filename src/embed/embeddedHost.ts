@@ -4,7 +4,7 @@ import { DEFAULT_DISPLAY_CONFIG } from '../ui/preferences/displayConfig'
 import type { DesignerHost } from './host'
 import { assertActionsAreHandled, normalizeHostActions } from './hostActions'
 import { autoAdoptedHostTarget, normalizeHostTargets } from './hostTargets'
-import { capabilitiesToCanvas, hostStatesToMockData } from './hostContract'
+import { assertHostStates, capabilitiesToCanvas, hostStatesToMockData } from './hostContract'
 import type { HostTarget, MountOptions } from './types'
 
 function buildEmbedBootstrap(
@@ -49,7 +49,13 @@ function buildEmbedBootstrap(
 export function createEmbeddedHost(options: MountOptions): DesignerHost {
   // Validated eagerly, before `mount()` touches the container: a malformed
   // action list must throw out of `mount()` itself (same contract as invalid
-  // `payload` YAML), not half-mount and then fail while rendering.
+  // `payload` YAML), not half-mount and then fail while rendering. A mount
+  // option *is* an initial push (ADR-018 seam grammar), so `states` is held to
+  // the same standard as a later `setStates()` — identical validation, identical
+  // error (maintainer ruling 2026-08-17).
+  if (options.states !== undefined) {
+    assertHostStates(options.states)
+  }
   const actions = options.actions ? normalizeHostActions(options.actions) : undefined
   if (actions) {
     assertActionsAreHandled(actions, options.onAction, 'mount()')

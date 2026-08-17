@@ -137,6 +137,59 @@ describe('scanPayloadForTemplates', () => {
     })
   })
 
+  // Issue #107 review: the evaluator has always resolved dotted access
+  // (`states.weather.home.state`, see tests/core/templates/evaluate.test.ts),
+  // but the scan only saw the helper-call forms — so a payload written that way
+  // evaluated fine while the referenced-states panel (and the Simulator) listed
+  // nothing for it. Panel and evaluation must agree on what a payload reads.
+  it('reports the entity behind dotted states.<domain>.<object>.state access', () => {
+    const payload: DrawElement[] = [
+      { type: 'text', value: '{{ states.weather.home.state }}', x: 10, y: 10 },
+    ]
+
+    expect(scanPayloadForTemplates(payload).entityIds).toEqual(['weather.home'])
+  })
+
+  it('reports the entity behind bare dotted states.<domain>.<object> access', () => {
+    const payload: DrawElement[] = [
+      { type: 'text', value: '{{ states.sensor.temperature }}', x: 10, y: 10 },
+    ]
+
+    expect(scanPayloadForTemplates(payload).entityIds).toEqual(['sensor.temperature'])
+  })
+
+  // The attribute base and the entity list are one referenced set: a payload
+  // reading only an attribute through dotted access still references that state.
+  it('unions the dotted attribute base into the entity list', () => {
+    const payload: DrawElement[] = [
+      {
+        type: 'text',
+        value: '{{ states.weather.home.attributes.temperature }}',
+        x: 10,
+        y: 10,
+      },
+    ]
+
+    const result = scanPayloadForTemplates(payload)
+
+    expect(result.entityIds).toEqual(['weather.home'])
+    expect(result.attributesByEntity).toEqual({ 'weather.home': ['temperature'] })
+  })
+
+  // Conservative by design: only the `states` global's own dotted access counts.
+  it('ignores dotted access on anything that merely ends in "states"', () => {
+    const payload: DrawElement[] = [
+      {
+        type: 'text',
+        value: '{{ ns.states.sensor.x.state }}{{ my_states.sensor.y.state }}',
+        x: 10,
+        y: 10,
+      },
+    ]
+
+    expect(scanPayloadForTemplates(payload).entityIds).toEqual([])
+  })
+
   it('merges, sorts and deduplicates attribute references per entity', () => {
     const payload: DrawElement[] = [
       {

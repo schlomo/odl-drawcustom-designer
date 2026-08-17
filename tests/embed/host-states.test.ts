@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { evaluateTemplate } from '../../src/core'
 import {
+  assertHostStates,
   hostStateNamesEqual,
   hostStatesEqual,
   hostStatesToMockData,
@@ -139,6 +140,27 @@ describe('hostStatesEqual', () => {
     expect(hostStatesEqual(unnamed, named)).toBe(false)
   })
 
+  // The name a push *means* is the trimmed one (that is what the panel shows),
+  // so the diff has to compare what it means — otherwise a host re-serializing
+  // its registry with different padding costs a full re-render per tick.
+  it('is true when only a name’s surrounding whitespace differs', () => {
+    expect(
+      hostStatesEqual(
+        { 'sensor.temperature': { state: '21.5', name: 'Living room' } },
+        { 'sensor.temperature': { state: '21.5', name: '  Living room  ' } },
+      ),
+    ).toBe(true)
+  })
+
+  it('is true when a blank name meets no name at all — both mean unnamed', () => {
+    expect(
+      hostStatesEqual(
+        { 'sensor.temperature': { state: '21.5', name: '   ' } },
+        { 'sensor.temperature': { state: '21.5' } },
+      ),
+    ).toBe(true)
+  })
+
   it('compares array-valued attributes (e.g. rgb_color) by content', () => {
     const a = { 'light.desk': { state: 'on', attributes: { rgb_color: [255, 0, 0] } } }
     const b = { 'light.desk': { state: 'on', attributes: { rgb_color: [255, 0, 0] } } }
@@ -196,6 +218,67 @@ describe('hostStatesToNames', () => {
   })
 })
 
+/**
+ * Push-boundary validation (maintainer ruling 2026-08-17), the same contract
+ * `normalizeHostActions` / `normalizeHostTargets` already hold: a malformed
+ * push is a host programming error, so it **throws** — loudly, naming the
+ * offending key — instead of half-applying and wedging the diff.
+ */
+describe('assertHostStates', () => {
+  it('accepts every documented shape', () => {
+    expect(() =>
+      assertHostStates({
+        'sensor.plain': '21.5',
+        'sensor.number': 48,
+        'binary_sensor.bool': true,
+        'sensor.full': {
+          state: '21.5',
+          name: 'Living-room temperature',
+          attributes: { unit_of_measurement: '°C', rgb_color: [255, 0, 0] },
+        },
+        'sensor.bare': { state: 'on' },
+      }),
+    ).not.toThrow()
+  })
+
+  it('accepts an empty map — presence of the channel is the policy', () => {
+    expect(() => assertHostStates({})).not.toThrow()
+  })
+
+  it('rejects a non-string name, naming the key', () => {
+    expect(() =>
+      assertHostStates({ 'sensor.temperature': { state: '21.5', name: 42 } } as never),
+    ).toThrow(/Invalid host states:.*sensor\.temperature.*name/)
+  })
+
+  it('rejects a missing or non-primitive state value, naming the key', () => {
+    expect(() => assertHostStates({ 'sensor.temperature': {} } as never)).toThrow(
+      /Invalid host states:.*sensor\.temperature/,
+    )
+    expect(() =>
+      assertHostStates({ 'sensor.temperature': { state: { nested: 1 } } } as never),
+    ).toThrow(/Invalid host states:.*sensor\.temperature/)
+    expect(() => assertHostStates({ 'sensor.temperature': null } as never)).toThrow(
+      /Invalid host states:.*sensor\.temperature/,
+    )
+    expect(() => assertHostStates({ 'sensor.temperature': undefined } as never)).toThrow(
+      /Invalid host states:.*sensor\.temperature/,
+    )
+  })
+
+  it('rejects an attributes value that is not a plain object, naming the key', () => {
+    expect(() =>
+      assertHostStates({ 'sensor.temperature': { state: '1', attributes: [1, 2] } } as never),
+    ).toThrow(/Invalid host states:.*sensor\.temperature.*attributes/)
+  })
+
+  it('rejects a states payload that is not an object at all', () => {
+    expect(() => assertHostStates([] as never)).toThrow(/Invalid host states:/)
+    expect(() => assertHostStates(null as never)).toThrow(/Invalid host states:/)
+    expect(() => assertHostStates('sensor.x=1' as never)).toThrow(/Invalid host states:/)
+  })
+})
+
 describe('hostStateNamesEqual', () => {
   it('ignores key order', () => {
     expect(hostStateNamesEqual({ a: 'A', b: 'B' }, { b: 'B', a: 'A' })).toBe(true)
@@ -231,6 +314,35 @@ describe('mergeMockAttributes', () => {
     expect(merged['light.desk']).toBe(previous['light.desk'])
     expect(merged['light.lamp']).toBe(previous['light.lamp'])
     expect(merged).toEqual(next)
+  })
+
+  // Identity is the currency here (issue #107 review): the merged map feeds
+  // `mockContext` -> `previewElements`, so handing back a fresh top-level object
+  // for an attribute-identical push re-evaluates every template and repaints the
+  // canvas — which is exactly what a rename-only push used to cost.
+  it('returns the previous map itself when nothing about the attributes moved', () => {
+    const previous = { 'light.desk': { brightness: 128 } }
+    const next = { 'light.desk': { brightness: 128 } }
+
+    expect(mergeMockAttributes(previous, next)).toBe(previous)
+  })
+
+  it('returns the previous map itself when both sides are empty', () => {
+    const previous = {}
+
+    expect(mergeMockAttributes(previous, {})).toBe(previous)
+  })
+
+  it('returns a new map when a key was added or removed, even if the rest is reused', () => {
+    const previous = { 'light.desk': { brightness: 128 } }
+
+    expect(mergeMockAttributes(previous, {})).not.toBe(previous)
+    expect(
+      mergeMockAttributes(previous, {
+        'light.desk': { brightness: 128 },
+        'light.lamp': { brightness: 1 },
+      }),
+    ).not.toBe(previous)
   })
 
   it('uses the new object only for entities whose attributes actually changed', () => {

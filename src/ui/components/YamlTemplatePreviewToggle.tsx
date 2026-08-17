@@ -8,12 +8,30 @@ interface YamlTemplatePreviewToggleProps
   enabled: boolean
   onToggle: () => void
   showTextLabel?: boolean
+  /**
+   * True when a host owns the states (issue #107): the previewed values come
+   * from its pushes, and there is no State Simulator to point the user at.
+   */
+  hostStatesFed?: boolean
+}
+
+/** Where the inline previews take their values from, in the user's terms. */
+function previewTooltip(enabled: boolean, hostStatesFed: boolean): string {
+  if (hostStatesFed) {
+    return enabled
+      ? 'Show resolved template values inline (live host states). Click to hide.'
+      : 'Hide inline template previews. Click to show host-state values.'
+  }
+  return enabled
+    ? 'Show resolved template values inline (State Simulator). Click to hide.'
+    : 'Hide inline template previews. Click to show mock-evaluated values.'
 }
 
 export function YamlTemplatePreviewToggle({
   enabled,
   onToggle,
   showTextLabel = true,
+  hostStatesFed = false,
   className,
   ...rest
 }: YamlTemplatePreviewToggleProps) {
@@ -24,11 +42,7 @@ export function YamlTemplatePreviewToggle({
       textLabel="Preview"
       showTextLabel={showTextLabel}
       className={className}
-      detailedTitle={
-        enabled
-          ? 'Show resolved template values inline (State Simulator). Click to hide.'
-          : 'Hide inline template previews. Click to show mock-evaluated values.'
-      }
+      detailedTitle={previewTooltip(enabled, hostStatesFed)}
       {...rest}
     >
       {showTextLabel ? (

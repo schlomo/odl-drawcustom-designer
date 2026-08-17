@@ -8,6 +8,13 @@ import { shell } from '../styles/shell'
 interface ReferencedStatesPanelProps {
   elements: DrawElement[]
   catalog: HostStateCatalog
+  /**
+   * Entity coupling, as the State Simulator has it: report the state the user
+   * picked so the shell can jump the YAML editor to where the design reads it.
+   * Absent (or with coupling off) the rows stay inert text — the panel grows no
+   * affordance it cannot honour.
+   */
+  onFocusEntity?: (key: string) => void
 }
 
 interface ReferencedAttributeRow {
@@ -35,6 +42,49 @@ function MissingValue() {
   )
 }
 
+interface LabelTextProps {
+  className: string
+  title: string
+  children: string
+  testId: string
+  /** The state key to report on click, or undefined for inert text. */
+  focusKey?: string
+  onFocusEntity?: (key: string) => void
+}
+
+/**
+ * A row's label: a button only while entity coupling is wired, plain text
+ * otherwise — so a read-only panel with nowhere to jump offers no click target
+ * (and stays free of interactive roles).
+ */
+function LabelText({
+  className,
+  title,
+  children,
+  testId,
+  focusKey,
+  onFocusEntity,
+}: LabelTextProps) {
+  if (focusKey === undefined || !onFocusEntity) {
+    return (
+      <span className={className} title={title} data-testid={testId}>
+        {children}
+      </span>
+    )
+  }
+  return (
+    <button
+      type="button"
+      className={`${className} cursor-pointer text-left hover:underline`}
+      title={title}
+      data-testid={testId}
+      onClick={() => onFocusEntity(focusKey)}
+    >
+      {children}
+    </button>
+  )
+}
+
 /**
  * Read-only referenced-states panel (issue #107, ADR-018 state catalog).
  *
@@ -46,7 +96,11 @@ function MissingValue() {
  * them up as a value. The host's *whole* catalog stays reachable through YAML /
  * template autocomplete, which is where you go to find a key, not here.
  */
-export function ReferencedStatesPanel({ elements, catalog }: ReferencedStatesPanelProps) {
+export function ReferencedStatesPanel({
+  elements,
+  catalog,
+  onFocusEntity,
+}: ReferencedStatesPanelProps) {
   const scan = useMemo(() => scanPayloadForTemplates(elements), [elements])
 
   const rows = useMemo<ReferencedStateRow[]>(() => {
@@ -94,15 +148,25 @@ export function ReferencedStatesPanel({ elements, catalog }: ReferencedStatesPan
               className={`flex flex-col gap-0.5 rounded border ${shell.panelBorder} p-2`}
             >
               <div className="flex items-baseline gap-2">
-                <span
-                  className={`min-w-0 flex-1 truncate text-[11px] ${row.name ? 'font-medium text-[var(--shell-text)]' : `font-mono ${shell.muted}`}`}
-                  title={row.name ?? row.key}
+                {/* The label keeps a readable minimum (issue #107 review): as a
+                    plain `min-w-0 flex-1` it collapsed to nothing beside a long
+                    value — a row naming no state — and a `shrink-0` value pushed
+                    the row wider than its scroller, the hidden
+                    horizontal-scrollbar class from PR #85. Both truncate now. */}
+                <LabelText
+                  className={`min-w-16 flex-1 truncate text-[11px] ${row.name ? 'font-medium text-[var(--shell-text)]' : `font-mono ${shell.muted}`}`}
+                  title={
+                    onFocusEntity ? `${row.name ?? row.key} · show in YAML` : (row.name ?? row.key)
+                  }
+                  testId={`referenced-state-label-${row.key}`}
+                  focusKey={onFocusEntity ? row.key : undefined}
+                  onFocusEntity={onFocusEntity}
                 >
                   {row.name ?? row.key}
-                </span>
+                </LabelText>
                 {row.supplied ? (
                   <span
-                    className="shrink-0 font-mono text-[11px] text-[var(--shell-text)]"
+                    className="min-w-0 max-w-[50%] truncate font-mono text-[11px] text-[var(--shell-text)]"
                     title={row.value}
                   >
                     {row.value}
@@ -112,7 +176,10 @@ export function ReferencedStatesPanel({ elements, catalog }: ReferencedStatesPan
                 )}
               </div>
               {row.name ? (
-                <span className={`truncate font-mono text-[10px] ${shell.muted}`} title={row.key}>
+                <span
+                  className={`min-w-0 truncate font-mono text-[10px] ${shell.muted}`}
+                  title={row.key}
+                >
                   {row.key}
                 </span>
               ) : null}

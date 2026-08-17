@@ -4,6 +4,7 @@ import { coerceAttributeValue, scanPayloadForTemplates } from '../../core'
 import { formatAttributeValue, formatStateValue } from '../lib/state-value-format'
 import { shell } from '../styles/shell'
 import { PanelScopeToggle, type PanelListScope } from './PanelScopeToggle'
+import { VariablesEditor } from './VariablesEditor'
 
 interface StateSimulatorProps {
   elements: DrawElement[]
@@ -23,11 +24,6 @@ interface StateSimulatorProps {
   onRemoveVariable?: (name: string) => void
   onFocusEntity?: (entityId: string) => void
   embedded?: boolean
-}
-
-/** Matches the core rule for bare-identifier variable names (`{{ name }}`). */
-function isValidVariableName(name: string): boolean {
-  return /^[A-Za-z_$][\w$]*$/.test(name)
 }
 
 export function StateSimulator({
@@ -55,13 +51,10 @@ export function StateSimulator({
     {},
   )
   const [expandedAdders, setExpandedAdders] = useState<Set<string>>(() => new Set())
-  const [variableDraft, setVariableDraft] = useState({ name: '', value: '' })
-  const [variableAdderExpanded, setVariableAdderExpanded] = useState(false)
 
   const scan = useMemo(() => scanPayloadForTemplates(elements), [elements])
   const scannedIds = useMemo(() => new Set(scan.entityIds), [scan])
   const scannedAttributesByEntity = scan.attributesByEntity
-  const scannedVariables = scan.variablesReferenced
 
   const attributesByEntity = mockContext.attributes ?? {}
 
@@ -84,30 +77,6 @@ export function StateSimulator({
     onAddEntity(trimmedId, draftEntityValue.trim() || 'unknown')
     setDraftEntityId('')
     setDraftEntityValue('')
-  }
-
-  // Variables honor the Current/All scope exactly like entities:
-  //   - current: only variables referenced in the payload (scanned names),
-  //     so a stale stored name left over from a YAML rename disappears and the
-  //     live reference pre-fills instead.
-  //   - all: every stored variable plus referenced ones.
-  // Referenced-but-unset names pre-fill as empty-valued rows; their stored
-  // value (if any) still displays via `variables[name]`.
-  const variableNames = useMemo(() => {
-    if (scope === 'current') {
-      return [...new Set(scannedVariables)].sort()
-    }
-    return [...new Set([...Object.keys(variables), ...scannedVariables])].sort()
-  }, [variables, scannedVariables, scope])
-
-  const commitVariableDraft = () => {
-    const name = variableDraft.name.trim()
-    if (!isValidVariableName(name)) {
-      return
-    }
-    onAddVariable?.(name, variableDraft.value)
-    setVariableDraft({ name: '', value: '' })
-    setVariableAdderExpanded(false)
   }
 
   const getAttributeDraft = (entityId: string) =>
@@ -379,125 +348,23 @@ export function StateSimulator({
     </ul>
   )
 
-  const variablesSection = (
-    <div className={`mt-3 rounded border ${shell.panelBorder} p-2`}>
-      <div className="flex items-baseline justify-between gap-2">
-        <h3 className={`text-[11px] font-semibold uppercase tracking-wide ${shell.muted}`}>
-          Variables
-        </h3>
-        <span className={`text-[10px] ${shell.muted}`} title="Literal values shared across all fields">
-          literal · shared
-        </span>
-      </div>
-      <ul className="mt-1.5 flex flex-col gap-1">
-        {variableNames.map((name) => {
-          const referenced = scannedVariables.includes(name)
-          const stored = name in variables
-          return (
-            <li key={name} className="flex items-center gap-1">
-              {referenced ? (
-                <span
-                  className={`min-w-0 flex-1 truncate font-mono text-[11px] ${stored ? 'text-[var(--shell-text)]' : shell.muted}`}
-                  title={`${name} · used in payload`}
-                >
-                  {name}
-                </span>
-              ) : (
-                <input
-                  type="text"
-                  className={`${shell.input} min-w-0 flex-1 px-1.5 py-0.5 font-mono text-[11px]`}
-                  defaultValue={name}
-                  onBlur={(event) => onRenameVariable?.(name, event.target.value)}
-                  aria-label={`Variable name ${name}`}
-                />
-              )}
-              <input
-                type="text"
-                className={`${shell.input} w-20 px-1.5 py-0.5 text-[11px]`}
-                value={variables[name] ?? ''}
-                placeholder={referenced && !stored ? 'value' : undefined}
-                onChange={(event) => onSetVariable?.(name, event.target.value)}
-                aria-label={`Value for variable ${name}`}
-              />
-              {referenced ? (
-                <span aria-hidden="true" className="w-7 shrink-0" />
-              ) : (
-                <button
-                  type="button"
-                  className={`${shell.button} w-7 shrink-0 px-0`}
-                  aria-label={`Remove variable ${name}`}
-                  onClick={() => onRemoveVariable?.(name)}
-                >
-                  ×
-                </button>
-              )}
-            </li>
-          )
-        })}
-        {variableAdderExpanded ? (
-          <li className="flex list-none items-center gap-1">
-            <input
-              type="text"
-              className={`${shell.input} min-w-0 flex-1 px-1.5 py-0.5 font-mono text-[11px]`}
-              placeholder="uv_fill"
-              value={variableDraft.name}
-              autoFocus
-              onChange={(event) => setVariableDraft({ ...variableDraft, name: event.target.value })}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  commitVariableDraft()
-                } else if (event.key === 'Escape') {
-                  setVariableDraft({ name: '', value: '' })
-                  setVariableAdderExpanded(false)
-                }
-              }}
-              aria-label="New variable name"
-            />
-            <input
-              type="text"
-              className={`${shell.input} w-20 px-1.5 py-0.5 text-[11px]`}
-              placeholder="value"
-              value={variableDraft.value}
-              onChange={(event) => setVariableDraft({ ...variableDraft, value: event.target.value })}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  commitVariableDraft()
-                } else if (event.key === 'Escape') {
-                  setVariableDraft({ name: '', value: '' })
-                  setVariableAdderExpanded(false)
-                }
-              }}
-              aria-label="New variable value"
-            />
-            <button
-              type="button"
-              className={`${shell.button} w-7 shrink-0 px-0`}
-              aria-label="Add variable"
-              onClick={commitVariableDraft}
-            >
-              +
-            </button>
-          </li>
-        ) : (
-          <li className="list-none">
-            <button
-              type="button"
-              className={`self-start text-[10px] ${shell.muted} hover:underline`}
-              aria-label="Add variable"
-              onClick={() => setVariableAdderExpanded(true)}
-            >
-              + variable
-            </button>
-          </li>
-        )}
-      </ul>
-    </div>
-  )
-
   const body = (
     <>
       {entityList}
-      {variablesSection}
+      {/* Same component the host-fed States panel renders (ruling 2026-08-17):
+          variables are the designer's own preview substitutions, so they live in
+          one place whoever owns the states. */}
+      <div className="mt-3">
+        <VariablesEditor
+          elements={elements}
+          variables={variables}
+          scope={scope}
+          onSetVariable={onSetVariable}
+          onAddVariable={onAddVariable}
+          onRenameVariable={onRenameVariable}
+          onRemoveVariable={onRemoveVariable}
+        />
+      </div>
     </>
   )
 
