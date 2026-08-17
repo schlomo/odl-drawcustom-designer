@@ -188,10 +188,21 @@ function demoPushStates(states) {
 }
 window.demoPushStates = demoPushStates
 
+// Which host shape this page mounts as — the two halves of the auto-adopt rule
+// (issue #121), same page and same handlers either way:
+//
+//   /            one display   -> the designer adopts and locks it, no pick
+//   /?displays=all  three      -> a choice; the designer resolves nothing
+//
+// The default is the reference shape (a single-display host, e.g. a display's
+// own details page); `?displays=all` is the multi-display host, and is what the
+// e2e suite loads to see the picker on its very first paint.
+const mountsWholeInventory = new URLSearchParams(location.search).get('displays') === 'all'
+
 // The host's own view of the display inventory and of what the user picked in
 // the designer's picker — kept in sync through `onTargetSelected` below, which
 // is the only way this page learns about a selection before an action fires.
-let targets = [KITCHEN_TARGET]
+let targets = mountsWholeInventory ? ALL_TARGETS : [KITCHEN_TARGET]
 let selectedTargetId = null
 
 const handle = mount(document.getElementById('designer'), {
@@ -200,9 +211,10 @@ const handle = mount(document.getElementById('designer'), {
   theme: 'light',
   // One display = "this is the display" (issue #121): the designer adopts and
   // locks onto it without a pick, so the first painted frame is already this
-  // 296×128 BWR panel with its measured palette. Push "Push display list" to
-  // become a multi-display host and get the picker's choices.
-  targets: [KITCHEN_TARGET],
+  // 296×128 BWR panel with its measured palette. Push "Push display list" (or
+  // load `?displays=all`) to be a multi-display host and get the picker's
+  // choices instead — several displays are a choice and adopt nothing.
+  targets,
   onTargetSelected(targetId) {
     // `null` = the user switched to the virtual display (or unlocked the
     // display config), so the design is no longer pinned to real hardware.

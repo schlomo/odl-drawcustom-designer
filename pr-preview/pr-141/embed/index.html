@@ -78,8 +78,11 @@
       <button id="destroy">Destroy</button>
     </header>
     <div id="designer"></div>
+    <!-- Filled by onTargetSelected. No placeholder: this host mounts with one
+         display, which the designer adopts before the first frame, so a
+         "nothing selected yet" text could never be seen. -->
     <h2 style="margin: 1rem">Selected display</h2>
-    <pre id="target-log" data-testid="target-log">(nothing selected yet)</pre>
+    <pre id="target-log" data-testid="target-log"></pre>
     <h2 style="margin: 1rem">Last host action</h2>
     <pre id="action-log" data-testid="action-log">(no action fired yet)</pre>
     <h2 style="margin: 1rem">Last saved payload</h2>
