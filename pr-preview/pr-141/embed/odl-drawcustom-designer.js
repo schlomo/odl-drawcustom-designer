@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/issue-121-v2-contract", ae = "1b65ca8", oe = "12f5d35", k = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/issue-121-v2-contract", ae = "7a6922a", oe = "2a310cc", k = "0.0.0-dev";
 function A(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -75644,15 +75644,14 @@ function Eln(e, t, { yamlDiscardPendingRef: n } = {}) {
 		try {
 			e();
 		} finally {
-			me.current = !1;
-		}
-		for (; he.current !== null;) {
-			let e = he.current;
-			he.current = null, me.current = !0;
-			try {
-				Pe(e);
-			} finally {
-				me.current = !1;
+			for (me.current = !1; he.current !== null;) {
+				let e = he.current;
+				he.current = null, me.current = !0;
+				try {
+					Pe(e);
+				} finally {
+					me.current = !1;
+				}
 			}
 		}
 	}, [Pe]), z = (0, v.useCallback)((e) => {
