@@ -11,13 +11,19 @@ import { parseYamlPayload, serializeYamlPayload } from '../../src/core'
 
 /**
  * `MountHandle.getPayload()` (issue #104, ADR-018): a host reads the current
- * drawcustom YAML directly instead of DOM-scraping the Save button — the
- * upstream OpenDisplay HA integration (PR #100) hung silently doing exactly
- * that when Save was disabled by a YAML error. `getPayload()` must always
- * return exactly what `onSaveRequest` would have delivered at that moment —
- * same serializer, same underlying elements state, never a second source of
- * truth.
+ * drawcustom YAML directly instead of scraping the designer's DOM for a button
+ * to click — a host that simulated a click hung silently whenever a YAML error
+ * had disabled the button. `getPayload()` must always return exactly what a
+ * host action receives at that moment — same serializer, same underlying
+ * elements state, never a second source of truth.
+ *
+ * Save is a host action at 2.0 (issue #121), so the comparison channel here is
+ * `onAction`: a `{ id: 'save', label: 'Save' }` button, which is all the
+ * built-in Save button ever was.
  */
+
+/** The host's own Save button — the designer has none of its own. */
+const SAVE_ACTION = [{ id: 'save', label: 'Save' }] as const
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean | undefined
@@ -116,9 +122,9 @@ beforeEach(() => {
 })
 
 describe('MountHandle.getPayload()', () => {
-  it('matches onSaveRequest via an explicit Save click', async () => {
-    const onSaveRequest = vi.fn()
-    const handle = mountDesigner({ payload: PAYLOAD, onSaveRequest })
+  it('matches the payload a Save action receives on click', async () => {
+    const onAction = vi.fn()
+    const handle = mountDesigner({ payload: PAYLOAD, actions: SAVE_ACTION, onAction })
 
     await waitFor(() => {
       expect(container.shadowRoot!.querySelector('[data-testid="element-list-row"]')).not.toBeNull()
@@ -132,15 +138,15 @@ describe('MountHandle.getPayload()', () => {
     expect(saveButton).toBeDefined()
     fireEvent.click(saveButton!)
 
-    expect(onSaveRequest).toHaveBeenCalledTimes(1)
-    const viaSave = onSaveRequest.mock.calls[0]![0] as string
+    expect(onAction).toHaveBeenCalledTimes(1)
+    const viaSave = onAction.mock.calls[0]![1] as string
     expect(viaGetPayload).toBe(viaSave)
     expect(viaGetPayload).toContain('value: Hello')
   })
 
   it('reflects a setPayload push once the mount has registered it', async () => {
-    const onSaveRequest = vi.fn()
-    const handle = mountDesigner({ payload: PAYLOAD, onSaveRequest })
+    const onAction = vi.fn()
+    const handle = mountDesigner({ payload: PAYLOAD, actions: SAVE_ACTION, onAction })
 
     await waitFor(() => {
       expect(container.shadowRoot!.querySelector('[data-testid="element-list-row"]')).not.toBeNull()
@@ -157,7 +163,7 @@ describe('MountHandle.getPayload()', () => {
       (button) => button.textContent === 'Save',
     )
     fireEvent.click(saveButton!)
-    expect(onSaveRequest.mock.calls[0]![0]).toBe(handle.getPayload())
+    expect(onAction.mock.calls[0]![1]).toBe(handle.getPayload())
   })
 
   it('returns the bootstrap payload synchronously, before React has flushed any effect', () => {
@@ -180,7 +186,7 @@ describe('MountHandle.getPayload()', () => {
     expect(typeof handle.getPayload()).toBe('string')
   })
 
-  it('a standalone handle exposes getPayload matching its own Save-equivalent payload once loaded', async () => {
+  it('a standalone handle exposes getPayload once its own bootstrap has loaded', async () => {
     const handle = mountStandaloneApp(container)
     handles.push(handle)
 
@@ -193,8 +199,8 @@ describe('MountHandle.getPayload()', () => {
   })
 
   it('returns the last valid payload while the YAML editor is blocked by an error, never the broken text', async () => {
-    const onSaveRequest = vi.fn()
-    const handle = mountDesigner({ payload: PAYLOAD, onSaveRequest })
+    const onAction = vi.fn()
+    const handle = mountDesigner({ payload: PAYLOAD, actions: SAVE_ACTION, onAction })
 
     await waitFor(() => {
       expect(container.shadowRoot!.querySelector('[data-testid="element-list-row"]')).not.toBeNull()
@@ -209,7 +215,7 @@ describe('MountHandle.getPayload()', () => {
     const colonIndex = doc.indexOf(':')
     dispatchUserEdit(view, { from: colonIndex, to: colonIndex + 1, insert: '' })
 
-    // The Save button disables while blocked — the host has no working Save
+    // The Save action disables while blocked — the host has no working save
     // channel at all right now; getPayload() is the only way to read
     // anything, and it must be the last-valid payload, not the broken text.
     const saveButton = Array.from(container.shadowRoot!.querySelectorAll('button')).find(
@@ -222,9 +228,9 @@ describe('MountHandle.getPayload()', () => {
     expect(handle.getPayload()).toBe(beforeBreak)
   })
 
-  it('forces a flush of a pending debounced valid edit so getPayload never lags Save', async () => {
-    const onSaveRequest = vi.fn()
-    const handle = mountDesigner({ payload: PAYLOAD, onSaveRequest })
+  it('forces a flush of a pending debounced valid edit so getPayload never lags an action', async () => {
+    const onAction = vi.fn()
+    const handle = mountDesigner({ payload: PAYLOAD, actions: SAVE_ACTION, onAction })
 
     await waitFor(() => {
       expect(container.shadowRoot!.querySelector('[data-testid="element-list-row"]')).not.toBeNull()
@@ -245,12 +251,12 @@ describe('MountHandle.getPayload()', () => {
     expect(view.state.doc.toString()).toContain('value: Edited')
 
     // Called synchronously, mid-debounce: must already reflect the typed
-    // edit — the upstream contract is "read instead of clicking Save", and a
-    // real Save click blurs the editor (flushing the debounce) before it
+    // edit — the upstream contract is "read instead of clicking a button", and
+    // a real action click blurs the editor (flushing the debounce) before it
     // reads `elements`, so getPayload() must match that, not the stale
     // pre-edit committed state. Wrapped in act() so React actually commits
     // the forced flush before the assertions below — a real host call is
-    // not itself wrapped in act(), but a genuine Save click always arrives
+    // not itself wrapped in act(), but a genuine click always arrives
     // as a separate browser event after React's automatic batching has
     // flushed this update, which act() reproduces here.
     let viaGetPayload!: string
@@ -259,13 +265,13 @@ describe('MountHandle.getPayload()', () => {
     })
     expect(viaGetPayload).toContain('value: Edited')
 
-    // Confirm it is bit-for-bit what the real Save channel sends.
+    // Confirm it is bit-for-bit what the action channel sends.
     const saveButton = Array.from(container.shadowRoot!.querySelectorAll('button')).find(
       (button) => button.textContent === 'Save',
     )
     fireEvent.click(saveButton!)
-    expect(onSaveRequest).toHaveBeenCalledTimes(1)
-    expect(onSaveRequest.mock.calls[0]![0]).toBe(viaGetPayload)
+    expect(onAction).toHaveBeenCalledTimes(1)
+    expect(onAction.mock.calls[0]![1]).toBe(viaGetPayload)
   })
 
   it('throws after destroy(), like every other handle method', () => {
@@ -348,9 +354,9 @@ describe('setPayload push vs. a pending debounced YAML edit', () => {
     expect(view.state.doc.toString()).not.toContain('value: Edited')
   })
 
-  it('the push also reaches Save, so getPayload and the Save channel never disagree', async () => {
-    const onSaveRequest = vi.fn()
-    const handle = mountDesigner({ payload: PAYLOAD, onSaveRequest })
+  it('the push also reaches the action channel, so the two readings never disagree', async () => {
+    const onAction = vi.fn()
+    const handle = mountDesigner({ payload: PAYLOAD, actions: SAVE_ACTION, onAction })
 
     await waitFor(() => {
       expect(container.shadowRoot!.querySelector('[data-testid="element-list-row"]')).not.toBeNull()
@@ -371,9 +377,9 @@ describe('setPayload push vs. a pending debounced YAML edit', () => {
       (button) => button.textContent === 'Save',
     )
     fireEvent.click(saveButton!)
-    expect(onSaveRequest).toHaveBeenCalledTimes(1)
-    expect(onSaveRequest.mock.calls[0]![0]).toContain('value: Pushed')
-    expect(onSaveRequest.mock.calls[0]![0]).toBe(handle.getPayload())
+    expect(onAction).toHaveBeenCalledTimes(1)
+    expect(onAction.mock.calls[0]![1]).toContain('value: Pushed')
+    expect(onAction.mock.calls[0]![1]).toBe(handle.getPayload())
   })
 })
 

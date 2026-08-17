@@ -11,7 +11,7 @@ export type CanvasRotation = 0 | 90 | 180 | 270
 /**
  * Dimensions **and the rotation they are expressed in**, together.
  *
- * Every adoption of a display (mount seed, `capabilities` push, target pick,
+ * Every adoption of a display (mount seed, target pick, single-target push,
  * re-push re-apply, re-lock) stores both in the same object, so the rotation a
  * later re-orientation measures *from* is always the one those dimensions
  * arrived with. Taking the pair as a single argument is what makes mixing a

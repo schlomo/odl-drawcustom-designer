@@ -56,6 +56,7 @@ import {
 import { verifyAndValidateAssetUpload } from '../lib/verify-asset-upload'
 import { reorientCanvasSize, type CanvasRotation } from '../lib/canvas-orientation'
 import type { DisplayConfig } from '../preferences/displayConfig'
+import type { MockEntityAttributes } from '../preferences/mockStates'
 import { isValidVariableName } from '../preferences/variables'
 import type { StoredVariables } from '../../storage'
 import { allowShowcaseBundledForDemo, suppressShowcaseBundled } from '../preferences/showcaseAsset'
@@ -70,11 +71,11 @@ import {
   hostStatesToMockData,
   mergeMockAttributes,
   mockStatesEqual,
-  targetCapabilitiesToCanvas,
 } from '../../embed/hostContract'
 import type { DesignerHost } from '../../embed/host'
 import { hostActionsEqual, NO_HOST_ACTIONS } from '../../embed/hostActions'
 import {
+  autoAdoptedHostTarget,
   findHostTarget,
   hostCapabilitiesEqual,
   hostTargetsEqual,
@@ -156,8 +157,6 @@ export type CanvasConfig = DisplayConfig
  */
 type SelectedTarget = Pick<HostTarget, 'id' | 'label' | 'capabilities'>
 
-type MockEntityAttributes = NonNullable<HaMockContext['attributes']>
-
 function buildEffectiveMockContext(
   templateEntityIds: readonly string[],
   mockStates: HaMockContext['states'],
@@ -202,18 +201,15 @@ export function useProjectState(
     bootstrap.mockAttributes,
   )
   const [variables, setVariables] = useState<StoredVariables>(bootstrap.variables)
-  // Host-defined display (issue #70): the canvas config the embedding host
-  // pushed via capabilities. Presence enables the display lock; re-locking
+  // Host-defined display (issue #70): the canvas config of the display target
+  // the design is pinned to. Presence enables the display lock; re-locking
   // restores these values.
   const [hostDisplay, setHostDisplay] = useState<CanvasConfig | null>(
     bootstrap.hostDisplay ?? null,
   )
-  // `hostDisplayLocked: false` seeds an unlocked "virtual display" (issue #70
-  // follow-up) — the host-pushed values still land on the canvas, but the
-  // controls start enabled until the user locks back onto them.
-  const [displayLocked, setDisplayLocked] = useState(
-    bootstrap.hostDisplay != null && (bootstrap.hostDisplayLocked ?? true),
-  )
+  // An adopted host display starts locked — adopting a display and locking onto
+  // it are one act (issue #70, issue #121). Unlocking is the user's move.
+  const [displayLocked, setDisplayLocked] = useState(bootstrap.hostDisplay != null)
   // Host-registered action buttons (issue #108, ADR-018). Seeded from the
   // adapter — the `actions` mount option is defined as an initial push, so it
   // must be on the first painted frame — and replaced wholesale by later
@@ -221,19 +217,25 @@ export function useProjectState(
   const [hostActions, setHostActions] = useState<readonly HostAction[]>(
     host.actions ?? NO_HOST_ACTIONS,
   )
-  // Host-pushed display targets (issue #106, ADR-018). Seeded from the adapter
-  // for the same reason as `actions` — the `targets` mount option is an initial
-  // push — and replaced wholesale by later `setTargets()` pushes.
+  // Host-pushed display targets (issue #106, ADR-018) — the one display
+  // channel. Seeded from the adapter for the same reason as `actions` — the
+  // `targets` mount option is an initial push — and replaced wholesale by later
+  // `setTargets()` pushes.
   const [hostTargets, setHostTargets] = useState<readonly HostTarget[]>(
     host.targets ?? NO_HOST_TARGETS,
   )
-  // The target the user picked, remembered with its label and capabilities so
-  // a target the host later removes can still be named in the picker and
-  // re-locked onto (keep-and-mark-stale ruling), and so a re-push carrying new
-  // capabilities for it can be recognised as such. Never *selected* by a push:
-  // only an explicit pick selects a target, and an anonymous `capabilities`
-  // push clears it (see `applyCapabilities`).
-  const [selectedTarget, setSelectedTarget] = useState<SelectedTarget | null>(null)
+  // The display the design is pinned to, remembered with its label and
+  // capabilities so a target the host later removes can still be named in the
+  // picker and re-locked onto (keep-and-mark-stale ruling), and so a re-push
+  // carrying new capabilities for it can be recognised as such.
+  //
+  // Set either by an explicit pick or by a **single-target push** adopting the
+  // only display on offer (issue #121) — the adapter has already resolved the
+  // mount option's half of that, and `applyTargets` does the same for a later
+  // push. A list the user could choose between never selects anything.
+  const [selectedTarget, setSelectedTarget] = useState<SelectedTarget | null>(
+    () => autoAdoptedHostTarget(host.targets ?? NO_HOST_TARGETS),
+  )
   const [assetRevision, setAssetRevision] = useState(0)
   const [snapGrid, setSnapGrid] = useState<SnapGridPrefs>(() => readSnapGridPrefs())
   const [showHiddenHints, setShowHiddenHints] = useState(() => readShowHiddenHintsPrefs().enabled)
@@ -270,6 +272,26 @@ export function useProjectState(
   // manual rotation change. A ref, not state: read only inside the push
   // appliers below and `selectDisplayTarget`, never a render dependency.
   const rotationOverriddenSincePickRef = useRef(false)
+  // Has the user made a display choice of their own — picked a target, picked
+  // the virtual display, or worked the lock? Until they have, a single-target
+  // push is adopted as "the display" (issue #121); afterwards nothing but a
+  // pick moves the canvas, so a host re-pushing its inventory on a timer can
+  // never drag the user back onto hardware they deliberately left. A ref, not
+  // state: read only inside the push applier, never a render dependency.
+  const userChoseDisplayRef = useRef(false)
+  // Re-entrancy guard for the targets push/notify cycle (maintainer ruling
+  // 2026-08-16). Answering `onTargetSelected` with another `setTargets()` is a
+  // pattern the contract teaches (docs/embedding.md), so a push can arrive
+  // while this cycle is still in flight — applying it there would re-enter
+  // apply → adopt → notify → apply on the same stack, once per push, with no
+  // bound. True while a push is being applied or a selection is out with the
+  // host; a push arriving then is parked below instead. Refs, not state: this
+  // is control flow inside the appliers, and a state flip would re-trigger the
+  // very effects it guards.
+  const targetsCycleInFlightRef = useRef(false)
+  // The parked push, coalesced to the latest one — `setTargets()` replaces the
+  // whole list, so an older parked push carries nothing a newer one does not.
+  const deferredTargetsRef = useRef<readonly HostTarget[] | null>(null)
   const serviceRef = useRef(service)
   const selectedIndicesRef = useRef(selectedIndices)
   const [editHistory] = useState(() => createEditHistory(bootstrap.editHistory))
@@ -308,6 +330,47 @@ export function useProjectState(
     selectedTargetRef.current = value
     setSelectedTarget(value)
   }, [])
+
+  /**
+   * Pin the design to a display target: adopt its capabilities, lock the
+   * display config onto them, and remember the selection (issue #106).
+   *
+   * Every adoption the *running* designer makes goes through here — the user's
+   * pick and a single-target push alike (issue #121) — so both land the same
+   * canvas, the same lock state and the same fresh rotation baseline.
+   *
+   * The one adoption that does not is the mount option's: `targets: [display]`
+   * is adopted while building the bootstrap (`buildEmbedBootstrap`,
+   * `src/embed/embeddedHost.ts`), because it has to be in the first painted
+   * frame — before this hook's state exists. The two stay equivalent by both
+   * resolving the canvas through `capabilitiesToCanvas` and by treating a
+   * present `hostDisplay` as locked (see the `displayLocked` initializer);
+   * `tests/embed/host-targets.test.tsx` pins the option and the push against
+   * each other so the equivalence cannot drift silently.
+   */
+  const adoptDisplayTarget = useCallback(
+    (target: SelectedTarget) => {
+      // Adopting is a fresh rotation baseline (maintainer ruling 2026-08-16):
+      // whatever the user did to rotation before this no longer counts as
+      // "since the pick".
+      rotationOverriddenSincePickRef.current = false
+      const next = capabilitiesToCanvas(
+        target.capabilities,
+        canvasRef.current.previewDitherMode,
+      )
+      commitCanvas(next)
+      hostDisplayRef.current = next
+      setHostDisplay(next)
+      displayLockedRef.current = true
+      setDisplayLocked(true)
+      commitSelectedTarget({
+        id: target.id,
+        label: target.label,
+        capabilities: target.capabilities,
+      })
+    },
+    [commitCanvas, commitSelectedTarget],
+  )
 
   const commitService = useCallback(
     (value: ServiceOptions | undefined | ((current: ServiceOptions | undefined) => ServiceOptions | undefined)) => {
@@ -453,6 +516,154 @@ export function useProjectState(
     }
   }, [persistLocally, canvas, elements, historyUi, service, sessionName])
 
+  /**
+   * Apply one `setTargets()` push (issue #106, #121): everything a pushed
+   * display list does to designer state.
+   *
+   * Never runs re-entrantly — `pushHostTargets` below parks a push that arrives
+   * while another push, or a selection notification, is still in flight.
+   */
+  const applyHostTargets = useCallback(
+    (targets: readonly HostTarget[]) => {
+      // Re-pushable by contract (ADR-018): a display the host learns about
+      // appears in the picker without a reload. Same diff-before-setState
+      // shape as `applyStates`/`applyActions` below.
+      setHostTargets((current) => (hostTargetsEqual(current, targets) ? current : targets))
+
+      const selected = selectedTargetRef.current
+      // A single pushed display is not a choice, it *is* the display (issue
+      // #121, the 2.0 subsumption of the `capabilities` channel): adopt and
+      // lock onto it, exactly as the mount option does. Only while the user
+      // has made no display choice of their own — after that this channel
+      // goes back to offering displays, never moving the canvas. A re-push of
+      // the display already adopted falls through to the re-apply rules
+      // below, which is where a relabel or a redefinition belongs.
+      if (!userChoseDisplayRef.current) {
+        const adopted = autoAdoptedHostTarget(targets)
+        if (adopted && adopted.id !== selected?.id) {
+          adoptDisplayTarget(adopted)
+          return
+        }
+      }
+
+      const pushed = findHostTarget(targets, selected?.id ?? null)
+      // Keep-and-mark-stale (maintainer ruling 2026-08-16): a push that drops
+      // the selected target changes *nothing* here — not the canvas, not the
+      // lock, not the remembered selection. The picker derives "unavailable"
+      // from the selection no longer being in the list, so it heals by itself
+      // if the host pushes the display back.
+      if (!selected || !pushed) {
+        return
+      }
+      const redefined = !hostCapabilitiesEqual(selected.capabilities, pushed.capabilities)
+      if (pushed.label === selected.label && !redefined) {
+        return
+      }
+      // Keep the remembered label and capabilities current while the target
+      // is still there, so a later removal names it the way the host last did
+      // and re-locking uses the values the host last stated.
+      commitSelectedTarget({
+        id: selected.id,
+        label: pushed.label,
+        capabilities: pushed.capabilities,
+      })
+      if (!redefined) {
+        return
+      }
+      // The host re-defined the very display the design is pinned to, so the
+      // designer re-asserts it (maintainer ruling 2026-08-16). Locked, the
+      // canvas follows it and stays locked; unlocked, the user owns the
+      // canvas, so this only updates what re-locking will apply. Rotation is
+      // carved out of that follow (lock scope, maintainer ruling
+      // 2026-08-16): a user who repointed rotation since picking this target
+      // keeps it; only an untouched rotation adopts what the target now
+      // declares.
+      // `next` is one adoption: its dimensions and its rotation arrived
+      // together, so it is the oriented surface every re-orientation below
+      // measures from (issue #139 review — the pair is never split).
+      const next = capabilitiesToCanvas(
+        pushed.capabilities,
+        canvasRef.current.previewDitherMode,
+      )
+      hostDisplayRef.current = next
+      setHostDisplay(next)
+      if (displayLockedRef.current) {
+        const heldRotation = canvasRef.current.rotation
+        commitCanvas(
+          rotationOverriddenSincePickRef.current
+            ? {
+                ...next,
+                // The surviving rotation orients the re-pushed panel (issue
+                // #139) — same two dimensions, the user's way round.
+                ...reorientCanvasSize(next, heldRotation),
+                rotation: heldRotation,
+              }
+            : next,
+        )
+      }
+    },
+    [adoptDisplayTarget, commitCanvas, commitSelectedTarget],
+  )
+
+  /**
+   * Run one leg of the targets push/notify cycle — applying a push, or handing
+   * a selection to the host — and then apply whatever the host pushed while
+   * that leg was in flight.
+   *
+   * The drain is a loop, never a recursion: a parked push is applied *after*
+   * the leg that parked it returns, so the stack never grows with the number
+   * of pushes. It terminates because applying a push runs no host code, so
+   * nothing can park another one from inside the loop. A leg raised while the
+   * cycle is already in flight (a notification the drain itself provokes) runs
+   * inline and leaves the drain to the outermost leg.
+   */
+  const runTargetsCycle = useCallback(
+    (leg: () => void) => {
+      if (targetsCycleInFlightRef.current) {
+        // Already inside the cycle (a notification the drain below provoked):
+        // run the leg inline and leave the drain to the outermost cycle.
+        leg()
+        return
+      }
+      targetsCycleInFlightRef.current = true
+      try {
+        leg()
+      } finally {
+        targetsCycleInFlightRef.current = false
+        // Apply whatever the host pushed while the leg was in flight — also
+        // when the leg *threw*: a leg is host code (`onTargetSelected`), and a
+        // push it made before throwing was already accepted at the handle.
+        while (deferredTargetsRef.current !== null) {
+          const deferred = deferredTargetsRef.current
+          deferredTargetsRef.current = null
+          targetsCycleInFlightRef.current = true
+          try {
+            applyHostTargets(deferred)
+          } finally {
+            targetsCycleInFlightRef.current = false
+          }
+        }
+      }
+    },
+    [applyHostTargets],
+  )
+
+  /**
+   * The `applyTargets` push entry point: apply the push now, or park it when
+   * the cycle is already in flight so it lands the moment this one settles.
+   * Latest wins, and nothing is dropped.
+   */
+  const pushHostTargets = useCallback(
+    (targets: readonly HostTarget[]) => {
+      if (targetsCycleInFlightRef.current) {
+        deferredTargetsRef.current = targets
+        return
+      }
+      runTargetsCycle(() => applyHostTargets(targets))
+    },
+    [applyHostTargets, runTargetsCycle],
+  )
+
   // Host pushes: register the appliers with the mount lifecycle's bridge (it
   // owns the pre-registration queue, so adapters never implement this). Each
   // applier runs from a MountHandle setter call — an external host event,
@@ -475,54 +686,20 @@ export function useProjectState(
     return host.registerPushTarget({
       applyStates: (states) => {
         // Issue #110: an unchanged push (the upstream OpenDisplay HA
-        // integration re-sends its full entity registry up to 4x/s) must
-        // cost nothing beyond this structural scan — no conversion, no
-        // setState, no re-render, no template re-evaluation.
+        // integration re-sends its whole state map up to 4x/s) must cost
+        // nothing beyond this structural scan — no conversion, no setState,
+        // no re-render, no template re-evaluation.
         if (lastHostStatesRef.current !== null && hostStatesEqual(lastHostStatesRef.current, states)) {
           return
         }
         lastHostStatesRef.current = states
         const mock = hostStatesToMockData(states)
         // Functional updaters: bail per-part when that half of the push
-        // didn't actually change (e.g. only attributes moved), and reuse
-        // each unaffected entity's attribute object (bounded churn, issue
-        // #110) rather than replacing the whole map wholesale.
+        // didn't actually change (e.g. only attributes moved), and reuse the
+        // attribute object of every state key the push left alone (bounded
+        // churn, issue #110) rather than replacing the whole map wholesale.
         setMockStates((current) => (mockStatesEqual(current, mock.states) ? current : mock.states))
         setMockAttributes((current) => mergeMockAttributes(current, mock.attributes))
-      },
-      applyCapabilities: (capabilities, options) => {
-        // The host (re-)defined the display: adopt it, and by default lock
-        // the display config controls to it. `options.lock === false` seeds
-        // an unlocked "virtual display" instead (issue #70 follow-up) — the
-        // controls stay enabled, but the lock icon still shows so the user
-        // can lock back onto these values later.
-        const next = capabilitiesToCanvas(capabilities, canvasRef.current)
-        const lock = options?.lock ?? true
-        commitCanvas(next)
-        hostDisplayRef.current = next
-        setHostDisplay(next)
-        displayLockedRef.current = lock
-        setDisplayLocked(lock)
-        // Precedence between the two display channels (issue #106): a bare
-        // `capabilities` push is an *anonymous* display — it carries no target
-        // id, so nothing about it identifies the named target the user may
-        // have picked. The canvas is now that unnamed display, and the picker
-        // says so ("Host display") rather than keeping a selection the pushed
-        // values need not match. Last write wins; the channels never merge.
-        commitSelectedTarget(null)
-        // Anonymous channel choice (maintainer ruling 2026-08-16): unlike the
-        // named-target path below, this channel dies at 2.0 (issue #121), so
-        // rotation here stays "plain always-adopt" — `capabilitiesToCanvas`
-        // above already takes the pushed `rotation_degrees` whenever the push
-        // carries one, falling back to the current rotation only when it does
-        // not. No override tracking needed; clearing the ref keeps a later
-        // named pick's baseline honest regardless of what happened here.
-        // Known corner (documented in docs/embedding.md): a push carrying
-        // `rotation_degrees` but no size fields restates the orientation
-        // without re-orienting the surface — this channel takes the host's
-        // dimensions verbatim and issue #139 deliberately left `hostContract`
-        // alone. Hosts push sizes alongside, or use the `targets` channel.
-        rotationOverriddenSincePickRef.current = false
       },
       applyActions: (actions) => {
         // Re-pushable by contract (ADR-018): hosts re-push the whole list to
@@ -532,66 +709,10 @@ export function useProjectState(
         // same diff-before-setState shape as `applyStates` above.
         setHostActions((current) => (hostActionsEqual(current, actions) ? current : actions))
       },
-      applyTargets: (targets) => {
-        // Re-pushable by contract (ADR-018): a display the host learns about
-        // appears in the picker without a reload. Same diff-before-setState
-        // shape as `applyStates`/`applyActions` above.
-        setHostTargets((current) => (hostTargetsEqual(current, targets) ? current : targets))
-
-        const selected = selectedTargetRef.current
-        const pushed = findHostTarget(targets, selected?.id ?? null)
-        // Keep-and-mark-stale (maintainer ruling 2026-08-16): a push that drops
-        // the selected target changes *nothing* here — not the canvas, not the
-        // lock, not the remembered selection. The picker derives "unavailable"
-        // from the selection no longer being in the list, so it heals by itself
-        // if the host pushes the display back.
-        if (!selected || !pushed) {
-          return
-        }
-        const redefined = !hostCapabilitiesEqual(selected.capabilities, pushed.capabilities)
-        if (pushed.label === selected.label && !redefined) {
-          return
-        }
-        // Keep the remembered label and capabilities current while the target
-        // is still there, so a later removal names it the way the host last did
-        // and re-locking uses the values the host last stated.
-        commitSelectedTarget({
-          id: selected.id,
-          label: pushed.label,
-          capabilities: pushed.capabilities,
-        })
-        if (!redefined) {
-          return
-        }
-        // The host re-defined the very display the design is pinned to — the
-        // same re-assert principle a `setCapabilities` push carries (maintainer
-        // ruling 2026-08-16). Locked, the canvas follows it and stays locked;
-        // unlocked, the user owns the canvas, so this only updates what
-        // re-locking will apply. Rotation is carved out of that follow (lock
-        // scope, maintainer ruling 2026-08-16): a user who repointed rotation
-        // since picking this target keeps it; only an untouched rotation
-        // adopts what the target now declares.
-        // `next` is one adoption: its dimensions and its rotation arrived
-        // together, so it is the oriented surface every re-orientation below
-        // measures from (issue #139 review — the pair is never split).
-        const next = targetCapabilitiesToCanvas(pushed.capabilities, canvasRef.current)
-        hostDisplayRef.current = next
-        setHostDisplay(next)
-        if (displayLockedRef.current) {
-          const heldRotation = canvasRef.current.rotation
-          commitCanvas(
-            rotationOverriddenSincePickRef.current
-              ? {
-                  ...next,
-                  // The surviving rotation orients the re-pushed panel (issue
-                  // #139) — same two dimensions, the user's way round.
-                  ...reorientCanvasSize(next, heldRotation),
-                  rotation: heldRotation,
-                }
-              : next,
-          )
-        }
-      },
+      // Guarded entry point (maintainer ruling 2026-08-16): a push made from
+      // inside `onTargetSelected` is parked and applied once that notification
+      // settles, so this channel can never re-enter itself.
+      applyTargets: pushHostTargets,
       applyPayload: (nextElements) => {
         // The parent replaced the payload wholesale — undo history from the
         // previous payload no longer applies, and neither does a YAML edit the
@@ -606,10 +727,9 @@ export function useProjectState(
     })
   }, [
     host,
-    commitCanvas,
     commitElements,
     commitSelectedIndices,
-    commitSelectedTarget,
+    pushHostTargets,
     resetEditHistory,
     yamlDiscardPendingRef,
   ])
@@ -1167,6 +1287,10 @@ export function useProjectState(
   }, [commitElements, commitSelectedIndices, resetEditHistory])
 
   const toggleDisplayLock = useCallback(() => {
+    // Working the lock is a display choice: it is how the user leaves a display
+    // for the virtual one and back (issue #106). From here on no push adopts a
+    // display on its own (issue #121).
+    userChoseDisplayRef.current = true
     const nextLocked = !displayLockedRef.current
     displayLockedRef.current = nextLocked
     setDisplayLocked(nextLocked)
@@ -1195,45 +1319,41 @@ export function useProjectState(
    * Display picker choice (issue #106): a target id, or `null` for the
    * virtual display.
    *
-   * Selecting a target adopts its capabilities through the same mapping a
-   * `capabilities` push uses — there is no second display pipeline — but over
-   * the **canonical defaults** rather than the canvas in front of the user
-   * (`targetCapabilitiesToCanvas`): picking a display is the display, so the
-   * same target must land the same canvas whatever was picked before it.
-   * Locking the display config onto it is part of the same act; "Virtual
-   * display" is exactly the lock's open state, and the selection survives it so
-   * re-locking returns to the selected target.
+   * Picking a display adopts its capabilities over the **canonical defaults**
+   * rather than the canvas in front of the user (`capabilitiesToCanvas`):
+   * picking a display *is* the display, so the same target must land the same
+   * canvas whatever was picked before it. Locking the display config onto it is
+   * part of the same act; "Virtual display" is exactly the lock's open state,
+   * and the selection survives it so re-locking returns to the selected target.
    */
   const selectDisplayTarget = useCallback(
     (targetId: string | null) => {
-      // A pick — including re-picking the same id — is a fresh rotation
-      // baseline (maintainer ruling 2026-08-16): whatever the user did to
-      // rotation before this no longer counts as "since the pick".
-      rotationOverriddenSincePickRef.current = false
       if (targetId === null) {
+        // Picking the virtual display *is* a display choice: from here on the
+        // user owns which display the design is pinned to, and no later push
+        // adopts one on its own (issue #121). It is also a fresh rotation
+        // baseline (maintainer ruling 2026-08-16): whatever the user did to
+        // rotation before this no longer counts as "since the pick".
+        userChoseDisplayRef.current = true
+        rotationOverriddenSincePickRef.current = false
         displayLockedRef.current = false
         setDisplayLocked(false)
         return
       }
       const target = findHostTarget(hostTargets, targetId)
       if (!target) {
-        // An id the current list no longer offers (a stale entry, a list the
-        // host replaced mid-interaction): nothing to adopt, so change nothing.
+        // An id the current list no longer offers (the stale entry, a list the
+        // host replaced mid-interaction) is a **no-op, not a user choice**
+        // (maintainer ruling 2026-08-16): it adopts nothing, so it must not
+        // latch auto-adoption off either, and it leaves the rotation baseline
+        // alone. Everything below the lookup is the choice.
         return
       }
-      const next = targetCapabilitiesToCanvas(target.capabilities, canvasRef.current)
-      commitCanvas(next)
-      hostDisplayRef.current = next
-      setHostDisplay(next)
-      displayLockedRef.current = true
-      setDisplayLocked(true)
-      commitSelectedTarget({
-        id: target.id,
-        label: target.label,
-        capabilities: target.capabilities,
-      })
+      // From here on the user owns which display the design is pinned to.
+      userChoseDisplayRef.current = true
+      adoptDisplayTarget(target)
     },
-    [commitCanvas, commitSelectedTarget, hostTargets],
+    [adoptDisplayTarget, hostTargets],
   )
 
   // The target the design is actually pinned to — what the host is told, and
@@ -1258,8 +1378,12 @@ export function useProjectState(
       return
     }
     notifiedTargetRef.current = activeTargetId
-    onTargetSelected?.(activeTargetId)
-  }, [activeTargetId, onTargetSelected])
+    // Inside the cycle guard: a host that answers this notification with
+    // `setTargets()` — the reaction pattern docs/embedding.md teaches — gets
+    // that push parked and applied the moment this call returns, instead of
+    // re-entering the push applier from inside the notification it caused.
+    runTargetsCycle(() => onTargetSelected?.(activeTargetId))
+  }, [activeTargetId, onTargetSelected, runTargetsCycle])
 
   const loadDemo = useCallback(() => {
     allowShowcaseBundledForDemo()

@@ -6,6 +6,14 @@ Accepted — implemented in [issue #72](https://github.com/schlomo/odl-drawcusto
 [ADR-010](ADR-010-ha-embed-mode.md) (embed mode) and
 [ADR-006](ADR-006-ui-framework-react.md) (React shell).
 
+Amended at 2.0 ([issue #121](https://github.com/schlomo/odl-drawcustom-designer/issues/121)):
+the `onSaveRequest` policy field and the `setCapabilities()` push are **gone** —
+save/send is the [ADR-018](ADR-018-host-ui-seam.md) actions seam, and `targets`
+is the only display channel. The adapter shape, the one-lifecycle decision and
+the uniform-push rule below are unchanged; the tables and consequences state the
+2.0 members, with the 1.x names they superseded noted inline where the record
+matters.
+
 ## Context
 
 [Issue #20](https://github.com/schlomo/odl-drawcustom-designer/issues/20) made the designer embeddable and [PR #67](https://github.com/schlomo/odl-drawcustom-designer/pull/67) split mounting in two:
@@ -45,7 +53,8 @@ Everything that was a mode conditional is now policy declared by a
 | `fill: 'viewport' \| 'container'` | Shell height: full page vs host-sized container |
 | `shareLink: boolean` | The share URL is the app's own URL ([ADR-005](ADR-005-share-hash-format.md)) — an embedding host page has none |
 | `persistence: DesignerPersistence \| null` | Session/mocks/variables writers. `null` = the host owns persistence ([ADR-010](ADR-010-ha-embed-mode.md)). The M4 HA panel adapter can write HA storage without touching the shell |
-| `onSaveRequest?` | Save channel; presence alone shows the Save button |
+| `actions?` / `onAction?` | Host toolbar buttons and the callback they fire — the only save/send channel ([ADR-018](ADR-018-host-ui-seam.md)). *Superseded the 1.x `onSaveRequest?` field (“Save channel; presence alone shows the Save button”), removed at 2.0.* |
+| `targets?` / `onTargetSelected?` | The displays the host knows about and the selection report — the only display channel. *Superseded the 1.x `capabilities`/`lock` options and `setCapabilities()`, removed at 2.0.* |
 | `loadBootstrap()` | Initial state. Async for standalone (IndexedDB + `#d=` hash), synchronous for embedded — so invalid `payload` YAML still throws out of `mount()` |
 | `subscribeBootstrapChanges?` | Host-driven re-bootstrap; standalone's same-tab `#d=` navigation. Embedded hosts push through `MountHandle` instead |
 | `registerPushTarget?` | Supplied by the lifecycle (it owns the push queue), never by an adapter |
@@ -55,7 +64,7 @@ Adapters:
 | Adapter | Module | Runtime |
 |---------|--------|---------|
 | Standalone | [`src/embed/standaloneHost.ts`](../../src/embed/standaloneHost.ts) | GitHub Pages SPA — page DOM, document theme, IndexedDB persistence, share hash |
-| Embedded | [`src/embed/embeddedHost.ts`](../../src/embed/embeddedHost.ts) | What the public `mount(container, options)` builds — shadow DOM, host theme, no persistence, `onSaveRequest` |
+| Embedded | [`src/embed/embeddedHost.ts`](../../src/embed/embeddedHost.ts) | What the public `mount(container, options)` builds — shadow DOM, host theme, no persistence, host `actions`/`targets` |
 | HA panel | M4, [issue #25](https://github.com/schlomo/odl-drawcustom-designer/issues/25) | A third adapter (live states, HA-side persistence) — **not a third mode** |
 
 The seam is **internal**. `DesignerHost` references internal types
@@ -106,10 +115,11 @@ shell (`useProjectState`); the adapter supplies only the writers.
   subscriptions and the mount's own DOM — document-level theme deliberately
   persists (pinned in `tests/embed/standalone-host.test.tsx`).
 - **Handle pushes are uniform across adapters.** The lifecycle registers the
-  push target for every host, so `setCapabilities()` / `setStates()` /
-  `setPayload()` on the standalone handle behave exactly like embed pushes
-  (a standalone capabilities push locks the display config, unlockable as
-  usual). One push path, no per-adapter carve-out.
+  push target for every host, so `setTargets()` / `setStates()` /
+  `setPayload()` on the standalone handle behave exactly like embed pushes (a
+  single-display `setTargets()` push locks the standalone display config,
+  unlockable as usual — at 1.x this sentence named `setCapabilities()`, which
+  the targets seam replaced). One push path, no per-adapter carve-out.
 - **The push target registers in a layout effect, not a passive one**
   ([issue #115](https://github.com/schlomo/odl-drawcustom-designer/issues/115)).
   It is the shell's imperative handle to the host and, like

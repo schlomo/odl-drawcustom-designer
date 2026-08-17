@@ -28,8 +28,8 @@ artifact.
 The **public surface that major-versions** is the embed API: `mount()`, the
 `MountOptions`/`MountHandle`/`HostCapabilities`/`HostStates` shapes in
 [`src/embed/types.ts`](../src/embed/types.ts), and the host data contract
-documented in [`docs/embedding.md`](embedding.md) (states/capabilities
-mapping, payload/theme behavior). Internal modules (`src/core/`, `src/ui/`,
+documented in [`docs/embedding.md`](embedding.md) (states, displays, actions,
+payload/theme behavior). Internal modules (`src/core/`, `src/ui/`,
 anything not re-exported from `src/embed/index.ts`) are not part of the
 versioned surface and can change freely.
 

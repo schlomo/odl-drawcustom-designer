@@ -10,10 +10,13 @@ import { createStandaloneHost } from '../../src/embed/standaloneHost'
  * Targets seam (issue #106, ADR-018): the host pushes the displays it knows
  * about — `{ id, label, capabilities }`, the id opaque — and the designer
  * renders a display picker inside its own display-config area, wired to the
- * existing lock UX (issue #70). What an embedding host can observe:
+ * existing lock UX (issue #70). At 2.0 this is the *only* display channel
+ * (issue #121). What an embedding host can observe:
  *
  *  - one picker entry per pushed target, plus the "Virtual display" (unlock)
  *    entry, and no picker chrome at all when no targets are pushed;
+ *  - a one-element push adopted and locked with no pick, and never overriding a
+ *    display choice the user already made;
  *  - selecting a target adopts its capabilities and locks the display config;
  *  - "Virtual display" unlocks; re-locking returns to the selected target;
  *  - `onTargetSelected(id | null)` reporting the selection, and
@@ -195,20 +198,22 @@ beforeEach(() => {
 
 describe('host targets (issue #106)', () => {
   it('renders no display picker when the host pushes no targets', () => {
-    mountDesigner({ payload: PAYLOAD, capabilities: { render_width: 296, render_height: 128 } })
+    mountDesigner({ payload: PAYLOAD })
 
     expect(designer().queryByLabelText('Display')).toBeNull()
-    // The rest of the display-config area is untouched.
-    expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+    // The rest of the display-config area is untouched: no host display means
+    // no lock either (standalone behavior, unchanged).
+    expect(designer().queryByRole('button', { name: 'Unlock display config' })).toBeNull()
+    expect(resolution()).toBeEnabled()
   })
 
   it('offers one entry per pushed target plus the virtual-display entry, selecting none', () => {
     mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE] })
 
     expect(optionLabels()).toEqual(['Kitchen tag', 'Office display', 'Virtual display'])
-    // Nothing is adopted until the user picks: no host display, no lock, and
-    // the display config controls stay enabled (1.x keeps `capabilities` as
-    // the way to seed a display).
+    // A list the user can choose between adopts nothing until they pick: no
+    // host display, no lock, controls enabled. (A one-element list is the
+    // opposite case — see the auto-selection block below, issue #121.)
     expect(picker()).toHaveValue('')
     expect(designer().queryByRole('button', { name: 'Unlock display config' })).toBeNull()
     expect(resolution()).toBeEnabled()
@@ -265,10 +270,10 @@ describe('host targets (issue #106)', () => {
   })
 
   it('re-applies the selected display when the host re-pushes it with new capabilities', () => {
-    // The host re-defined the display the design is pinned to — the same
-    // re-assert principle a `setCapabilities` push carries (maintainer ruling
-    // 2026-08-16). Stranding the canvas on the old size while the picker shows
-    // the new label describes hardware that no longer exists.
+    // The host re-defined the display the design is pinned to, so the designer
+    // re-asserts it (maintainer ruling 2026-08-16). Stranding the canvas on the
+    // old size while the picker shows the new label describes hardware that no
+    // longer exists.
     const handle = mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE] })
     selectDisplay('Office display')
     expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
@@ -375,6 +380,43 @@ describe('host targets (issue #106)', () => {
     expect(optionLabels()).toEqual(['Virtual display'])
   })
 
+  it('treats a pick of a display the host has since removed as a no-op, not a choice', () => {
+    // Mid-interaction race (maintainer ruling 2026-08-16): a native select
+    // popup snapshots its options when it opens, so a push that removes a
+    // display while it is open still lets the browser commit that display's id.
+    // Nothing can be adopted for it — and because nothing is adopted, it is not
+    // the user's display choice either: auto-adoption must still be live
+    // afterwards, and the canvas must be untouched.
+    const handle = mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE] })
+    const staleOption = Array.from(picker().options).find(
+      (option) => option.textContent === 'Office display',
+    )!
+    // A rotation of the user's own, to see that the no-op leaves it alone.
+    fireEvent.click(designer().getByRole('button', { name: '90°' }))
+
+    act(() => handle.setTargets([KITCHEN, HALLWAY]))
+    // The still-open popup the user is choosing from — jsdom has no popup, so
+    // the option React has already dropped is put back by hand; the change
+    // event itself is the real one.
+    picker().appendChild(staleOption)
+    fireEvent.change(picker(), { target: { value: staleOption.value } })
+    staleOption.remove()
+
+    // Nothing adopted, nothing locked, rotation as the user left it.
+    expect(picker()).toHaveValue('')
+    expect(resolution()).toBeEnabled()
+    expect(designer().queryByRole('button', { name: 'Unlock display config' })).toBeNull()
+    expect(activeRotation()).toBe('90°')
+
+    // Still no display choice of the user's, so the host narrowing to one
+    // display is still adopted and locked (issue #121).
+    act(() => handle.setTargets([HALLWAY]))
+
+    expect(picker().selectedOptions[0]?.textContent).toBe('Hallway 7.5"')
+    expect(resolution()).toHaveTextContent(/800\s*×\s*480/)
+    expect(resolution()).toBeDisabled()
+  })
+
   it('reports the selection to the host, including the virtual display', () => {
     const onTargetSelected = vi.fn()
     mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE], onTargetSelected })
@@ -412,29 +454,6 @@ describe('host targets (issue #106)', () => {
       [null],
       ['display.office'],
     ])
-  })
-
-  it('lets a capabilities push from inside onTargetSelected un-pick, without looping', () => {
-    // The documented channel-mixing footgun (docs/embedding.md): a host that
-    // answers a selection with a bare `capabilities` push overwrites the pick
-    // with the anonymous display — last write wins, as designed. What must not
-    // happen is a feedback loop between the callback and the push.
-    const onTargetSelected = vi.fn()
-    // Assigned before the callback can run: nothing is selected at mount, so
-    // `onTargetSelected` fires no earlier than the pick below.
-    const handle: MountHandle = mountDesigner({
-      payload: PAYLOAD,
-      targets: [KITCHEN, OFFICE],
-      onTargetSelected: (targetId) => {
-        onTargetSelected(targetId)
-        handle.setCapabilities({ render_width: 296, render_height: 128 })
-      },
-    })
-
-    selectDisplay('Office display')
-
-    expect(onTargetSelected.mock.calls).toEqual([['display.office'], [null]])
-    expect(picker().selectedOptions[0]?.textContent).toBe('Host display')
   })
 
   it('carries the selected target id into onAction', () => {
@@ -553,37 +572,232 @@ describe('host targets (issue #106)', () => {
     expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
   })
 
-  it('treats a bare capabilities push as an anonymous display, clearing the selection', () => {
-    // Precedence (ADR-018 amendment): `capabilities` is an unnamed display
-    // push — today's semantics untouched — so it wins over, rather than
-    // merges with, a named selection.
-    const handle = mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE] })
-    selectDisplay('Office display')
-
-    act(() => handle.setCapabilities({ render_width: 296, render_height: 128, color_scheme: 0x01 }))
-
-    expect(resolution()).toHaveTextContent(/296\s*×\s*128/)
-    expect(picker().selectedOptions[0]?.textContent).toBe('Host display')
-    expect(optionLabels()).toEqual([
-      'Host display',
-      'Kitchen tag',
-      'Office display',
-      'Virtual display',
-    ])
-  })
-
   it('applies a targets push made before the designer has committed anything', () => {
     // Pre-registration window: the push queues and drains during the commit,
     // so the first frame a host can observe already carries it — and it wins
     // over the mount option, which is itself defined as an initial push.
     let handle!: MountHandle
     act(() => {
-      handle = mount(container, { payload: PAYLOAD, targets: [KITCHEN] })
+      handle = mount(container, { payload: PAYLOAD, targets: [KITCHEN, OFFICE] })
       handle.setTargets([OFFICE, HALLWAY])
     })
     handles.push(handle)
 
     expect(optionLabels()).toEqual(['Office display', 'Hallway 7.5"', 'Virtual display'])
+  })
+
+  it('adopts a single-target push made before the designer has committed anything', () => {
+    // Same window, the auto-adopting case (issue #121): the first observable
+    // frame is already locked onto the pushed display — no frame of default,
+    // unlocked config, which is the whole point issue #115 established for the
+    // display channel.
+    let handle!: MountHandle
+    act(() => {
+      handle = mount(container, { payload: PAYLOAD })
+      handle.setTargets([OFFICE])
+    })
+    handles.push(handle)
+
+    expect(picker().selectedOptions[0]?.textContent).toBe('Office display')
+    expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
+    expect(resolution()).toBeDisabled()
+  })
+
+  /**
+   * The 2.0 subsumption (issue #121): with the `capabilities`/`lock` channel
+   * gone, a single-display host says so by pushing a one-element `targets`
+   * list — the designer adopts and locks onto it, so the first frame is
+   * already that display. Nothing else about pushes changes: a list the user
+   * could actually choose between still selects nothing, and once the user has
+   * chosen a display (a target, or the virtual display) no push ever overrides
+   * that choice.
+   */
+  describe('single-target auto-selection (issue #121)', () => {
+    it('adopts and locks the only display pushed at mount', () => {
+      const onTargetSelected = vi.fn()
+      mountDesigner({ payload: PAYLOAD, targets: [OFFICE], onTargetSelected })
+
+      expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
+      expect(colorMode()).toHaveValue('bw')
+      expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+      expect(resolution()).toBeDisabled()
+      expect(picker().selectedOptions[0]?.textContent).toBe('Office display')
+      // The display it is pinned to has a name — there is no anonymous
+      // "Host display" entry left to fall back to.
+      expect(optionLabels()).toEqual(['Office display', 'Virtual display'])
+      // The host is told which display the designer put itself on.
+      expect(onTargetSelected.mock.calls).toEqual([['display.office']])
+    })
+
+    it('adopts a single-target push made after mount, before the user chooses', () => {
+      // Mount option ≡ initial push (ADR-018 seam grammar), so the push path
+      // has to auto-select on exactly the same terms as the option above.
+      const handle = mountDesigner({ payload: PAYLOAD })
+      expect(designer().queryByLabelText('Display')).toBeNull()
+
+      act(() => handle.setTargets([OFFICE]))
+
+      expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
+      expect(picker().selectedOptions[0]?.textContent).toBe('Office display')
+      expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+    })
+
+    it('selects nothing when the host offers a choice', () => {
+      mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE] })
+
+      expect(picker()).toHaveValue('')
+      expect(designer().queryByRole('button', { name: 'Unlock display config' })).toBeNull()
+      expect(resolution()).toBeEnabled()
+    })
+
+    it('never overrides a user who picked the virtual display', () => {
+      // A targets-pushing host re-pushes its inventory freely (on a timer, even):
+      // a re-push that happens to narrow to one display must not drag the user
+      // off the virtual display they deliberately chose.
+      const handle = mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE] })
+      selectDisplay('Virtual display')
+
+      act(() => handle.setTargets([OFFICE]))
+
+      expect(picker()).toHaveValue('')
+      expect(resolution()).toBeEnabled()
+      expect(designer().queryByRole('button', { name: 'Unlock display config' })).toBeNull()
+    })
+
+    it('never overrides a user who unlocked the auto-selected display', () => {
+      const handle = mountDesigner({ payload: PAYLOAD, targets: [OFFICE] })
+      fireEvent.click(designer().getByRole('button', { name: 'Unlock display config' }))
+      fireEvent.change(colorMode(), { target: { value: 'bwr' } })
+
+      act(() => handle.setTargets([OFFICE]))
+
+      expect(colorMode()).toBeEnabled()
+      expect(colorMode()).toHaveValue('bwr')
+    })
+
+    /**
+     * The rule, verbatim (maintainer ruling 2026-08-16): *until the user makes
+     * a display choice, the designer mirrors the host — one declared display =
+     * adopted + locked, several = open picker.* Both interleavings of the mount
+     * option and a later push are pinned below, because "mount option ≡ initial
+     * push" (ADR-018 seam grammar) makes them the same statement made twice.
+     */
+    it('re-pins to a single display pushed after another was auto-adopted', () => {
+      const onTargetSelected = vi.fn()
+      const handle = mountDesigner({
+        payload: PAYLOAD,
+        targets: [KITCHEN],
+        onTargetSelected,
+      })
+      expect(picker().selectedOptions[0]?.textContent).toBe('Kitchen tag')
+
+      act(() => handle.setTargets([OFFICE]))
+
+      // Mirroring the host: it now declares exactly one display, and that is
+      // the display — the user never chose the one before it.
+      expect(picker().selectedOptions[0]?.textContent).toBe('Office display')
+      expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
+      expect(resolution()).toBeDisabled()
+      expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+      // Two changes in the design's life, so two notifications — no more.
+      expect(onTargetSelected.mock.calls).toEqual([['display.kitchen'], ['display.office']])
+    })
+
+    it('adopts and locks a single display pushed after a multi-display mount', () => {
+      const onTargetSelected = vi.fn()
+      const handle = mountDesigner({
+        payload: PAYLOAD,
+        targets: [KITCHEN, OFFICE],
+        onTargetSelected,
+      })
+      // A choice: nothing adopted, nothing reported.
+      expect(picker()).toHaveValue('')
+      expect(onTargetSelected).not.toHaveBeenCalled()
+
+      act(() => handle.setTargets([OFFICE]))
+
+      // The host narrowed to one display and the user had made no choice, so
+      // the designer follows it.
+      expect(picker().selectedOptions[0]?.textContent).toBe('Office display')
+      expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
+      expect(colorMode()).toBeDisabled()
+      expect(onTargetSelected.mock.calls).toEqual([['display.office']])
+    })
+  })
+
+  /**
+   * Re-entrancy of the push/notify cycle (maintainer ruling 2026-08-16).
+   * Reacting to `onTargetSelected` with another `setTargets()` is a pattern the
+   * contract teaches, so that push arrives while the notification it answers is
+   * still in flight. It must be parked and applied after the cycle settles —
+   * bounded, latest-push-wins, nothing dropped — never applied from inside the
+   * notification it caused.
+   */
+  describe('a targets push made from inside onTargetSelected', () => {
+    it('settles in bounded steps, with the pushed display adopted', () => {
+      // Capped depth on purpose: a regression that re-enters the cycle fails
+      // this test instead of hanging the whole suite.
+      const NOTIFICATION_CAP = 8
+      const reported: (string | null)[] = []
+      let handle!: MountHandle
+      act(() => {
+        handle = mount(container, {
+          payload: PAYLOAD,
+          targets: [KITCHEN],
+          onTargetSelected(id) {
+            reported.push(id)
+            if (reported.length > NOTIFICATION_CAP) {
+              return
+            }
+            handle.setTargets([OFFICE])
+          },
+        })
+      })
+      handles.push(handle)
+
+      expect(reported).toEqual(['display.kitchen', 'display.office'])
+      expect(picker().selectedOptions[0]?.textContent).toBe('Office display')
+      expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
+      expect(resolution()).toBeDisabled()
+    })
+
+    it('applies only the last of several pushes made from one notification', () => {
+      // Coalesced, latest wins: `setTargets()` replaces the whole list, so a
+      // push the host superseded within the same turn has nothing left to say —
+      // and must not move the canvas on its way past. Here the superseded push
+      // is a one-element list, which is exactly the shape that would otherwise
+      // be adopted and locked onto.
+      const NOTIFICATION_CAP = 8
+      const reported: (string | null)[] = []
+      let handle!: MountHandle
+      act(() => {
+        handle = mount(container, {
+          payload: PAYLOAD,
+          targets: [KITCHEN],
+          onTargetSelected(id) {
+            reported.push(id)
+            if (reported.length > NOTIFICATION_CAP) {
+              return
+            }
+            handle.setTargets([OFFICE])
+            handle.setTargets([OFFICE, HALLWAY])
+          },
+        })
+      })
+      handles.push(handle)
+
+      // The host's last word is a two-display choice, so nothing is adopted by
+      // it: the design stays on the display it was already pinned to, which
+      // that list no longer offers (keep-and-mark-stale).
+      expect(optionLabels()).toEqual([
+        'Kitchen tag (unavailable)',
+        'Office display',
+        'Hallway 7.5"',
+        'Virtual display',
+      ])
+      expect(resolution()).toHaveTextContent(/296\s*×\s*128/)
+      expect(reported).toEqual(['display.kitchen', null])
+    })
   })
 
   it('offers no targets channel to the standalone app', () => {

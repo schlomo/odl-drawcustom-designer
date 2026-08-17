@@ -11,12 +11,34 @@ PR #100 was exploration — design for the best interface, not for migration).
 Amended 2026-08-16: the [display-config lock](../embedding.md#display-config-lock-issue-70)'s
 scope is dimensions and color mode/palette **only** — rotation is a user
 choice (portrait mounting of the same physical display) and stays editable
-while locked, on both display channels (`targets` and anonymous `capabilities`).
+while locked. (It read "on both display channels" when there were two; at 2.0
+`targets` is the only one.)
 Amended again (issue #139): rotation means the **orientation of the logical
 drawing surface** — a quarter turn swaps the canvas W/H and the designer
 presents that surface upright, always. `render_*`/`pixel_*` seeding is
 unchanged and still correct; what changed is that nothing downstream re-applies
 the rotation as a transform.
+
+Amended 2026-08-16 (2.0 auto-adoption rule, ruled with the cut below): **until
+the user makes a display choice, the designer mirrors the host — one declared
+display = adopted + locked, several = open picker.** It holds for every push,
+not only the mount option: pre-choice, a single-display push re-pins to that
+display, and a list narrowing to one adopts it. A display choice of the user's
+(a pick, "Virtual display", the lock) ends mirroring for good; picking an id the
+host's current list no longer offers is a **no-op, not a choice**. A push made
+from inside `onTargetSelected` is deferred until that notification returns and
+coalesced to the latest one, so the reaction pattern this ADR teaches cannot
+re-enter the push applier.
+
+**Executed at 2.0** ([issue #121](https://github.com/schlomo/odl-drawcustom-designer/issues/121)):
+every "at 2.0" clause below has shipped as one `feat!:` cut — the targets seam
+subsumed the `capabilities`/`setCapabilities`/`lock` channel (a one-element
+`targets` push is adopted and locked with no pick), `onSaveRequest` and the
+built-in Save button are gone in favour of the actions seam, and
+`HostEntityState` is `HostState`. The 1.x transition text kept below — the two
+coexisting display channels, their last-write-wins precedence, the anonymous
+"Host display" entry, the two mapping bases — is **historical record, not
+current behavior**; the live contract is [`docs/embedding.md`](../embedding.md).
 
 ## Context
 
@@ -217,10 +239,16 @@ data contract — no new lifecycle, no new adapter shape:
 Every seam above follows one shape, and any future addition must fit it:
 
 - **Data flows in as typed pushed values** (`targets`, `states`, host-side
-  `renderPreview`) — same direction as `states`/`capabilities` today.
+  `renderPreview`) — the direction `states` and `targets` already run in.
 - **Intent flows out as callbacks carrying payload plus opaque ids**
-  (`onAction(id, payload, { targetId })`) — same direction as `onSaveRequest`
-  today.
+  (`onAction(id, payload, { targetId })`, `onTargetSelected(id | null)`) — the
+  designer reports what the user did and hands over the current payload; it
+  never exposes a second, action-specific save channel.
+- **A callback may push back.** Reacting to `onTargetSelected` / `onAction` with
+  another push is supported by design, so every push channel that can be
+  reached from its own notification must defer the re-entrant push and coalesce
+  it (latest wins) rather than apply it inside the notification — the targets
+  channel does this in `useProjectState`.
 - **No bidirectional shared state.** The host never reads designer internals
   back out except through these typed values; the designer never reaches
   into host state.

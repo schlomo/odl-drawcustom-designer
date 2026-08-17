@@ -67,7 +67,7 @@
       <h1>Fake host page (embed demo)</h1>
       <button id="push-warm">Push warm states</button>
       <button id="push-cold">Push cold states</button>
-      <button id="push-capabilities">Push 296×128 BWR display</button>
+      <button id="push-display-list">Push display list</button>
       <button id="toggle-connection">Simulate display offline</button>
       <button id="add-display">Add a display</button>
       <button id="remove-selected-display">Remove selected display</button>
@@ -78,8 +78,11 @@
       <button id="destroy">Destroy</button>
     </header>
     <div id="designer"></div>
+    <!-- Filled by onTargetSelected. No placeholder: this host mounts with one
+         display, which the designer adopts before the first frame, so a
+         "nothing selected yet" text could never be seen. -->
     <h2 style="margin: 1rem">Selected display</h2>
-    <pre id="target-log" data-testid="target-log">(nothing selected yet)</pre>
+    <pre id="target-log" data-testid="target-log"></pre>
     <h2 style="margin: 1rem">Last host action</h2>
     <pre id="action-log" data-testid="action-log">(no action fired yet)</pre>
     <h2 style="margin: 1rem">Last saved payload</h2>

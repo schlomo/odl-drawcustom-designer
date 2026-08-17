@@ -36,17 +36,14 @@ export interface AppBootstrap {
   /** Restored only for `importSource: 'session'`; cleared for hash/default loads. */
   editHistory?: PersistedEditHistory
   /**
-   * Display config derived from host-pushed `capabilities` (issue #70). Set
-   * only by the embed mount; presence shows the lock icon behind the display
-   * config controls. Standalone bootstraps never set it.
+   * Display config of the host display the design starts pinned to (issue #70):
+   * the single pushed `targets` entry the embed mount adopted without a pick
+   * (issue #121). Presence shows the lock icon behind the display config
+   * controls and is what re-locking restores. Standalone bootstraps never set
+   * it, and a host offering the user a *choice* of displays does not either —
+   * nothing is pinned until the user picks.
    */
   hostDisplay?: DisplayConfig
-  /**
-   * Whether `hostDisplay` starts locked (issue #70 follow-up: `lock: false`
-   * mount option seeds an unlocked "virtual display"). Only meaningful
-   * alongside `hostDisplay`; defaults to `true` when omitted.
-   */
-  hostDisplayLocked?: boolean
 }
 
 /** Saved sessions with no elements fall back to the built-in sample dashboard. */

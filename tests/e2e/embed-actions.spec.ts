@@ -65,7 +65,7 @@ test('clicking an action hands the host the live payload', async ({ page }) => {
   await expect(log).toContainText('Sent')
   await expect(log).toContainText("{{ states('sensor.demo_temperature') }} °C")
   await expect(log).toContainText('x: 42')
-  // The host's own Save channel stays untouched by an action click.
+  // Each action is its own channel: clicking Send never runs the host's Save.
   await expect(page.getByTestId('saved-payload')).toHaveText('(nothing saved yet)')
 })
 

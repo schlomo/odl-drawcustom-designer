@@ -24,27 +24,32 @@ import { mount } from '@schlomo/odl-drawcustom-designer'
 
 const handle = mount(document.getElementById('designer'), {
   payload: yamlString,          // initial drawcustom YAML (list of elements)
-  states: { 'sensor.temperature': '21.5' },   // entity states, for template preview
-  capabilities: { pixel_width: 296, pixel_height: 128, color_scheme: 0x01 }, // display description -> canvas + palette
+  states: { 'sensor.temperature': '21.5' },   // host states, for template preview
   theme: 'dark',                // 'light' | 'dark', scoped to the container
-  actions: [{ id: 'send', label: 'Send to display' }], // host-registered toolbar buttons
+  // The displays you know about. One display is adopted and locked without a
+  // pick; several give the user a picker.
+  targets: [{
+    id: 'display.kitchen',
+    label: 'Kitchen tag',
+    capabilities: { pixel_width: 296, pixel_height: 128, color_scheme: 0x01 },
+  }],
+  // Your buttons in the designer's toolbar — the only save/send channel there
+  // is: the designer never persists or transmits anything itself.
+  actions: [{ id: 'save', label: 'Save' }, { id: 'send', label: 'Send to display' }],
   onAction(id, payload, context) {
-    // user clicked one of your buttons — do the host-side thing
-  },
-  onSaveRequest(payload) {
-    // user hit Save — persist the YAML; the designer never writes it itself
+    // user clicked one of your buttons — do the host-side thing with `payload`
   },
 })
 
-handle.setStates(newStates)          // replace the entity-state map
-handle.setCapabilities(newCapabilities) // re-map canvas size/rotation/palette, re-lock
-handle.getPayload()                  // read the current payload YAML at any time
-handle.destroy()                     // unmount and empty the container
+handle.setStates(newStates)   // replace the state map
+handle.setTargets(newTargets) // replace the displays the picker offers
+handle.getPayload()           // read the current payload YAML at any time
+handle.destroy()              // unmount and empty the container
 ```
 
 The container needs an explicit height; the designer fills it. Styles and DOM are isolated in a shadow root at the mount boundary — host CSS never leaks in, and the designer never touches the host document.
 
-Full mount API (`setActions`, `setTheme`, the `lock` option, and every host-data field), the host data contract, and the release/versioning story: [`docs/embedding.md`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/embedding.md). Live demo: see the link above; its full source (a fake host page pushing states, capabilities and actions) is at [`demo/`](https://github.com/schlomo/odl-drawcustom-designer/tree/main/demo).
+Full mount API (`setActions`, `setPayload`, `setTheme`, `onTargetSelected`) and every host-data field, plus the release/versioning story: [`docs/embedding.md`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/embedding.md). Live demo: see the link above; its full source (a fake host page pushing states, displays and actions) is at [`demo/`](https://github.com/schlomo/odl-drawcustom-designer/tree/main/demo).
 
 ## Home Assistant integrations (`drawcustom`)
 

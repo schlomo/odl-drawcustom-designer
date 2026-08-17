@@ -245,11 +245,13 @@ describe('host actions (issue #108)', () => {
   })
 
   it('renders no action chrome when the host pushes none', () => {
-    mountDesigner({ payload: PAYLOAD, onSaveRequest: () => {} })
+    mountDesigner({ payload: PAYLOAD })
 
     expect(designer().queryByRole('group', { name: 'Actions' })).toBeNull()
-    // The built-in Save button is untouched by this seam (removal is 2.0, #121).
-    expect(designer().getByRole('button', { name: 'Save' })).toBeInTheDocument()
+    // And no built-in Save either: this seam is the only save/send channel
+    // there is (issue #121), so a host that registers nothing gets no
+    // save-shaped button from the designer.
+    expect(designer().queryByRole('button', { name: 'Save' })).toBeNull()
   })
 
   it('offers no action channel to the standalone app', () => {
@@ -352,7 +354,7 @@ describe('host actions (issue #108)', () => {
     expect(() => mount(container, { payload: PAYLOAD, actions: [SEND] })).toThrow(/onAction/i)
     expect(container.shadowRoot).toBeNull()
 
-    const handle = mountRaw({ payload: PAYLOAD, onSaveRequest: () => {} })
+    const handle = mountRaw({ payload: PAYLOAD })
     expect(() => handle.setActions([SEND])).toThrow(/onAction/i)
     // Clearing the list stays legal — there is nothing that could fire.
     expect(() => act(() => handle.setActions([]))).not.toThrow()

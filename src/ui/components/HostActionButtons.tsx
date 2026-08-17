@@ -10,10 +10,9 @@ interface HostActionButtonsProps {
   actions: readonly HostAction[]
   /**
    * Reason the designer itself cannot run a payload-carrying action right now
-   * (a blocked YAML document, exactly what disables Save). Applies only to
-   * actions that need the payload — `needsPayload: false` opts out. A host's
-   * own `disabledReason` wins over it: the host's statement about its own
-   * action is the more specific one.
+   * (a blocked YAML document). Applies only to actions that need the payload —
+   * `needsPayload: false` opts out. A host's own `disabledReason` wins over it:
+   * the host's statement about its own action is the more specific one.
    */
   designerDisabledReason?: string | null
   onAction: (id: string) => void
@@ -42,10 +41,10 @@ const ICON_SURFACES: Record<HostActionSeverity, string> = {
  * and gets back only which button the user clicked (`onAction`). No host
  * markup, styles or components enter the shadow root.
  *
- * The designer's built-in Save button is the same species of control and
- * becomes an action instance at 2.0 (issue #121) — `{ id: 'save', label:
- * 'Save' }` rendered through here, with `onSaveRequest` deleted. Keep this
- * component free of action-specific behavior so that stays a deletion.
+ * Save is one of these buttons and nothing special (issue #121): a host that
+ * wants one registers `{ id: 'save', label: 'Save' }`. Keep this component free
+ * of action-specific behavior — the designer must never know which action means
+ * what.
  */
 export function HostActionButtons({
   actions,

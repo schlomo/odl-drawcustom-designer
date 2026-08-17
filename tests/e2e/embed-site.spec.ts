@@ -46,7 +46,7 @@ test('/embed/ mounts the designer from the assembled site without load failures'
   await page.goto(siteUrl('/embed/'))
 
   // Same observable outcomes embed-mount.spec.ts proves against dist-lib:
-  // demo payload rendered, capabilities push landed, fonts self-contained.
+  // demo payload rendered, pushed display adopted, fonts self-contained.
   await expect(page.getByTestId('element-list-row')).toHaveCount(3)
   await expect(page.getByTestId('element-list-row').filter({ hasText: '21.5 °C' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Resolution' })).toContainText(/296\s*×\s*128/)

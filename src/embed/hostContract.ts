@@ -1,23 +1,23 @@
 import { colourSchemeToColorMode, normalizePaletteOverrides, type TagColorMode } from '../core'
 import type { CanvasConfig, CanvasRotation } from '../ui/hooks/useProjectState'
-import { DEFAULT_DISPLAY_CONFIG } from '../ui/preferences/displayConfig'
+import { DEFAULT_DISPLAY_CONFIG, type PreviewDitherMode } from '../ui/preferences/displayConfig'
 import type { MockData, MockEntityAttributes } from '../ui/preferences/mockStates'
-import type { HostCapabilities, HostEntityState, HostStates } from './types'
+import type { HostCapabilities, HostState, HostStates } from './types'
 
 /** Convert host-pushed states into the designer's mock state + attribute maps. */
 export function hostStatesToMockData(states: HostStates): MockData {
   const mockStates: MockData['states'] = {}
   const mockAttributes: MockData['attributes'] = {}
 
-  for (const [entityId, value] of Object.entries(states)) {
+  for (const [key, value] of Object.entries(states)) {
     if (value !== null && typeof value === 'object') {
-      mockStates[entityId] = value.state
+      mockStates[key] = value.state
       if (value.attributes && Object.keys(value.attributes).length > 0) {
-        mockAttributes[entityId] = { ...value.attributes }
+        mockAttributes[key] = { ...value.attributes }
       }
       continue
     }
-    mockStates[entityId] = value
+    mockStates[key] = value
   }
 
   return { states: mockStates, attributes: mockAttributes }
@@ -57,31 +57,31 @@ function attributesEqual(a?: Record<string, unknown>, b?: Record<string, unknown
   return recordValuesEqual(a ?? {}, b ?? {})
 }
 
-function hostEntityValueEqual(
-  a: string | number | boolean | HostEntityState,
-  b: string | number | boolean | HostEntityState,
+function hostStateValueEqual(
+  a: string | number | boolean | HostState,
+  b: string | number | boolean | HostState,
 ): boolean {
-  const aIsEntity = a !== null && typeof a === 'object'
-  const bIsEntity = b !== null && typeof b === 'object'
-  if (aIsEntity !== bIsEntity) {
+  const aIsRecord = a !== null && typeof a === 'object'
+  const bIsRecord = b !== null && typeof b === 'object'
+  if (aIsRecord !== bIsRecord) {
     return false
   }
-  if (!aIsEntity) {
+  if (!aIsRecord) {
     return a === b
   }
-  const stateA = a as HostEntityState
-  const stateB = b as HostEntityState
+  const stateA = a as HostState
+  const stateB = b as HostState
   return stateA.state === stateB.state && attributesEqual(stateA.attributes, stateB.attributes)
 }
 
 /**
  * Structural equality between two host `states` pushes (issue #110). The
- * upstream OpenDisplay HA integration pushes the *entire* entity registry —
- * every attribute, on every entity — up to 4x/s even when nothing changed,
- * so this is the guard that keeps an unchanged tick from costing more than
- * this scan: linear in entity + attribute count, short-circuits on the first
- * difference, and never allocates an intermediate string (unlike a
- * `JSON.stringify` comparison) or a converted mock-data copy.
+ * upstream OpenDisplay HA integration pushes its *entire* state map — every
+ * attribute, on every key — up to 4x/s even when nothing changed, so this is
+ * the guard that keeps an unchanged tick from costing more than this scan:
+ * linear in key + attribute count, short-circuits on the first difference, and
+ * never allocates an intermediate string (unlike a `JSON.stringify`
+ * comparison) or a converted mock-data copy.
  */
 export function hostStatesEqual(a: HostStates, b: HostStates): boolean {
   if (a === b) {
@@ -89,7 +89,7 @@ export function hostStatesEqual(a: HostStates, b: HostStates): boolean {
   }
   const aKeys = Object.keys(a)
   const bKeys = Object.keys(b)
-  return aKeys.length === bKeys.length && aKeys.every((key) => key in b && hostEntityValueEqual(a[key]!, b[key]!))
+  return aKeys.length === bKeys.length && aKeys.every((key) => key in b && hostStateValueEqual(a[key]!, b[key]!))
 }
 
 /** Equality for the converted flat state-value map (values are always primitives). */
@@ -103,11 +103,11 @@ export function mockStatesEqual(a: MockData['states'], b: MockData['states']): b
 }
 
 /**
- * Merge a freshly converted attribute map onto the previous one, reusing
- * each entity's previous attribute object when its content is unchanged
- * (issue #110) — so any future per-entity memoization (e.g. a
- * referenced-states panel row, ADR-018) can skip work for entities a push
- * did not touch. The returned top-level map is always new; call this only
+ * Merge a freshly converted attribute map onto the previous one, reusing a
+ * state key's previous attribute object when its content is unchanged
+ * (issue #110) — so any future per-key memoization (e.g. a referenced-states
+ * panel row, ADR-018) can skip work for the keys a push did not touch. The
+ * returned top-level map is always new; call this only
  * after `hostStatesEqual` already established the push changed something —
  * this does not itself detect "nothing changed" (that is
  * `hostStatesEqual`'s job, before any conversion happens).
@@ -117,9 +117,9 @@ export function mergeMockAttributes(
   next: MockEntityAttributes,
 ): MockEntityAttributes {
   const merged: MockEntityAttributes = {}
-  for (const [entityId, attrs] of Object.entries(next)) {
-    const previousAttrs = previous[entityId]
-    merged[entityId] = previousAttrs && recordValuesEqual(previousAttrs, attrs) ? previousAttrs : attrs
+  for (const [key, attrs] of Object.entries(next)) {
+    const previousAttrs = previous[key]
+    merged[key] = previousAttrs && recordValuesEqual(previousAttrs, attrs) ? previousAttrs : attrs
   }
   return merged
 }
@@ -194,14 +194,21 @@ function resolveColorMode(capabilities: HostCapabilities): TagColorMode | null {
 }
 
 /**
- * Map host capabilities onto the canvas config, **merging onto the current
- * one**: fields the host did not (or could not) provide keep their current
- * value, and designer-only preview settings (dither mode) always survive.
+ * Map a display target's capabilities onto the canvas config — the designer's
+ * one display mapping (issue #106; the `capabilities` push channel it used to
+ * share this with is gone, issue #121).
  *
- * This is the `capabilities` push channel's semantics — a host that pushes a
- * partial payload is re-asserting *some* facts about the display in effect,
- * not describing a different display. For a **named** target pick, see
- * {@link targetCapabilitiesToCanvas}: the same mapping over a canonical base.
+ * The base is always the designer's **canonical defaults**, never the canvas in
+ * front of the user: adopting a display *is* that display, so the same target
+ * must produce the same canvas whatever preceded it. Merging onto the current
+ * config would leak the previous display's facts into a target that never
+ * declared them — its rotation (296×128 arriving as 128×296), or worse its
+ * measured `color_map`, which paints one panel's red on another's tag (ADR-007
+ * parity).
+ *
+ * `previewDitherMode` is the one thing carried over, because it is not a
+ * property of any display: it is a designer-only preview setting the user owns,
+ * exactly as the display-config lock treats it.
  *
  * **Host contract (issue #139 review):** `rotation_degrees` MUST describe the
  * orientation `render_width`/`render_height` are expressed in — the *effective*
@@ -211,19 +218,16 @@ function resolveColorMode(capabilities: HostCapabilities): TagColorMode | null {
  * that pair as a unit. A host that pairs a base rotation with effective-swapped
  * dimensions is out of contract: the designer cannot detect the mismatch, and
  * the surface will read the wrong way round when the user re-orients it.
- *
- * A push that carries `rotation_degrees` **without** any size fields re-declares
- * the current dimensions as being in that orientation (the dimensions are kept,
- * not swapped) — documented for hosts in docs/embedding.md.
  */
 export function capabilitiesToCanvas(
   capabilities: HostCapabilities,
-  current: CanvasConfig,
+  previewDitherMode: PreviewDitherMode,
 ): CanvasConfig {
-  const rotation = normalizeRotation(capabilities.rotation_degrees) ?? current.rotation
+  const base: CanvasConfig = { ...DEFAULT_DISPLAY_CONFIG, previewDitherMode }
+  const rotation = normalizeRotation(capabilities.rotation_degrees) ?? base.rotation
 
-  let width = current.width
-  let height = current.height
+  let width = base.width
+  let height = base.height
   if (isPositiveSize(capabilities.render_width) && isPositiveSize(capabilities.render_height)) {
     width = Math.round(capabilities.render_width)
     height = Math.round(capabilities.render_height)
@@ -234,38 +238,13 @@ export function capabilitiesToCanvas(
   }
 
   return {
-    ...current,
+    ...base,
     width,
     height,
     rotation,
-    colorMode: resolveColorMode(capabilities) ?? current.colorMode,
+    colorMode: resolveColorMode(capabilities) ?? base.colorMode,
     // Measured panel hexes re-color the active palette (issue #68). `accent`
     // resolves through the same map, so accent_color participates implicitly.
-    paletteOverrides: normalizePaletteOverrides(capabilities.color_map) ?? current.paletteOverrides,
+    paletteOverrides: normalizePaletteOverrides(capabilities.color_map) ?? base.paletteOverrides,
   }
-}
-
-/**
- * Map a **named** display target's capabilities onto the canvas config, from
- * the designer's canonical defaults rather than the canvas in front of the
- * user (issue #106, maintainer ruling 2026-08-16).
- *
- * Picking a display *is* the display, not an edit to the current one: the same
- * target must produce the same canvas whatever the user picked before it.
- * Merging onto the current config leaks the previous display's facts into a
- * target that never declared them — its rotation (296×128 arriving as
- * 128×296), or worse its measured `color_map`, which paints one panel's
- * red on another's tag (ADR-007 parity).
- *
- * The one thing carried over is the preview dither mode: a designer-only
- * preview setting the user owns, exactly as the display-config lock treats it.
- */
-export function targetCapabilitiesToCanvas(
-  capabilities: HostCapabilities,
-  current: CanvasConfig,
-): CanvasConfig {
-  return capabilitiesToCanvas(capabilities, {
-    ...DEFAULT_DISPLAY_CONFIG,
-    previewDitherMode: current.previewDitherMode,
-  })
 }

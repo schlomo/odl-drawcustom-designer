@@ -21,8 +21,8 @@ import { expect, test } from '@playwright/test'
 
 const embedUrl = () => `http://localhost:${process.env.PW_EMBED_PORT}/`
 
-// Demo host page canvas (demo/host.js): the 296x128 BWR capabilities pushed
-// at mount (CAPABILITIES_296X128_BWR) size the drawing surface.
+// Demo host page canvas (demo/host.js): the single 296x128 BWR display target
+// pushed at mount (KITCHEN_TARGET) sizes the drawing surface.
 const CANVAS_SIZE = { width: 296, height: 128 }
 
 function toClientPoint(
