@@ -130,6 +130,7 @@ export function App({ bootstrap, host }: AppProps) {
     setElements,
     mockContext,
     previewMockContext,
+    hostStateCatalog,
     setMockState,
     addMockEntity,
     removeMockEntity,
@@ -552,6 +553,7 @@ export function App({ bootstrap, host }: AppProps) {
           selectedIndices={selectedIndices}
           canvas={canvas}
           mockContext={mockContext}
+          hostStateCatalog={hostStateCatalog}
           assetRevision={assetRevision}
           onSelectElement={selectElement}
           onCanvasSizeChange={setCanvasSize}

@@ -67,10 +67,15 @@ import {
 } from '../preferences/hiddenHints'
 import {
   capabilitiesToCanvas,
+  hostStateNamesEqual,
   hostStatesEqual,
   hostStatesToMockData,
+  hostStatesToNames,
   mergeMockAttributes,
   mockStatesEqual,
+  NO_HOST_STATE_NAMES,
+  type HostStateCatalog,
+  type HostStateNames,
 } from '../../embed/hostContract'
 import type { DesignerHost } from '../../embed/host'
 import { hostActionsEqual, NO_HOST_ACTIONS } from '../../embed/hostActions'
@@ -201,6 +206,19 @@ export function useProjectState(
     bootstrap.mockAttributes,
   )
   const [variables, setVariables] = useState<StoredVariables>(bootstrap.variables)
+  // Host-fed states (issue #107, ADR-018 state catalog): does a host own the
+  // states? Seeded from the adapter — the `states` mount option is an initial
+  // push, so the very first painted frame must already show the read-only
+  // referenced-states panel instead of the Simulator — and latched by the first
+  // `setStates()` push. It never goes back: a host that has fed states once
+  // owns them for the life of the mount.
+  const [hostStatesFed, setHostStatesFed] = useState(host.states != null)
+  // The friendly names the last push supplied (issue #107): presentation only,
+  // deliberately not part of the mock/template context, so no payload can read
+  // a label as data.
+  const [hostStateNames, setHostStateNames] = useState<HostStateNames>(() =>
+    host.states ? hostStatesToNames(host.states) : NO_HOST_STATE_NAMES,
+  )
   // Host-defined display (issue #70): the canvas config of the display target
   // the design is pinned to. Presence enables the display lock; re-locking
   // restores these values.
@@ -241,6 +259,10 @@ export function useProjectState(
   const [showHiddenHints, setShowHiddenHints] = useState(() => readShowHiddenHintsPrefs().enabled)
   const mockStatesRef = useRef(mockStates)
   const mockAttributesRef = useRef(mockAttributes)
+  // Is a host feeding states right now (issue #107)? Read inside `loadDemo`,
+  // which must load the demo *payload only* under a host-fed adapter — never a
+  // render dependency, so the Load Demo callback keeps its identity.
+  const hostStatesFedRef = useRef(hostStatesFed)
   // Last raw host `states` payload actually applied (issue #110): compared
   // structurally against each new push so an unchanged tick (the upstream
   // OpenDisplay HA integration re-sends its full entity registry up to 4x/s)
@@ -693,13 +715,22 @@ export function useProjectState(
           return
         }
         lastHostStatesRef.current = states
+        // A host that feeds states owns them (issue #107): the Simulator is off
+        // and the referenced-states panel takes its tab from here on. Latching
+        // it inside the push keeps the mount option and a later push identical
+        // in effect (ADR-018 seam grammar), and re-latching an already-fed
+        // designer is a no-op React bails out of.
+        hostStatesFedRef.current = true
+        setHostStatesFed(true)
         const mock = hostStatesToMockData(states)
+        const names = hostStatesToNames(states)
         // Functional updaters: bail per-part when that half of the push
         // didn't actually change (e.g. only attributes moved), and reuse the
         // attribute object of every state key the push left alone (bounded
         // churn, issue #110) rather than replacing the whole map wholesale.
         setMockStates((current) => (mockStatesEqual(current, mock.states) ? current : mock.states))
         setMockAttributes((current) => mergeMockAttributes(current, mock.attributes))
+        setHostStateNames((current) => (hostStateNamesEqual(current, names) ? current : names))
       },
       applyActions: (actions) => {
         // Re-pushable by contract (ADR-018): hosts re-push the whole list to
@@ -843,6 +874,20 @@ export function useProjectState(
   )
 
   const extraEntityIds = useMemo(() => Object.keys(mockContext.states).sort(), [mockContext.states])
+
+  // The host's state catalog, or null when the designer owns its states
+  // (issue #107, ADR-018). One value carries both the panel's data and the
+  // Simulator-off policy, so there is no way for the two to disagree. Its
+  // identity only moves when one of the pushed maps does — every one of them is
+  // identity-stable across an unchanged push (issue #110), so a 4x/s
+  // full-registry re-push still re-renders nothing.
+  const hostStateCatalog = useMemo<HostStateCatalog | null>(
+    () =>
+      hostStatesFed
+        ? { values: mockStates, attributes: mockAttributes, names: hostStateNames }
+        : null,
+    [hostStatesFed, mockStates, mockAttributes, hostStateNames],
+  )
 
   const selectedIndex = selectedIndices.length > 0 ? selectedIndices[selectedIndices.length - 1]! : null
 
@@ -1395,14 +1440,24 @@ export function useProjectState(
     }
     commitElements(cloneShowcaseElements())
     commitSelectedIndices([])
-    // Seed the mock context the showcase templates rely on, so the demo renders
-    // its state/attribute/variable examples without manual Simulator setup.
-    // Invalidate the host-push cache (issue #110 follow-up): this is a local
-    // mock mutation, same as the Simulator setters above.
-    lastHostStatesRef.current = null
     const simulator = cloneShowcaseSimulator()
-    setMockStates(simulator.states)
-    setMockAttributes(simulator.attributes)
+    // Under a host-fed adapter, Load Demo loads the **payload only** (maintainer
+    // ruling 2026-08-16, issue #107): the demo's states are Simulator data, and
+    // the Simulator is off here. Seeding them would flash values the very next
+    // host push wholesale-overwrites to unknown (observed on the demo page's
+    // ticker, PR #137). The host stays authoritative, and the demo's own states
+    // show honestly as "not supplied" in the referenced-states panel.
+    if (!hostStatesFedRef.current) {
+      // Seed the mock context the showcase templates rely on, so the demo
+      // renders its state/attribute examples without manual Simulator setup.
+      // Invalidate the host-push cache (issue #110 follow-up): this is a local
+      // mock mutation, same as the Simulator setters above.
+      lastHostStatesRef.current = null
+      setMockStates(simulator.states)
+      setMockAttributes(simulator.attributes)
+    }
+    // Variables are not a host channel — no push can supply or clobber them —
+    // so the demo's own variables seed in either mode.
     setVariables(simulator.variables)
   }, [commitCanvas, commitElements, commitSelectedIndices, resetEditHistory])
 
@@ -1704,6 +1759,12 @@ export function useProjectState(
     hostActions,
     mockContext,
     previewMockContext,
+    /**
+     * The host's read-only state catalog (issue #107), or `null` when the
+     * designer owns its states. Non-null replaces the Simulator tab with the
+     * referenced-states panel.
+     */
+    hostStateCatalog,
     setMockState,
     addMockEntity,
     removeMockEntity,

@@ -93,19 +93,33 @@ export type HostActionHandler = (
   context: HostActionContext,
 ) => void
 
-/** A pushed state value with optional attributes. */
+/** A pushed state value with optional attributes and an optional display name. */
 export interface HostState {
   state: string | number | boolean
   attributes?: Record<string, unknown>
+  /**
+   * Human-readable label for this state key (issue #107, ADR-018 state
+   * catalog) — what the referenced-states panel shows instead of the raw key
+   * ("Living-room temperature", not `sensor.demo_temperature`).
+   *
+   * Presentation only, and re-pushable like every other field: templates never
+   * see it (a payload reads `states()`/`state_attr()`, which are unaffected by
+   * whether the host named the key), and the designer never parses meaning out
+   * of it. Surrounding whitespace is trimmed; a blank name counts as none, and
+   * an unnamed key shows as its key.
+   */
+  name?: string
 }
 
 /**
- * Host-pushed states: state key -> state value or {state, attributes}. The
- * keys are the host's own identifiers, opaque to the designer — they are what
- * a payload's templates name (`states('…')`, `state_attr('…', '…')`).
+ * Host-pushed states: state key -> state value or {state, attributes, name}.
+ * The keys are the host's own identifiers, opaque to the designer — they are
+ * what a payload's templates name (`states('…')`, `state_attr('…', '…')`).
  *
- * When provided, this replaces the State Simulator's persisted mock source
- * for template preview (ADR-010).
+ * When provided, this **replaces the State Simulator entirely** (issue #107,
+ * ADR-018 Simulator policy): the designer shows a read-only referenced-states
+ * panel instead, and the full catalog stays reachable through YAML/template
+ * autocomplete.
  *
  * Ownership contract (issue #110): treated as an **immutable snapshot** at
  * the moment `setStates()` is called. Repeated pushes are diffed

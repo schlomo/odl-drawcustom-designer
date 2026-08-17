@@ -194,6 +194,27 @@ data contract — no new lifecycle, no new adapter shape:
   referenced-states panel shows only the states the current payload actually
   references, with host display names, as a compact visual aid. The full
   catalog remains reachable via YAML/template autocomplete, unchanged.
+
+  *Shipped shape* (issue #107, `docs/embedding.md`):
+
+  - The field is `HostState.name` — domain-neutral, presentation only (no
+    template can read it) and re-pushable like everything else; the
+    issue-#110 push diff covers it, so a rename-only push lands.
+  - **Presence of the `states` channel is the policy.** Any push or mount
+    option — an empty map included — hands the catalog to the host: the
+    Simulator's sidebar tab *becomes* the read-only States panel, and no
+    state-editing UI is rendered anywhere. With no push at all, the Simulator
+    is byte-identical to what it always was.
+  - The panel lists the states the payload references
+    (`scanPayloadForTemplates` — entity ids plus dotted attribute bases), each
+    with its name, key, value and referenced attributes, and marks anything
+    the host does not supply **"not supplied"** rather than inventing a value.
+  - **Load Demo under a host-fed adapter loads the payload only** (maintainer
+    ruling 2026-08-16, from PR #137 manual validation): the showcase's
+    simulator states are Simulator data and would flash until the next push
+    overwrote them to unknown. Shared variables still seed — they are not a
+    host channel, so no push can supply or clobber them. Standalone Load Demo
+    is unchanged.
 - **Actions** — `actions: [{ id, label, icon?, severity?, needsPayload?, disabledReason? }]`
   + `onAction(id, payload, { targetId })`. The designer renders the button list
   in its own chrome; meaning, auth, and the actual service call are entirely

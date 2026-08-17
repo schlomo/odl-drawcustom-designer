@@ -61,6 +61,11 @@ export function createEmbeddedHost(options: MountOptions): DesignerHost {
     fill: 'container',
     shareLink: false,
     persistence: null,
+    // Presence is the host-fed-states policy (issue #107): pushing `states` at
+    // mount turns the Simulator off and paints the referenced-states panel on
+    // the first frame instead — an initial push, exactly like `actions` and
+    // `targets` (ADR-018 seam grammar).
+    states: options.states,
     actions,
     onAction: options.onAction,
     targets,

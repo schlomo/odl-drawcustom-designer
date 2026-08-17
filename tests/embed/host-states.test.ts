@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { evaluateTemplate } from '../../src/core'
 import {
+  hostStateNamesEqual,
   hostStatesEqual,
   hostStatesToMockData,
+  hostStatesToNames,
   mergeMockAttributes,
   mockStatesEqual,
 } from '../../src/embed/hostContract'
@@ -118,12 +120,91 @@ describe('hostStatesEqual', () => {
     expect(hostStatesEqual(a, b)).toBe(true)
   })
 
+  // Issue #107: `name` is part of what a push declares, so the issue-#110 diff
+  // has to see it — otherwise a host renaming a state (only) gets a false
+  // "unchanged" and the referenced-states panel keeps showing the old name.
+  it('is false when only a friendly name changes', () => {
+    expect(
+      hostStatesEqual(
+        { 'sensor.temperature': { state: '21.5', name: 'Living room' } },
+        { 'sensor.temperature': { state: '21.5', name: 'Balcony' } },
+      ),
+    ).toBe(false)
+  })
+
+  it('is false when a friendly name is added or dropped', () => {
+    const named = { 'sensor.temperature': { state: '21.5', name: 'Living room' } }
+    const unnamed = { 'sensor.temperature': { state: '21.5' } }
+    expect(hostStatesEqual(named, unnamed)).toBe(false)
+    expect(hostStatesEqual(unnamed, named)).toBe(false)
+  })
+
   it('compares array-valued attributes (e.g. rgb_color) by content', () => {
     const a = { 'light.desk': { state: 'on', attributes: { rgb_color: [255, 0, 0] } } }
     const b = { 'light.desk': { state: 'on', attributes: { rgb_color: [255, 0, 0] } } }
     const c = { 'light.desk': { state: 'on', attributes: { rgb_color: [0, 255, 0] } } }
     expect(hostStatesEqual(a, b)).toBe(true)
     expect(hostStatesEqual(a, c)).toBe(false)
+  })
+})
+
+/**
+ * Friendly names (issue #107, ADR-018 state catalog): a pushed state may carry
+ * an optional `name`, which is what the referenced-states panel shows instead
+ * of the raw key. Names are presentation only — they never reach the template
+ * context, so a payload templating a key is unaffected by whether the host
+ * named it.
+ */
+describe('hostStatesToNames', () => {
+  it('extracts the names a push supplied, keyed by state key', () => {
+    expect(
+      hostStatesToNames({
+        'sensor.temperature': { state: '21.5', name: 'Living-room temperature' },
+        'light.desk': { state: 'on', name: 'Desk lamp' },
+      }),
+    ).toEqual({
+      'sensor.temperature': 'Living-room temperature',
+      'light.desk': 'Desk lamp',
+    })
+  })
+
+  it('omits keys with no usable name — plain values, missing and blank names alike', () => {
+    expect(
+      hostStatesToNames({
+        'sensor.plain': '21.5',
+        'sensor.unnamed': { state: 'on' },
+        'sensor.blank': { state: 'on', name: '   ' },
+      }),
+    ).toEqual({})
+  })
+
+  it('trims surrounding whitespace, like every other host-supplied label', () => {
+    expect(hostStatesToNames({ 'light.desk': { state: 'on', name: '  Desk lamp  ' } })).toEqual({
+      'light.desk': 'Desk lamp',
+    })
+  })
+
+  it('keeps names out of the template context', () => {
+    const mock = hostStatesToMockData({
+      'sensor.temperature': { state: '21.5', name: 'Living-room temperature' },
+    })
+    const context = { states: mock.states, attributes: mock.attributes }
+
+    expect(evaluateTemplate("{{ states('sensor.temperature') }}", context)).toBe('21.5')
+    // Nothing to read: a name is chrome, never an attribute a payload can see.
+    expect(evaluateTemplate("{{ state_attr('sensor.temperature', 'name') }}", context)).toBe('')
+  })
+})
+
+describe('hostStateNamesEqual', () => {
+  it('ignores key order', () => {
+    expect(hostStateNamesEqual({ a: 'A', b: 'B' }, { b: 'B', a: 'A' })).toBe(true)
+  })
+
+  it('is false when a name changes, is added, or is removed', () => {
+    expect(hostStateNamesEqual({ a: 'A' }, { a: 'Alpha' })).toBe(false)
+    expect(hostStateNamesEqual({ a: 'A' }, { a: 'A', b: 'B' })).toBe(false)
+    expect(hostStateNamesEqual({ a: 'A', b: 'B' }, { a: 'A' })).toBe(false)
   })
 })
 

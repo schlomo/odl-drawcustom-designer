@@ -4,6 +4,30 @@ import { DEFAULT_DISPLAY_CONFIG, type PreviewDitherMode } from '../ui/preference
 import type { MockData, MockEntityAttributes } from '../ui/preferences/mockStates'
 import type { HostCapabilities, HostState, HostStates } from './types'
 
+/**
+ * Friendly names the host supplied, by state key (issue #107) — the labels the
+ * referenced-states panel shows instead of raw keys.
+ */
+export type HostStateNames = Readonly<Record<string, string>>
+
+/** Shared empty map: a host that names nothing allocates nothing per render. */
+export const NO_HOST_STATE_NAMES: HostStateNames = Object.freeze({})
+
+/**
+ * The host's states as the designer consumes them (issue #107, ADR-018 state
+ * catalog): the current values, their attributes, and the optional friendly
+ * names. Its **presence** is what replaces the State Simulator with the
+ * read-only referenced-states panel — standalone has no catalog at all.
+ */
+export interface HostStateCatalog {
+  /** Current value per state key, exactly as last pushed. */
+  values: MockData['states']
+  /** Attributes per state key, as last pushed. */
+  attributes: MockEntityAttributes
+  /** Friendly names, for the keys the host named. */
+  names: HostStateNames
+}
+
 /** Convert host-pushed states into the designer's mock state + attribute maps. */
 export function hostStatesToMockData(states: HostStates): MockData {
   const mockStates: MockData['states'] = {}
@@ -21,6 +45,28 @@ export function hostStatesToMockData(states: HostStates): MockData {
   }
 
   return { states: mockStates, attributes: mockAttributes }
+}
+
+/**
+ * Extract the friendly names a push supplied (issue #107). Only keys the host
+ * actually named appear: a plain value, a missing `name` and a blank one all
+ * mean "no name", and the panel falls back to showing the key itself.
+ *
+ * Deliberately separate from {@link hostStatesToMockData}: names are chrome,
+ * not template data — a name must never become a state or an attribute a
+ * payload could read.
+ */
+export function hostStatesToNames(states: HostStates): Record<string, string> {
+  const names: Record<string, string> = {}
+  for (const [key, value] of Object.entries(states)) {
+    if (value !== null && typeof value === 'object') {
+      const name = value.name?.trim()
+      if (name) {
+        names[key] = name
+      }
+    }
+  }
+  return names
 }
 
 function deepValueEqual(a: unknown, b: unknown): boolean {
@@ -71,7 +117,14 @@ function hostStateValueEqual(
   }
   const stateA = a as HostState
   const stateB = b as HostState
-  return stateA.state === stateB.state && attributesEqual(stateA.attributes, stateB.attributes)
+  return (
+    stateA.state === stateB.state &&
+    // `name` is part of what a push declares (issue #107), so a rename-only
+    // push must not read as "unchanged" and leave the referenced-states panel
+    // showing the previous label.
+    stateA.name === stateB.name &&
+    attributesEqual(stateA.attributes, stateB.attributes)
+  )
 }
 
 /**
@@ -92,14 +145,31 @@ export function hostStatesEqual(a: HostStates, b: HostStates): boolean {
   return aKeys.length === bKeys.length && aKeys.every((key) => key in b && hostStateValueEqual(a[key]!, b[key]!))
 }
 
-/** Equality for the converted flat state-value map (values are always primitives). */
-export function mockStatesEqual(a: MockData['states'], b: MockData['states']): boolean {
+/** Key-set + identity equality for a flat map of primitives. */
+function flatMapEqual(
+  a: Readonly<Record<string, string | number | boolean>>,
+  b: Readonly<Record<string, string | number | boolean>>,
+): boolean {
   if (a === b) {
     return true
   }
   const aKeys = Object.keys(a)
   const bKeys = Object.keys(b)
   return aKeys.length === bKeys.length && aKeys.every((key) => key in b && a[key] === b[key])
+}
+
+/** Equality for the converted flat state-value map (values are always primitives). */
+export function mockStatesEqual(a: MockData['states'], b: MockData['states']): boolean {
+  return flatMapEqual(a, b)
+}
+
+/**
+ * Equality for the extracted friendly-name map (issue #107) — the diff that
+ * keeps a push which changed only values from re-rendering the panel's labels,
+ * and keeps the catalog's identity stable when nothing about names moved.
+ */
+export function hostStateNamesEqual(a: HostStateNames, b: HostStateNames): boolean {
+  return flatMapEqual(a, b)
 }
 
 /**

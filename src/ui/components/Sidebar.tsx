@@ -2,6 +2,7 @@ import { mdiLock, mdiLockOpen } from '@mdi/js'
 import { useMemo, useState } from 'react'
 import type { AssetKind, AssetUploadResult, DrawElement, TagColorMode } from '../../core'
 import type { HaMockContext } from '../../core'
+import type { HostStateCatalog } from '../../embed/hostContract'
 import type { HostTarget } from '../../embed/types'
 import {
   applyResolutionSelectValue,
@@ -20,11 +21,17 @@ import { DisplayTargetSelect } from './DisplayTargetSelect'
 import { ElementList } from './ElementList'
 import { IconButton } from './IconButton'
 import type { PanelListScope } from './PanelScopeToggle'
+import { ReferencedStatesPanel } from './ReferencedStatesPanel'
 import { ResolutionSelect } from './ResolutionSelect'
 import { StateSimulator } from './StateSimulator'
 import { StatusHint } from './StatusHint'
 
-type SidebarTab = 'elements' | 'simulator' | 'content'
+/**
+ * `simulator` and `states` are one slot under two policies (issue #107,
+ * ADR-018): the editable State Simulator while the designer owns its states,
+ * the read-only referenced-states panel once a host feeds them. Never both.
+ */
+type SidebarTab = 'elements' | 'simulator' | 'states' | 'content'
 
 interface SidebarProps {
   elements: DrawElement[]
@@ -32,6 +39,13 @@ interface SidebarProps {
   selectedIndices: number[]
   canvas: CanvasConfig
   mockContext: HaMockContext
+  /**
+   * The host's read-only state catalog (issue #107, ADR-018), or null/absent
+   * when the designer owns its states. Non-null turns the Simulator off: its
+   * tab becomes the read-only States panel, and no state-editing UI is rendered
+   * anywhere.
+   */
+  hostStateCatalog?: HostStateCatalog | null
   assetRevision: number
   onSelectElement: (index: number, options?: SelectElementOptions) => void
   /**
@@ -98,8 +112,12 @@ const COLOR_MODE_OPTIONS: Array<{ value: TagColorMode; label: string }> = [
 const TAB_LABEL: Record<SidebarTab, string> = {
   elements: 'Elements',
   simulator: 'Simulator',
+  states: 'States',
   content: 'Content',
 }
+
+const DESIGNER_STATE_TABS: readonly SidebarTab[] = ['elements', 'simulator', 'content']
+const HOST_STATE_TABS: readonly SidebarTab[] = ['elements', 'states', 'content']
 
 const MIN_SIDEBAR_WIDTH = 200
 const MAX_SIDEBAR_WIDTH = 560
@@ -111,6 +129,7 @@ export function Sidebar({
   selectedIndices,
   canvas,
   mockContext,
+  hostStateCatalog = null,
   assetRevision,
   onSelectElement,
   onCanvasSizeChange,
@@ -152,6 +171,17 @@ export function Sidebar({
     edge: 'left',
   })
   const displayLocked = displayLock === 'locked'
+  const hostStatesFed = hostStateCatalog != null
+  const tabs = hostStatesFed ? HOST_STATE_TABS : DESIGNER_STATE_TABS
+  // The state slot survives a policy flip mid-session: a host's *first* push
+  // can land while the user has the Simulator open (issue #107), and the tab
+  // they are looking at must become the States panel rather than snapping them
+  // back to Elements.
+  const activeTab: SidebarTab = tabs.includes(tab)
+    ? tab
+    : hostStatesFed
+      ? 'states'
+      : 'simulator'
   const resolutionValue = resolutionDropdownValue(
     canvas.width,
     canvas.height,
@@ -320,12 +350,12 @@ export function Sidebar({
       </section>
 
       <div className={`flex shrink-0 border-b ${shell.panelBorder}`}>
-        {(['elements', 'simulator', 'content'] as const).map((id) => (
+        {tabs.map((id) => (
           <button
             key={id}
             type="button"
             className={`flex-1 border-b-2 px-2 py-2 text-[11px] font-medium ${
-              tab === id
+              activeTab === id
                 ? 'border-[var(--shell-accent)] text-[var(--shell-accent)]'
                 : 'border-transparent text-[var(--shell-muted)] hover:text-[var(--shell-text)]'
             }`}
@@ -337,7 +367,7 @@ export function Sidebar({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3 pr-5">
-        {tab === 'elements' ? (
+        {activeTab === 'elements' ? (
           <>
             <p className={`mb-2 text-[10px] ${shell.muted}`}>
               Top = front (drawn last in YAML)
@@ -356,7 +386,7 @@ export function Sidebar({
             </div>
           </>
         ) : null}
-        {tab === 'simulator' ? (
+        {activeTab === 'simulator' ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <StateSimulator
               elements={elements}
@@ -379,7 +409,12 @@ export function Sidebar({
             />
           </div>
         ) : null}
-        {tab === 'content' ? (
+        {activeTab === 'states' && hostStateCatalog ? (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <ReferencedStatesPanel elements={elements} catalog={hostStateCatalog} />
+          </div>
+        ) : null}
+        {activeTab === 'content' ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <ContentManager
               elements={elements}

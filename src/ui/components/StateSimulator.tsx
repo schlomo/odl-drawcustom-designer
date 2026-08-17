@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { DrawElement, HaMockContext } from '../../core'
 import { coerceAttributeValue, scanPayloadForTemplates } from '../../core'
+import { formatAttributeValue, formatStateValue } from '../lib/state-value-format'
 import { shell } from '../styles/shell'
 import { PanelScopeToggle, type PanelListScope } from './PanelScopeToggle'
 
@@ -22,34 +23,6 @@ interface StateSimulatorProps {
   onRemoveVariable?: (name: string) => void
   onFocusEntity?: (entityId: string) => void
   embedded?: boolean
-}
-
-function formatMockValue(value: string | number | boolean): string {
-  return String(value)
-}
-
-/**
- * Render an attribute value as an `<input>`-safe string. Must ALWAYS return a
- * string (never `undefined`, which would flip the input controlled→uncontrolled)
- * and must never throw (e.g. `JSON.stringify` on a BigInt or circular value),
- * which would crash the simulator.
- */
-function formatAttributeValue(value: unknown): string {
-  if (typeof value === 'string') {
-    return value
-  }
-  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
-    return String(value)
-  }
-  if (value === null || value === undefined) {
-    return ''
-  }
-  try {
-    const json = JSON.stringify(value)
-    return typeof json === 'string' ? json : ''
-  } catch {
-    return ''
-  }
 }
 
 /** Matches the core rule for bare-identifier variable names (`{{ name }}`). */
@@ -226,7 +199,7 @@ export function StateSimulator({
                 <input
                   type="text"
                   className={`${shell.input} w-20 px-1.5 py-1 text-[11px]`}
-                  value={formatMockValue(row.value)}
+                  value={formatStateValue(row.value)}
                   onChange={(event) => onSetMockState(row.entityId, event.target.value)}
                   onFocus={() => onFocusEntity?.(row.entityId)}
                   aria-label={`Mock state for ${row.entityId}`}

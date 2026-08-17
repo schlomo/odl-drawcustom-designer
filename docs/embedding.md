@@ -44,7 +44,7 @@ npm run build:site && npm run preview
 
 No dedicated server needed beyond that: the demo is plain static files, so any static file server works (e.g. `python3 -m http.server -d dist-lib`).
 
-The demo page implements every seam with mocks: it mounts as a **single-display host** (one pushed display, adopted and locked without a pick), pushes its full display inventory on demand, adds and removes displays, pushes warm/cold states plus a per-second ticking state, registers Save / Send / Validate / Display-settings actions and re-pushes them to simulate a display going offline, switches themes, and logs every fired action and display selection into a `<pre>`. It is also the Playwright e2e harness ([`tests/e2e/embed-mount.spec.ts`](../tests/e2e/embed-mount.spec.ts), [`embed-actions.spec.ts`](../tests/e2e/embed-actions.spec.ts), [`embed-targets.spec.ts`](../tests/e2e/embed-targets.spec.ts)) — if a feature cannot be expressed on that page, the abstraction is wrong (ADR-018's litmus test).
+The demo page implements every seam with mocks: it mounts as a **single-display host** (one pushed display, adopted and locked without a pick), pushes its full display inventory on demand, adds and removes displays, pushes warm/cold states with friendly names plus a per-second ticking state, registers Save / Send / Validate / Display-settings actions and re-pushes them to simulate a display going offline, switches themes, and logs every fired action and display selection into a `<pre>`. It is also the Playwright e2e harness ([`tests/e2e/embed-mount.spec.ts`](../tests/e2e/embed-mount.spec.ts), [`embed-actions.spec.ts`](../tests/e2e/embed-actions.spec.ts), [`embed-targets.spec.ts`](../tests/e2e/embed-targets.spec.ts)) — if a feature cannot be expressed on that page, the abstraction is wrong (ADR-018's litmus test).
 
 The same demo is published from `main` at **<https://schlomo.github.io/odl-drawcustom-designer/embed/>** — `npm run build:site` assembles the deployed site (app at `/`, `dist-lib/` copied to `/embed/` by [`tools/assembleSite.ts`](../tools/assembleSite.ts)); PR previews get their own `/embed/` the same way.
 
@@ -148,18 +148,42 @@ Domain-neutral types ([`src/embed/types.ts`](../src/embed/types.ts)): "state", "
 
 ### `states`
 
-State key → state value, or `{ state, attributes }`:
+State key → state value, or `{ state, attributes, name }`:
 
 ```js
 {
   'sensor.temperature': '21.5',
   'light.desk': { state: 'on', attributes: { brightness: 128 } },
+  'sensor.living_room_temperature': {
+    state: '21.5',
+    name: 'Living-room temperature',        // friendly name, shown in the States panel
+    attributes: { unit_of_measurement: '°C' },
+  },
 }
 ```
 
-The keys are the host's own identifiers, opaque to the designer — they are what a payload's templates name (`states()`, `is_state()`, `state_attr()`, dotted access). When provided, this **replaces** the State Simulator's persisted mock source for template preview. Each push replaces the whole map. Simulator edits made inside an embedded mount stay in memory only — nothing is written to the standalone profile.
+The keys are the host's own identifiers, opaque to the designer — they are what a payload's templates name (`states()`, `is_state()`, `state_attr()`, dotted access). Each push replaces the whole map.
 
-**Ownership contract ([issue #110](https://github.com/schlomo/odl-drawcustom-designer/issues/110)):** a pushed `states` object is treated as an **immutable snapshot** at the moment `setStates()` is called. Unchanged pushes are diffed structurally against the last-applied object and skipped for cost (no re-render, no template re-evaluation) — this compares by value, not by cloning, so **mutate-and-repush is unsupported**: if a host mutates the same object in place and calls `setStates()` again with that same reference, the mutation is invisible to the diff and the push is incorrectly treated as unchanged. Construct a fresh object (or a fresh copy of the changed parts) per push instead. A host pushing its whole registry several times a second is the design case, not an abuse. [`demo/host.js`](../demo/host.js) demonstrates the pattern: a `sensor.demo_clock` state ticks every second via `setStates()`, building a fresh state object per push.
+#### `name` — friendly names ([issue #107](https://github.com/schlomo/odl-drawcustom-designer/issues/107))
+
+Optional, per state: the human-readable label the designer shows instead of the raw key ("Living-room temperature", not `sensor.living_room_temperature`). Presentation only and re-pushable like every other field — templates never see it, so a payload behaves identically whether or not the host names its states. Surrounding whitespace is trimmed, a blank name counts as none, and an unnamed key simply shows as its key.
+
+#### The State Simulator is off under host-fed states ([ADR-018](adr/ADR-018-host-ui-seam.md))
+
+Pushing `states` at all — as a mount option or a later `setStates()`, even an empty map — hands the state catalog to the host, so the designer's own State Simulator is **disabled and replaced**, not hidden (this resolves [issue #24](https://github.com/schlomo/odl-drawcustom-designer/issues/24)): mocking values against live host data is a standalone/demo feature, not a layer to reconcile.
+
+What the user gets in its place, in the same sidebar tab (now labelled **States**):
+
+- **A read-only referenced-states panel** listing exactly the states *this design* reads — the friendly name, the raw key, the current value, and the referenced attributes underneath it. It follows every push live (the demo page's per-second ticker is the reference fixture).
+- **An honest missing marker.** A state (or a referenced attribute) the payload names and the host does not supply reads **"not supplied"** rather than a fabricated value — the same thing template preview does with it (`unknown`), said out loud.
+- **The full catalog, in autocomplete.** Nothing is hidden: every pushed state key is offered by the YAML/template autocomplete, referenced or not. That is where you go to find a key; the panel is where you check what the design reads.
+- **No state-editing UI anywhere.** No add-entity row, no value inputs, no attribute editors.
+
+With no `states` push (standalone, or an embed that pushes none) the Simulator is exactly what it always was, and no panel or States tab exists.
+
+**Load Demo loads the payload only** under a host-fed adapter (maintainer ruling 2026-08-16): the showcase's simulator states are Simulator data, and seeding them would flash values the very next host push wholesale-overwrites to unknown. So the demo payload loads, the host stays authoritative for states, and the showcase's own states show as "not supplied" in the panel until the host supplies them. Shared *variables* are not a host channel — nothing can push or clobber them — so the demo still seeds those. Standalone Load Demo is unchanged (payload + mocks + variables).
+
+**Ownership contract ([issue #110](https://github.com/schlomo/odl-drawcustom-designer/issues/110)):** a pushed `states` object is treated as an **immutable snapshot** at the moment `setStates()` is called. Unchanged pushes are diffed structurally against the last-applied object and skipped for cost (no re-render, no template re-evaluation) — this compares by value, not by cloning, so **mutate-and-repush is unsupported**: if a host mutates the same object in place and calls `setStates()` again with that same reference, the mutation is invisible to the diff and the push is incorrectly treated as unchanged. Construct a fresh object (or a fresh copy of the changed parts) per push instead. A host pushing its whole registry several times a second is the design case, not an abuse. [`demo/host.js`](../demo/host.js) demonstrates the pattern: a `sensor.demo_clock` state ticks every second via `setStates()`, building a fresh state object per push. The diff covers `name` too, so a rename-only push lands — the panel never shows a label the host has moved on from.
 
 ### `targets` / `onTargetSelected` ([issue #106](https://github.com/schlomo/odl-drawcustom-designer/issues/106))
 
