@@ -13,8 +13,6 @@
 // Kept to the handful of element types and fields the demo payload uses; a real
 // host calls its own backend instead of parsing anything here.
 
-const DEFAULT_SIZE = { width: 296, height: 128 }
-
 /** How long the fake "display" takes to answer — exercises the loading state. */
 export const PREVIEW_RENDER_DELAY_MS = 450
 
@@ -103,15 +101,19 @@ function quantize(imageData, dither) {
 /**
  * Render the payload as this fake host's display would.
  *
+ * The surface comes from `context.display` — the oriented logical canvas the
+ * payload's coordinates are authored against, which the designer re-requests a
+ * render for whenever it changes. A host that instead rendered its own idea of
+ * the size (its stored target capabilities, say) would answer a re-orientation
+ * with an image of the wrong shape, and the designer would letterbox it.
+ *
  * @param {string} payload drawcustom element-list YAML, exactly as the designer sends it
- * @param {{ targetId?: string, service: { dither: 0|1|2 } }} context the preview context
- * @param {{ capabilities?: object, states?: object }} host what this host knows
+ * @param {{ targetId?: string, display: { width: number, height: number, rotation: 0|90|180|270 }, service: { dither: 0|1|2 } }} context the preview context
+ * @param {{ states?: object }} host what this host knows
  * @returns {Promise<Blob>} an `image/png` blob
  */
 export async function renderPayloadOnFakeDisplay(payload, context, host = {}) {
-  const capabilities = host.capabilities ?? {}
-  const width = number(capabilities.render_width, 0) || DEFAULT_SIZE.width
-  const height = number(capabilities.render_height, 0) || DEFAULT_SIZE.height
+  const { width, height } = context.display
   const states = host.states ?? {}
 
   const canvas = document.createElement('canvas')
@@ -155,7 +157,11 @@ export async function renderPayloadOnFakeDisplay(payload, context, host = {}) {
   ctx.fillRect(0, height - 12, width, 12)
   ctx.fillStyle = '#000000'
   ctx.font = '9px monospace'
-  ctx.fillText(`host render · dither=${context.service.dither}`, 3, height - 11)
+  ctx.fillText(
+    `host render · dither=${context.service.dither} · ${width}x${height}@${context.display.rotation}°`,
+    3,
+    height - 11,
+  )
 
   const imageData = ctx.getImageData(0, 0, width, height)
   ctx.putImageData(quantize(imageData, context.service.dither), 0, 0)
