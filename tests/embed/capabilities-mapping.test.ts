@@ -65,6 +65,19 @@ describe('capabilitiesToCanvas', () => {
     expect(flat).toMatchObject({ width: 400, height: 300, rotation: 180 })
   })
 
+  it('a rotation-only push re-declares the current dimensions as being in that orientation', () => {
+    // Disclosed behavior of this channel (issue #139 review, F6): a push
+    // carrying `rotation_degrees` and no size fields adopts the rotation and
+    // keeps the dimensions — it does not swap them. The consequence a host has
+    // to know: those two dimensions are now paired with the pushed rotation, so
+    // turning the canvas afterwards swaps *these* numbers. Push `render_*` (or
+    // `pixel_*`) alongside to restate the surface, or use the `targets`
+    // channel, which always carries both.
+    const next = capabilitiesToCanvas({ rotation_degrees: 90 }, CURRENT)
+
+    expect(next).toMatchObject({ width: 384, height: 184, rotation: 90 })
+  })
+
   it('maps Basic Standard color_scheme values onto tag color modes', () => {
     expect(capabilitiesToCanvas({ color_scheme: 0x00 }, CURRENT).colorMode).toBe('bw')
     expect(capabilitiesToCanvas({ color_scheme: 0x01 }, CURRENT).colorMode).toBe('bwr')

@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { expect, test, type Page } from '@playwright/test'
 
 /**
@@ -157,18 +158,62 @@ test('a very long host label never widens the sidebar', async ({ page }) => {
   expect(pickerWidth).toBeLessThanOrEqual(metrics.clientWidth)
 })
 
-test('picking a rotated display seeds rotation and keeps rotation buttons enabled', async ({
+test('picking a portrait display gives an upright portrait editing surface (issue #139)', async ({
   page,
 }) => {
-  // The Hallway display (demo target) is configured with rotation_degrees: 90,
-  // so picking it should seed that rotation on the canvas (swapped dimensions)
-  // and keep rotation controls available for further editing.
+  // The Hallway display (demo target) declares a 480×800 drawing surface at
+  // rotation_degrees: 90 — a landscape panel mounted portrait. The designer
+  // must present that logical surface **upright**, the way upstream
+  // `imagegen` draws it: portrait paper, horizontal text. It used to CSS-turn
+  // the paper into a landscape stage with the design on its side (issue #139).
   await picker(page).selectOption({ label: 'Hallway 7.5" (800×480 BWRY, portrait)' })
 
-  // Rotation 90 swaps canvas dimensions: 800→height, 480→width
+  // The logical drawing surface is portrait: 800→height, 480→width.
   await expect.poll(() => paperSize(page)).toBe('480×800')
 
-  // Rotation is seeded: the 90° button shows as active (accent color)
-  // and rotation buttons remain editable (not disabled by the lock).
-  await expect(page.getByRole('button', { name: '90°' })).toHaveAttribute('class', /shell-accent/)
+  // …and so is what the user actually sees. The paper's *painted box* — its
+  // rect after every transform — is portrait, so nothing turned it.
+  await expect
+    .poll(async () => {
+      const box = await page.locator('[data-canvas-paper]').first().boundingBox()
+      return box ? Math.round((box.width / box.height) * 100) / 100 : null
+    })
+    .toBe(Math.round((480 / 800) * 100) / 100)
+
+  // Text is painted into the paper's own layers in logical coordinates, so the
+  // paper's screen transform *is* the text's orientation: no rotation term
+  // (matrix b and c are zero) means the design reads horizontally.
+  const [b, c] = await page.locator('[data-canvas-paper]').first().evaluate((paper) => {
+    const matrix = new DOMMatrixReadOnly(getComputedStyle(paper as HTMLElement).transform)
+    return [matrix.b, matrix.c]
+  })
+  expect([b, c], 'paper transform carries no rotation').toEqual([0, 0])
+
+  // Rotation is seeded: the 90° button is the pressed one (the accent fill is
+  // only a colour — `aria-pressed` is the state), and the orientation buttons
+  // remain editable (not disabled by the lock).
+  await expect(page.getByRole('button', { name: '90°' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: '0°', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  )
+})
+
+test('the exported PNG is the upright logical canvas (issue #139)', async ({ page }) => {
+  // Export is the design as drawn — the logical bitmap HA/`imagegen` produces
+  // *before* its own final `rotate`. The designer used to rotate the raster
+  // itself (and clockwise, 180° off Pillow's counter-clockwise), so a portrait
+  // 480×800 canvas came out as an 800×480 file.
+  await picker(page).selectOption({ label: 'Hallway 7.5" (800×480 BWRY, portrait)' })
+  await expect.poll(() => paperSize(page)).toBe('480×800')
+
+  const downloadPromise = page.waitForEvent('download')
+  await page.locator('[data-export-action="download-png"]:visible').first().click()
+  const download = await downloadPromise
+  const file = await download.path()
+  expect(file, 'download produced a file').not.toBeNull()
+
+  // PNG IHDR: width at byte offset 16, height at 20, both big-endian uint32.
+  const bytes = await readFile(file!)
+  expect([bytes.readUInt32BE(16), bytes.readUInt32BE(20)]).toEqual([480, 800])
 })

@@ -5,7 +5,6 @@ import {
   formatResolutionLabel,
   SORTED_RESOLUTION_QUICK_PICKS,
 } from '../data/resolution-picks'
-import { resolutionOrientationHint } from '../lib/resolution-orientation'
 import { shell } from '../styles/shell'
 import { MdiIcon } from './MdiIcon'
 
@@ -96,9 +95,10 @@ export function ResolutionSelect({
           aria-label="Resolution options"
           className={`absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border ${shell.panelBorder} ${shell.panel} py-1 shadow-lg ring-1 ring-black/5`}
         >
+          {/* Dimensions only: a pick names a display's two sides, and the
+              orientation control owns which way round they go (issue #139). */}
           {SORTED_RESOLUTION_QUICK_PICKS.map((pick) => {
             const optionValue = formatResolutionLabel(pick.width, pick.height)
-            const hint = resolutionOrientationHint(pick.width, pick.height)
             return (
               <li key={optionValue} role="presentation">
                 <button
@@ -115,7 +115,6 @@ export function ResolutionSelect({
                   }}
                 >
                   <span className="min-w-0 flex-1 truncate">{optionValue}</span>
-                  <span className={`shrink-0 text-[10px] ${shell.muted}`}>{hint}</span>
                 </button>
               </li>
             )

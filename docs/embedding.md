@@ -255,24 +255,70 @@ Mirrors the OpenDisplay HA integration's `capabilities.py` payload:
 
 Mapping onto the canvas ([`src/embed/hostContract.ts`](../src/embed/hostContract.ts)):
 
-- **Size** — `render_width`/`render_height` when both present, else `pixel_width`/`pixel_height` swapped for 90°/270° rotations.
-- **Rotation** — `rotation_degrees` normalized into {0, 90, 180, 270}; other angles keep the current rotation.
+- **Size** — `render_width`/`render_height` when both present, else `pixel_width`/`pixel_height` swapped for 90°/270° rotations. Either way the result is the **logical drawing surface**: the canvas the payload is authored against, which the designer then presents upright (see [Rotation](#rotation-issue-139)).
+- **Rotation** — `rotation_degrees` normalized into {0, 90, 180, 270}; other angles keep the current rotation. It states the orientation of that surface; it is never applied as a transform to the design.
+
+> **Contract: `rotation_degrees` describes the orientation `render_*` is expressed in.**
+> The two are adopted as **one indivisible pair** — a display's two dimensions plus which way round they go — and every later re-orientation (the user turning the canvas, a re-lock, a re-push) turns that pair as a unit. So `rotation_degrees` must be the **effective** orientation the render dimensions are already in, not a base rotation still to be applied to them. A host that pairs a base rotation with effective-swapped dimensions is out of contract: the designer cannot detect the mismatch, and the surface reads the wrong way round as soon as the user re-orients it. When you send `pixel_*` instead, send the **physical** panel dimensions — the designer swaps them for a quarter turn itself.
 - **Palette structure** — `color_scheme` (Basic Standard value) wins; else inferred from `color_map` keys / `available_colors` names; else `accent_color`.
 - **Palette hexes** — the measured hex values in `color_map` re-color the active palette: preview canvas, PNG export, halftone dither tiles and the layer-list color swatches all paint the adopted hexes (one palette source of truth). Recognized names: `black`, `white`, `red`, `yellow`, `blue`, `green`; invalid hexes and unknown names are ignored. Half tones (`half_red`, `gray`, …) are re-derived as the same blends of the measured primaries. The `accent` keyword resolves through the same map, so `accent_color` participates automatically. A push without `color_map` keeps the current palette; without any push the canonical palettes apply and standalone rendering is unchanged.
 
-**Base of the mapping — a `capabilities` push merges onto the current canvas.** It re-asserts *some* facts about the display already in effect: whatever the payload omits (a rotation it does not mention, a palette it does not measure) keeps the value the canvas has now. That is deliberate and unchanged — a host can push `{ rotation_degrees: 90 }` on its own and turn the display it already defined. Picking a **named target** resolves the other way, from the designer's canonical defaults; the two are set side by side under [`targets`](#targets--ontargetselected-issue-106).
+**Base of the mapping — a `capabilities` push merges onto the current canvas.** It re-asserts *some* facts about the display already in effect: whatever the payload omits (a rotation it does not mention, a palette it does not measure) keeps the value the canvas has now. That is deliberate and unchanged — a host can push `{ rotation_degrees: 90 }` on its own to restate how the display it already defined is mounted. Picking a **named target** resolves the other way, from the designer's canonical defaults; the two are set side by side under [`targets`](#targets--ontargetselected-issue-106).
 
-Known gaps: `palette_measured` itself is informational only (the hexes apply whether or not it is set). Fractional rotations are not representable. YAML export semantics are untouched — the payload always carries color *names*, never display hexes.
+Known gaps: `palette_measured` itself is informational only (the hexes apply whether or not it is set). Fractional rotations are not representable. A push that carries `rotation_degrees` **without** any size fields updates the declared orientation but leaves the surface dimensions as they are — it re-declares *those* dimensions as being in the pushed orientation, so a later turn of the canvas swaps them from there. Push `render_*` (or `pixel_*`) alongside it to restate the surface, or use the [`targets`](#targets--ontargetselected-issue-106) channel, which always carries both. (This channel is removed at 2.0, [issue #121](https://github.com/schlomo/odl-drawcustom-designer/issues/121).) YAML export semantics are untouched — the payload always carries color *names*, never display hexes.
+
+#### Rotation ([issue #139](https://github.com/schlomo/odl-drawcustom-designer/issues/139))
+
+**The canvas is the logical drawing surface, and the designer always presents
+it upright.** That is what upstream `imagegen` does: for a quarter turn it
+creates the Pillow canvas *already swapped*, draws every element upright in
+it, and rotates only the finished bitmap, once, at the very end. Percentage
+coordinates resolve against that same logical surface. A payload is therefore
+orientation-independent — the maintainer's own automation sends the identical
+384×184 payload to two same-resolution panels and only the per-device
+`rotate` differs (0 and 270).
+
+Consequences for hosts:
+
+- `render_width`/`render_height` (or the swapped `pixel_*` fallback) are the
+  surface the payload is authored against — unchanged, and still exactly what
+  upstream's `capabilities.py` computes.
+- The **orientation control** in the designer chooses the orientation of that
+  surface: a quarter turn swaps its W/H. It never turns the editing surface,
+  the elements, or the exported image. It is also the **only** control that
+  does — the resolution quick-picks name a display by its *pair* of dimensions
+  and are orientation-insensitive: a 128×296 canvas still reads as the
+  `296×128` pick, and choosing a pick lands it in the orientation currently
+  held.
+- **The canvas rotation is absolute, never cumulative.** It *is* the
+  orientation: seeded from the host, changed by the user, replaced outright by
+  the next thing that sets it. Nothing anywhere sums it with a base rotation.
+- **PNG export / Copy PNG is the upright logical canvas** — the bitmap before
+  HA's own `rotate`. Do not re-rotate it before sending; HA (and, for
+  OpenDisplay, the firmware) applies the panel's rotation itself.
+- `rotate` is **not emitted** in the payload today. The send-time value is
+  per-target output metadata and will travel through the service options seam
+  ([issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105)),
+  never baked into the design: that seam sends the canvas rotation **as-is**
+  (or a value the host computes for that target from it), never the canvas
+  rotation added to something else.
+- **Changing the orientation is not undoable** — like every other display-config
+  change (resolution, color mode, dither), it sits outside the payload's undo
+  history. Pre-existing behavior, unchanged here.
+- **Sessions and share links authored before this model reopen upright.**
+  Element coordinates always were logical — the old model only turned the
+  presentation — so nothing needs migrating: a design saved at 90° reopens as
+  the same design on a surface of the same two dimensions.
 
 #### Display config lock ([issue #70](https://github.com/schlomo/odl-drawcustom-designer/issues/70))
 
 When the mount received `capabilities` — at `mount()` or via `setCapabilities()` — the display config is **host-owned**: a lock icon appears next to the "Display config" heading, and the resolution and color mode controls follow its state.
 
-**Lock scope excludes rotation** (maintainer ruling 2026-08-16, amending the original issue #70 shape): the lock covers **dimensions and color mode/palette only**. Rotation is a user choice — how the same physical display is mounted (portrait vs. landscape) — so the rotation buttons stay **enabled whether or not the display config is locked**, changing rotation never unlocks the display or clears a target selection, and the base (unrotated) dimensions the lock stores are unaffected by it; only the rotated *presentation* (on-screen stage, PNG export) swaps, through the same `computeRotatedCanvasBounds` both already share.
+**Lock scope excludes rotation** (maintainer ruling 2026-08-16, amending the original issue #70 shape): the lock covers **dimensions and color mode/palette only**. Rotation is a user choice — how the same physical display is mounted (portrait vs. landscape) — so the orientation buttons stay **enabled whether or not the display config is locked**, and changing the orientation never unlocks the display or clears a target selection. What it *does* change is the orientation of the logical drawing surface, so the W/H the lock shows swap with it (issue #139): the lock still owns the display's two dimensions, the user still owns which way round they go. Re-locking restores the host's panel in the orientation the user is holding.
 
 - **Locked (default)** — the resolution and color-mode controls are disabled; rotation stays enabled. Both `mount({ capabilities })` and `handle.setCapabilities(capabilities)` lock **by default** (`lock` defaults to `true`), so existing hosts that never pass `lock` see unchanged behavior for those two controls.
 - **Unlock (`lock: false`, or clicking the lock)** — the "virtual display" escape hatch: the user may configure any resolution/color mode immediately (rotation was already theirs), and the preview no longer matches the host's physical display's dimensions/palette. Pass `lock: false` to `mount()` or `setCapabilities(capabilities, { lock: false })` to *seed* a display this way — e.g. a host that wants to hand the user a starting point without pinning them to it. The pushed values still land on the canvas and the lock icon still appears (showing its unlocked state) so the user can lock onto them later.
-- **Re-lock** (click the lock, whether it was unlocked by the user or seeded via `lock: false`) — restores the last-pushed host dimensions/color mode/palette (the designer-only preview dither setting survives too). **Rotation is left exactly as it currently is** — it was never lock-owned, so re-locking never snaps it back to whatever the host declared.
+- **Re-lock** (click the lock, whether it was unlocked by the user or seeded via `lock: false`) — restores the last-pushed host dimensions/color mode/palette (the designer-only preview dither setting survives too), **oriented to the rotation currently in effect**. **Rotation is left exactly as it currently is** — it was never lock-owned, so re-locking never snaps it back to whatever the host declared.
 - **A new `setCapabilities()` push** re-asserts the host display and, by default, re-locks the controls; pass `{ lock: false }` to keep them unlocked instead. Rotation follows the anonymous-channel rule below.
 - **Load Demo while locked** loads the demo payload and simulator seed but **keeps** the host-defined resolution/palette (and the rotation currently in effect, whatever the user set it to). Accepted consequence: on small displays the demo layout may look bad. Unlocked (including the `lock: false` seed), Load Demo applies the showcase display config as in standalone.
 - **No `capabilities`** (standalone, or an embed that never pushes them): no lock icon, controls behave exactly as before.
@@ -329,7 +375,7 @@ handle.setTargets([...targets, discoveredDisplay])   // appears in the picker, n
 
   | | base of the mapping | why |
   |---|---|---|
-  | `capabilities` push (anonymous display) | **merges onto the current canvas** — omitted fields keep their current value | a partial push re-asserts *some* facts about the display already in effect (`{ rotation_degrees: 90 }` turns it) |
+  | `capabilities` push (anonymous display) | **merges onto the current canvas** — omitted fields keep their current value | a partial push re-asserts *some* facts about the display already in effect (`{ rotation_degrees: 90 }` re-declares its orientation) |
   | `targets` pick (named display) | **canonical designer defaults** — omitted fields fall back to those | picking names a *different* display; inheriting the previous one's rotation or measured `color_map` would paint one panel's red on another's tag (ADR-007 parity) |
 
   Everything else — the mapping itself, the lock UX, the tolerance for junk

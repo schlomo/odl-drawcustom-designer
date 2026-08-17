@@ -1,9 +1,17 @@
+import { reorientCanvasSize, type CanvasRotation } from '../lib/canvas-orientation'
+
 export interface ResolutionPick {
   width: number
   height: number
 }
 
-/** Common drawcustom display WxH quick-picks (dimensions only, no inch labels). */
+/**
+ * Common drawcustom display WxH quick-picks (dimensions only, no inch labels).
+ *
+ * Each entry is a display's **pair of dimensions**, listed once — the
+ * orientation control decides which way round they go (issue #139), so the list
+ * carries no portrait/landscape variants of the same panel.
+ */
 export const RESOLUTION_QUICK_PICKS: readonly ResolutionPick[] = [
   { width: 152, height: 152 },
   { width: 200, height: 200 },
@@ -22,7 +30,6 @@ export const RESOLUTION_QUICK_PICKS: readonly ResolutionPick[] = [
   { width: 800, height: 480 },
   { width: 880, height: 528 },
   { width: 960, height: 672 },
-  { width: 168, height: 384 },
 ] as const
 
 export function compareResolutionPicks(left: ResolutionPick, right: ResolutionPick): number {
@@ -42,16 +49,27 @@ export function formatResolutionLabel(width: number, height: number): string {
   return `${width}×${height}`
 }
 
+/**
+ * The quick-pick a canvas of these dimensions *is* — **either way round**
+ * (issue #139).
+ *
+ * A turned display is the same display: a 128×296 canvas is the 296×128 pick
+ * held at a quarter turn, and must keep reading as that pick rather than
+ * collapsing to "Custom". Orientation is reported by the orientation control,
+ * never by this one.
+ */
 export function findResolutionPick(width: number, height: number): ResolutionPick | null {
   return (
-    RESOLUTION_QUICK_PICKS.find((pick) => pick.width === width && pick.height === height) ?? null
+    RESOLUTION_QUICK_PICKS.find((pick) => pick.width === width && pick.height === height) ??
+    RESOLUTION_QUICK_PICKS.find((pick) => pick.width === height && pick.height === width) ??
+    null
   )
 }
 
+/** The matching quick-pick's own label (its canonical way round), else Custom. */
 export function resolutionSelectValue(width: number, height: number): string {
-  return findResolutionPick(width, height)
-    ? formatResolutionLabel(width, height)
-    : CUSTOM_RESOLUTION_VALUE
+  const pick = findResolutionPick(width, height)
+  return pick ? formatResolutionLabel(pick.width, pick.height) : CUSTOM_RESOLUTION_VALUE
 }
 
 /** Dropdown value when `editingCustom` is true (user chose Custom on a matching quick-pick size). */
@@ -60,10 +78,7 @@ export function resolutionDropdownValue(
   height: number,
   editingCustom: boolean,
 ): string {
-  if (editingCustom || findResolutionPick(width, height) == null) {
-    return CUSTOM_RESOLUTION_VALUE
-  }
-  return formatResolutionLabel(width, height)
+  return editingCustom ? CUSTOM_RESOLUTION_VALUE : resolutionSelectValue(width, height)
 }
 
 export function shouldShowCustomResolutionInputs(
@@ -74,11 +89,21 @@ export function shouldShowCustomResolutionInputs(
   return editingCustom || findResolutionPick(width, height) == null
 }
 
+/**
+ * Apply a resolution-dropdown choice.
+ *
+ * A quick-pick names a display's two dimensions and says nothing about
+ * orientation, so it lands **in the orientation the canvas is currently held
+ * in** (issue #139): picking 296×128 at a quarter turn gives a 128×296 surface.
+ * Only the orientation control changes which way round a display goes; only the
+ * manual W/H inputs set literal numbers.
+ */
 export function applyResolutionSelectValue(
   value: string,
   handlers: {
     setEditingCustom: (editing: boolean) => void
-    onApplyResolution: (width: number, height: number) => void
+    rotation: CanvasRotation
+    onCanvasSizeChange: (width: number, height: number) => void
   },
 ): void {
   if (value === CUSTOM_RESOLUTION_VALUE) {
@@ -92,7 +117,9 @@ export function applyResolutionSelectValue(
   }
 
   handlers.setEditingCustom(false)
-  handlers.onApplyResolution(pick.width, pick.height)
+  // Quick-picks are stated upright; `rotation` says how the user is holding it.
+  const { width, height } = reorientCanvasSize({ ...pick, rotation: 0 }, handlers.rotation)
+  handlers.onCanvasSizeChange(width, height)
 }
 
 export function parseResolutionSelectValue(value: string): ResolutionPick | null {

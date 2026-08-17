@@ -54,10 +54,8 @@ import {
   remapIndicesAfterMove,
 } from '../lib/selection-remap'
 import { verifyAndValidateAssetUpload } from '../lib/verify-asset-upload'
-import {
-  type CanvasRotation,
-  type DisplayConfig,
-} from '../preferences/displayConfig'
+import { reorientCanvasSize, type CanvasRotation } from '../lib/canvas-orientation'
+import type { DisplayConfig } from '../preferences/displayConfig'
 import { isValidVariableName } from '../preferences/variables'
 import type { StoredVariables } from '../../storage'
 import { allowShowcaseBundledForDemo, suppressShowcaseBundled } from '../preferences/showcaseAsset'
@@ -86,7 +84,7 @@ import type { HostAction, HostStates, HostTarget } from '../../embed/types'
 import { useTemplatePreviewClock } from './useTemplatePreviewClock'
 
 export type { AddElementResult } from '../lib/add-element-guards'
-export type { CanvasRotation } from '../preferences/displayConfig'
+export type { CanvasRotation } from '../lib/canvas-orientation'
 export type SelectionSource = 'ui' | 'yaml'
 
 export interface SelectElementOptions {
@@ -519,6 +517,11 @@ export function useProjectState(
         // carries one, falling back to the current rotation only when it does
         // not. No override tracking needed; clearing the ref keeps a later
         // named pick's baseline honest regardless of what happened here.
+        // Known corner (documented in docs/embedding.md): a push carrying
+        // `rotation_degrees` but no size fields restates the orientation
+        // without re-orienting the surface — this channel takes the host's
+        // dimensions verbatim and issue #139 deliberately left `hostContract`
+        // alone. Hosts push sizes alongside, or use the `targets` channel.
         rotationOverriddenSincePickRef.current = false
       },
       applyActions: (actions) => {
@@ -568,13 +571,23 @@ export function useProjectState(
         // scope, maintainer ruling 2026-08-16): a user who repointed rotation
         // since picking this target keeps it; only an untouched rotation
         // adopts what the target now declares.
+        // `next` is one adoption: its dimensions and its rotation arrived
+        // together, so it is the oriented surface every re-orientation below
+        // measures from (issue #139 review — the pair is never split).
         const next = targetCapabilitiesToCanvas(pushed.capabilities, canvasRef.current)
         hostDisplayRef.current = next
         setHostDisplay(next)
         if (displayLockedRef.current) {
+          const heldRotation = canvasRef.current.rotation
           commitCanvas(
             rotationOverriddenSincePickRef.current
-              ? { ...next, rotation: canvasRef.current.rotation }
+              ? {
+                  ...next,
+                  // The surviving rotation orients the re-pushed panel (issue
+                  // #139) — same two dimensions, the user's way round.
+                  ...reorientCanvasSize(next, heldRotation),
+                  rotation: heldRotation,
+                }
               : next,
           )
         }
@@ -757,13 +770,6 @@ export function useProjectState(
     [commitSelectedIndices, previewElements, renderContext],
   )
 
-  const applyResolution = useCallback(
-    (width: number, height: number) => {
-      commitCanvas((current) => ({ ...current, width, height }))
-    },
-    [commitCanvas],
-  )
-
   const setColorMode = useCallback(
     (colorMode: TagColorMode) => {
       commitCanvas((current) => ({ ...current, colorMode }))
@@ -771,6 +777,14 @@ export function useProjectState(
     [commitCanvas],
   )
 
+  /**
+   * Set the canvas dimensions **literally** — the single sizing entry point
+   * (issue #139 F3, review Q1: this and the former `applyResolution` were
+   * byte-identical). Orientation is not this function's business: a resolution
+   * quick-pick is oriented to the canvas before it gets here
+   * (`applyResolutionSelectValue`), and the manual W/H inputs are explicit
+   * intent — typed numbers land as typed.
+   */
   const setCanvasSize = useCallback(
     (width: number, height: number) => {
       commitCanvas((current) => ({ ...current, width, height }))
@@ -786,7 +800,14 @@ export function useProjectState(
       // rotation as touched since the last pick, so a later re-apply of that
       // target's capabilities preserves it instead of overwriting it.
       rotationOverriddenSincePickRef.current = true
-      commitCanvas((current) => ({ ...current, rotation }))
+      // Choosing an orientation re-orients the logical drawing surface itself
+      // (issue #139) — the canvas is always presented upright, so a quarter
+      // turn is a W/H swap and nothing else.
+      commitCanvas((current) => ({
+        ...current,
+        ...reorientCanvasSize(current, rotation),
+        rotation,
+      }))
     },
     [commitCanvas],
   )
@@ -1156,9 +1177,14 @@ export function useProjectState(
       // (issue #70). Rotation is outside the lock's scope (maintainer ruling
       // 2026-08-16) — it was never lock-owned, so re-locking keeps whatever
       // it currently is rather than snapping back to the host's declared
-      // value.
+      // value, and the restored panel is oriented to it (issue #139): the
+      // host's two dimensions, the user's way round. `hostConfig` is the
+      // oriented surface as adopted — its dimensions and the rotation they were
+      // declared in, together — so this turn can never measure from a rotation
+      // that belonged to a different adoption (issue #139 review).
       commitCanvas((current) => ({
         ...hostConfig,
+        ...reorientCanvasSize(hostConfig, current.rotation),
         rotation: current.rotation,
         previewDitherMode: current.previewDitherMode,
       }))
@@ -1531,7 +1557,6 @@ export function useProjectState(
     applyYamlSelection,
     canvas,
     renderContext,
-    applyResolution,
     setColorMode,
     setCanvasSize,
     setRotation,

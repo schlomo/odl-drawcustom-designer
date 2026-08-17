@@ -95,7 +95,7 @@ import {
   writeCanvasZoomMode,
   type CanvasZoomMode,
 } from '../preferences/canvasZoom'
-import type { CanvasRotation, SelectElementOptions } from '../hooks/useProjectState'
+import type { SelectElementOptions } from '../hooks/useProjectState'
 import { useExportActionFeedback } from '../hooks/useExportActionFeedback'
 import { CanvasSelectionToolbar } from './CanvasSelectionToolbar'
 import { CanvasHeaderToolbar } from './CanvasHeaderToolbar'
@@ -105,7 +105,6 @@ interface DesignerCanvasProps {
   elements: DrawElement[]
   editElements: DrawElement[]
   renderContext: RenderContext
-  rotation: CanvasRotation
   selectedIndices: number[]
   assetRevision: number
   sessionName: string
@@ -198,7 +197,6 @@ export function DesignerCanvas({
   elements,
   editElements,
   renderContext,
-  rotation,
   selectedIndices,
   assetRevision,
   sessionName,
@@ -324,11 +322,10 @@ export function DesignerCanvas({
       viewportSize.height,
       renderContext.width,
       renderContext.height,
-      rotation,
       CANVAS_VIEWPORT_PADDING_PX,
     )
     return scale > 0 ? scale : 1
-  }, [renderContext.height, renderContext.width, rotation, viewportSize])
+  }, [renderContext.height, renderContext.width, viewportSize])
 
   const effectiveScale = useMemo(
     () => computeEffectiveCanvasScale(zoomMode, fitScale),
@@ -337,13 +334,8 @@ export function DesignerCanvas({
 
   const stageSize = useMemo(
     () =>
-      computeCanvasStageSize(
-        renderContext.width,
-        renderContext.height,
-        rotation,
-        effectiveScale,
-      ),
-    [effectiveScale, renderContext.height, renderContext.width, rotation],
+      computeCanvasStageSize(renderContext.width, renderContext.height, effectiveScale),
+    [effectiveScale, renderContext.height, renderContext.width],
   )
 
   const viewportLayout = useMemo(() => {
@@ -619,14 +611,13 @@ export function DesignerCanvas({
         paper.getBoundingClientRect(),
         renderContext.width,
         renderContext.height,
-        rotation,
       )
       if (allowOutside) {
         return raw
       }
       return refineCanvasPointerPoint(raw, renderContext.width, renderContext.height)
     },
-    [renderContext.height, renderContext.width, rotation],
+    [renderContext.height, renderContext.width],
   )
 
   const releaseCapturedPointer = useCallback((target: HTMLElement | null, pointerId: number) => {
@@ -1272,7 +1263,6 @@ export function DesignerCanvas({
         ...renderContext,
         showHiddenHints: false,
       },
-      rotation,
       assetImages: displayAssetImages,
       fontFamilies,
       opentypeFonts,
@@ -1283,7 +1273,6 @@ export function DesignerCanvas({
     fontFamilies,
     opentypeFonts,
     renderContext,
-    rotation,
   ])
 
   const handleCopyPng = useCallback(async () => {
@@ -1438,12 +1427,7 @@ export function DesignerCanvas({
                 {
                   width: renderContext.width,
                   height: renderContext.height,
-                  transform: paperTransform(
-                    rotation,
-                    effectiveScale,
-                    renderContext.width,
-                    renderContext.height,
-                  ),
+                  transform: paperTransform(effectiveScale),
                   transformOrigin: 'top left',
                 } satisfies CSSProperties
               }

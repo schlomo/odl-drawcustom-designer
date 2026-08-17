@@ -202,6 +202,19 @@ function resolveColorMode(capabilities: HostCapabilities): TagColorMode | null {
  * partial payload is re-asserting *some* facts about the display in effect,
  * not describing a different display. For a **named** target pick, see
  * {@link targetCapabilitiesToCanvas}: the same mapping over a canonical base.
+ *
+ * **Host contract (issue #139 review):** `rotation_degrees` MUST describe the
+ * orientation `render_width`/`render_height` are expressed in — the *effective*
+ * orientation of the drawing surface, not a base rotation still to be applied
+ * to it. The result of this mapping is one indivisible oriented surface (two
+ * dimensions plus the rotation they are in), and everything downstream turns
+ * that pair as a unit. A host that pairs a base rotation with effective-swapped
+ * dimensions is out of contract: the designer cannot detect the mismatch, and
+ * the surface will read the wrong way round when the user re-orients it.
+ *
+ * A push that carries `rotation_degrees` **without** any size fields re-declares
+ * the current dimensions as being in that orientation (the dimensions are kept,
+ * not swapped) — documented for hosts in docs/embedding.md.
  */
 export function capabilitiesToCanvas(
   capabilities: HostCapabilities,

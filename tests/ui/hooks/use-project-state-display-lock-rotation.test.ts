@@ -3,7 +3,6 @@ import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import type { AppBootstrap } from '../../../src/ui/bootstrap/appBootstrap'
 import { useProjectState } from '../../../src/ui/hooks/useProjectState'
-import { computeRotatedCanvasBounds } from '../../../src/ui/lib/canvas-zoom'
 import type { DesignerHost } from '../../../src/embed/host'
 import type { HostPushTarget, HostTarget } from '../../../src/embed/types'
 
@@ -13,6 +12,11 @@ import type { HostPushTarget, HostTarget } from '../../../src/embed/types'
  * user choice (portrait mounting) and stays editable while locked — it never
  * unlocks the display, never clears the selection, and is never clobbered by
  * a re-apply the user did not ask for.
+ *
+ * What rotation *does* is the corrected model of issue #139: it chooses the
+ * orientation of the logical drawing surface, so the canvas W/H swap on a
+ * quarter turn and the designer never rotates the presentation. Every
+ * dimension assertion below reads in that model.
  *
  * Exercised directly against the hook with a stub `DesignerHost`, the same
  * harness `host-targets-push-diff.test.ts` uses — the UI-disabled-control
@@ -28,6 +32,27 @@ function officeTarget(rotationDegrees = 0): HostTarget {
       pixel_width: 296,
       pixel_height: 128,
       rotation_degrees: rotationDegrees,
+      color_scheme: 0x01,
+    },
+  }
+}
+
+/**
+ * A quarter-turn display exactly as the upstream OpenDisplay integration
+ * describes one: a 296×128 panel with `user_rotate` 90, so `render_*` is the
+ * **effective** (already swapped) drawing surface and `rotation_degrees` states
+ * the orientation those render dimensions are expressed in.
+ */
+function portraitMountedTarget(): HostTarget {
+  return {
+    id: 'display.hallway',
+    label: 'Hallway display',
+    capabilities: {
+      pixel_width: 296,
+      pixel_height: 128,
+      render_width: 128,
+      render_height: 296,
+      rotation_degrees: 90,
       color_scheme: 0x01,
     },
   }
@@ -92,10 +117,12 @@ describe('display lock scope excludes rotation (maintainer ruling 2026-08-16)', 
     expect(result.current.activeTargetId).toBe('display.office')
   })
 
-  it('locked base dimensions stay put on rotation — presentation swaps, not the stored size', () => {
-    // Item 6: the lock stores the *base* (unrotated) dimensions; only the
-    // rotated presentation swaps, via the same computeRotatedCanvasBounds the
-    // on-screen stage and PNG export already share.
+  it('rotation re-orients the logical drawing surface: the stored W/H swap (issue #139)', () => {
+    // Corrected rotation model (issue #139): the canvas *is* the logical
+    // drawing surface upstream `imagegen` creates already swapped, and the
+    // designer always presents it upright. So choosing a quarter turn swaps
+    // the stored dimensions themselves — there is no second, "presentation"
+    // notion of size for anything downstream to double-apply.
     const { host } = createTestHost([officeTarget(0)])
     const { result } = renderHook(() => useProjectState(bootstrap(), host))
 
@@ -105,11 +132,18 @@ describe('display lock scope excludes rotation (maintainer ruling 2026-08-16)', 
 
     act(() => result.current.setRotation(90))
 
+    expect(result.current.canvas.rotation).toBe(90)
+    expect(result.current.canvas.width).toBe(128)
+    expect(result.current.canvas.height).toBe(296)
+
+    // Half turns keep the orientation; only quarter turns swap.
+    act(() => result.current.setRotation(270))
+    expect(result.current.canvas.width).toBe(128)
+    expect(result.current.canvas.height).toBe(296)
+
+    act(() => result.current.setRotation(180))
     expect(result.current.canvas.width).toBe(296)
     expect(result.current.canvas.height).toBe(128)
-    expect(
-      computeRotatedCanvasBounds(result.current.canvas.width, result.current.canvas.height, result.current.canvas.rotation),
-    ).toEqual({ width: 128, height: 296 })
   })
 
   it('re-applying the selected target’s capabilities preserves a rotation the user changed since the pick', () => {
@@ -130,8 +164,11 @@ describe('display lock scope excludes rotation (maintainer ruling 2026-08-16)', 
     })
 
     expect(result.current.canvas.rotation).toBe(90)
-    expect(result.current.canvas.width).toBe(400)
-    expect(result.current.canvas.height).toBe(300)
+    // The surviving rotation orients the re-pushed panel (issue #139): the
+    // display declares a 400×300 surface at 0°, the user is holding it at 90°,
+    // so the logical drawing surface is that panel turned — 300×400.
+    expect(result.current.canvas.width).toBe(300)
+    expect(result.current.canvas.height).toBe(400)
     expect(result.current.canvas.colorMode).toBe('bw')
   })
 
@@ -175,5 +212,74 @@ describe('display lock scope excludes rotation (maintainer ruling 2026-08-16)', 
     // Dimensions/palette are still lock-owned and restored as before.
     expect(result.current.canvas.width).toBe(296)
     expect(result.current.canvas.height).toBe(128)
+  })
+
+  it('re-lock restores the host panel oriented to the rotation the user is holding (issue #139)', () => {
+    // Rotation is not lock-owned, and under the corrected model it is what
+    // says which way round the panel's two dimensions go. Re-locking must
+    // therefore restore the *host's panel* in the *user's* orientation — not a
+    // 296×128 surface tagged "90°", which no display could ever be.
+    const { host } = createTestHost([officeTarget(0)])
+    const { result } = renderHook(() => useProjectState(bootstrap(), host))
+
+    act(() => result.current.selectDisplayTarget('display.office'))
+    act(() => result.current.toggleDisplayLock())
+    act(() => result.current.setCanvasSize(111, 222))
+    act(() => result.current.setRotation(90))
+    expect(result.current.displayLock).toBe('unlocked')
+
+    act(() => result.current.toggleDisplayLock())
+
+    expect(result.current.displayLock).toBe('locked')
+    expect(result.current.canvas.rotation).toBe(90)
+    expect(result.current.canvas.width).toBe(128)
+    expect(result.current.canvas.height).toBe(296)
+  })
+})
+
+describe('a host-declared surface keeps its dimensions paired with its own rotation (issue #139 review)', () => {
+  /**
+   * The dimensions a display was adopted with and the rotation they are
+   * expressed in are one indivisible fact. Every re-orientation must measure
+   * from *that* rotation — never from a rotation that arrived with a different
+   * adoption — so a panel the host declared quarter-turned always lands its two
+   * dimensions the right way round, however often the user turns it.
+   *
+   * Host contract behind this (docs/embedding.md, ADR-018): `rotation_degrees`
+   * describes the orientation `render_*` is expressed in.
+   */
+  it('a quarter-turned host panel survives turn, re-lock and re-push with the same two dimensions', () => {
+    const { host, getPushTarget } = createTestHost([portraitMountedTarget()])
+    const { result } = renderHook(() => useProjectState(bootstrap(), host))
+
+    // Picked: the effective surface the host declared, held the way it declared.
+    act(() => result.current.selectDisplayTarget('display.hallway'))
+    expect(result.current.canvas).toMatchObject({ width: 128, height: 296, rotation: 90 })
+
+    // The user hangs it the other way: same panel, upright.
+    act(() => result.current.setRotation(0))
+    expect(result.current.canvas).toMatchObject({ width: 296, height: 128, rotation: 0 })
+
+    // Re-locking restores the host's panel — in the orientation being held.
+    act(() => result.current.toggleDisplayLock())
+    act(() => result.current.toggleDisplayLock())
+    expect(result.current.displayLock).toBe('locked')
+    expect(result.current.canvas).toMatchObject({ width: 296, height: 128, rotation: 0 })
+
+    // …and so does a re-push of that same target's (re-declared) capabilities.
+    act(() => {
+      getPushTarget().applyTargets([
+        {
+          ...portraitMountedTarget(),
+          capabilities: { ...portraitMountedTarget().capabilities, color_scheme: 0x00 },
+        },
+      ])
+    })
+    expect(result.current.canvas).toMatchObject({ width: 296, height: 128, rotation: 0 })
+    expect(result.current.canvas.colorMode).toBe('bw')
+
+    // Back to the host's own orientation: the panel, not a third size.
+    act(() => result.current.setRotation(90))
+    expect(result.current.canvas).toMatchObject({ width: 128, height: 296, rotation: 90 })
   })
 })

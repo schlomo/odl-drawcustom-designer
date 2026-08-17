@@ -1,14 +1,34 @@
 import type { PaletteOverrides, TagColorMode } from '../../core'
 import { isTagColorMode } from '../../core'
 import { DEFAULT_RESOLUTION } from '../data/resolution-picks'
+import type { CanvasRotation } from '../lib/canvas-orientation'
 import { DISPLAY_CONFIG_STORAGE_KEY } from './keys'
 
-export type CanvasRotation = 0 | 90 | 180 | 270
+export type { CanvasRotation } from '../lib/canvas-orientation'
 export type PreviewDitherMode = 0 | 2
 
 export interface DisplayConfig {
+  /**
+   * The **logical drawing surface** the payload is authored against — already
+   * oriented, exactly the canvas upstream `imagegen` creates (swapped for a
+   * quarter turn) before drawing. Never the raw physical panel size; see
+   * {@link rotation} and issue #139.
+   */
   width: number
   height: number
+  /**
+   * Which way round the panel is: the orientation of {@link width}/
+   * {@link height}, not a transform applied to the design. Its designer-side
+   * effect is exactly that orientation — the canvas is always presented
+   * upright — and it is carried so the send-time `rotate` can be computed per
+   * target (issue #105).
+   *
+   * Absolute, never cumulative: this *is* the orientation, seeded from the
+   * host and changeable by the user. Nothing sums it with anything else.
+   *
+   * Adopted **with** {@link width}/{@link height} and never on its own — see
+   * {@link OrientedSurface}.
+   */
   rotation: CanvasRotation
   colorMode: TagColorMode
   previewDitherMode: PreviewDitherMode

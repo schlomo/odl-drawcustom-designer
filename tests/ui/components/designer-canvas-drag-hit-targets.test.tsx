@@ -109,7 +109,6 @@ function DragHarness({
       elements={elements}
       editElements={elements}
       renderContext={RENDER_CONTEXT}
-      rotation={0}
       selectedIndices={selectedIndices}
       assetRevision={0}
       sessionName="test-session"

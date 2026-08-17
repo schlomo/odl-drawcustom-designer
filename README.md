@@ -103,7 +103,7 @@ OpenDisplay uses the same payload shape with `action: opendisplay.drawcustom`.
 - **Alignment** — align selection horizontally and vertically
 - **Layer order** — bring to front, send to back, move up/down
 - **Zoom** — 50%, 100%, 200%, and fit-to-panel
-- **Rotation** — 0°, 90°, 180°, 270° (preview and export)
+- **Orientation** — 0°, 90°, 180°, 270°; a quarter turn swaps the canvas W/H and the design is always edited upright
 - **Designer overlays** — optional hints for hidden-on-tag elements (`visible: false`, shapes with fill or color set to `none`)
 - **Dither preview** — toggle ordered dither (d=2) on the flat canvas
 
@@ -140,9 +140,9 @@ OpenDisplay uses the same payload shape with `action: opendisplay.drawcustom`.
 
 ### Display configuration
 
-- **Resolution** — common tag WxH quick-picks plus custom width/height
+- **Resolution** — common tag WxH quick-picks plus custom width/height. A quick-pick names a display's two dimensions, not an orientation: it lands the way the panel is currently held, and a turned panel keeps reading as its own pick
 - **Color mode** — drives accent / half_accent preview mapping
-- **Rotation (0°–270°)** — maps to drawcustom **`rotate`** service option
+- **Orientation (0°–270°)** — which way round the panel is, and the only control that decides it: it orients the logical drawing surface the payload is authored against (the design stays upright, as `imagegen` draws it). Absolute, not cumulative, and — like the other display settings — outside undo. Not emitted as drawcustom `rotate` today: that is per-target send metadata ([issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105))
 - **Preview dither toggle** — flat vs ordered **d=2**; maps to drawcustom **`dither`** in session and share links
 - **Session persistence** — display settings restored with last design
 
@@ -155,7 +155,7 @@ OpenDisplay uses the same payload shape with `action: opendisplay.drawcustom`.
 
 ### Export
 
-- **PNG** — copy to clipboard or download (respects rotation and color mode)
+- **PNG** — copy to clipboard or download; the upright logical canvas in the active color mode (HA applies the panel's own `rotate`)
 - **YAML** — copy or download HA-ready payload from the toolbar
 
 ### Home Assistant preview parity

@@ -116,7 +116,6 @@ export function App({ bootstrap, host }: AppProps) {
     applyYamlSelection,
     canvas,
     renderContext,
-    applyResolution,
     setColorMode,
     setCanvasSize,
     setRotation,
@@ -566,7 +565,6 @@ export function App({ bootstrap, host }: AppProps) {
           mockContext={mockContext}
           assetRevision={assetRevision}
           onSelectElement={selectElement}
-          onApplyResolution={applyResolution}
           onCanvasSizeChange={setCanvasSize}
           onColorModeChange={setColorMode}
           onRotationChange={setRotation}
@@ -605,7 +603,6 @@ export function App({ bootstrap, host }: AppProps) {
               elements={previewElements}
               editElements={elements}
               renderContext={renderContext}
-              rotation={canvas.rotation}
               selectedIndices={selectedIndices}
               assetRevision={assetRevision}
               sessionName={sessionName}

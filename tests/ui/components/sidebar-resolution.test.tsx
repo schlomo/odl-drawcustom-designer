@@ -13,12 +13,10 @@ const defaultCanvas = {
 
 function renderSidebar(
   overrides: Partial<{
-    canvas: typeof defaultCanvas
-    onApplyResolution: (width: number, height: number) => void
+    canvas: Omit<typeof defaultCanvas, 'rotation'> & { rotation: 0 | 90 | 180 | 270 }
     onCanvasSizeChange: (width: number, height: number) => void
   }> = {},
 ) {
-  const onApplyResolution = overrides.onApplyResolution ?? vi.fn()
   const onCanvasSizeChange = overrides.onCanvasSizeChange ?? vi.fn()
 
   render(
@@ -30,7 +28,6 @@ function renderSidebar(
       mockContext={{ states: {} }}
       assetRevision={0}
       onSelectElement={() => {}}
-      onApplyResolution={onApplyResolution}
       onCanvasSizeChange={onCanvasSizeChange}
       onColorModeChange={() => {}}
       onRotationChange={() => {}}
@@ -47,7 +44,7 @@ function renderSidebar(
     />,
   )
 
-  return { onApplyResolution, onCanvasSizeChange }
+  return { onCanvasSizeChange }
 }
 
 function openResolutionMenu() {
@@ -82,23 +79,60 @@ describe('Sidebar resolution control', () => {
   })
 
   it('applies a quick-pick from the dropdown', () => {
-    const onApplyResolution = vi.fn()
-    renderSidebar({ onApplyResolution })
+    const onCanvasSizeChange = vi.fn()
+    renderSidebar({ onCanvasSizeChange })
 
     const listbox = openResolutionMenu()
     fireEvent.mouseDown(within(listbox).getByRole('option', { name: /800×480/i }))
 
-    expect(onApplyResolution).toHaveBeenCalledWith(800, 480)
+    expect(onCanvasSizeChange).toHaveBeenCalledWith(800, 480)
     expect(screen.queryByRole('listbox', { name: 'Resolution options' })).toBeNull()
   })
 
-  it('shows landscape and portrait hints in the resolution menu', () => {
+  /**
+   * Issue #139 F3: the orientation control is the sole owner of orientation.
+   * The resolution control names a display's two dimensions; it neither reports
+   * nor changes which way round they are held.
+   */
+  describe('while the canvas is turned', () => {
+    const turned = { ...defaultCanvas, width: 128, height: 296, rotation: 90 as const }
+
+    it('still reads as the quick-pick that display is, not Custom', () => {
+      renderSidebar({ canvas: turned })
+
+      expect(screen.getByLabelText('Resolution')).toHaveTextContent('296×128')
+      expect(screen.getByLabelText('Resolution')).not.toHaveTextContent(/Custom/i)
+      // …so the manual W/H inputs stay away: nothing custom happened.
+      expect(screen.queryByRole('spinbutton', { name: 'W' })).toBeNull()
+
+      const listbox = openResolutionMenu()
+      expect(within(listbox).getByRole('option', { name: /296×128/i })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+    })
+
+    it('applies a quick-pick in the orientation being held', () => {
+      const onCanvasSizeChange = vi.fn()
+      renderSidebar({ canvas: turned, onCanvasSizeChange })
+
+      const listbox = openResolutionMenu()
+      fireEvent.mouseDown(within(listbox).getByRole('option', { name: /800×480/i }))
+
+      expect(onCanvasSizeChange).toHaveBeenCalledWith(480, 800)
+    })
+  })
+
+  it('names each quick-pick by its dimensions alone', () => {
+    // No Portrait/Landscape tag: it would claim the resolution control decides
+    // orientation, which is the orientation control's job (issue #139 F3).
     renderSidebar()
 
     const listbox = openResolutionMenu()
-    expect(within(listbox).getByRole('option', { name: /800×480/i })).toHaveTextContent('Landscape')
-    expect(within(listbox).getByRole('option', { name: /168×384/i })).toHaveTextContent('Portrait')
-    expect(within(listbox).getByRole('option', { name: /152×152/i })).toHaveTextContent('Square')
+    expect(within(listbox).getByRole('option', { name: /800×480/i })).toHaveTextContent(
+      /^800×480$/,
+    )
+    expect(within(listbox).queryByText(/Portrait|Landscape|Square/)).toBeNull()
   })
 
   it('scrolls the current resolution into the middle when opening the menu', () => {
