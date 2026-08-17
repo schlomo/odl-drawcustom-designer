@@ -95,7 +95,10 @@ interface SidebarProps {
     movingIndices?: readonly number[],
   ) => void
   onFocusSimulatorEntity?: (entityId: string) => void
-  /** Issue #35: no element mutation while the YAML doc is blocked — disables element drag-reorder. */
+  /**
+   * No element mutation — the YAML doc is blocked (issue #35) or the host
+   * display preview is showing (issue #109). Disables element drag-reorder.
+   */
   yamlBlocked?: boolean
 }
 

@@ -6,6 +6,7 @@ import { locateElementFocusInYaml } from './locateElementInYaml'
 import { locateFirstEntityOccurrenceInYaml } from './locateEntityInYaml'
 import {
   createYamlEditorState,
+  reconfigureYamlReadOnly,
   yamlEditorTooltipParent,
   yamlThemeCompartment,
 } from './yamlEditorExtensions'
@@ -53,6 +54,11 @@ export interface YamlEditorProps {
   extraEntityIds?: readonly string[]
   mockContext?: HaMockContext
   templatePreviewEnabled?: boolean
+  /**
+   * Show the document but refuse edits (issue #109 — the host display preview
+   * is on). Programmatic syncs are unaffected.
+   */
+  readOnly?: boolean
 }
 
 function mergeEntityIds(scanned: readonly string[], extra: readonly string[]): string[] {
@@ -89,6 +95,7 @@ export function YamlEditor({
   extraEntityIds = [],
   mockContext,
   templatePreviewEnabled = true,
+  readOnly = false,
 }: YamlEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -227,6 +234,17 @@ export function YamlEditor({
       effects: reconfigureLinkedElementIndex(preserveLinkedElementIndex),
     })
   }, [preserveLinkedElementIndex])
+
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) {
+      return
+    }
+
+    view.dispatch({
+      effects: reconfigureYamlReadOnly(readOnly),
+    })
+  }, [readOnly])
 
   useEffect(() => {
     const view = viewRef.current

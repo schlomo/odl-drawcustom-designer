@@ -18,6 +18,11 @@
 // demo *payload only* — the demo's own states are Simulator data, so they show
 // honestly as "not supplied" in the panel.
 import { mount } from './odl-drawcustom-designer.js'
+import {
+  PREVIEW_RENDER_DELAY_MS,
+  delay,
+  renderPayloadOnFakeDisplay,
+} from './preview-render.js'
 
 const PAYLOAD = `- type: text
   value: "{{ states('sensor.demo_temperature') }} °C"
@@ -154,6 +159,7 @@ const LATE_TARGET = {
 const savedPayload = document.getElementById('saved-payload')
 const actionLog = document.getElementById('action-log')
 const targetLog = document.getElementById('target-log')
+const previewLog = document.getElementById('preview-log')
 
 // Host-registered actions (issue #108, ADR-018): the host owns what each button
 // means — this page fakes persistence, a display transmission and a payload
@@ -224,6 +230,21 @@ const mountsWholeInventory = new URLSearchParams(location.search).get('displays'
 // is the only way this page learns about a selection before an action fires.
 let targets = mountsWholeInventory ? ALL_TARGETS : [KITCHEN_TARGET]
 let selectedTargetId = null
+/** Flipped by the "Simulate preview failure" button — exercises the error path. */
+let previewShouldFail = false
+
+/**
+ * What the host knows about the display it is asked to render for. A real host
+ * renders on the device itself; this page renders at that display's declared
+ * size, falling back to the display it mounted with when the design is pinned
+ * to nothing (the virtual display).
+ */
+function capabilitiesForTarget(targetId) {
+  return (
+    targets.find((target) => target.id === targetId)?.capabilities ??
+    KITCHEN_TARGET.capabilities
+  )
+}
 
 const handle = mount(document.getElementById('designer'), {
   payload: PAYLOAD,
@@ -243,6 +264,32 @@ const handle = mount(document.getElementById('designer'), {
       targetId === null
         ? 'Virtual display — no target selected'
         : `Selected display: ${targetId}`
+  },
+  // Preview provider (issue #109, ADR-018): the host renders the payload
+  // itself and the designer shows that image instead of its own preview.
+  // Registering it is what makes the designer offer its "Display preview"
+  // toggle at all — a host that passes none gets no toggle and no trace.
+  //
+  // Deliberately async with a visible delay (a real dry-run is a round trip)
+  // and deliberately NOT the designer's own renderer: demo/preview-render.js is
+  // a crude host-side rasterizer standing in for a Pillow render, so the image
+  // differs visibly from the designer's — including the dither, which travels
+  // in `context.service` and re-requests when the user flips it.
+  async renderPreview(payload, context) {
+    previewLog.textContent =
+      `renderPreview: ${payload.length} bytes` +
+      ` · dither=${context.service.dither}` +
+      ` · display=${context.targetId ?? '(virtual)'}`
+    await delay(PREVIEW_RENDER_DELAY_MS)
+    if (previewShouldFail) {
+      // Rejecting is how a host reports failure; the designer states it in the
+      // preview area and shows no image rather than a stale one.
+      throw new Error('the display did not answer the render request')
+    }
+    return renderPayloadOnFakeDisplay(payload, context, {
+      capabilities: capabilitiesForTarget(context.targetId),
+      states: { ...temperatureStates, ...currentClockState() },
+    })
   },
   actions: buildActions(displayOnline),
   onAction(id, payload, context) {
@@ -327,6 +374,17 @@ document.getElementById('remove-selected-display').addEventListener('click', () 
   targets = targets.filter((target) => target.id !== selectedTargetId)
   handle.setTargets(targets)
   targetLog.textContent = `Removed ${selectedTargetId} — the designer keeps its last-known display config`
+})
+// A host render that fails must be *stated*, never silently replaced by the
+// designer's own rasterization — flip this, then turn Display preview on.
+document.getElementById('fail-preview').addEventListener('click', (event) => {
+  previewShouldFail = !previewShouldFail
+  event.target.textContent = previewShouldFail
+    ? 'Repair preview rendering'
+    : 'Simulate preview failure'
+  previewLog.textContent = previewShouldFail
+    ? 'The next renderPreview call will reject'
+    : 'renderPreview will answer normally again'
 })
 document.getElementById('theme').addEventListener('change', (event) => {
   handle.setTheme(event.target.value)

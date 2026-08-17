@@ -13,7 +13,10 @@ import { shell } from '../styles/shell'
 interface ElementToolbarProps {
   elements: readonly DrawElement[]
   onAddElement: (type: DrawElement['type']) => AddElementResult
-  /** Issue #35: no element mutation while the YAML doc is blocked — disables all add buttons. */
+  /**
+   * No element mutation — the YAML doc is blocked (issue #35) or the host
+   * display preview is showing (issue #109). Disables all add buttons.
+   */
   blocked?: boolean
 }
 

@@ -76,6 +76,7 @@ export function createEmbeddedHost(options: MountOptions): DesignerHost {
     onAction: options.onAction,
     targets,
     onTargetSelected: options.onTargetSelected,
+    renderPreview: options.renderPreview,
     // Synchronous: invalid `payload` YAML must throw out of `mount()` itself.
     loadBootstrap: () => buildEmbedBootstrap(options, targets),
   }

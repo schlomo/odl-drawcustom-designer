@@ -44,7 +44,7 @@ npm run build:site && npm run preview
 
 No dedicated server needed beyond that: the demo is plain static files, so any static file server works (e.g. `python3 -m http.server -d dist-lib`).
 
-The demo page implements every seam with mocks: it mounts as a **single-display host** (one pushed display, adopted and locked without a pick), pushes its full display inventory on demand, adds and removes displays, pushes warm/cold states with friendly names plus a per-second ticking state, registers Save / Send / Validate / Display-settings actions and re-pushes them to simulate a display going offline, switches themes, and logs every fired action and display selection into a `<pre>`. It is also the Playwright e2e harness ([`tests/e2e/embed-mount.spec.ts`](../tests/e2e/embed-mount.spec.ts), [`embed-actions.spec.ts`](../tests/e2e/embed-actions.spec.ts), [`embed-targets.spec.ts`](../tests/e2e/embed-targets.spec.ts)) — if a feature cannot be expressed on that page, the abstraction is wrong (ADR-018's litmus test).
+The demo page implements every seam with mocks: it mounts as a **single-display host** (one pushed display, adopted and locked without a pick), pushes its full display inventory on demand, adds and removes displays, pushes warm/cold states with friendly names plus a per-second ticking state, registers Save / Send / Validate / Display-settings actions and re-pushes them to simulate a display going offline, renders host-side display previews (and fails one on demand), switches themes, and logs every fired action and display selection into a `<pre>`. It is also the Playwright e2e harness ([`tests/e2e/embed-mount.spec.ts`](../tests/e2e/embed-mount.spec.ts), [`embed-actions.spec.ts`](../tests/e2e/embed-actions.spec.ts), [`embed-targets.spec.ts`](../tests/e2e/embed-targets.spec.ts)) — if a feature cannot be expressed on that page, the abstraction is wrong (ADR-018's litmus test).
 
 The same demo is published from `main` at **<https://schlomo.github.io/odl-drawcustom-designer/embed/>** — `npm run build:site` assembles the deployed site (app at `/`, `dist-lib/` copied to `/embed/` by [`tools/assembleSite.ts`](../tools/assembleSite.ts)); PR previews get their own `/embed/` the same way.
 
@@ -64,6 +64,10 @@ const handle = mount(document.getElementById('designer'), {
   },
   onTargetSelected(targetId) {
     // user picked a display (or the virtual display: targetId === null)
+  },
+  async renderPreview(payload, context) {
+    // optional: render the payload yourself — see below
+    return await yourBackend.dryRun(payload, context)
   },
 })
 
@@ -363,6 +367,39 @@ handle.setActions([])               // no action buttons at all
 - **`needsPayload` (default `true`)** says whether the action reads the design. While the YAML editor is blocked by a parse/schema error, every action that needs the payload is disabled and says so on hover (a host `disabledReason` takes precedence over that message). A `needsPayload: false` action — host-side settings, a reconnect, a help link — stays clickable and receives the **last valid payload**, exactly what [`getPayload()`](#getpayload-issue-104) reports while blocked.
 - **Malformed lists throw** at the push that carries them (unknown `icon` or `severity`, non-boolean `needsPayload`, missing or duplicate `id`, missing `label`), like invalid `payload` YAML does, and leave the designer untouched. A bad list passed to `mount()` throws before the container is touched. Text fields are trimmed, so incidental padding never reaches the button or the id echoed back to `onAction`.
 
+### `renderPreview` ([issue #109](https://github.com/schlomo/odl-drawcustom-designer/issues/109))
+
+The host renders the payload **itself** and the designer shows that image in its canvas area, in place of its own client-side preview ([ADR-018](adr/ADR-018-host-ui-seam.md) preview seam). The reference implementation is the OpenDisplay HA integration's drawcustom dry-run path: a real Pillow render, which is also what makes this the [ADR-007](adr/ADR-007-hybrid-rendering.md) pixel-parity reference — a true server render to compare the designer against, not another client approximation.
+
+```js
+const handle = mount(el, {
+  targets,
+  async renderPreview(payload, context) {
+    // context.targetId — the display this design is pinned to (undefined: none)
+    // context.service.dither — the designer's dither control: 0 flat, 2 ordered
+    const response = await fetch('/api/dry-run', {
+      method: 'POST',
+      body: JSON.stringify({ payload, target: context.targetId, dither: context.service.dither }),
+    })
+    if (!response.ok) throw new Error('The display did not answer')  // shown to the user
+    return await response.blob()                                     // or a URL string
+  },
+})
+```
+
+- **No provider, no chrome.** Supplying `renderPreview` is what makes the designer offer a **Display preview** toggle, immediately right of its Canvas heading; a mount without one renders no toggle and no other visual trace, exactly like [`actions`](#actions--onaction-issue-108) and [`targets`](#targets--ontargetselected-issue-106). Standalone output is unchanged.
+- **A stable closure, not a push.** Like `onAction` and `onTargetSelected`, it is fixed at `mount()` — there is no `setRenderPreview()` (ADR-018: data is pushed, functions are not). A host whose backend changes reads that from inside its own closure.
+- **Return a `Blob` or a URL string.** A `Blob` (`image/png`, `image/*`) is the direct path. A URL (`data:`, `blob:`, `http(s):`) also works, but Copy/Download PNG then re-reads it from the host page, so it must be fetchable there.
+- **Preview mode pauses editing.** A server render cannot follow an edit, so while it shows, everything that mutates the design is disabled: add-element buttons, canvas selection/drag/nudge/undo, property fields, element reordering, Clear all, Load Demo. The YAML editor becomes **read-only** rather than hidden — still selectable, scrollable and copyable. Leaving the preview restores all of it; nothing about the design changed in the meantime.
+- **The display config and the State Simulator stay editable** — neither is part of the payload, so neither invalidates a host render. The image is fit into the canvas box (`object-contain`), so if a resolution change leaves the two disagreeing, the render letterboxes visibly rather than being stretched to fit a shape it was not rendered for.
+- **Copy PNG, Download PNG and zoom keep working — on the host render.** The image occupies the canvas paper, so Fit / 50 / 100 / 200% apply to it unchanged, and the two PNG exports carry the *host's* bytes. They never silently substitute the designer's own rasterization: with no render on screen yet they report "Display preview is still rendering".
+- **The dither control stays live and re-requests.** It travels in `context.service` and a flip asks for a new render, so the preview always agrees with the designer's own dither setting. `service` is the slice [issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105) formalizes into the full drawcustom service-options seam; it grows there additively, so read the fields you know. `dither` uses the service option's own domain (`0` flat, `1`, `2` ordered halftone) — the designer's control produces `0` or `2` today.
+- **Re-requests are debounced, and answers are matched to their request.** Editing the payload, picking another display or flipping dither while the preview shows re-requests after a short quiet period (250ms), with a subtle "Rendering on the display…" chip and the previous render left on screen underneath. A response whose request has already been superseded is **discarded, never painted** — a slow render cannot overwrite a newer one, whichever order they arrive in.
+- **Reject to report failure.** The designer states it in the preview area (your `Error`'s own message when it has one) and shows **no image at all**: a stated error beats a stale or wrong render, and there is no silent fall back to the designer's own rendering, which would quietly answer a different question. Throwing synchronously is treated identically. Turning the preview off and on again retries.
+- **What it is asked to render** is exactly the string [`getPayload()`](#getpayload-issue-104) returns at that instant — the same serializer, the same pending-edit flush an action click gets — so the image is a render of precisely what a Send action would transmit.
+
+[`demo/host.js`](../demo/host.js) implements the provider with [`demo/preview-render.js`](../demo/preview-render.js): a deliberately crude host-side rasterizer (its own monospace font, its own template resolution, its own 1-bit quantization) standing in for a server render, with an artificial delay and a "Simulate preview failure" button. It is deliberately *not* the designer's renderer — the visible difference is the whole point of the seam ([`tests/e2e/embed-preview.spec.ts`](../tests/e2e/embed-preview.spec.ts)).
+
 ### `payload`
 
 The payload is the drawcustom **element list YAML** (what the YAML panel shows). The host owns persistence: session autosave is disabled in embedded mode, the share-link button is hidden, and the payload leaves the designer only through [`getPayload()`](#getpayload-issue-104) or an [action](#actions--onaction-issue-108) callback. The designer never writes it anywhere itself.
@@ -409,6 +446,7 @@ Everything that would otherwise be an `embedded` conditional in the React shell 
 | `persistence` | IndexedDB writers | `null` — the host owns the payload |
 | `actions` / `onAction` | absent — no action chrome | host-registered buttons |
 | `targets` / `onTargetSelected` | absent — no display picker | host-pushed displays in the picker |
+| `renderPreview` | absent — no Display preview toggle | host-rendered preview when supplied |
 | `loadBootstrap` | async: session + `#d=` hash | sync: `payload`/`states`/`targets` options |
 
 The interface is **internal on purpose** — it references internal types, so publishing it would freeze designer internals under semver ([`docs/releasing.md`](releasing.md)). The public embedded surface is `mount`, `MountOptions`, `MountHandle` and the host data contract above.

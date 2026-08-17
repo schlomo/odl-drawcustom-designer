@@ -96,6 +96,14 @@ interface YamlPanelProps {
    * invalidate any debounced draft typed before the push.
    */
   discardPendingRef?: RefObject<(() => void) | null>
+  /**
+   * The document is shown but not editable (issue #109): the host display
+   * preview is on, so the design must not move under a render that cannot
+   * follow it. Read-only rather than hidden or disabled — the YAML stays
+   * selectable, scrollable and copyable, which is half of why a user opens the
+   * preview in the first place.
+   */
+  readOnly?: boolean
 }
 
 /**
@@ -148,6 +156,7 @@ export function YamlPanel({
   onYamlBlockedChange,
   flushPendingRef,
   discardPendingRef,
+  readOnly = false,
 }: YamlPanelProps) {
   // Serializing the payload happens inside the external-sync effect below, its
   // only consumer — never during render (issue #124). A drag suspends that
@@ -477,6 +486,7 @@ export function YamlPanel({
           onEditorBlur={flushYamlElementsSync}
           value={yamlText}
           onChange={handleYamlChange}
+          readOnly={readOnly}
         />
       </div>
     </section>

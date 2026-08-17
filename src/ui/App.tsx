@@ -20,6 +20,7 @@ import { requestLoadDemoConfirm, shouldConfirmLoadDemo } from './lib/load-demo'
 import { toolbarGroupRow, toolbarGroupsRow } from './lib/export-action-feedback'
 import { getMissingAssetMessages } from './lib/missing-asset-messages'
 import type { StatusMessage } from './lib/status-messages'
+import { useDisplayPreview } from './hooks/useDisplayPreview'
 import { useExportActionFeedback } from './hooks/useExportActionFeedback'
 import { useProjectState } from './hooks/useProjectState'
 import { useElementSize } from './hooks/useElementSize'
@@ -205,6 +206,26 @@ export function App({ bootstrap, host }: AppProps) {
     }
     return host.registerPayloadSource(readCurrentPayload)
   }, [host, readCurrentPayload])
+
+  // Host-rendered display preview (issue #109, ADR-018 preview seam). It reads
+  // the same payload every other host channel does, so the image the user sees
+  // is a render of exactly what an action would send.
+  const displayPreview = useDisplayPreview({
+    renderPreview: host.renderPreview,
+    readPayload: readCurrentPayload,
+    ditherMode: canvas.previewDitherMode,
+    targetId: activeTargetId ?? undefined,
+    payloadRevision: elements,
+  })
+  /**
+   * Nothing may edit the design while the host's own render is on screen
+   * (maintainer ruling): a server render cannot follow an edit, so every
+   * mutating affordance is disabled exactly as it is while the YAML doc is
+   * blocked (issue #35) — one disabled-mutation concept, two reasons for it.
+   * The YAML-error overlays stay tied to `yamlBlocked` alone: preview mode is
+   * not an error state and must not be explained as one.
+   */
+  const mutationBlocked = yamlBlocked || displayPreview.active
 
   useEffect(() => {
     if (bootstrap.importSource === 'hash') {
@@ -492,12 +513,12 @@ export function App({ bootstrap, host }: AppProps) {
         </div>
         <div className={`${toolbarGroupsRow} shrink-0`}>
           <div className={toolbarGroupRow} role="group" aria-label="Session">
-            <TextButton variant="destructive" onClick={clearElements} disabled={yamlBlocked}>
+            <TextButton variant="destructive" onClick={clearElements} disabled={mutationBlocked}>
               Clear all
             </TextButton>
           </div>
           <div className={toolbarGroupRow} role="group" aria-label="Demo">
-            <TextButton onClick={handleLoadDemo} disabled={yamlBlocked}>
+            <TextButton onClick={handleLoadDemo} disabled={mutationBlocked}>
               Load Demo
             </TextButton>
           </div>
@@ -580,11 +601,15 @@ export function App({ bootstrap, host }: AppProps) {
           onClearAsset={clearAsset}
           onReorderElement={handleReorderElement}
           onFocusSimulatorEntity={handleSimulatorEntityFocus}
-          yamlBlocked={yamlBlocked}
+          yamlBlocked={mutationBlocked}
         />
 
         <div ref={columnRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <ElementToolbar elements={elements} onAddElement={handleAddElement} blocked={yamlBlocked} />
+          <ElementToolbar
+            elements={elements}
+            onAddElement={handleAddElement}
+            blocked={mutationBlocked}
+          />
           <div
             ref={canvasAllocationRef}
             data-canvas-allocation
@@ -624,8 +649,9 @@ export function App({ bootstrap, host }: AppProps) {
               canRedo={canRedo}
               onUndo={undo}
               onRedo={redo}
-              blocked={yamlBlocked}
+              blocked={mutationBlocked}
               blockedVisible={yamlBlockedVisible}
+              displayPreview={displayPreview}
             />
           </div>
           <YamlPanel
@@ -648,6 +674,7 @@ export function App({ bootstrap, host }: AppProps) {
             propertyEditing={propertyEditing}
             flushPendingRef={yamlFlushPendingRef}
             discardPendingRef={yamlDiscardPendingRef}
+            readOnly={displayPreview.active}
           />
         </div>
 
@@ -666,7 +693,7 @@ export function App({ bootstrap, host }: AppProps) {
           onSendToBack={sendSelectionToBack}
           onMoveUp={() => moveSelectionLayer('up')}
           onMoveDown={() => moveSelectionLayer('down')}
-          blocked={yamlBlocked}
+          blocked={mutationBlocked}
           blockedVisible={yamlBlockedVisible}
         />
       </div>

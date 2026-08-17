@@ -99,6 +99,15 @@ import type { SelectElementOptions } from '../hooks/useProjectState'
 import { useExportActionFeedback } from '../hooks/useExportActionFeedback'
 import { CanvasSelectionToolbar } from './CanvasSelectionToolbar'
 import { CanvasHeaderToolbar } from './CanvasHeaderToolbar'
+import { DisplayPreviewImage } from './DisplayPreviewImage'
+import { DisplayPreviewStatus } from './DisplayPreviewStatus'
+import { FeatureToggle } from './FeatureToggle'
+import { MdiIcon } from './MdiIcon'
+import { TOOL_ICONS } from '../lib/mdi-tool-icons'
+import {
+  DISPLAY_PREVIEW_NOT_READY_MESSAGE,
+  type DisplayPreviewView,
+} from '../hooks/useDisplayPreview'
 import { shell } from '../styles/shell'
 
 interface DesignerCanvasProps {
@@ -141,10 +150,20 @@ interface DesignerCanvasProps {
   canRedo?: boolean
   onUndo?: () => void
   onRedo?: () => void
-  /** True while the live YAML doc fails to parse/validate (issue #35) — ignore pointer/keyboard interactions. */
+  /**
+   * No element mutation and no canvas interaction: the live YAML doc fails to
+   * parse/validate (issue #35), or the host display preview is showing
+   * (issue #109) — both mean pointer and keyboard edits are ignored.
+   */
   blocked?: boolean
-  /** True once {@link blocked} has held past the visual grace period — show the blocked overlay. */
+  /** True once the YAML doc has been {@link blocked} past the visual grace period — show the blocked overlay. */
   blockedVisible?: boolean
+  /**
+   * The host-rendered display preview (issue #109, ADR-018 preview seam), or
+   * `undefined` for a runtime with no provider — then no toggle and no other
+   * visual trace is rendered at all.
+   */
+  displayPreview?: DisplayPreviewView
 }
 
 interface DragOverlay {
@@ -229,7 +248,9 @@ export function DesignerCanvas({
   onRedo,
   blocked = false,
   blockedVisible = false,
+  displayPreview,
 }: DesignerCanvasProps) {
+  const previewActive = displayPreview?.active ?? false
   const containerRef = useRef<HTMLDivElement>(null)
   const dragSessionRef = useRef<DragSession | null>(null)
   const pointerCaptureTargetRef = useRef<HTMLElement | null>(null)
@@ -240,7 +261,9 @@ export function DesignerCanvas({
   const [zoomMode, setZoomMode] = useState<CanvasZoomMode>(() => readCanvasZoomMode())
   const { flashSuccess, flashError, getFeedback, getFeedbackMessage } = useExportActionFeedback()
   const headerRef = useRef<HTMLDivElement>(null)
-  const titleRef = useRef<HTMLHeadingElement>(null)
+  // Measures the whole heading group (title + Display preview toggle), which
+  // is what actually competes with the toolbar for header width.
+  const titleRef = useRef<HTMLDivElement>(null)
   const measureRef = useRef<HTMLDivElement>(null)
   const headerSize = useElementSize(headerRef)
   const titleSize = useElementSize(titleRef)
@@ -1256,7 +1279,13 @@ export function DesignerCanvas({
     return lines
   }, [renderContext.height, renderContext.width, snapGrid.enabled, snapGrid.size])
 
-  const exportPreviewPng = useCallback(async () => {
+  const exportPreviewPng = useCallback(async (): Promise<Blob | null> => {
+    // Copy/Download PNG stay live in preview mode and act on what is on screen
+    // (maintainer ruling): the host's render, never a client rasterization
+    // silently substituted for it.
+    if (previewActive && displayPreview) {
+      return displayPreview.getImageBlob()
+    }
     return renderPayloadToPngBlob({
       elements: baseElements,
       renderContext: {
@@ -1270,8 +1299,10 @@ export function DesignerCanvas({
   }, [
     baseElements,
     displayAssetImages,
+    displayPreview,
     fontFamilies,
     opentypeFonts,
+    previewActive,
     renderContext,
   ])
 
@@ -1279,6 +1310,7 @@ export function DesignerCanvas({
     try {
       const blob = await exportPreviewPng()
       if (!blob) {
+        flashError('copy-png', DISPLAY_PREVIEW_NOT_READY_MESSAGE)
         return
       }
       const copied = await copyBlobToClipboard(blob)
@@ -1296,6 +1328,7 @@ export function DesignerCanvas({
     try {
       const blob = await exportPreviewPng()
       if (!blob) {
+        flashError('download-png', DISPLAY_PREVIEW_NOT_READY_MESSAGE)
         return
       }
       triggerBlobDownload(blob, buildPngDownloadFilename(sessionName))
@@ -1335,9 +1368,31 @@ export function DesignerCanvas({
         ref={headerRef}
         className={`relative flex min-w-0 items-center justify-between gap-2 overflow-visible border-b ${shell.panelBorder} px-4 py-2`}
       >
-        <h2 ref={titleRef} className={`${shell.heading} shrink-0`}>
-          Canvas
-        </h2>
+        <div
+          ref={titleRef}
+          data-testid="canvas-heading"
+          className="flex min-w-0 shrink-0 items-center gap-2"
+        >
+          <h2 className={`${shell.heading} shrink-0`}>Canvas</h2>
+          {/* Conditional chrome (issue #109): the toggle exists only where a
+              host registered a preview provider — standalone renders nothing
+              here at all. Always labelled: it switches the canvas into another
+              mode, so it must not collapse into an unexplained icon. */}
+          {displayPreview?.available ? (
+            <FeatureToggle
+              enabled={previewActive}
+              onToggle={displayPreview.toggle}
+              textLabel="Display preview"
+              detailedTitle="Show the display's own render of this design instead of the designer preview (editing is paused)"
+              data-testid="display-preview-toggle"
+            >
+              <span className="flex items-center gap-1">
+                <MdiIcon path={TOOL_ICONS.displayPreview} size={16} className="shrink-0" />
+                <span>Display preview</span>
+              </span>
+            </FeatureToggle>
+          ) : null}
+        </div>
         <div ref={canvasToolbarRef} className="shrink-0">
           <CanvasHeaderToolbar {...toolbarProps} />
         </div>
@@ -1354,6 +1409,9 @@ export function DesignerCanvas({
         <StatusBanner key={`${message.severity}-${message.title}-${index}`} message={message} />
       ))}
       <div className="relative min-h-0 flex-1">
+        {/* Selection chrome has nothing to act on over a host render, so it is
+            not rendered at all rather than floating there disabled. */}
+        {previewActive ? null : (
         <CanvasSelectionToolbar
           blocked={blocked}
           selectionCount={selectedIndices.length}
@@ -1367,7 +1425,11 @@ export function DesignerCanvas({
           onMoveUp={() => onMoveSelectionLayer('up')}
           onMoveDown={() => onMoveSelectionLayer('down')}
         />
-        {pointer ? (
+        )}
+        {displayPreview && previewActive ? (
+          <DisplayPreviewStatus loading={displayPreview.loading} error={displayPreview.error} />
+        ) : null}
+        {pointer && !previewActive ? (
           <div
             className="pointer-events-none absolute bottom-3 left-3 z-30 rounded-md bg-[var(--shell-text)]/75 px-2 py-0.5 font-mono text-xs tabular-nums text-[var(--shell-surface)] shadow-sm"
             aria-hidden
@@ -1432,6 +1494,19 @@ export function DesignerCanvas({
                 } satisfies CSSProperties
               }
             >
+          {/* Preview mode replaces the paper's *content*, not the paper: the
+              host render inherits the whole zoom/scroll system (issue #109),
+              and every edit affordance below is simply not mounted. */}
+          {previewActive ? (
+            displayPreview?.imageUrl ? (
+              <DisplayPreviewImage
+                url={displayPreview.imageUrl}
+                width={renderContext.width}
+                height={renderContext.height}
+              />
+            ) : null
+          ) : (
+          <>
           {gridLines ? (
             <svg
               viewBox={`0 0 ${renderContext.width} ${renderContext.height}`}
@@ -1565,6 +1640,8 @@ export function DesignerCanvas({
               </g>
             ))}
           </svg>
+          </>
+          )}
             </div>
           </div>
         </div>

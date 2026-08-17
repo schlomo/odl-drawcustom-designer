@@ -5,6 +5,7 @@ import type {
   EmbedTheme,
   HostAction,
   HostActionHandler,
+  HostPreviewRenderer,
   HostPushTarget,
   HostStates,
   HostTarget,
@@ -103,6 +104,13 @@ export interface DesignerHost {
    * virtual display. Absent for a host that pushes no targets.
    */
   readonly onTargetSelected?: HostTargetSelectedHandler
+  /**
+   * Host-side payload renderer (issue #109, ADR-018 preview seam): present
+   * only for a host that supplied `renderPreview`, and the sole reason the
+   * shell paints its Display preview toggle. Not a push channel — a stable
+   * closure fixed at mount, like `onAction`.
+   */
+  readonly renderPreview?: HostPreviewRenderer
   /**
    * Initial designer state. May be async so an adapter can read IndexedDB
    * and the `#d=` share hash; a synchronous return renders in the same tick

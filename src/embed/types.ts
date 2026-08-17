@@ -212,6 +212,81 @@ export interface HostTarget {
  */
 export type HostTargetSelectedHandler = (targetId: string | null) => void
 
+/**
+ * The service options a host-side render must honour, carried by every
+ * {@link HostPreviewContext} (issue #109, ADR-018 preview seam).
+ *
+ * Deliberately minimal: the designer sends the options it actually owns a
+ * control for. The full drawcustom service-options seam is formalized in
+ * [issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105)
+ * — this object is where it lands, and it grows additively (a host reads the
+ * fields it knows).
+ */
+export interface HostPreviewServiceOptions {
+  /**
+   * The dither mode the designer's own dither control currently holds, in the
+   * drawcustom `dither` service option's own domain (`src/core/schema/service.ts`):
+   * `0` flat, `1`, `2` ordered halftone. The designer's preview control
+   * produces `0` or `2` today.
+   *
+   * A provider **must** honour it: changing the control re-requests the
+   * preview, so a provider that ignores the value answers a changed request
+   * with an unchanged image and the designer shows a preview that contradicts
+   * its own dither setting.
+   */
+  dither: 0 | 1 | 2
+}
+
+/**
+ * Second argument of {@link HostPreviewRenderer} — the same
+ * "payload plus opaque ids" shape {@link HostActionContext} carries, extended
+ * with the service options the render depends on.
+ */
+export interface HostPreviewContext {
+  /**
+   * The selected target's opaque host id (issue #106), or `undefined` when the
+   * design is not pinned to one — exactly the value {@link HostActionContext}
+   * reports at the same instant.
+   */
+  targetId?: string
+  /**
+   * The service options this render must honour. Always present — the designer
+   * always knows its own dither mode, so a host never has to guard for it.
+   */
+  service: HostPreviewServiceOptions
+}
+
+/**
+ * Renders the current payload host-side and hands the finished image back
+ * (issue #109, ADR-018 preview seam).
+ *
+ * When a host supplies one, the designer offers a **Display preview** toggle
+ * next to its canvas heading; turning it on replaces the designer's own
+ * client-side preview with this image — a real server-side render, not another
+ * client approximation, which is what makes it usable as the
+ * [ADR-007](../../docs/adr/ADR-007-hybrid-rendering.md) pixel-parity
+ * reference. Every edit affordance is inert while it shows; Copy/Download PNG,
+ * zoom and the dither control keep working, and dither re-requests.
+ *
+ * - Resolve with a `Blob` (`image/png`, `image/*`) or with a URL string
+ *   (`data:`, `blob:`, `http(s):`) the designer can point an `<img>` at. A
+ *   URL must be readable by the host page for Copy/Download PNG to reach the
+ *   bytes.
+ * - **Reject to report failure.** The designer shows an explicit error in the
+ *   preview area — the rejection's `message` when it has one — and shows no
+ *   image at all: a stated error beats a stale or wrong render.
+ * - Called again (debounced) whenever the payload, the selected target or the
+ *   dither option changes while the preview is showing. Responses are matched
+ *   to their request, so a slow answer that a newer request has already
+ *   superseded is discarded rather than painted.
+ *
+ * A stable closure fixed at mount: ADR-018 pushes data, never functions.
+ */
+export type HostPreviewRenderer = (
+  payload: string,
+  context: HostPreviewContext,
+) => Promise<Blob | string>
+
 export interface MountOptions {
   /** Initial drawcustom YAML payload (list of draw elements). */
   payload?: string
@@ -263,6 +338,16 @@ export interface MountOptions {
    * `disabledReason: 'No display selected'`, say — want this.
    */
   onTargetSelected?: HostTargetSelectedHandler
+  /**
+   * Host-side render of the current payload (issue #109). Supplying one is
+   * what makes the designer offer its **Display preview** toggle at all — no
+   * provider, no toggle and no other visual trace, exactly like `actions` and
+   * `targets` (conditional chrome; standalone output is unchanged).
+   *
+   * A stable closure — there is no update channel for it (ADR-018: data is
+   * pushed, functions are not).
+   */
+  renderPreview?: HostPreviewRenderer
 }
 
 export interface MountHandle {
