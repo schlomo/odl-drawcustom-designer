@@ -38,7 +38,11 @@ interface ElementListProps {
     toIndex: number,
     movingIndices?: readonly number[],
   ) => void
-  /** Issue #35: no element mutation while the YAML doc is blocked — disables drag-reorder (row click still selects). */
+  /**
+   * No element mutation — the YAML doc is blocked (issue #35) or the host
+   * display preview is showing (issue #109). Disables drag-reorder; a row
+   * click still selects.
+   */
   blocked?: boolean
 }
 

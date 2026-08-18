@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import {
   resolveCursorSelection,
   serializeYamlPayload,
@@ -48,6 +48,7 @@ import { toolbarHeaderSlotWidth } from '../lib/toolbar-header-slot'
 import { useExportActionFeedback } from '../hooks/useExportActionFeedback'
 import { useElementSize } from '../hooks/useElementSize'
 import { useToolbarLabels } from '../hooks/useToolbarLabels'
+import { usePublishedCallback } from '../hooks/usePublishedCallback'
 
 const MIN_YAML_PANEL_HEIGHT = 120
 
@@ -96,36 +97,14 @@ interface YamlPanelProps {
    * invalidate any debounced draft typed before the push.
    */
   discardPendingRef?: RefObject<(() => void) | null>
-}
-
-/**
- * Keep a parent-owned ref pointed at the live callback while mounted, and
- * release it on unmount without stomping a newer owner.
- *
- * useLayoutEffect, not useEffect (issue #115/#116 commit-window class):
- * `flushPendingRef`/`discardPendingRef` are read by `getPayload()` and by the
- * `applyPayload` push applier (both now commit-time, see App.tsx and
- * useProjectState.ts), so this publication must not lag behind at passive
- * timing either. No YAML draft can exist at the very first commit (the
- * editor has not mounted yet), so today this is benign — but co-timing it
- * now closes the same class of window before a future caller relies on it
- * being available any earlier than a real Save/push.
- */
-function usePublishedCallback(
-  ref: RefObject<(() => void) | null> | undefined,
-  callback: () => void,
-): void {
-  useLayoutEffect(() => {
-    if (!ref) {
-      return
-    }
-    ref.current = callback
-    return () => {
-      if (ref.current === callback) {
-        ref.current = null
-      }
-    }
-  }, [callback, ref])
+  /**
+   * The document is shown but not editable (issue #109): the host display
+   * preview is on, so the design must not move under a render that cannot
+   * follow it. Read-only rather than hidden or disabled — the YAML stays
+   * selectable, scrollable and copyable, which is half of why a user opens the
+   * preview in the first place.
+   */
+  readOnly?: boolean
 }
 
 export function YamlPanel({
@@ -148,6 +127,7 @@ export function YamlPanel({
   onYamlBlockedChange,
   flushPendingRef,
   discardPendingRef,
+  readOnly = false,
 }: YamlPanelProps) {
   // Serializing the payload happens inside the external-sync effect below, its
   // only consumer — never during render (issue #124). A drag suspends that
@@ -444,8 +424,16 @@ export function YamlPanel({
         ref={headerRef}
         className={`relative flex shrink-0 items-center justify-between gap-2 border-b ${shell.panelBorder} px-4 py-2`}
       >
-        <h2 ref={titleRef} className={`${shell.heading} shrink-0`}>
+        <h2 ref={titleRef} className={`${shell.heading} flex shrink-0 items-baseline gap-1`}>
           YAML
+          {readOnly ? (
+            <span
+              data-testid="yaml-lock-indicator"
+              className={`text-xs font-normal normal-case tracking-normal ${shell.muted}`}
+            >
+              — locked by Display preview
+            </span>
+          ) : null}
         </h2>
         <div ref={yamlToolbarRef} className="shrink-0">
           <YamlHeaderToolbar {...toolbarProps} />
@@ -477,6 +465,7 @@ export function YamlPanel({
           onEditorBlur={flushYamlElementsSync}
           value={yamlText}
           onChange={handleYamlChange}
+          readOnly={readOnly}
         />
       </div>
     </section>

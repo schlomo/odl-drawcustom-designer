@@ -8,6 +8,10 @@ import type { HostAction, MountHandle } from '../../src/embed'
 import { createStandaloneHost } from '../../src/embed/standaloneHost'
 import { TOOLBAR_TOOLTIP_SHOW_DELAY_MS } from '../../src/ui/lib/toolbar-tooltip'
 
+// Full-designer mounts under parallel load exceed vitest's 5s default on
+// 2-core CI runners — the documented gotcha, not a slow test.
+vi.setConfig({ testTimeout: 30_000 })
+
 /**
  * Host-registered actions (issue #108, ADR-018 actions seam): the host pushes
  * a typed, closed list of buttons; the designer renders them in its own

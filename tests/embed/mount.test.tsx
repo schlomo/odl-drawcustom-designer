@@ -6,6 +6,10 @@ import { mount, version } from '../../src/embed'
 import type { MountHandle } from '../../src/embed'
 import { readSessionFromDb } from '../../src/storage'
 
+// Full-designer mounts under parallel load exceed vitest's 5s default on
+// 2-core CI runners — the documented gotcha, not a slow test.
+vi.setConfig({ testTimeout: 30_000 })
+
 /**
  * Embeddable mount API (issue #20): behavior an embedding host observes —
  * render into an arbitrary container, container-scoped theme, host-pushed

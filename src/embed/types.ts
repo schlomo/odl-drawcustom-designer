@@ -212,6 +212,111 @@ export interface HostTarget {
  */
 export type HostTargetSelectedHandler = (targetId: string | null) => void
 
+/**
+ * The service options a host-side render must honour, carried by every
+ * {@link HostPreviewContext} (issue #109, ADR-018 preview seam).
+ *
+ * Deliberately minimal: the designer sends the options it actually owns a
+ * control for. The full drawcustom service-options seam is formalized in
+ * [issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105)
+ * — this object is where it lands, and it grows additively (a host reads the
+ * fields it knows).
+ */
+export interface HostPreviewServiceOptions {
+  /**
+   * The dither mode the designer's own dither control currently holds, in the
+   * drawcustom `dither` service option's own domain (`src/core/schema/service.ts`):
+   * `0` flat, `1`, `2` ordered halftone. The designer's preview control
+   * produces `0` or `2` today.
+   *
+   * A provider **must** honour it: changing the control re-requests the
+   * preview, so a provider that ignores the value answers a changed request
+   * with an unchanged image and the designer shows a preview that contradicts
+   * its own dither setting.
+   */
+  dither: 0 | 1 | 2
+}
+
+/**
+ * The **logical drawing surface** the payload is authored against — the
+ * coordinate space its `x`/`y` values live in, and therefore what a host has to
+ * render at for the image to mean anything beside the design.
+ *
+ * Already oriented: {@link HostPreviewDisplayGeometry.width}/`height` are
+ * swapped for a quarter turn (issue #139), exactly as upstream `imagegen`
+ * creates its canvas before drawing, and `rotation` says which way round the
+ * panel holds that surface. Never the raw physical panel size, and never a
+ * transform to apply to the returned image.
+ */
+export interface HostPreviewDisplayGeometry {
+  width: number
+  height: number
+  /** The orientation `width`/`height` are already expressed in. */
+  rotation: 0 | 90 | 180 | 270
+}
+
+/**
+ * Second argument of {@link HostPreviewRenderer} — the same
+ * "payload plus opaque ids" shape {@link HostActionContext} carries, extended
+ * with the geometry and the service options the render depends on.
+ */
+export interface HostPreviewContext {
+  /**
+   * The selected target's opaque host id (issue #106), or `undefined` when the
+   * design is not pinned to one — exactly the value {@link HostActionContext}
+   * reports at the same instant.
+   */
+  targetId?: string
+  /**
+   * The canvas the payload is authored against. Always present: a payload's
+   * coordinates are meaningless without the surface they refer to, and the
+   * designer always knows it — a display-config change (resolution pick,
+   * re-orientation) re-requests the render, so a provider that renders at its
+   * own idea of the size answers a changed request with an image of the wrong
+   * shape, which the designer letterboxes visibly rather than stretching.
+   */
+  display: HostPreviewDisplayGeometry
+  /**
+   * The service options this render must honour. Always present — the designer
+   * always knows its own dither mode, so a host never has to guard for it.
+   */
+  service: HostPreviewServiceOptions
+}
+
+/**
+ * Renders the current payload host-side and hands the finished image back
+ * (issue #109, ADR-018 preview seam).
+ *
+ * When a host supplies one, the designer offers a **Display preview** toggle
+ * next to its canvas heading; turning it on replaces the designer's own
+ * client-side preview with this image — a real server-side render, not another
+ * client approximation, which is what makes it usable as the
+ * [ADR-007](../../docs/adr/ADR-007-hybrid-rendering.md) pixel-parity
+ * reference. Every edit affordance is inert while it shows; Copy/Download PNG,
+ * zoom and the dither control keep working, and dither re-requests.
+ *
+ * - Resolve with a `Blob` (`image/png`, `image/*`) or with a URL string
+ *   (`data:`, `blob:`, `http(s):`) the designer can point an `<img>` at. A
+ *   URL must be readable by the host page for Copy/Download PNG to reach the
+ *   bytes.
+ * - **Reject to report failure.** The designer shows an explicit error in the
+ *   preview area — the rejection's `message` when it has one — and shows no
+ *   image at all: a stated error beats a stale or wrong render.
+ * - Called again (debounced) whenever anything it was given changes while the
+ *   preview shows: a `setPayload()` push, the display config (resolution,
+ *   orientation), the selected target, the dither option. Responses are matched
+ *   to their request, so a slow answer that a newer request has already
+ *   superseded is discarded rather than painted.
+ * - Must be a function when supplied — anything else throws out of `mount()`,
+ *   like a malformed action or target list does.
+ *
+ * A stable closure fixed at mount: ADR-018 pushes data, never functions.
+ */
+export type HostPreviewRenderer = (
+  payload: string,
+  context: HostPreviewContext,
+) => Promise<Blob | string>
+
 export interface MountOptions {
   /** Initial drawcustom YAML payload (list of draw elements). */
   payload?: string
@@ -263,6 +368,16 @@ export interface MountOptions {
    * `disabledReason: 'No display selected'`, say — want this.
    */
   onTargetSelected?: HostTargetSelectedHandler
+  /**
+   * Host-side render of the current payload (issue #109). Supplying one is
+   * what makes the designer offer its **Display preview** toggle at all — no
+   * provider, no toggle and no other visual trace, exactly like `actions` and
+   * `targets` (conditional chrome; standalone output is unchanged).
+   *
+   * A stable closure — there is no update channel for it (ADR-018: data is
+   * pushed, functions are not).
+   */
+  renderPreview?: HostPreviewRenderer
 }
 
 export interface MountHandle {
@@ -364,6 +479,27 @@ export interface MountHandle {
    * for the full semantics and rationale.
    */
   getPayload(): string
+  /**
+   * The designer's own rasterization of the current payload, right now — the
+   * exact bytes its own Copy PNG / Download PNG would produce outside
+   * Display preview, full font/renderer fidelity included. Exists so a host
+   * with no rendering backend of its own (a demo, a thin adapter) can answer
+   * `renderPreview` by reading this instead of writing a second renderer —
+   * the same "read access" fix {@link getPayload} is for reading the payload
+   * instead of driving the Save button.
+   *
+   * - **Independent of Display preview.** Always the client-side render, even
+   *   while the toggle is on and a host image is showing — a `renderPreview`
+   *   provider built on this can therefore never call itself.
+   * - **Rejects, never throws synchronously**, while the designer has not
+   *   yet committed its first render (the brief window right after
+   *   `mount()`/`mountStandaloneApp()` returns) — there is no bootstrap
+   *   fallback for a raster the way {@link getPayload} falls back to
+   *   serialized YAML, since fonts/assets have not loaded yet either.
+   * - Throws (does not reject) `MountHandle used after destroy()`, like every
+   *   other method on this handle.
+   */
+  getPngBlob(): Promise<Blob>
 }
 
 /**

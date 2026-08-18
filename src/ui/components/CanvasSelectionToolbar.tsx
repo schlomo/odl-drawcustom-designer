@@ -33,7 +33,11 @@ interface CanvasSelectionToolbarProps {
   onSendToBack: () => void
   onMoveUp: () => void
   onMoveDown: () => void
-  /** Issue #35: no element mutation while the YAML doc is blocked — disables all buttons. */
+  /**
+   * No element mutation — the YAML doc is blocked (issue #35). In host display
+   * preview mode (issue #109) this toolbar is not rendered at all: there is
+   * nothing on screen for it to act on.
+   */
   blocked?: boolean
 }
 

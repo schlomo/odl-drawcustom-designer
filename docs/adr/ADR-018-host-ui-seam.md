@@ -273,6 +273,58 @@ data contract — no new lifecycle, no new adapter shape:
   [ADR-007](ADR-007-hybrid-rendering.md) pixel-parity reference — a real
   Pillow render to diff against, not another client approximation.
 
+  *Shipped shape* (issue #109, `docs/embedding.md`):
+
+  - **The ids travel in a context object**, like the actions seam:
+    `renderPreview(payload, { targetId, display, service })` — so the
+    service-options seam ([issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105))
+    lands additively rather than as a signature change. `service` is that
+    slice, minimal today (`dither`, in the drawcustom service option's own
+    `0 | 1 | 2` domain) and **required**, not optional: the designer always
+    knows its own dither mode, so a host never guards for it.
+  - **The canvas travels with the payload.** `display` is the oriented logical
+    surface the payload's coordinates are authored against
+    (`{ width, height, rotation }`, issue #139) — required for the same reason
+    `service` is, since a payload without its coordinate space is not enough to
+    render. A resolution pick or a re-orientation re-requests, so the image on
+    screen is always a render of the canvas the design is being drawn on.
+  - **A mode, not an overlay** (maintainer ruling 2026-08-16). The ADR text
+    above said "overlay/compare view"; what shipped is a **Display preview**
+    toggle immediately right of the Canvas heading, replacing the client
+    preview in the canvas paper — so the host render inherits the existing
+    zoom system instead of carrying a second one, and a side-by-side compare
+    (an ADR-007 parity *diff*) stays a later, separate feature rather than the
+    first shape of the seam.
+  - **Provider-gated chrome.** No `renderPreview`, no control and no other
+    visual trace — the same conditional-chrome rule `actions` and `targets`
+    follow, which is what keeps standalone **visually** unchanged. Precisely:
+    the Canvas heading now sits in a flex wrapper unconditionally, so this is
+    visual parity, not DOM parity — no standalone control, behaviour or pixel
+    changes.
+  - **Preview mode pauses editing, not viewing.** Every mutating affordance is
+    disabled exactly as it is while the YAML doc is blocked (issue #35) — one
+    disabled-mutation concept, two reasons for it — while Copy/Download PNG,
+    zoom and the dither control stay live *against the host render*, and the
+    host's own action buttons stay enabled (reviewing the display's render and
+    then pressing Send is the flow). The YAML editor goes read-only rather than
+    hidden. A dither change re-requests, so the preview can never contradict the
+    designer's own dither setting.
+  - **Preview is never an error state.** Entering it is *refused* while the YAML
+    doc is blocked — the toggle is disabled and states why — instead of
+    previewing the last-valid payload or explaining a host render with a
+    YAML-error overlay (maintainer ruling 2026-08-17). Since the editor is
+    read-only inside preview mode and a host push parses or throws, the document
+    cannot go bad while a render is on screen.
+  - **Errors are stated, never papered over.** A rejection (or a synchronous
+    throw) shows an explicit failure in the preview area with the host's own
+    message and **drops the image**: falling back to the designer's own
+    rasterization would quietly answer a different question. Re-requests are
+    debounced and each answer is matched to its request by token, so a
+    superseded slow render is discarded rather than painted (the #115/#116
+    commit-window lesson, applied to responses).
+  - **Not a push channel.** A stable closure fixed at mount, like `onAction`
+    — there is no `setRenderPreview()`.
+
 ### Seam grammar
 
 Every seam above follows one shape, and any future addition must fit it:

@@ -5,6 +5,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '../../src/embed'
 import type { MountHandle } from '../../src/embed'
 
+// Full-designer mounts under parallel load exceed vitest's 5s default on
+// 2-core CI runners — the documented gotcha, not a slow test.
+vi.setConfig({ testTimeout: 30_000 })
+
 /**
  * Style isolation via Shadow DOM at the mount boundary (issue #21): mount()
  * renders into an open shadow root on the container — created by mount() or

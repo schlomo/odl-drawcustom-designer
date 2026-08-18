@@ -52,6 +52,27 @@ export const yamlEditorTabBinding = { key: 'Tab', run: runYamlEditorTab, shift: 
 
 export const yamlThemeCompartment = new Compartment()
 
+export const yamlReadOnlyCompartment = new Compartment()
+
+/**
+ * The editor shows the document but refuses edits (issue #109 — the host
+ * display preview is on).
+ *
+ * Both facets, deliberately: `readOnly` rejects edit commands and
+ * `editable: false` drops the caret and the `contenteditable` surface, so the
+ * pane reads as a document rather than as a text field the user's keystrokes
+ * vanish into. Selection, scrolling and copy keep working, and neither facet
+ * touches programmatic dispatch — the elements -> editor external sync
+ * (ADR-009) still lands while read-only.
+ */
+export function yamlReadOnlyExtension(readOnly: boolean) {
+  return [EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)]
+}
+
+export function reconfigureYamlReadOnly(readOnly: boolean) {
+  return yamlReadOnlyCompartment.reconfigure(yamlReadOnlyExtension(readOnly))
+}
+
 export function yamlEditorKeymap() {
   return keymap.of([
     yamlEditorTabBinding,
@@ -182,6 +203,9 @@ export function createYamlEditorState(
       }),
       yamlThemeCompartment.of(createYamlEditorTheme(colorScheme, fontSizePx)),
       yamlEntityIdsCompartment.of(yamlEntityIdsFacet.of(entityIds)),
+      // Editable at birth; YamlEditor's own effect reconfigures this on every
+      // change of its `readOnly` prop, including the first commit.
+      yamlReadOnlyCompartment.of(yamlReadOnlyExtension(false)),
     ],
   })
 }

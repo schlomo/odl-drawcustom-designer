@@ -36,7 +36,11 @@ export interface CanvasHeaderToolbarProps {
   onTogglePreviewDither: () => void
   /** Off-screen width probe — always labeled, non-interactive. */
   measureOnly?: boolean
-  /** Issue #35: no element mutation while the YAML doc is blocked — disables undo/redo. */
+  /**
+   * No element mutation — the YAML doc is blocked (issue #35) or the host
+   * display preview is showing (issue #109). Disables undo/redo; the export,
+   * zoom and dither controls stay live either way.
+   */
   blocked?: boolean
 }
 

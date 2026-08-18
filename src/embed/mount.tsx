@@ -138,6 +138,14 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
   // has no "later" to replay into; it must answer synchronously, right now).
   let payloadSource: (() => string) | null = null
 
+  // The mirror of `payloadSource` for the designer's own PNG export (issue
+  // #109 review, maintainer-ruled demo fix): `getPngBlob()` calls whatever
+  // the shell last registered here. Unlike `payloadSource`, there is no
+  // bootstrap fallback — a raster needs fonts/assets the shell only has once
+  // it has rendered at least once, so a call in the brief pre-registration
+  // window rejects instead of answering with something meaningless.
+  let pngSource: (() => Promise<Blob>) | null = null
+
   // The latest `setPayload()` accepted into `pendingPushes` during the
   // pre-registration window (Copilot finding on #104): once
   // `registerPushTarget` runs, queued pushes drain in order into
@@ -166,6 +174,14 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
       return () => {
         if (payloadSource === getPayload) {
           payloadSource = null
+        }
+      }
+    },
+    registerRenderSource(getPngBlob) {
+      pngSource = getPngBlob
+      return () => {
+        if (pngSource === getPngBlob) {
+          pngSource = null
         }
       }
     },
@@ -311,6 +327,15 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
       // happens — otherwise the bootstrap payload, rather than throwing or
       // returning nothing.
       return serializeYamlPayload(pendingPayloadElements ?? bootstrap?.elements ?? [])
+    },
+    getPngBlob() {
+      assertMounted()
+      if (!pngSource) {
+        return Promise.reject(
+          new Error('MountHandle.getPngBlob() called before the designer finished mounting'),
+        )
+      }
+      return pngSource()
     },
   }
 }
