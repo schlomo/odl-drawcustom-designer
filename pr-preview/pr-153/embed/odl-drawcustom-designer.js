@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "fix/149-touch-drag", ae = "3e8bbe4", oe = "c1ed701", k = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "fix/149-touch-drag", ae = "ae1f1f7", oe = "08c1476", k = "0.0.0-dev";
 function A(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -76218,11 +76218,11 @@ function jun(e, t, { yamlDiscardPendingRef: n } = {}) {
 		canvas: ge.current,
 		service: we.current,
 		selectedIndices: Te.current
-	}), []), Re = (0, v.useCallback)((e) => {
-		let t = structuredClone(e.elements);
-		L.current = t, o(t), F(!0);
-		let n = n8t(e.selectedIndices, e.elements.length);
-		Te.current = n, c(n), u("ui");
+	}), []), Re = (0, v.useCallback)((e, t = { bump: !0 }) => {
+		let n = structuredClone(e.elements);
+		L.current = n, o(n), t.bump && F(!0);
+		let r = n8t(e.selectedIndices, e.elements.length);
+		Te.current = r, c(r), u("ui");
 	}, [F]), ze = (0, v.useCallback)((e) => {
 		let t = Le();
 		e(), !g9(t, Le()) && (De.current.recordBefore(t), z());
@@ -76238,7 +76238,7 @@ function jun(e, t, { yamlDiscardPendingRef: n } = {}) {
 		F
 	]), He = (0, v.useCallback)(() => {
 		let e = Oe.current;
-		Oe.current = null, De.current.cancelCoalesce(), e && Re(e);
+		Oe.current = null, De.current.cancelCoalesce(), e && Re(e, { bump: !1 });
 	}, [Re]), Ue = (0, v.useCallback)(() => {
 		let e = De.current.undo(Le());
 		e && (Re(e), z());
