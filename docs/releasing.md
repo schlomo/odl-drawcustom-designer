@@ -150,13 +150,11 @@ file-level comment for the full mechanics). This class of bug is therefore
 invisible to `npm test && npm run lint && npm run build` and only surfaces on
 `npm run build:lib` — a real instance shipped in
 [`src/ui/editor/yamlTemplatePreview.ts`](../src/ui/editor/yamlTemplatePreview.ts)
-during issue #122's own development. **Open maintainer policy call:** whether
-[`AGENTS.md`](../AGENTS.md)'s pre-finish gate line should grow
-`&& npm run build:lib` to catch this earlier than release time — CI's
-`checks` job now runs `npm run verify:types` (which itself runs
-`build:lib`) on every PR either way, so the gap is a "how early do local
-development and `AGENTS.md`'s documented gate catch it" question, not a
-"does anything catch it before release" one.
+during issue #122's own development. **Resolved (maintainer ruling
+2026-08-18):** [`AGENTS.md`](../AGENTS.md)'s pre-finish gate line grew
+`&& npm run build:lib`, so this class is caught locally before any push;
+CI's `checks` job additionally runs `npm run verify:types` (which itself
+runs `build:lib`) on every PR.
 
 ## Future: AI-generated release notes
 

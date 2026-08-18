@@ -140,10 +140,16 @@ Prefer fixes that move tag paint toward a **single raster compositor** when pari
 ## Before finishing / committing
 
 ```bash
-npm test && npm run lint && npm run build
+npm test && npm run lint && npm run build && npm run build:lib
 ```
 
 Use `npm ci` in CI. Deploy is blocked on failure (ADR-008).
+
+`build:lib` is part of the gate (maintainer ruling 2026-08-18): declaration
+emit type-checks the whole reachable program, so declaration-emit-only
+diagnostics (TS4094 class) are invisible to the first three commands and
+would otherwise surface only in CI or at release time — see
+[`docs/releasing.md`](docs/releasing.md).
 
 ## CI notes
 
