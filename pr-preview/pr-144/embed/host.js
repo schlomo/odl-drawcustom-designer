@@ -11,7 +11,14 @@
 // concatenates it onto the existing element so the demo payload keeps its
 // element count (3) that other e2e specs assert against; see
 // tests/e2e/embed-host-live-ticker.spec.ts for the ticking proof.
+//
+// Because this host feeds states, the designer's State Simulator is off and its
+// tab is the read-only States panel instead (issue #107, ADR-018): every state
+// below carries a friendly `name` the panel shows, and Load Demo here loads the
+// demo *payload only* — the demo's own states are Simulator data, so they show
+// honestly as "not supplied" in the panel.
 import { mount } from './odl-drawcustom-designer.js'
+import { PREVIEW_RENDER_DELAY_MS, delay, stampHostPreview } from './preview-render.js'
 
 const PAYLOAD = `- type: text
   value: "{{ states('sensor.demo_temperature') }} °C"
@@ -32,9 +39,14 @@ const PAYLOAD = `- type: text
   width: 2
 `
 
+// `name` is the state's friendly name (issue #107, ADR-018 state catalog): the
+// label the designer's read-only States panel shows instead of the raw key. It
+// is presentation only — templates still read `states()`/`state_attr()`, so the
+// payload above is unaffected — and re-pushable like every other field.
 const WARM_STATES = {
   'sensor.demo_temperature': {
     state: '21.5',
+    name: 'Living-room temperature',
     attributes: { friendly_name: 'Living room', unit_of_measurement: '°C' },
   },
 }
@@ -42,8 +54,16 @@ const WARM_STATES = {
 const COLD_STATES = {
   'sensor.demo_temperature': {
     state: '3.2',
+    name: 'Balcony temperature',
     attributes: { friendly_name: 'Balcony', unit_of_measurement: '°C' },
   },
+}
+
+// A state this host knows about but the demo payload never references — proof
+// the States panel lists only what the design reads, while autocomplete still
+// offers the whole catalog.
+const UNREFERENCED_STATES = {
+  'binary_sensor.demo_door': { state: 'off', name: 'Front door' },
 }
 
 // Ownership contract (docs/embedding.md#states — issue #110): a pushed
@@ -55,6 +75,7 @@ function currentClockState() {
   return {
     'sensor.demo_clock': {
       state: time,
+      name: 'Demo clock',
       attributes: { friendly_name: 'Demo clock' },
     },
   }
@@ -115,25 +136,27 @@ const KITCHEN_TARGET = {
   capabilities: CAPABILITIES_296X128_BWR,
 }
 
-// The full inventory a multi-display host offers. This page starts as the
-// single-display host instead (see the mount below) — the reference shape, and
-// the one that shows the auto-adopt rule — and pushes this list on demand.
-const ALL_TARGETS = [
-  KITCHEN_TARGET,
+// The displays this host discovers one at a time — the "Add a display"
+// button below pushes them in this order, extending the targets list by one
+// display per press (issue #106/#121 hot-update demo; consolidates what used
+// to be two separate buttons — "Push display list" jumping straight to
+// three, and a garage-only "Add a display" — into one repeatable control).
+const ADD_DISPLAY_QUEUE = [
   { id: 'display.office', label: 'Office display (400×300 BW)', capabilities: CAPABILITIES_400X300_BW },
   { id: 'display.hallway', label: 'Hallway 7.5" (800×480 BWRY, portrait)', capabilities: CAPABILITIES_800X480_BWRY_PORTRAIT },
+  { id: 'display.garage', label: 'Garage tag (152×152 BW)', capabilities: CAPABILITIES_152X152_BW },
 ]
 
-// The display this host "discovers" later — the hot-update demo.
-const LATE_TARGET = {
-  id: 'display.garage',
-  label: 'Garage tag (152×152 BW)',
-  capabilities: CAPABILITIES_152X152_BW,
-}
+// The full inventory a multi-display host offers on its very first paint
+// (`?displays=all`, see the mount below) — kitchen plus the first two queue
+// entries, matching what two presses of "Add a display" would reach from the
+// single-display default.
+const ALL_TARGETS = [KITCHEN_TARGET, ADD_DISPLAY_QUEUE[0], ADD_DISPLAY_QUEUE[1]]
 
 const savedPayload = document.getElementById('saved-payload')
 const actionLog = document.getElementById('action-log')
 const targetLog = document.getElementById('target-log')
+const previewLog = document.getElementById('preview-log')
 const assetLog = document.getElementById('asset-log')
 
 // Host asset resolver (issue #138, ADR-002's last tier): the payload below
@@ -237,7 +260,7 @@ let displayOnline = true
 let temperatureStates = WARM_STATES
 
 function pushCombinedStates() {
-  handle.setStates({ ...temperatureStates, ...currentClockState() })
+  handle.setStates({ ...temperatureStates, ...UNREFERENCED_STATES, ...currentClockState() })
 }
 
 // Single source of truth for "current non-clock states" (Copilot review on
@@ -273,14 +296,16 @@ const mountsWholeInventory = new URLSearchParams(location.search).get('displays'
 // is the only way this page learns about a selection before an action fires.
 let targets = mountsWholeInventory ? ALL_TARGETS : [KITCHEN_TARGET]
 let selectedTargetId = null
+/** Flipped by the "Simulate preview failure" button — exercises the error path. */
+let previewShouldFail = false
 
 const handle = mount(document.getElementById('designer'), {
   payload: PAYLOAD,
-  states: { ...WARM_STATES, ...currentClockState() },
+  states: { ...WARM_STATES, ...UNREFERENCED_STATES, ...currentClockState() },
   theme: 'light',
   // One display = "this is the display" (issue #121): the designer adopts and
   // locks onto it without a pick, so the first painted frame is already this
-  // 296×128 BWR panel with its measured palette. Push "Push display list" (or
+  // 296×128 BWR panel with its measured palette. Press "Add a display" (or
   // load `?displays=all`) to be a multi-display host and get the picker's
   // choices instead — several displays are a choice and adopt nothing.
   targets,
@@ -292,6 +317,41 @@ const handle = mount(document.getElementById('designer'), {
       targetId === null
         ? 'Virtual display — no target selected'
         : `Selected display: ${targetId}`
+  },
+  // Preview provider (issue #109, ADR-018): the host renders the payload
+  // itself and the designer shows that image instead of its own preview.
+  // Registering it is what makes the designer offer its "Display preview"
+  // toggle at all — a host that passes none gets no toggle and no trace.
+  //
+  // Deliberately async with a visible delay (a real dry-run is a round trip).
+  // This fake host has no rendering backend of its own, so rather than
+  // maintaining a second, ever-incomplete renderer (a prior version's
+  // line-by-line YAML "parser" choked on the designer's own block-scalar
+  // output and rendered literal "|-" — see demo/preview-render.js), it
+  // round-trips the designer's OWN PNG export (`handle.getPngBlob()`, full
+  // font/renderer fidelity — the original design intent) and stamps a small
+  // info strip on top, so the image is unmistakably *this host's* render and
+  // visibly carries the request's own parameters, not a copy of the
+  // designer's client preview. Less demo code to maintain.
+  //
+  // `payload` itself goes unused here — a real host renders *that* string;
+  // this one instead reads back what the mounted designer would export for
+  // itself right now, which is the same design (preview mode freezes
+  // editing, so nothing can have changed between the two reads).
+  async renderPreview(payload, context) {
+    previewLog.textContent =
+      `renderPreview: ${payload.length} bytes` +
+      ` · dither=${context.service.dither}` +
+      ` · display=${context.targetId ?? '(virtual)'}` +
+      ` · canvas=${context.display.width}x${context.display.height}@${context.display.rotation}°`
+    await delay(PREVIEW_RENDER_DELAY_MS)
+    if (previewShouldFail) {
+      // Rejecting is how a host reports failure; the designer states it in the
+      // preview area and shows no image rather than a stale one.
+      throw new Error('the display did not answer the render request')
+    }
+    const designPng = await handle.getPngBlob()
+    return stampHostPreview(designPng, context)
   },
   // Asset seam (issue #138): a stable closure, consulted for every font/image
   // reference the designer cannot resolve locally. Search paths are this host's
@@ -341,15 +401,6 @@ document.getElementById('push-warm').addEventListener('click', () => {
 document.getElementById('push-cold').addEventListener('click', () => {
   demoPushStates(COLD_STATES)
 })
-// Targets are the one display channel (issue #121): this is the same host
-// growing from "one display" to "an inventory the user picks from". The display
-// already adopted stays adopted — a push only ever *offers* displays once the
-// designer is pinned to one.
-document.getElementById('push-display-list').addEventListener('click', () => {
-  targets = ALL_TARGETS
-  handle.setTargets(targets)
-  targetLog.textContent = `Pushed ${targets.length} displays — pick one in the designer`
-})
 // Actions are re-pushable (ADR-018): the whole list goes back whenever host
 // state changes, and the designer diffs it — here a fake connection drop
 // disables Send with a reason, live.
@@ -359,16 +410,36 @@ document.getElementById('toggle-connection').addEventListener('click', (event) =
   event.target.textContent = displayOnline ? 'Simulate display offline' : 'Simulate display online'
 })
 // Targets are hot-updateable (ADR-018): a display the host learns about later
-// appears in the picker without a reload.
-document.getElementById('add-display').addEventListener('click', () => {
-  if (targets.some((target) => target.id === LATE_TARGET.id)) {
-    targetLog.textContent = `${LATE_TARGET.label} is already in the list`
+// appears in the picker without a reload. One repeatable button — each press
+// pushes the targets list extended by one more display from
+// `ADD_DISPLAY_QUEUE`, in order (this used to be two buttons: "Push display
+// list", which jumped straight to three, and a garage-only "Add a display").
+// Once every fixture display is in, there is nothing left to discover — the
+// obvious behavior is to disable the button, not silently wrap and re-push a
+// display the host already offered (which `setTargets()` would reject as a
+// duplicate id anyway).
+const addDisplayButton = document.getElementById('add-display')
+// `?displays=all` starts with the first two queue entries already pushed
+// (see ALL_TARGETS above) — only the third remains discoverable from there.
+let nextAddDisplayIndex = mountsWholeInventory ? 2 : 0
+function refreshAddDisplayButton() {
+  const remaining = ADD_DISPLAY_QUEUE.length - nextAddDisplayIndex
+  addDisplayButton.disabled = remaining <= 0
+  addDisplayButton.textContent =
+    remaining <= 0 ? 'All fixture displays added' : 'Add a display'
+}
+addDisplayButton.addEventListener('click', () => {
+  const next = ADD_DISPLAY_QUEUE[nextAddDisplayIndex]
+  if (!next) {
     return
   }
-  targets = [...targets, LATE_TARGET]
+  nextAddDisplayIndex += 1
+  targets = [...targets, next]
   handle.setTargets(targets)
-  targetLog.textContent = `Added ${LATE_TARGET.label} — it is in the picker now`
+  targetLog.textContent = `Added ${next.label} — it is in the picker now`
+  refreshAddDisplayButton()
 })
+refreshAddDisplayButton()
 // Keep-and-mark-stale: removing the *selected* display must not switch the
 // designer to another one or unlock it — it keeps the last-known display config
 // and marks the selection unavailable.
@@ -380,6 +451,17 @@ document.getElementById('remove-selected-display').addEventListener('click', () 
   targets = targets.filter((target) => target.id !== selectedTargetId)
   handle.setTargets(targets)
   targetLog.textContent = `Removed ${selectedTargetId} — the designer keeps its last-known display config`
+})
+// A host render that fails must be *stated*, never silently replaced by the
+// designer's own rasterization — flip this, then turn Display preview on.
+document.getElementById('fail-preview').addEventListener('click', (event) => {
+  previewShouldFail = !previewShouldFail
+  event.target.textContent = previewShouldFail
+    ? 'Repair preview rendering'
+    : 'Simulate preview failure'
+  previewLog.textContent = previewShouldFail
+    ? 'The next renderPreview call will reject'
+    : 'renderPreview will answer normally again'
 })
 // Host-resolved assets (issue #138): pushes a payload whose font and image are
 // named the way the host's own directories name them. Two resolve through
