@@ -1,4 +1,4 @@
-import { Compartment, Facet, StateEffect, RangeSetBuilder } from '@codemirror/state'
+import { Compartment, Facet, StateEffect, RangeSetBuilder, type Extension } from '@codemirror/state'
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view'
 import type { HaMockContext } from '../../core'
 import { findTemplatePreviewAnchors } from './templatePreviewAnchors'
@@ -71,7 +71,16 @@ export function buildTemplatePreviewDecorations(
   return builder.finish()
 }
 
-export function showTemplatePreview() {
+// Explicit `Extension` return type (issue #122 side-effect fix): without it,
+// TS infers the return type as the anonymous `ViewPlugin.fromClass` class
+// below, and declaration emission then fails with TS4094 ("Property 'now' of
+// exported anonymous class type may not be private or protected") — invisible
+// under the normal `noEmit: true` build, surfaced only once the library build
+// started generating real `.d.ts` files. This call site only ever needs an
+// `Extension` (yamlEditorExtensions.ts's extensions array), so narrowing the
+// return type here is also the semantically correct signature, not just a
+// declaration-emit workaround.
+export function showTemplatePreview(): Extension {
   return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet = Decoration.none

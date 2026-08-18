@@ -25,17 +25,30 @@ describe('buildNpmPackageJson', () => {
     expect(buildNpmPackageJson('1.0.0').name).toBe('@schlomo/odl-drawcustom-designer')
   })
 
-  it('is an ES module pointing exports/main at the single bundled ESM file', () => {
+  it('is an ES module pointing main at the single bundled ESM file', () => {
     const pkg = buildNpmPackageJson('1.0.0')
     expect(pkg.type).toBe('module')
     expect(pkg.main).toBe('./odl-drawcustom-designer.js')
-    expect(pkg.exports).toEqual({ '.': './odl-drawcustom-designer.js' })
   })
 
-  it('lists the built file plus license/notice assets in files', () => {
+  it('points types and exports.types at the bundled declaration file (issue #122)', () => {
+    const pkg = buildNpmPackageJson('1.0.0')
+    expect(pkg.types).toBe('./odl-drawcustom-designer.d.ts')
+    expect(pkg.exports).toEqual({
+      '.': { types: './odl-drawcustom-designer.d.ts', default: './odl-drawcustom-designer.js' },
+    })
+  })
+
+  it('lists the built file, its declaration file, plus license/notice assets in files', () => {
     const pkg = buildNpmPackageJson('1.0.0')
     expect(pkg.files).toEqual(
-      expect.arrayContaining(['odl-drawcustom-designer.js', 'LICENSE', 'NOTICE', 'THIRD_PARTY.md']),
+      expect.arrayContaining([
+        'odl-drawcustom-designer.js',
+        'odl-drawcustom-designer.d.ts',
+        'LICENSE',
+        'NOTICE',
+        'THIRD_PARTY.md',
+      ]),
     )
   })
 
