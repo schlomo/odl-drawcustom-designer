@@ -143,6 +143,37 @@ describe('useProjectState edit-status tracking (issue #133)', () => {
     expect(result.current.elements[0]?.value).toBe('Changed')
   })
 
+  it('cancelEditCoalesce (issue #149) is observationally void: no revision bump, no lastEditAt, no editStatusVersion notification', () => {
+    // Integration hazard (PR #153 rebase onto #152's bumpEditStatus): a
+    // cancelled gesture is not a committed edit — unlike `endEditCoalesce`,
+    // which bumps once per committed gesture, and unlike undo/redo's
+    // `restoreSnapshot`, which is itself a real user edit. A naive rebase
+    // routed `cancelEditCoalesce`'s rollback through the same bumping
+    // `restoreSnapshot` undo/redo uses, so a cancelled touch gesture would
+    // incorrectly bump `payloadRevision`/`lastEditAt` and notify
+    // `editStatusVersion` watchers of a change that never happened.
+    const { result } = renderHook(() => useProjectState(bootstrapWithText(), STANDALONE_HOST))
+
+    const versionBefore = result.current.editStatusVersion
+
+    act(() => {
+      result.current.beginEditCoalesce()
+    })
+    act(() => {
+      result.current.updateElementsBatch(new Map([[0, { type: 'text', value: 'Hello', x: 99, y: 10 }]]))
+    })
+    act(() => {
+      result.current.cancelEditCoalesce()
+    })
+
+    const status = result.current.getEditStatus()
+    expect(status.payloadRevision).toBe(0)
+    expect(status.lastEditAt).toBeNull()
+    expect(result.current.editStatusVersion).toBe(versionBefore)
+    // The rollback itself must still have happened.
+    expect(result.current.elements[0]?.x).toBe(10)
+  })
+
   it('editStatusVersion bumps at endEditCoalesce even though elements does not change reference at that exact call (issue #133 review round 3, MAJOR N5)', () => {
     // The precise, confound-free proof: every intermediate `pointermove`
     // already applied itself to `elements` while coalescing was open, so

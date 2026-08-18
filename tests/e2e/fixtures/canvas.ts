@@ -75,6 +75,119 @@ export async function dragCanvasPoint(
 }
 
 /**
+ * Drag from one canvas-coordinate point to another via a *real touch*
+ * gesture, injected through the Chrome DevTools Protocol
+ * (`Input.dispatchTouchEvent`) rather than `page.mouse` — Playwright's
+ * `page.mouse` always synthesizes mouse-type pointer events, which are never
+ * subject to CSS `touch-action` gesture arbitration. Only a genuine touch
+ * input runs through Chromium's real touch-vs-scroll decision, which is
+ * exactly the mechanism issue #149 is about ("browser claims the gesture").
+ *
+ * Requires a browser context created with `hasTouch: true` (`test.use({
+ * hasTouch: true })`) — without it Chromium has no touch input stack to
+ * dispatch into.
+ */
+export async function touchDragCanvasPoint(
+  page: Page,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  canvasSize: { width: number; height: number },
+  options?: { steps?: number; settleMs?: number },
+): Promise<void> {
+  const paper = await canvasPaper(page)
+  const box = await paper.boundingBox()
+  if (!box) {
+    throw new Error('[data-canvas-paper] has no bounding box — is the canvas rendered?')
+  }
+
+  const start = toClientPoint(box, from, canvasSize)
+  const end = toClientPoint(box, to, canvasSize)
+  const steps = options?.steps ?? 8
+  const settleMs = options?.settleMs ?? 16
+
+  const client = await page.context().newCDPSession(page)
+  try {
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x: start.x, y: start.y }],
+    })
+    await page.waitForTimeout(settleMs)
+    for (let i = 1; i <= steps; i++) {
+      await client.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [
+          {
+            x: start.x + ((end.x - start.x) * i) / steps,
+            y: start.y + ((end.y - start.y) * i) / steps,
+          },
+        ],
+      })
+      await page.waitForTimeout(settleMs)
+    }
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  } finally {
+    await client.detach().catch(() => {})
+  }
+}
+
+/**
+ * Low-level multi-touch CDP session for gestures {@link touchDragCanvasPoint}
+ * can't express: introducing or removing individual touch points mid-gesture
+ * (a second finger landing while a drag is in progress, or a real two-finger
+ * pan/pinch). Canvas-space points are converted to client pixels via the
+ * paper's bounding box, same conversion the other helpers here use.
+ *
+ * `run` gets a `dispatch` function whose `points` argument means something
+ * different depending on `type` (measured against real CDP behavior — this
+ * cost two false positives before it was pinned down, so don't re-derive it
+ * from the touchStart/touchMove case below):
+ *
+ * - `'touchStart'` / `'touchMove'`: the *full current set* of active touch
+ *   points, keyed by `id`. Reuse the same `id` across calls for a point
+ *   that's continuing; add a new `id` to introduce a finger while one or
+ *   more others stay down (a `'touchStart'` dispatch with more points than
+ *   the previous dispatch had).
+ * - `'touchEnd'` / `'touchCancel'`: the points that are *ending* in this
+ *   dispatch, not the ones still down — pass just the lifted finger's
+ *   entry to end one touch while another continues, or an empty array to
+ *   end every touch still active.
+ */
+export async function withTouchGesture(
+  page: Page,
+  canvasSize: { width: number; height: number },
+  run: (session: {
+    toClient: (point: { x: number; y: number }) => { x: number; y: number }
+    dispatch: (
+      type: 'touchStart' | 'touchMove' | 'touchEnd' | 'touchCancel',
+      points: { x: number; y: number; id: number }[],
+    ) => Promise<void>
+    settle: (ms?: number) => Promise<void>
+  }) => Promise<void>,
+): Promise<void> {
+  const paper = await canvasPaper(page)
+  const box = await paper.boundingBox()
+  if (!box) {
+    throw new Error('[data-canvas-paper] has no bounding box — is the canvas rendered?')
+  }
+
+  const client = await page.context().newCDPSession(page)
+  try {
+    await run({
+      toClient: (point) => toClientPoint(box, point, canvasSize),
+      dispatch: async (type, points) => {
+        await client.send('Input.dispatchTouchEvent', {
+          type,
+          touchPoints: points.map(({ x, y, id }) => ({ x, y, id })),
+        })
+      },
+      settle: (ms = 16) => page.waitForTimeout(ms),
+    })
+  } finally {
+    await client.detach().catch(() => {})
+  }
+}
+
+/**
  * Move the mouse to a canvas-coordinate point without pressing a button —
  * drives the pointermove hover path (cursor affordance) in DesignerCanvas.
  */

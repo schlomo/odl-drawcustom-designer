@@ -386,6 +386,13 @@ export function useProjectState(
   const selectedIndicesRef = useRef(selectedIndices)
   const [editHistory] = useState(() => createEditHistory(bootstrap.editHistory))
   const historyRef = useRef(editHistory)
+  /**
+   * The snapshot `beginEditCoalesce` captured, kept outside `EditHistory`
+   * (whose own copy is private) so `cancelEditCoalesce` can restore it —
+   * `EditHistory.cancelCoalesce()` only drops the coalescing bookkeeping,
+   * it never touches `elements` (issue #149 follow-up review M1/M2).
+   */
+  const coalesceBeforeRef = useRef<EditSnapshot | null>(null)
   const [historyUi, setHistoryUi] = useState(() => ({
     canUndo: editHistory.canUndo,
     canRedo: editHistory.canRedo,
@@ -521,13 +528,15 @@ export function useProjectState(
   }, [])
 
   const restoreSnapshot = useCallback(
-    (snapshot: EditSnapshot) => {
+    (snapshot: EditSnapshot, options: { bump: boolean } = { bump: true }) => {
       const nextElements = structuredClone(snapshot.elements)
       elementsRef.current = nextElements
       setElements(nextElements)
-      // Issue #133: undo/redo bypasses `commitElements`, but it is still a
-      // user-originated change (the user pressed undo/redo).
-      bumpEditStatus(true)
+      if (options.bump) {
+        // Issue #133: undo/redo bypasses `commitElements`, but it is still a
+        // user-originated change (the user pressed undo/redo).
+        bumpEditStatus(true)
+      }
       const nextSelection = clampSelectedIndices(snapshot.selectedIndices, snapshot.elements.length)
       selectedIndicesRef.current = nextSelection
       setSelectedIndices(nextSelection)
@@ -551,15 +560,21 @@ export function useProjectState(
   )
 
   const beginEditCoalesce = useCallback(() => {
-    historyRef.current!.beginCoalesce(captureSnapshot())
+    const snapshot = captureSnapshot()
+    historyRef.current!.beginCoalesce(snapshot)
     // Issue #133 MINOR 5: the gesture's start point, so `endEditCoalesce`
     // below can tell whether it changed anything at all.
     coalesceStartElementsRef.current = elementsRef.current
+    // Issue #149 follow-up review M1/M2: kept separately from
+    // `EditHistory`'s private copy so `cancelEditCoalesce` can restore
+    // exactly this state.
+    coalesceBeforeRef.current = snapshot
   }, [captureSnapshot])
 
   const endEditCoalesce = useCallback(() => {
     const wasCoalescing = historyRef.current!.isCoalescing()
     historyRef.current!.endCoalesce(captureSnapshot())
+    coalesceBeforeRef.current = null
     syncHistoryUi()
     // Issue #133 MINOR 5: `commitElements` skipped its own bump for every
     // pointermove this gesture made while coalescing was active — this is the
@@ -587,6 +602,28 @@ export function useProjectState(
     }
     coalesceStartElementsRef.current = null
   }, [captureSnapshot, syncHistoryUi, bumpEditStatus])
+
+  /**
+   * True cancel of an in-flight coalesced edit (issue #149 follow-up review
+   * M1/M2) — restores `elements`/`selectedIndices` to exactly what they
+   * were when `beginEditCoalesce` ran, then drops the coalescing
+   * bookkeeping with no undo entry. Distinct from `endEditCoalesce`, which
+   * commits whatever the gesture left behind as one entry; a no-op if no
+   * coalesce is in flight (`coalesceBeforeRef.current` is `null`).
+   */
+  const cancelEditCoalesce = useCallback(() => {
+    const before = coalesceBeforeRef.current
+    coalesceBeforeRef.current = null
+    historyRef.current!.cancelCoalesce()
+    if (before) {
+      // Integration hazard (PR #153 rebase onto #152's bumpEditStatus): a
+      // cancelled gesture must be observationally void — unlike
+      // undo/redo's use of `restoreSnapshot`, this rollback is not itself a
+      // user edit, so it must not bump payloadRevision/lastEditAt or
+      // notify editStatusVersion watchers.
+      restoreSnapshot(before, { bump: false })
+    }
+  }, [restoreSnapshot])
 
   const undo = useCallback(() => {
     const restored = historyRef.current!.undo(captureSnapshot())
@@ -2013,5 +2050,6 @@ export function useProjectState(
     historyUndoDepth: historyUi.undoDepth,
     beginEditCoalesce,
     endEditCoalesce,
+    cancelEditCoalesce,
   }
 }
