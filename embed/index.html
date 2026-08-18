@@ -41,7 +41,8 @@
       }
       #saved-payload,
       #action-log,
-      #target-log {
+      #target-log,
+      #preview-log {
         margin: 1rem;
         padding: 0.75rem;
         background: #fafaf9;
@@ -67,10 +68,10 @@
       <h1>Fake host page (embed demo)</h1>
       <button id="push-warm">Push warm states</button>
       <button id="push-cold">Push cold states</button>
-      <button id="push-display-list">Push display list</button>
       <button id="toggle-connection">Simulate display offline</button>
       <button id="add-display">Add a display</button>
       <button id="remove-selected-display">Remove selected display</button>
+      <button id="fail-preview">Simulate preview failure</button>
       <select id="theme" aria-label="Host theme">
         <option value="light">light</option>
         <option value="dark">dark</option>
@@ -83,6 +84,9 @@
          "nothing selected yet" text could never be seen. -->
     <h2 style="margin: 1rem">Selected display</h2>
     <pre id="target-log" data-testid="target-log"></pre>
+    <!-- Filled by renderPreview: the host's own render request log. -->
+    <h2 style="margin: 1rem">Last display preview request</h2>
+    <pre id="preview-log" data-testid="preview-log">(no preview requested yet)</pre>
     <h2 style="margin: 1rem">Last host action</h2>
     <pre id="action-log" data-testid="action-log">(no action fired yet)</pre>
     <h2 style="margin: 1rem">Last saved payload</h2>
