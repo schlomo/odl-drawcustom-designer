@@ -1,9 +1,12 @@
 import {
   BUNDLED_SHOWCASE_IMAGE_KEY,
   clearImageUnavailable,
+  hasHostAssetResolver,
+  hasHostSuppliedAsset,
   isImageMime,
   markImageUnavailable,
   resolveAsset,
+  resolveHostAsset,
   type DrawElement,
 } from '../../core'
 import { shouldUseBundledShowcaseImage } from '../preferences/showcaseAsset'
@@ -27,7 +30,10 @@ function isImageAssetAvailable(key: string): boolean {
   if (resolution.status === 'resolved') {
     return isImageMime(resolution.mime ?? '')
   }
-  return resolution.status === 'bundled'
+  // A host-supplied image (issue #138) is as available as an uploaded one —
+  // the host resolver is the last tier behind the content map and the bundled
+  // assets, not a different kind of asset.
+  return resolution.status === 'bundled' || hasHostSuppliedAsset('image', key)
 }
 
 interface ImageLoadAttempt {
@@ -70,6 +76,70 @@ function unavailableAttempt(
     markImageUnavailable(key, message)
   }
   return { outcome: { key, status, message } }
+}
+
+/** The local-only message, unchanged from before the host tier existed. */
+function missingImageMessage(key: string): string {
+  return `${key} is not uploaded — add it in Content Manager.`
+}
+
+/**
+ * Ask the host for an image the designer could not resolve locally (issue #138,
+ * the last tier). A blob is decoded through an object URL exactly as an
+ * uploaded asset is; a URL answer is handed to the decoder as-is. Anything the
+ * host cannot supply settles as a confirmed failure, so `renderDlimg` shows the
+ * explicit render-error placeholder naming the asset instead of a silent gap.
+ */
+async function loadHostImage(key: string, isStale: () => boolean): Promise<ImageLoadAttempt> {
+  const supplied = await resolveHostAsset('image', key)
+
+  if (supplied.status === 'blob') {
+    const objectUrl = URL.createObjectURL(supplied.blob)
+    try {
+      return readyAttempt(key, await loadImageElement(objectUrl), isStale)
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'Unknown error'
+      return unavailableAttempt(key, 'failed', `${key} could not be decoded (${detail}).`, isStale)
+    } finally {
+      URL.revokeObjectURL(objectUrl)
+    }
+  }
+
+  if (supplied.status === 'url') {
+    try {
+      return readyAttempt(key, await loadImageElement(supplied.url), isStale)
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'Unknown error'
+      return unavailableAttempt(
+        key,
+        'failed',
+        `${key} could not be loaded from the host (${detail}).`,
+        isStale,
+      )
+    }
+  }
+
+  if (supplied.status === 'failed') {
+    return unavailableAttempt(
+      key,
+      'failed',
+      `${key} could not be supplied by the host (${supplied.message}).`,
+      isStale,
+    )
+  }
+
+  if (supplied.status === 'declined') {
+    return unavailableAttempt(
+      key,
+      'missing',
+      `${key} could not be supplied by the host — add it in Content Manager.`,
+      isStale,
+    )
+  }
+
+  // 'absent': the mount was destroyed while this load was in flight, so there
+  // is no host to blame — report the local-only message.
+  return unavailableAttempt(key, 'missing', missingImageMessage(key), isStale)
 }
 
 /**
@@ -152,12 +222,11 @@ async function loadAssetImage(key: string, isStale: () => boolean): Promise<Imag
     }
   }
 
-  return unavailableAttempt(
-    key,
-    'missing',
-    `${key} is not uploaded — add it in Content Manager.`,
-    isStale,
-  )
+  if (hasHostAssetResolver()) {
+    return loadHostImage(key, isStale)
+  }
+
+  return unavailableAttempt(key, 'missing', missingImageMessage(key), isStale)
 }
 
 export async function loadAssetImageMapWithOutcomes(
@@ -225,6 +294,13 @@ export function pruneAssetImagesForKeys(
   for (const key of keys) {
     const resolution = resolveAsset(key)
     if (resolution.status === 'resolved' && current.has(key)) {
+      next.set(key, current.get(key)!)
+      continue
+    }
+    // A host-supplied image has no content-map entry to prove it resolves
+    // (issue #138) — without this it would be pruned out of the render map on
+    // the next repaint and the canvas would lose an image it just loaded.
+    if (hasHostSuppliedAsset('image', key) && current.has(key)) {
       next.set(key, current.get(key)!)
       continue
     }

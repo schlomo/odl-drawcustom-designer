@@ -1,4 +1,4 @@
-import type { AssetKind, AssetResolutionStatus, DrawElement } from '../../core'
+import type { AssetKind, DrawElement } from '../../core'
 import {
   BUNDLED_FONT_KEYS,
   guessMimeFromAssetKey,
@@ -8,7 +8,7 @@ import {
   scanPayloadForAssets,
   type AssetScanResult,
 } from '../../core'
-import { resolveContentAssetStatus } from './content-asset-status'
+import { resolveContentAssetStatus, type ContentAssetStatus } from './content-asset-status'
 
 const bundledFontKeys = new Set<string>(BUNDLED_FONT_KEYS)
 
@@ -16,7 +16,7 @@ export interface ContentAssetRow {
   key: string
   kind: AssetKind
   paths: string[]
-  status: AssetResolutionStatus
+  status: ContentAssetStatus
 }
 
 function inferAssetKind(key: string, fromScan?: AssetKind): AssetKind {
@@ -52,7 +52,7 @@ function rowsFromScan(scan: AssetScanResult): ContentAssetRow[] {
       key: ref.key,
       kind: ref.kind,
       paths: [ref.path],
-      status: resolveContentAssetStatus(ref.key),
+      status: resolveContentAssetStatus(ref.key, ref.kind),
     })
   }
 
@@ -93,11 +93,12 @@ function rowsFromStored(scan: AssetScanResult): ContentAssetRow[] {
   return [...allKeys]
     .map((key) => {
       const fromScan = refsByKey.get(key)
+      const kind = inferAssetKind(key, fromScan?.kind)
       return {
         key,
-        kind: inferAssetKind(key, fromScan?.kind),
+        kind,
         paths: fromScan?.paths ?? [],
-        status: resolveContentAssetStatus(key),
+        status: resolveContentAssetStatus(key, kind),
       }
     })
     .sort((a, b) => a.key.localeCompare(b.key))

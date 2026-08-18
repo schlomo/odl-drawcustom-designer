@@ -1,0 +1,295 @@
+import type { AssetKind } from './types'
+
+/**
+ * Host asset resolver — the LAST tier of asset resolution (issue #138,
+ * ADR-002 amendment).
+ *
+ * A payload may reference fonts and images by bare name (`Ubuntu-R.ttf`,
+ * `logo.png`): that is how hand-written drawcustom payloads address the
+ * integration's own font/media directories. The designer cannot know those
+ * directories, so an embedding host supplies a resolver and the designer asks
+ * it for any reference it could not resolve locally:
+ *
+ * 1. local content map (uploaded via Content Manager, ADR-002)
+ * 2. bundled assets (`ppb.ttf`, `rbm.ttf`, the showcase image)
+ * 3. **this tier** — the host, by name
+ *
+ * The contract is deliberately `name -> asset`: search paths, media
+ * directories and integration layout are the HOST's business, so the designer
+ * learns no domain vocabulary (ADR-018). A `null` answer, a rejection, a
+ * silence past {@link HOST_ASSET_TIMEOUT_MS} or an out-of-contract value all
+ * settle as "not supplied" and reach the user as the existing explicit
+ * render-error state for the element referencing it — never a silent skip and
+ * never a plausible-looking wrong render (issue #10).
+ */
+export type HostAssetResolver = (
+  kind: AssetKind,
+  name: string,
+) => Promise<Blob | string | null>
+
+/**
+ * What asking the host produced. `blob`/`url` are the two shapes a host may
+ * answer with; the other three are the ways an asset can fail to arrive, kept
+ * distinct because they read differently to the user:
+ *
+ * - `declined` — the host answered "I don't have that".
+ * - `failed` — the resolver rejected, timed out, or answered out of contract.
+ * - `absent` — no host resolver at all (standalone, or an embed that passed
+ *   none): the designer's local-only behavior, unchanged.
+ */
+export type HostAssetResolution =
+  | { status: 'blob'; blob: Blob }
+  | { status: 'url'; url: string }
+  | { status: 'declined' }
+  | { status: 'failed'; message: string }
+  | { status: 'absent' }
+
+/**
+ * How long an unsuccessful resolution is remembered before the host is asked
+ * again.
+ *
+ * Successful resolutions are cached for the mount's lifetime — asset loading
+ * re-runs whenever the payload's set of referenced asset keys changes, and a
+ * host must not pay a round trip per edit (the issue #110 render-cost
+ * lesson). Failures cannot be cached that way: a host whose media store was
+ * offline, or where the user has just uploaded the missing file, must be able
+ * to answer differently without a remount. Caching them *briefly* keeps both
+ * properties — at most one host call per asset per window while an
+ * unresolvable reference sits in the payload, and self-healing after it.
+ *
+ * There is no timer and nothing wakes the designer: the retry happens on the
+ * next asset-affecting load pass that runs after this window has elapsed.
+ */
+export const HOST_ASSET_RETRY_DELAY_MS = 30_000
+
+/**
+ * How long the designer waits for one resolver call before giving up on it.
+ *
+ * A host that takes the call and never settles its promise would otherwise
+ * leave the referencing elements mid-load forever — no asset, and no error
+ * either, which is the one outcome issue #10 rules out. On expiry the call
+ * settles as `failed`, reaching the user as the ordinary explicit render-error
+ * state, and the {@link HOST_ASSET_RETRY_DELAY_MS} window runs from there so a
+ * host that recovers is asked again. Deliberately no `AbortSignal` in this
+ * layer: cancellation is a second contract for hosts to implement, and layer 1
+ * only needs the designer to stop waiting.
+ */
+export const HOST_ASSET_TIMEOUT_MS = 15_000
+
+const ABSENT: HostAssetResolution = { status: 'absent' }
+
+interface CacheEntry {
+  readonly kind: AssetKind
+  readonly name: string
+  pending?: Promise<HostAssetResolution>
+  settled?: HostAssetResolution
+  /** Set for unsuccessful settles only; `undefined` means "keep forever". */
+  retryAt?: number
+}
+
+/**
+ * One record per *mount*, not per resolver function: the cache lives here, so
+ * a mount's resolutions are its own and disposing a mount forgets them. The
+ * most recently installed record serves — a second mount on the same page
+ * takes over resolution, and disposing it hands the previous mount's resolver
+ * back (see docs/embedding.md's note on page-wide asset resolution).
+ */
+interface InstalledResolver {
+  resolver: HostAssetResolver
+  cache: Map<string, CacheEntry>
+}
+
+const installed: InstalledResolver[] = []
+
+/**
+ * Called for every asset a disposed mount had actually been supplied, so the
+ * module-level caches downstream of this tier (parsed opentype fonts, the core
+ * font registry, the CSS font-family map) can drop exactly those entries.
+ *
+ * Those caches outlive any one mount by design — they exist so that re-running
+ * asset loading costs nothing. That makes them wrong across mounts: a second
+ * host on the same page would inherit the first host's bytes for the same
+ * name. The eviction runs *after* the record is removed, so an evictor can ask
+ * {@link hasHostSuppliedAsset} whether another live mount still vouches for
+ * the name before declaring it unavailable.
+ */
+export type HostAssetEvictor = (kind: AssetKind, name: string) => void
+
+const evictors = new Set<HostAssetEvictor>()
+
+/** Register a cache to be pruned when a mount that populated it goes away. */
+export function registerHostAssetEvictor(evict: HostAssetEvictor): () => void {
+  evictors.add(evict)
+  return () => {
+    evictors.delete(evict)
+  }
+}
+
+function activeResolver(): InstalledResolver | undefined {
+  return installed.at(-1)
+}
+
+/**
+ * The two kinds share no namespace: a host that has a *font* called `logo.png`
+ * says nothing about an *image* by that name. JSON-encoding the pair keeps the
+ * key unforgeable by any name a payload could contain — no separator byte to
+ * smuggle (and no literal NUL in this source file, the issue #125 lesson).
+ */
+function cacheKey(kind: AssetKind, name: string): string {
+  return JSON.stringify([kind, name])
+}
+
+function isSupplied(resolution: HostAssetResolution): boolean {
+  return resolution.status === 'blob' || resolution.status === 'url'
+}
+
+/**
+ * Install a host resolver for one mount; call the returned disposer when that
+ * mount is destroyed. Never called by the React shell — the mount lifecycle
+ * owns it (src/embed/mount.tsx), the way it owns the host push queue.
+ */
+export function installHostAssetResolver(resolver: HostAssetResolver): () => void {
+  const record: InstalledResolver = { resolver, cache: new Map() }
+  installed.push(record)
+  return () => {
+    const at = installed.lastIndexOf(record)
+    if (at < 0) {
+      // Already disposed: the disposer is idempotent so a failed mount that
+      // tears down twice cannot evict another mount's assets.
+      return
+    }
+    installed.splice(at, 1)
+    for (const entry of record.cache.values()) {
+      if (!entry.settled || !isSupplied(entry.settled)) {
+        continue
+      }
+      for (const evict of evictors) {
+        evict(entry.kind, entry.name)
+      }
+    }
+    record.cache.clear()
+  }
+}
+
+/**
+ * Whether asking the host is possible at all. The asset loaders check this
+ * first so that with no resolver installed they take exactly the code path
+ * they took before this tier existed — standalone behavior is untouched, down
+ * to not awaiting anything extra.
+ */
+export function hasHostAssetResolver(): boolean {
+  return installed.length > 0
+}
+
+/** Test-only: drop every installed resolver and its cache. */
+export function resetHostAssetResolvers(): void {
+  installed.length = 0
+}
+
+/**
+ * Whether *some* live mount has already been supplied this `(kind, name)` — a
+ * synchronous read of the caches above, for the render-time code that only
+ * needs to know "does this reference resolve at all" (the Content Manager
+ * status badge, and the dlimg image-map pruning that would otherwise drop a
+ * host-supplied image between renders).
+ *
+ * Every live mount counts, not just the serving one: resolution is
+ * most-recent-serves, but an asset an *earlier* mount is currently painting
+ * must not be disowned the moment a second mount appears — that would prune it
+ * out of the render map mid-flight. Answering per `(kind, name)` is what keeps
+ * a font answer from vouching for an image of the same name.
+ */
+export function hasHostSuppliedAsset(kind: AssetKind, name: string): boolean {
+  const key = cacheKey(kind, name)
+  return installed.some((record) => {
+    const settled = record.cache.get(key)?.settled
+    return settled != null && isSupplied(settled)
+  })
+}
+
+function classify(value: Blob | string | null | undefined, name: string): HostAssetResolution {
+  if (value == null) {
+    return { status: 'declined' }
+  }
+  if (value instanceof Blob) {
+    return { status: 'blob', blob: value }
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    return { status: 'url', url: value }
+  }
+  return {
+    status: 'failed',
+    message: `the host resolver answered with an unsupported value for ${name}`,
+  }
+}
+
+async function askHost(
+  resolver: HostAssetResolver,
+  kind: AssetKind,
+  name: string,
+): Promise<HostAssetResolution> {
+  try {
+    return classify(await resolver(kind, name), name)
+  } catch (error) {
+    return {
+      status: 'failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+/**
+ * Settle whichever comes first: the host's answer, or the timeout. `askHost`
+ * never rejects, so this only ever resolves. A host promise that never settles
+ * is simply abandoned — see {@link HOST_ASSET_TIMEOUT_MS} on why layer 1 has no
+ * cancellation channel.
+ */
+function withTimeout(answer: Promise<HostAssetResolution>): Promise<HostAssetResolution> {
+  return new Promise<HostAssetResolution>((resolve) => {
+    const timer = setTimeout(() => {
+      resolve({
+        status: 'failed',
+        message: `the host did not respond within ${HOST_ASSET_TIMEOUT_MS / 1000}s`,
+      })
+    }, HOST_ASSET_TIMEOUT_MS)
+
+    void answer.then((resolution) => {
+      clearTimeout(timer)
+      resolve(resolution)
+    })
+  })
+}
+
+/**
+ * Ask the host for one asset, through the mount's cache. Never rejects: every
+ * way this can go wrong is a {@link HostAssetResolution} the caller turns into
+ * the user-visible error state for the element that referenced the asset.
+ */
+export function resolveHostAsset(kind: AssetKind, name: string): Promise<HostAssetResolution> {
+  const active = activeResolver()
+  if (!active) {
+    return Promise.resolve(ABSENT)
+  }
+
+  const key = cacheKey(kind, name)
+  const cached = active.cache.get(key)
+  if (cached?.pending) {
+    // Concurrent requests for the same asset share one host call: the two
+    // loading effects (fonts, images) and their rapid re-runs must not turn
+    // into a burst of identical round trips.
+    return cached.pending
+  }
+  if (cached?.settled && (cached.retryAt == null || cached.retryAt > Date.now())) {
+    return Promise.resolve(cached.settled)
+  }
+
+  const entry: CacheEntry = { kind, name }
+  entry.pending = withTimeout(askHost(active.resolver, kind, name)).then((resolution) => {
+    entry.pending = undefined
+    entry.settled = resolution
+    entry.retryAt = isSupplied(resolution) ? undefined : Date.now() + HOST_ASSET_RETRY_DELAY_MS
+    return resolution
+  })
+  active.cache.set(key, entry)
+  return entry.pending
+}

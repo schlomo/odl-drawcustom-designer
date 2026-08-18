@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Accepted. Amended 2026-08-17 (issue #138 layer 1): an embedding host may supply
+a **last resolution tier** behind the map and the bundled assets — see
+[Host asset resolver](#host-asset-resolver-issue-138) below.
 
 ## Context
 
@@ -24,6 +26,40 @@ Bundled defaults: `ppb.ttf` and `rbm.ttf` under `public/fonts/` (license permitt
 - Share links restore layout but not asset blobs; user re-uploads by path
 - Preview renderer resolves fonts/images through the map at render time
 - Optional asset bundle zip (manifest + files) for moving substitutions between machines
+
+## Host asset resolver (issue #138)
+
+An embedded designer sees payloads written against the *host's* asset names
+(`Ubuntu-R.ttf`, `logo.png` — the ODL integration's own font/media
+directories), which no local map can contain. `MountOptions.resolveAsset(kind,
+name)` closes that gap as the **last tier**:
+
+1. local content map (this ADR)
+2. bundled assets (`ppb.ttf`, `rbm.ttf`, showcase image)
+3. host resolver — asked only for what tiers 1–2 could not resolve
+
+Consequences:
+
+- A user upload always overrides the host's copy; a bundled font never costs a
+  host round trip.
+- The contract is `name -> asset` (blob or URL). Search paths, directory layout
+  and permissions stay host-side (ADR-018 domain-neutral vocabulary) — the
+  designer implements no search order of its own.
+- Anything the host cannot supply reaches the user as the existing explicit
+  render-error state, naming the asset and the host; never a substituted font
+  or a silent gap (issue #10). A resolver that never settles counts as "cannot
+  supply" after 15s — silence must not read as "still loading" forever.
+- Caching is per mount, per `(kind, name)` — the two kinds share no namespace.
+  Supplied assets are cached for the mount's life; an unsupplied one is asked
+  again on the **next asset-affecting load pass that runs 30s or more after the
+  decline**. There is no background timer and nothing wakes the designer, so
+  healing is edit-driven, not clock-driven. Full contract:
+  [`docs/embedding.md`](../embedding.md#resolveasset-issue-138).
+- A mount's disposal is the boundary of the host's bytes: the parsed font, the
+  font registry entry and the CSS `@font-face` a host supplied are all evicted
+  with it, so a second host on the same page cannot inherit them.
+- Content Manager badges such a key **Host** rather than **Missing**, and the
+  missing-asset warning does not fire for it.
 
 ## Alternatives considered
 

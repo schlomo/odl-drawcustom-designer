@@ -20,6 +20,9 @@ Bundled fonts
 
 public/fonts/ppb.ttf
 public/fonts/rbm.ttf
+  Also emitted at build time as dist-lib/assets/demo-host-font.ttf — a copy of
+  rbm.ttf the demo host page serves as a host-resolved asset (see
+  tools/demoHostAssets.ts, docs/embedding.md#resolveasset-issue-138)
   Source: OpenEPaperLink Home Assistant Integration (imagegen assets)
   URL: https://github.com/OpenEPaperLink/Home_Assistant_Integration/tree/main/custom_components/open_epaper_link/imagegen/assets
   License: Apache License 2.0 (same repository as above)

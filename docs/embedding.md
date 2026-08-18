@@ -44,7 +44,7 @@ npm run build:site && npm run preview
 
 No dedicated server needed beyond that: the demo is plain static files, so any static file server works (e.g. `python3 -m http.server -d dist-lib`).
 
-The demo page implements every seam with mocks: it mounts as a **single-display host** (one pushed display, adopted and locked without a pick), pushes its full display inventory on demand, adds and removes displays, pushes warm/cold states with friendly names plus a per-second ticking state, registers Save / Send / Validate / Display-settings actions and re-pushes them to simulate a display going offline, renders host-side display previews (and fails one on demand), switches themes, and logs every fired action and display selection into a `<pre>`. It is also the Playwright e2e harness ([`tests/e2e/embed-mount.spec.ts`](../tests/e2e/embed-mount.spec.ts), [`embed-actions.spec.ts`](../tests/e2e/embed-actions.spec.ts), [`embed-targets.spec.ts`](../tests/e2e/embed-targets.spec.ts)) — if a feature cannot be expressed on that page, the abstraction is wrong (ADR-018's litmus test).
+The demo page implements every seam with mocks: it mounts as a **single-display host** (one pushed display, adopted and locked without a pick), pushes its full display inventory on demand, adds and removes displays, pushes warm/cold states with friendly names plus a per-second ticking state, registers Save / Send / Validate / Display-settings actions and re-pushes them to simulate a display going offline, renders host-side display previews (and fails one on demand), serves a font and an image [by name](#resolveasset-issue-138) out of its own `assets/` while declining a third name on purpose, switches themes, and logs every fired action, display selection, preview request and asset request into a `<pre>`. It is also the Playwright e2e harness ([`tests/e2e/embed-mount.spec.ts`](../tests/e2e/embed-mount.spec.ts), [`embed-actions.spec.ts`](../tests/e2e/embed-actions.spec.ts), [`embed-targets.spec.ts`](../tests/e2e/embed-targets.spec.ts), [`embed-preview.spec.ts`](../tests/e2e/embed-preview.spec.ts), [`embed-host-assets.spec.ts`](../tests/e2e/embed-host-assets.spec.ts)) — if a feature cannot be expressed on that page, the abstraction is wrong (ADR-018's litmus test).
 
 The same demo is published from `main` at **<https://schlomo.github.io/odl-drawcustom-designer/embed/>** — `npm run build:site` assembles the deployed site (app at `/`, `dist-lib/` copied to `/embed/` by [`tools/assembleSite.ts`](../tools/assembleSite.ts)); PR previews get their own `/embed/` the same way.
 
@@ -68,6 +68,10 @@ const handle = mount(document.getElementById('designer'), {
   async renderPreview(payload, context) {
     // optional: render the payload yourself — see below
     return await yourBackend.dryRun(payload, context)
+  },
+  resolveAsset(kind, name) {
+    // optional: 'font' | 'image' by the name the payload uses — see below
+    return yourBackend.assetBytes(kind, name)
   },
 })
 
@@ -435,6 +439,110 @@ This fake host has no real backend to render against, so — maintainer ruling o
 ### `payload`
 
 The payload is the drawcustom **element list YAML** (what the YAML panel shows). The host owns persistence: session autosave is disabled in embedded mode, the share-link button is hidden, and the payload leaves the designer only through [`getPayload()`](#getpayload-issue-104) or an [action](#actions--onaction-issue-108) callback. The designer never writes it anywhere itself.
+
+### `resolveAsset` ([issue #138](https://github.com/schlomo/odl-drawcustom-designer/issues/138))
+
+Hand-written drawcustom payloads name fonts and images the way the *host*
+names them — `Ubuntu-R.ttf`, `logo.png` — because the integration serving the
+payload looks them up in its own font and media directories. The designer has
+no such directories, so it asks the host:
+
+```js
+const handle = mount(el, {
+  async resolveAsset(kind, name) {
+    // kind: 'font' | 'image'  ·  name: the exact string from the payload
+    const file = await myMediaStore.find(kind, name)   // your search paths
+    if (!file) return null                             // "I don't have that"
+    return file.blob                                   // …or a URL string
+  },
+})
+```
+
+**It is the last tier, not the only one.** A reference resolves in this order,
+and the host is only asked for what is left over:
+
+| # | Tier | Where it comes from |
+|---|------|---------------------|
+| 1 | Local content map | the user's own uploads in Content Manager ([ADR-002](adr/ADR-002-local-content-map.md)) |
+| 2 | Bundled assets | `ppb.ttf`, `rbm.ttf`, the demo image — shipped inside the bundle |
+| 3 | **`resolveAsset`** | the host, **by name** |
+
+So a user upload always wins over the host's copy (that is the escape hatch
+when a host font is wrong), and a bundled font never costs a round trip.
+
+**Answers.** Return a `Blob` (the bytes — the safest answer: no CORS
+questions, and nothing that can taint the PNG export canvas), or a `string`
+URL the designer can load (`data:`, `blob:` or same-origin; a cross-origin URL
+needs CORS headers, so prefer a blob when in doubt). Return `null` for "I don't
+have that".
+
+**Errors are explicit, never silent.** `null`, a rejection, or an
+out-of-contract value all settle the same way: every element referencing that
+asset gets the designer's usual render-error marker, and the status banner says
+what is wrong — naming the asset and that the host could not supply it. A font
+whose bytes never arrive is never substituted with another font: a
+plausible-looking wrong render is worse than an honest failure
+([ADR-013](adr/ADR-013-universal-property-templating.md), issue #10).
+
+**A silent host counts as a failure too.** The designer waits **15 s** for one
+call and then settles it as *"the host did not respond within 15s"*, reaching
+the user as the same render-error state. A promise you never settle would
+otherwise leave those elements mid-load forever — no asset and no error, the one
+outcome the rule above forbids. There is no `AbortSignal`: the call is simply
+abandoned, and the retry window below is measured from the timeout.
+
+**Search paths stay yours.** The contract is `name -> asset` and nothing else.
+The designer learns no directory layout, no `/local/` conventions and no
+permission model — an ODL-style search path (media dir, then font dir, then a
+default) is host code, implemented once in your adapter
+([ADR-018](adr/ADR-018-host-ui-seam.md): domain-neutral vocabulary).
+
+**Cost.** The designer caches per mount, per `(kind, name)` — and the two kinds
+never share an entry, so answering for the *font* `logo.png` says nothing about
+the *image* of that name:
+
+- **Supplied** assets are cached for the life of the mount — asset loading
+  re-runs whenever the payload's set of referenced names changes, and that must
+  not cost the host a round trip per edit ([issue #110](https://github.com/schlomo/odl-drawcustom-designer/issues/110)).
+- **Unsupplied** ones are cached for **30 s** and then asked again. Be precise
+  about what "then" means: there is **no background timer and nothing wakes the
+  designer**. The retry happens on the next pass of asset loading that runs
+  after the window has elapsed — and asset loading only runs when the payload's
+  set of referenced asset names changes. So a media store that comes back, or a
+  file the user has just added host-side, heals on the next edit that touches
+  assets; sitting still on an unchanged payload never retries by itself.
+- Concurrent requests for the same asset share one call.
+- `destroy()` forgets everything that mount cached, **and drops the bytes it
+  produced** — the parsed font, its entry in the font registry, and its CSS
+  `@font-face` are all removed from the page. That is what keeps a second host
+  on the same page from inheriting the first host's file for the same name; it
+  also means text using a host font shows the render-error state once the mount
+  that supplied it is gone.
+
+**Stable closure**, fixed at mount, like `onAction`: there is no update
+channel for it (ADR-018 pushes data, not functions), and it is live before the
+designer creates any DOM, so the initial payload's own host assets never flash
+as an error on the way in.
+
+**Content Manager** shows a host-supplied asset with a **Host** badge instead of
+**Missing**, and the "Missing local assets" warning does not fire for it — it is
+genuinely there, just not from here. Uploading over it moves it to tier 1.
+
+**Two mounts on one page share asset resolution.** The content map has always
+been page-wide, and this tier joins it: the **most recently mounted** resolver
+answers new requests, and disposing it hands resolution back to the earlier one.
+An asset either mount has already been supplied stays recognised as
+host-supplied for as long as that mount lives, so a second mount appearing never
+prunes an image the first one is painting. The lossy edge is honest and narrow:
+two mounts that would answer *differently* for the same `(kind, name)` — the
+newer one's answer is the one used, and whichever mount asked first keeps the
+bytes it already got. Out of scope; give them one resolver, or mount them in
+separate documents.
+
+**Not in this layer:** a re-pushable catalog of available names (feeding the
+font picker) and a host-side upload round-trip. Those are layer 2 of
+[issue #138](https://github.com/schlomo/odl-drawcustom-designer/issues/138),
+deliberately deferred until this layer is consumed upstream.
 
 ### `theme`
 

@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { buildDefines } from './tools/buildDefines.ts'
+import { demoHostAssets } from './tools/demoHostAssets.ts'
 
 /**
  * Library build (issue #20): bundles src/embed/index.ts into ONE
@@ -15,7 +16,7 @@ import { buildDefines } from './tools/buildDefines.ts'
  * the `vitest:` guard anyway (AGENTS.md, "Build-time defines").
  */
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), demoHostAssets()],
   define: {
     ...buildDefines(),
     // Vite's app build injects this automatically; library mode does not.

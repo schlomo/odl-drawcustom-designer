@@ -1,4 +1,11 @@
-import type { DrawElement } from '../core'
+import type { AssetKind, DrawElement, HostAssetResolver } from '../core'
+
+/**
+ * Published together (issue #138): a host writing `resolveAsset` in TypeScript
+ * has to be able to name the discriminator it switches on, so re-exporting the
+ * function type without its parameter type would leave that unsayable.
+ */
+export type { AssetKind, HostAssetResolver }
 
 /** Theme applied to the mount container (never `document.documentElement`). */
 export type EmbedTheme = 'light' | 'dark'
@@ -378,6 +385,30 @@ export interface MountOptions {
    * pushed, functions are not).
    */
   renderPreview?: HostPreviewRenderer
+  /**
+   * Resolve a font or image the designer could not resolve locally
+   * ([issue #138](https://github.com/schlomo/odl-drawcustom-designer/issues/138)).
+   *
+   * Payloads reference assets by the name the *host* understands
+   * (`Ubuntu-R.ttf`, `logo.png`) — for the OpenDisplay integration, a file in
+   * its font/media directories. The designer asks this closure for any
+   * reference left over after its own tiers (Content Manager uploads, bundled
+   * assets), and caches what comes back for the life of the mount:
+   *
+   * - a `Blob` — the asset's bytes (the safest answer: no CORS, no tainting);
+   * - a `string` — a URL the designer can load (data:, blob:, or same-origin);
+   * - `null` — "I don't have that", which surfaces as the designer's explicit
+   *   render-error state on every element referencing the asset, naming it and
+   *   saying the host could not supply it. A rejection reads the same way,
+   *   with its reason. Never a silent skip, never a wrong render.
+   *
+   * Search paths, directory layout and permissions stay host-side: the
+   * contract is `name -> asset` and nothing else (ADR-018). A stable closure
+   * fixed at mount — like `onAction`, there is no update channel for it; an
+   * unresolvable name is retried after a short interval, so a host whose store
+   * comes back can answer differently without a remount.
+   */
+  resolveAsset?: HostAssetResolver
 }
 
 export interface MountHandle {

@@ -1,7 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import cssText from '../index.css?inline'
-import { APP_VERSION, parseYamlPayload, serializeYamlPayload, type DrawElement } from '../core'
+import {
+  APP_VERSION,
+  installHostAssetResolver,
+  parseYamlPayload,
+  serializeYamlPayload,
+  type DrawElement,
+} from '../core'
 import { App } from '../ui/App'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import { createEmbeddedHost } from './embeddedHost'
@@ -114,7 +120,47 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
   // React root the host can never reach to clean up.
   const initialBootstrap = host.loadBootstrap()
 
-  const target = createRenderTarget(container, host)
+  /**
+   * Everything mounting has taken ownership of, in the order it was taken.
+   * Unwound newest-first by exactly two exits: `destroy()`, and any synchronous
+   * failure before the first committed frame (`duringMount` below).
+   *
+   * One list rather than two teardown sequences on purpose: the container's
+   * pristine guarantee (issue #116) is only worth anything if every later
+   * addition to mounting is covered by construction. The host asset tier
+   * (issue #138) is the case in point — installed before any DOM exists, so a
+   * failing mount that only cleaned up DOM would leave an orphan tier per
+   * attempt, each shadowing the next.
+   */
+  const teardown: Array<() => void> = []
+
+  const unwind = () => {
+    for (const undo of teardown.splice(0).reverse()) {
+      undo()
+    }
+  }
+
+  /** Run one mount step; on failure unwind what mounting owns and re-throw. */
+  const duringMount = <T,>(step: () => T): T => {
+    try {
+      return step()
+    } catch (error) {
+      unwind()
+      throw error
+    }
+  }
+
+  // The host's asset tier goes live before the first frame is rendered (issue
+  // #138): the initial payload's own fonts and images resolve through it, so a
+  // host-supplied font never flashes as a render error on the way in. Disposing
+  // it also forgets everything this mount cached, and evicts the host bytes
+  // downstream caches kept.
+  if (host.resolveAsset) {
+    teardown.push(installHostAssetResolver(host.resolveAsset))
+  }
+
+  const target = duringMount(() => createRenderTarget(container, host))
+  teardown.push(() => target.cleanup())
 
   // Pushes can arrive before React has flushed the effect that registers the
   // push target (effects flush asynchronously); queue them and replay in
@@ -196,7 +242,8 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
   // the one the user asked for last. Only the newest load may render.
   let loadSequence = 0
 
-  const root = createRoot(target.element)
+  const root = duringMount(() => createRoot(target.element))
+  teardown.push(() => root.unmount())
   const renderApp = () => {
     if (!bootstrap) {
       return
@@ -243,16 +290,17 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
     renderLoaded(host.loadBootstrap())
   }
 
-  try {
+  // The last step mounting can fail at: a synchronous render failure is as
+  // unrecoverable as a bootstrap one, so the container goes back untouched
+  // instead of half-mounted.
+  duringMount(() => {
     renderLoaded(initialBootstrap)
-  } catch (error) {
-    // A synchronous render failure is as unrecoverable as a bootstrap one:
-    // hand the container back untouched instead of half-mounted.
-    root.unmount()
-    target.cleanup()
-    throw error
-  }
+  })
+
   const unsubscribeBootstrap = host.subscribeBootstrapChanges?.(loadAndRender)
+  if (unsubscribeBootstrap) {
+    teardown.push(unsubscribeBootstrap)
+  }
 
   const assertMounted = () => {
     if (destroyed) {
@@ -265,9 +313,8 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
     destroy() {
       assertMounted()
       destroyed = true
-      unsubscribeBootstrap?.()
-      root.unmount()
-      target.cleanup()
+      // Same list, same order as a failed mount unwinds — see `teardown`.
+      unwind()
     },
     setStates(states) {
       assertMounted()
