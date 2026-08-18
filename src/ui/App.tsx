@@ -66,6 +66,17 @@ import { toolIconPath } from './lib/mdi-tool-icons'
  */
 const STATUS_CHANGE_DEBOUNCE_MS = 300
 
+/**
+ * `yamlErrorSummary` documents itself as one line (issue #133 MINOR 4), but a
+ * raw YAML parse error's message can carry a multi-line caret diagram (e.g.
+ * `"Implicit keys need to be on a single line at line 1, column 3:\n\n- type
+ * text\n  ^\n"`) — truncate to the first line so the doc promise holds.
+ */
+function firstLineOf(text: string): string {
+  const newlineIndex = text.indexOf('\n')
+  return newlineIndex === -1 ? text : text.slice(0, newlineIndex)
+}
+
 interface AppProps {
   bootstrap: AppBootstrap
   /**
@@ -249,7 +260,11 @@ export function App({ bootstrap, host }: AppProps) {
   // edit-tracking half `useProjectState` maintains (`getEditStatus`) and the
   // current selection. Frozen: a later status is always a new object, never a
   // mutation of one a host already holds.
-  const getDesignerStatus = useCallback((): DesignerStatus => {
+  //
+  // Deliberately does NOT flush a pending debounced YAML edit — see
+  // `getDesignerStatus` below for the flushing wrapper and why the two must
+  // stay separate (issue #133 review, MAJOR 3).
+  const buildDesignerStatus = useCallback((): DesignerStatus => {
     const { lastEditAt, payloadRevision } = getEditStatus()
     const base = {
       yamlValid: !yamlBlocked,
@@ -257,15 +272,29 @@ export function App({ bootstrap, host }: AppProps) {
       payloadRevision,
       selectedElementCount: selectedIndices.length,
     }
-    return Object.freeze(
-      yamlBlocked
-        ? {
-            ...base,
-            yamlErrorSummary: summarizeStatusMessages(yamlStatusMessages) ?? 'YAML document is invalid',
-          }
-        : base,
-    )
+    if (!yamlBlocked) {
+      return Object.freeze(base)
+    }
+    const summary = summarizeStatusMessages(yamlStatusMessages) ?? 'YAML document is invalid'
+    return Object.freeze({ ...base, yamlErrorSummary: firstLineOf(summary) })
   }, [getEditStatus, selectedIndices.length, yamlBlocked, yamlStatusMessages])
+
+  // Host-facing read (issue #133 review, MAJOR 3): flushes a pending
+  // debounced YAML edit first, exactly like `readCurrentPayload` does for
+  // `getPayload()` — two handle reads must never disagree about whether
+  // there is unsaved, uncommitted text. This is what `registerStatusSource`
+  // registers and what a settled `onStatusChange` debounce delivers below.
+  //
+  // The internal notify effect's own per-render bookkeeping intentionally
+  // calls the non-flushing `buildDesignerStatus` instead: it runs on every
+  // render that could plausibly matter (including a mid-keystroke one, since
+  // `yamlBlocked`/`yamlStatusMessages` update on every keystroke, well before
+  // the YAML editor's own 80ms elements-sync debounce fires) — flushing there
+  // would force-commit every keystroke immediately, defeating that debounce.
+  const getDesignerStatus = useCallback((): DesignerStatus => {
+    yamlFlushPendingRef.current?.()
+    return buildDesignerStatus()
+  }, [buildDesignerStatus])
 
   // Read channel (issue #133): the same commit-time (`useLayoutEffect`)
   // registration as `readCurrentPayload`/`getCurrentDesignPngBlob` above —
@@ -277,6 +306,20 @@ export function App({ bootstrap, host }: AppProps) {
     return host.registerStatusSource(getDesignerStatus)
   }, [host, getDesignerStatus])
 
+  // Latest-`getDesignerStatus` mirror (issue #133 review, BLOCKER 2): the
+  // debounce timer below is scheduled during one render but fires as an
+  // unrelated macrotask, by which time several more renders — and possibly
+  // several more transitions, including one that reverts the very one that
+  // scheduled it — may have happened. Reading through this ref instead of the
+  // closed-over function from the scheduling render is what keeps the
+  // delivered snapshot live rather than stale. A layout effect with no
+  // dependency array updates it after every commit, well before any 300ms
+  // timer could possibly fire.
+  const getDesignerStatusRef = useRef(getDesignerStatus)
+  useLayoutEffect(() => {
+    getDesignerStatusRef.current = getDesignerStatus
+  })
+
   // Change notification (issue #133): fires only on a *transition* — a YAML
   // validity flip or a payload-revision change — never for a selection change
   // alone, and debounced so a burst of keystrokes or drag updates yields one
@@ -287,11 +330,17 @@ export function App({ bootstrap, host }: AppProps) {
     null,
   )
   const statusChangeTimerRef = useRef<number | null>(null)
+  const clearStatusChangeTimer = useCallback(() => {
+    if (statusChangeTimerRef.current != null) {
+      window.clearTimeout(statusChangeTimerRef.current)
+      statusChangeTimerRef.current = null
+    }
+  }, [])
   useEffect(() => {
     if (!host.onStatusChange) {
       return
     }
-    const status = getDesignerStatus()
+    const status = buildDesignerStatus()
     const transitionKey = { yamlValid: status.yamlValid, payloadRevision: status.payloadRevision }
     const last = lastNotifiedStatusRef.current
     if (last == null) {
@@ -305,31 +354,46 @@ export function App({ bootstrap, host }: AppProps) {
       last.yamlValid === transitionKey.yamlValid &&
       last.payloadRevision === transitionKey.payloadRevision
     ) {
+      // Either nothing changed since the last delivered/baseline status, or a
+      // flip-flop inside the debounce window landed back on it (issue #133
+      // review, BLOCKER 2) — cancel whatever is still pending rather than let
+      // it later deliver a now-stale snapshot `getStatus()` would no longer
+      // agree with. This is also what keeps the equality path from leaking a
+      // timer: the previous version returned here without touching one.
+      clearStatusChangeTimer()
       return
     }
-    if (statusChangeTimerRef.current != null) {
-      window.clearTimeout(statusChangeTimerRef.current)
-    }
+    clearStatusChangeTimer()
     statusChangeTimerRef.current = window.setTimeout(() => {
       statusChangeTimerRef.current = null
-      lastNotifiedStatusRef.current = transitionKey
-      host.onStatusChange?.(getDesignerStatus())
-    }, STATUS_CHANGE_DEBOUNCE_MS)
-  }, [host, getDesignerStatus])
-
-  // Unmount-only cleanup for the debounce timer above — deliberately its own
-  // effect with an empty dependency array, not a cleanup returned by the
-  // effect above: that effect re-runs on every qualifying render (including a
-  // selection-only change, which must not cancel an in-flight debounce), so
-  // its own cleanup would have to fire on every one of those re-runs too.
-  useEffect(
-    () => () => {
-      if (statusChangeTimerRef.current != null) {
-        window.clearTimeout(statusChangeTimerRef.current)
+      // Read live through the ref, not the scheduling render's closed-over
+      // function (issue #133 review, BLOCKER 2) — flushes on read (MAJOR 3),
+      // so a host's `onStatusChange` sees exactly what `getStatus()` would
+      // answer if called right now, never what was true 300ms ago.
+      const delivered = getDesignerStatusRef.current()
+      lastNotifiedStatusRef.current = {
+        yamlValid: delivered.yamlValid,
+        payloadRevision: delivered.payloadRevision,
       }
-    },
-    [],
-  )
+      host.onStatusChange?.(delivered)
+    }, STATUS_CHANGE_DEBOUNCE_MS)
+    // `elements` is a deliberate extra dependency (issue #133 review,
+    // BLOCKER 1): `buildDesignerStatus` reads `payloadRevision`/`lastEditAt`
+    // through refs (`getEditStatus`), which change on every committed edit
+    // without necessarily changing any of `buildDesignerStatus`'s own listed
+    // dependencies (`yamlBlocked`/`selectedIndices`/`yamlStatusMessages`) at
+    // the moment the edit actually commits — a single keystroke's validity
+    // flag updates immediately, well before its 80ms debounce commits the
+    // edit itself, so by commit time nothing else has changed to re-run this
+    // effect. `elements` is exactly that missing signal: every commit gives
+    // it a new array reference.
+  }, [host, buildDesignerStatus, elements, clearStatusChangeTimer])
+
+  // Unmount-only cleanup for the debounce timer above — `clearStatusChangeTimer`
+  // has a stable identity, so this effect runs once (mount) and cleans up
+  // once (unmount); the notify effect above cancels/reschedules the same
+  // timer inline on every relevant re-run, so this is not that cleanup.
+  useEffect(() => clearStatusChangeTimer, [clearStatusChangeTimer])
 
   /**
    * The surface a host render must be produced at: the oriented logical canvas

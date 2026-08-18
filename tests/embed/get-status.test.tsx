@@ -57,6 +57,10 @@ const emptyClientRects = (): DOMRectList =>
 const PAYLOAD = ['- type: text', '  value: Hello', '  x: 10', '  y: 10', ''].join('\n')
 const PUSHED_PAYLOAD = ['- type: text', '  value: Pushed', '  x: 4', '  y: 4', ''].join('\n')
 
+function payloadWithValue(value: string): string {
+  return ['- type: text', `  value: ${value}`, '  x: 4', '  y: 4', ''].join('\n')
+}
+
 let container: HTMLElement
 const handles: MountHandle[] = []
 
@@ -249,6 +253,114 @@ describe('MountHandle.getStatus()', () => {
     expect(handle.getStatus().yamlErrorSummary).toBeUndefined()
   })
 
+  it('flushes a pending debounced YAML edit immediately, like getPayload() does (MAJOR 3)', async () => {
+    const handle = mountDesigner({ payload: PAYLOAD })
+    await waitForMounted()
+
+    vi.useFakeTimers()
+    const view = findMountedView()
+    const doc = view.state.doc.toString()
+    const valueFrom = doc.indexOf('value: Hello')
+    dispatchUserEdit(view, {
+      from: valueFrom,
+      to: valueFrom + 'value: Hello'.length,
+      insert: 'value: Edited',
+    })
+
+    // Deliberately NOT advancing timers: the YAML editor's own 80ms
+    // elements-sync debounce has not fired yet. getStatus() must still
+    // already reflect the edit, the same way getPayload() forces a flush
+    // before reading (docs/embedding.md, "getPayload()").
+    let status!: DesignerStatus
+    act(() => {
+      status = handle.getStatus()
+    })
+    expect(status.payloadRevision).toBe(1)
+    expect(status.lastEditAt).not.toBeNull()
+  })
+
+  it('agrees with getPayload() about a pending edit — both flush before answering (getPayload first)', async () => {
+    const handle = mountDesigner({ payload: PAYLOAD })
+    await waitForMounted()
+
+    vi.useFakeTimers()
+    const view = findMountedView()
+    const doc = view.state.doc.toString()
+    const valueFrom = doc.indexOf('value: Hello')
+    dispatchUserEdit(view, {
+      from: valueFrom,
+      to: valueFrom + 'value: Hello'.length,
+      insert: 'value: Edited',
+    })
+
+    let payload!: string
+    let status!: DesignerStatus
+    act(() => {
+      payload = handle.getPayload()
+      status = handle.getStatus()
+    })
+    expect(payload).toContain('value: Edited')
+    expect(status.payloadRevision).toBe(1)
+  })
+
+  it('agrees with getPayload() about a pending edit — both flush before answering (getStatus first)', async () => {
+    // Order must not matter — calling getStatus() first must flush exactly
+    // the same way `getPayload()` does.
+    const handle = mountDesigner({ payload: PAYLOAD })
+    await waitForMounted()
+
+    vi.useFakeTimers()
+    const view = findMountedView()
+    const doc = view.state.doc.toString()
+    const valueFrom = doc.indexOf('value: Hello')
+    dispatchUserEdit(view, {
+      from: valueFrom,
+      to: valueFrom + 'value: Hello'.length,
+      insert: 'value: Edited',
+    })
+
+    let status!: DesignerStatus
+    let payload!: string
+    act(() => {
+      status = handle.getStatus()
+      payload = handle.getPayload()
+    })
+    expect(status.payloadRevision).toBe(1)
+    expect(payload).toContain('value: Edited')
+  })
+
+  it('truncates yamlErrorSummary to its first line, even for a multi-line parser message (MINOR 4)', async () => {
+    const handle = mountDesigner({ payload: PAYLOAD })
+    await waitForMounted()
+
+    const view = findMountedView()
+    const doc = view.state.doc.toString()
+    const colonIndex = doc.indexOf(':')
+    // Same repro as the yaml-panel-blocked-sync fixture: removing this colon
+    // produces a raw js-yaml parse error whose message is multi-line (a
+    // caret-diagram pointer at the offending column).
+    dispatchUserEdit(view, { from: colonIndex, to: colonIndex + 1, insert: '' })
+
+    await waitFor(() => {
+      expect(handle.getStatus().yamlValid).toBe(false)
+    })
+    const summary = handle.getStatus().yamlErrorSummary!
+    expect(summary).not.toContain('\n')
+    expect(summary.length).toBeGreaterThan(0)
+  })
+
+  it('does not bump payloadRevision for a byte-identical setPayload() push (MINOR 6)', async () => {
+    const handle = mountDesigner({ payload: PAYLOAD })
+    await waitForMounted()
+
+    const before = handle.getStatus()
+    act(() => handle.setPayload(PAYLOAD))
+    const after = handle.getStatus()
+
+    expect(after.payloadRevision).toBe(before.payloadRevision)
+    expect(after.lastEditAt).toBe(before.lastEditAt)
+  })
+
   it('returns a frozen object', async () => {
     const handle = mountDesigner({ payload: PAYLOAD })
     await waitForMounted()
@@ -285,7 +397,7 @@ describe('MountOptions.onStatusChange', () => {
     expect(onStatusChange).not.toHaveBeenCalled()
   })
 
-  it('fires (debounced) on a validity flip, with the transitioned status', async () => {
+  it('fires (debounced) on a validity flip, delivering exactly what getStatus() reports at that instant', async () => {
     const onStatusChange = vi.fn()
     const handle = mountDesigner({ payload: PAYLOAD, onStatusChange })
     await waitForMounted()
@@ -309,7 +421,105 @@ describe('MountOptions.onStatusChange', () => {
     expect(onStatusChange).toHaveBeenCalledTimes(1)
     const reported = onStatusChange.mock.calls[0]![0] as DesignerStatus
     expect(reported.yamlValid).toBe(false)
-    expect(handle.getStatus().yamlValid).toBe(false)
+    // Full agreement, not just the one field — issue #133 review BLOCKER 2:
+    // the delivered snapshot must be exactly what a getStatus() call would
+    // answer at the moment of delivery, not a stale one captured when the
+    // debounce was scheduled.
+    expect(reported).toEqual(handle.getStatus())
+  })
+
+  it('fires on a single committed keystroke, exactly once, reflecting the committed revision', async () => {
+    // The scenario the review's BLOCKER 1 named precisely: a single keystroke
+    // then silence. The YAML editor's own validity flag updates synchronously
+    // on every keystroke (well before its 80ms elements-sync debounce commits
+    // the edit), so by the time the edit actually commits, nothing *else*
+    // this effect depends on has changed — only `payloadRevision`/`lastEditAt`,
+    // read through refs. Without `elements` as an explicit effect dependency
+    // this produced zero notifications.
+    const onStatusChange = vi.fn()
+    const handle = mountDesigner({ payload: PAYLOAD, onStatusChange })
+    await waitForMounted()
+
+    vi.useFakeTimers()
+    const view = findMountedView()
+    const doc = view.state.doc.toString()
+    const valueFrom = doc.indexOf('value: Hello')
+    dispatchUserEdit(view, {
+      from: valueFrom,
+      to: valueFrom + 'value: Hello'.length,
+      insert: 'value: Edited',
+    })
+
+    act(() => {
+      vi.advanceTimersByTime(150)
+    })
+    act(() => {
+      vi.advanceTimersByTime(400)
+    })
+
+    expect(onStatusChange).toHaveBeenCalledTimes(1)
+    const reported = onStatusChange.mock.calls[0]![0] as DesignerStatus
+    expect(reported.payloadRevision).toBe(1)
+    expect(reported).toEqual(handle.getStatus())
+  })
+
+  it('a flip-flop back to the last-notified baseline inside the debounce window delivers no false notification', async () => {
+    // Issue #133 review BLOCKER 2, the exact repro: break the document, then
+    // fix it back before the 300ms debounce settles. The buggy version
+    // delivered a stale `{ yamlValid: false }` snapshot from the scheduling
+    // render (the closed-over `getDesignerStatus`), even though the live
+    // document — and a live getStatus() call — already agreed it was valid
+    // again; it also poisoned `lastNotifiedStatusRef` with that stale key, so
+    // the *next* real invalid flip at the same revision would have been
+    // silently suppressed.
+    const onStatusChange = vi.fn()
+    const handle = mountDesigner({ payload: PAYLOAD, onStatusChange })
+    await waitForMounted()
+
+    vi.useFakeTimers()
+    const view = findMountedView()
+    const doc = view.state.doc.toString()
+    const colonIndex = doc.indexOf(':')
+    dispatchUserEdit(view, { from: colonIndex, to: colonIndex + 1, insert: '' })
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    // Fix it back before the debounce fires.
+    dispatchUserEdit(view, { from: colonIndex, to: colonIndex, insert: ':' })
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+
+    expect(onStatusChange).not.toHaveBeenCalled()
+    expect(handle.getStatus().yamlValid).toBe(true)
+  })
+
+  it('a flip-flop that settles on a different truth than the baseline delivers that live truth, not an intermediate one', async () => {
+    const onStatusChange = vi.fn()
+    const handle = mountDesigner({ payload: PAYLOAD, onStatusChange })
+    await waitForMounted()
+
+    vi.useFakeTimers()
+    const view = findMountedView()
+    const doc = view.state.doc.toString()
+    const colonIndex = doc.indexOf(':')
+    // Break it, wait a bit (still mid-debounce), edit again while still
+    // broken (a different broken shape), then let it settle. Whatever fires
+    // must match the LIVE document, never an intermediate one from the
+    // scheduling render.
+    dispatchUserEdit(view, { from: colonIndex, to: colonIndex + 1, insert: '' })
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    dispatchUserEdit(view, { from: colonIndex, to: colonIndex, insert: 'x' })
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+
+    expect(onStatusChange).toHaveBeenCalledTimes(1)
+    const reported = onStatusChange.mock.calls[0]![0] as DesignerStatus
+    expect(reported).toEqual(handle.getStatus())
+    expect(reported.yamlValid).toBe(false)
   })
 
   it('does not fire for a selection change alone', async () => {
@@ -358,5 +568,109 @@ describe('MountOptions.onStatusChange', () => {
     expect(onStatusChange).toHaveBeenCalledTimes(1)
     const reported = onStatusChange.mock.calls[0]![0] as DesignerStatus
     expect(reported.payloadRevision).toBe(handle.getStatus().payloadRevision)
+  })
+
+  it('coalesces a burst of rapid host setPayload() pushes into a single call reporting the final live revision', async () => {
+    // Driven entirely through the push API, not the YAML editor/CodeMirror
+    // pipeline at all — a distinct trigger path from every other test in this
+    // file, so this cannot pass by riding along on the YAML editor's own
+    // lint-diagnostics identity churn (issue #133 review's characterization
+    // of the previous version of this test).
+    const onStatusChange = vi.fn()
+    const handle = mountDesigner({ payload: PAYLOAD, onStatusChange })
+    await waitForMounted()
+
+    vi.useFakeTimers()
+    for (let i = 0; i < 5; i += 1) {
+      act(() => handle.setPayload(payloadWithValue(`Edited${i}`)))
+      act(() => {
+        vi.advanceTimersByTime(50)
+      })
+    }
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+
+    expect(onStatusChange).toHaveBeenCalledTimes(1)
+    const reported = onStatusChange.mock.calls[0]![0] as DesignerStatus
+    expect(reported.payloadRevision).toBe(handle.getStatus().payloadRevision)
+    expect(reported.payloadRevision).toBeGreaterThanOrEqual(5)
+    const payload = handle.getPayload()
+    expect(payload).toContain('value: Edited4')
+  })
+
+  it('cancels a pending notification on destroy() and never fires afterwards', async () => {
+    const onStatusChange = vi.fn()
+    const handle = mountDesigner({ payload: PAYLOAD, onStatusChange })
+    await waitForMounted()
+
+    vi.useFakeTimers()
+    const view = findMountedView()
+    const doc = view.state.doc.toString()
+    const colonIndex = doc.indexOf(':')
+    dispatchUserEdit(view, { from: colonIndex, to: colonIndex + 1, insert: '' })
+
+    // Still mid-debounce when the mount is torn down.
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    expect(onStatusChange).not.toHaveBeenCalled()
+
+    act(() => handle.destroy())
+
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(onStatusChange).not.toHaveBeenCalled()
+  })
+
+  it('tolerates onStatusChange calling getStatus() and setPayload() back into the handle', async () => {
+    const seen: DesignerStatus[] = []
+    const onStatusChange = vi.fn((status: DesignerStatus) => {
+      seen.push(status)
+      // Re-entrant reads/pushes must not throw and must not deadlock.
+      expect(() => handle.getStatus()).not.toThrow()
+      if (seen.length === 1) {
+        handle.setPayload(PUSHED_PAYLOAD)
+      }
+    })
+    const handle = mountDesigner({ payload: PAYLOAD, onStatusChange })
+    await waitForMounted()
+
+    vi.useFakeTimers()
+    act(() => handle.setPayload(payloadWithValue('First')))
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    expect(seen.length).toBeGreaterThanOrEqual(1)
+
+    // The re-entrant setPayload from inside the first callback is itself a
+    // real committed change (a different payload) — let its own debounce
+    // settle too, and confirm the mount is still perfectly usable.
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    expect(() => handle.getStatus()).not.toThrow()
+    expect(handle.getPayload()).toContain('value: Pushed')
+  })
+
+  it('tolerates onStatusChange calling destroy() back into the handle', async () => {
+    const onStatusChange = vi.fn(() => {
+      expect(() => handle.destroy()).not.toThrow()
+    })
+    const handle = mountDesigner({ payload: PAYLOAD, onStatusChange })
+    await waitForMounted()
+
+    vi.useFakeTimers()
+    const view = findMountedView()
+    const doc = view.state.doc.toString()
+    const colonIndex = doc.indexOf(':')
+    dispatchUserEdit(view, { from: colonIndex, to: colonIndex + 1, insert: '' })
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+
+    expect(onStatusChange).toHaveBeenCalledTimes(1)
+    expect(() => handle.getStatus()).toThrow('MountHandle used after destroy()')
   })
 })

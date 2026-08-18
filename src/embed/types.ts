@@ -340,9 +340,12 @@ export interface DesignerStatus {
   /** Whether the current YAML document parses and validates. */
   readonly yamlValid: boolean
   /**
-   * A one-line description of the first validation problem. Present only
-   * while {@link DesignerStatus.yamlValid} is `false` — a valid document
-   * carries no summary rather than an empty or stale one.
+   * A one-line description of the first validation problem, truncated to its
+   * first `\n`-delimited line if the underlying parser error is not (a raw
+   * YAML syntax error's message can carry a multi-line caret diagram
+   * pointing at the offending column). Present only while
+   * {@link DesignerStatus.yamlValid} is `false` — a valid document carries no
+   * summary rather than an empty or stale one.
    */
   readonly yamlErrorSummary?: string
   /**
@@ -361,6 +364,22 @@ export interface DesignerStatus {
    * whether it came from the user (typing, a drag, undo/redo) or from a host
    * `setPayload()` push. A host that only needs "has anything changed since I
    * last looked" can diff this number instead of diffing YAML strings.
+   *
+   * Granularity, precisely:
+   *
+   * - **One drag or property-panel drag gesture is one revision**, not one
+   *   per pointermove — coalesced the same way the gesture's undo-history
+   *   entry is (`beginEditCoalesce`/`endEditCoalesce`), applied once when the
+   *   gesture ends. A gesture that starts and ends without net change bumps
+   *   nothing.
+   * - **A `setPayload()` push that is byte-identical to the current payload
+   *   is a no-op** — dedupe before commit, the same full-bail pattern the
+   *   `states`/`actions` channels use for an unchanged re-push (issue #110):
+   *   no revision bump, no discarded draft, no reset undo history, no cleared
+   *   selection.
+   * - Every other committed change (a single keystroke's debounced commit, a
+   *   click-driven property edit, undo, redo, a genuinely different
+   *   `setPayload()` push) bumps exactly once.
    */
   readonly payloadRevision: number
   /** How many elements are currently selected on the canvas. */
@@ -371,9 +390,20 @@ export interface DesignerStatus {
  * Fired on a status transition (issue #133) — a YAML validity flip or a
  * {@link DesignerStatus.payloadRevision} change — debounced so a burst of
  * keystrokes or drag updates yields one call, not one per commit. Not fired
- * for a selection change alone. A stable closure fixed at mount, like
- * `onAction`: ADR-018 pushes data, never functions, so there is no update
- * channel for it.
+ * for a selection change alone, and not fired for the initial status observed
+ * at mount (read {@link MountHandle.getStatus} for that).
+ *
+ * The delivered status is always **live**: read fresh (and flushed, per
+ * {@link MountHandle.getStatus}) at the moment the debounce settles, never the
+ * value captured when the debounce was scheduled — a flip that reverts to the
+ * last-notified truth before the debounce settles delivers no call at all
+ * (there is nothing new to report), and a flip that settles on a different
+ * truth delivers exactly that, never an intermediate one from partway through
+ * the window. A host that reacts to this callback and calls
+ * {@link MountHandle.getStatus} inside it always sees the identical value.
+ *
+ * A stable closure fixed at mount, like `onAction`: ADR-018 pushes data,
+ * never functions, so there is no update channel for it.
  */
 export type HostStatusChangeHandler = (status: DesignerStatus) => void
 
@@ -598,6 +628,13 @@ export interface MountHandle {
    * The designer's current status (issue #133, ADR-018's observability
    * clause) — a small, frozen, derived snapshot; never authoritative, and it
    * carries no designer internals (no elements, no YAML text).
+   *
+   * **Flushes a pending debounced YAML edit first**, exactly like
+   * {@link getPayload} does — the two must never disagree about whether there
+   * is unsaved, uncommitted text: a call made moments after typing already
+   * reflects the typed edit in `payloadRevision`/`lastEditAt`, not the state
+   * as of 80ms ago. Calling `getStatus()` before `getPayload()` or vice versa
+   * flushes the same way either order.
    *
    * Always answers synchronously, including in the brief pre-registration
    * window right after `mount()`/`mountStandaloneApp()` returns — before that
