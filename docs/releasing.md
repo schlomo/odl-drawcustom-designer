@@ -190,11 +190,15 @@ in a different notes step later without restructuring the workflow itself.
   time of writing) rather than this repo's own compiler (`~6.0.2`), and logs
   a one-line warning about the mismatch on every `build:lib` run. This is
   cosmetic in the case that matters: `tools/dtsArtifactChecks.ts`'s
-  no-external-imports check independently catches the one dangerous
+  no-external-imports check independently catches the one *breaking*
   consequence a compiler-version skew inside API Extractor could produce (a
   type it can't safely inline emitted as an `import` instead — the "zod"
   scenario in a PR #154 review), so no further action is needed here beyond
-  this note; nothing about the skew is silently unsafe.
+  this note. That gate covers breaking consequences only: the skew can still
+  make API Extractor silently emit a non-exported `declare type` for a type
+  that's reachable from a public field — a cosmetic/DX degradation
+  (consumers can't name that type) with no warning and nothing in this repo's
+  checks that catches it.
 - `odl-drawcustom-designer.js.sha256` / `odl-drawcustom-designer.d.ts.sha256`
   — sha256 checksums of the two files above (`tools/releaseChecksum.ts`),
   verifiable with `shasum -a 256 -c <file>.sha256` (issue #103; `-a 256`

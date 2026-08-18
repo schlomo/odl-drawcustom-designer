@@ -37,8 +37,11 @@ import { assertNoDtsDiagnostics } from './tools/dtsDiagnostics.ts'
  * still resolves and type-checks every file reachable through that import —
  * `include` only decides which files are *root/entry* files (and therefore
  * which ambient `.d.ts` shims join the program at all; dropping
- * `vite-env.d.ts` here would make `import.meta.env` unresolvable in
- * `src/core/buildInfo.ts`).
+ * `vite-env.d.ts` here would not make `import.meta.env` unresolvable —
+ * `tsconfig.app.json`'s `"types": ["vite/client"]` still supplies a fallback
+ * `ImportMetaEnv` that resolves any `VITE_*` key — but it would silently
+ * degrade the typed `VITE_GIT_*`/`VITE_HEADER_LEGAL_HTML` reads in
+ * `src/core/buildInfo.ts` from their declared string types to `any`).
  *
  * The practical consequence: **declaration-emit-only diagnostics
  * (`getDeclarationDiagnostics()` — TS4094, TS2742, TS4023, …) anywhere in the

@@ -63,6 +63,13 @@ export function findDtsArtifactProblems(content: string): string[] {
 
 /** Throws naming every problem across all emitted files when any is unsound; no-op otherwise. */
 export function assertSoundDtsArtifacts(emittedFiles: ReadonlyMap<string, string>): void {
+  if (emittedFiles.size === 0) {
+    throw new Error(
+      `Bundled declaration file failed its soundness checks — failing the build rather than shipping a ` +
+        `broken .d.ts (AGENTS.md, "fail early and loudly"): no declaration files were emitted at all`,
+    )
+  }
+
   const problemsByFile = [...emittedFiles.entries()]
     .map(([path, content]) => ({ path, problems: findDtsArtifactProblems(content) }))
     .filter(({ problems }) => problems.length > 0)

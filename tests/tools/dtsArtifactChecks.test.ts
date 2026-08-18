@@ -65,4 +65,8 @@ describe('assertSoundDtsArtifacts', () => {
     const map = new Map([['/dist-lib/odl-drawcustom-designer.d.ts', withAmbientModule]])
     expect(() => assertSoundDtsArtifacts(map)).toThrow(/declare module/)
   })
+
+  it('throws when no files were emitted at all, rather than passing vacuously', () => {
+    expect(() => assertSoundDtsArtifacts(new Map())).toThrow(/no declaration files were emitted/)
+  })
 })
