@@ -11,6 +11,12 @@
 // concatenates it onto the existing element so the demo payload keeps its
 // element count (3) that other e2e specs assert against; see
 // tests/e2e/embed-host-live-ticker.spec.ts for the ticking proof.
+//
+// Because this host feeds states, the designer's State Simulator is off and its
+// tab is the read-only States panel instead (issue #107, ADR-018): every state
+// below carries a friendly `name` the panel shows, and Load Demo here loads the
+// demo *payload only* — the demo's own states are Simulator data, so they show
+// honestly as "not supplied" in the panel.
 import { mount } from './odl-drawcustom-designer.js'
 
 const PAYLOAD = `- type: text
@@ -32,9 +38,14 @@ const PAYLOAD = `- type: text
   width: 2
 `
 
+// `name` is the state's friendly name (issue #107, ADR-018 state catalog): the
+// label the designer's read-only States panel shows instead of the raw key. It
+// is presentation only — templates still read `states()`/`state_attr()`, so the
+// payload above is unaffected — and re-pushable like every other field.
 const WARM_STATES = {
   'sensor.demo_temperature': {
     state: '21.5',
+    name: 'Living-room temperature',
     attributes: { friendly_name: 'Living room', unit_of_measurement: '°C' },
   },
 }
@@ -42,8 +53,16 @@ const WARM_STATES = {
 const COLD_STATES = {
   'sensor.demo_temperature': {
     state: '3.2',
+    name: 'Balcony temperature',
     attributes: { friendly_name: 'Balcony', unit_of_measurement: '°C' },
   },
+}
+
+// A state this host knows about but the demo payload never references — proof
+// the States panel lists only what the design reads, while autocomplete still
+// offers the whole catalog.
+const UNREFERENCED_STATES = {
+  'binary_sensor.demo_door': { state: 'off', name: 'Front door' },
 }
 
 // Ownership contract (docs/embedding.md#states — issue #110): a pushed
@@ -55,6 +74,7 @@ function currentClockState() {
   return {
     'sensor.demo_clock': {
       state: time,
+      name: 'Demo clock',
       attributes: { friendly_name: 'Demo clock' },
     },
   }
@@ -168,7 +188,7 @@ let displayOnline = true
 let temperatureStates = WARM_STATES
 
 function pushCombinedStates() {
-  handle.setStates({ ...temperatureStates, ...currentClockState() })
+  handle.setStates({ ...temperatureStates, ...UNREFERENCED_STATES, ...currentClockState() })
 }
 
 // Single source of truth for "current non-clock states" (Copilot review on
@@ -207,7 +227,7 @@ let selectedTargetId = null
 
 const handle = mount(document.getElementById('designer'), {
   payload: PAYLOAD,
-  states: { ...WARM_STATES, ...currentClockState() },
+  states: { ...WARM_STATES, ...UNREFERENCED_STATES, ...currentClockState() },
   theme: 'light',
   // One display = "this is the display" (issue #121): the designer adopts and
   // locks onto it without a pick, so the first painted frame is already this
