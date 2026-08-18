@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/133-status-api", ae = "02ad6a9", oe = "1848b2b", k = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/133-status-api", ae = "0f2ee73", oe = "df82f73", k = "0.0.0-dev";
 function A(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -71463,7 +71463,8 @@ function fln({ elements: e, sessionName: t, selectedIndex: n, selectionSource: r
 		let e = ee.current;
 		ee.current = null, !(e == null || uJ(L.current, e)) && (D.current = !0, a(e));
 	}, [a]), xe = (0, v.useCallback)(() => {
-		te.current != null && (window.clearTimeout(te.current), te.current = null), ee.current = null, D.current = !1;
+		let e = ee.current != null;
+		return te.current != null && (window.clearTimeout(te.current), te.current = null), ee.current = null, D.current = !1, e;
 	}, []);
 	(0, v.useEffect)(() => () => {
 		te.current != null && window.clearTimeout(te.current);
@@ -76231,7 +76232,7 @@ function Tun(e, t, { yamlDiscardPendingRef: n } = {}) {
 			},
 			applyTargets: U,
 			applyPayload: (e) => {
-				if (n?.current?.(), !uJ(L.current, e)) {
+				if (!(!(n?.current?.() ?? !1) && uJ(L.current, e))) {
 					z(), me.current = !0;
 					try {
 						Ae(structuredClone(e));
