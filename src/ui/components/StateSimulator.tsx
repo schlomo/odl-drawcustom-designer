@@ -3,6 +3,7 @@ import type { DrawElement, HaMockContext } from '../../core'
 import { coerceAttributeValue, scanPayloadForTemplates } from '../../core'
 import { formatAttributeValue, formatStateValue } from '../lib/state-value-format'
 import { shell } from '../styles/shell'
+import { EntityFocusLabel } from './EntityFocusLabel'
 import { PanelScopeToggle, type PanelListScope } from './PanelScopeToggle'
 import { VariablesEditor } from './VariablesEditor'
 
@@ -158,13 +159,16 @@ export function StateSimulator({
               className={`flex flex-col gap-1.5 rounded border ${shell.panelBorder} p-2`}
             >
               <div className="flex items-center gap-1">
-                <span
+                <EntityFocusLabel
                   className={`min-w-0 flex-1 truncate font-mono text-[11px] ${row.referenced ? 'text-[var(--shell-text)]' : shell.muted}`}
-                  title={row.entityId}
+                  title={onFocusEntity ? `${row.entityId} · show in YAML` : row.entityId}
+                  testId={`simulator-entity-label-${row.entityId}`}
+                  entityId={row.entityId}
+                  onFocusEntity={onFocusEntity}
                 >
                   {row.entityId}
                   {!row.referenced ? ' · manual' : ''}
-                </span>
+                </EntityFocusLabel>
                 <input
                   type="text"
                   className={`${shell.input} w-20 px-1.5 py-1 text-[11px]`}

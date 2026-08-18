@@ -4,6 +4,7 @@ import { scanPayloadForTemplates } from '../../core'
 import type { HostStateCatalog } from '../../embed/hostContract'
 import { formatAttributeValue, formatStateValue } from '../lib/state-value-format'
 import { shell } from '../styles/shell'
+import { EntityFocusLabel } from './EntityFocusLabel'
 
 interface ReferencedStatesPanelProps {
   elements: DrawElement[]
@@ -39,49 +40,6 @@ function MissingValue() {
     <span className={`shrink-0 text-[10px] italic ${shell.muted}`} title={MISSING_TITLE}>
       not supplied
     </span>
-  )
-}
-
-interface LabelTextProps {
-  className: string
-  title: string
-  children: string
-  testId: string
-  /** The state key to report on click, or undefined for inert text. */
-  focusKey?: string
-  onFocusEntity?: (key: string) => void
-}
-
-/**
- * A row's label: a button only while entity coupling is wired, plain text
- * otherwise — so a read-only panel with nowhere to jump offers no click target
- * (and stays free of interactive roles).
- */
-function LabelText({
-  className,
-  title,
-  children,
-  testId,
-  focusKey,
-  onFocusEntity,
-}: LabelTextProps) {
-  if (focusKey === undefined || !onFocusEntity) {
-    return (
-      <span className={className} title={title} data-testid={testId}>
-        {children}
-      </span>
-    )
-  }
-  return (
-    <button
-      type="button"
-      className={`${className} cursor-pointer text-left hover:underline`}
-      title={title}
-      data-testid={testId}
-      onClick={() => onFocusEntity(focusKey)}
-    >
-      {children}
-    </button>
   )
 }
 
@@ -128,7 +86,16 @@ export function ReferencedStatesPanel({
   }, [scan, catalog])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col" data-testid="referenced-states-panel">
+    // PR #142 maintainer finding: with enough referenced states and variables
+    // (e.g. after Load Demo), the sibling VariablesEditor below (shrink-0, up
+    // to 45% of the shared column) could squeeze this panel's own row list to
+    // zero visible height — every row still existed in the DOM (with a real,
+    // if entirely clipped, layout box), so it read as "the row does nothing
+    // when clicked" when the row was in fact never reachable by a pointer at
+    // all. `min-h-36` keeps a few rows visibly clickable no matter how tall
+    // Variables grows; the shared column absorbs the rest via its own
+    // `overflow-hidden` on the Variables side, same as before.
+    <div className="flex min-h-36 flex-1 flex-col" data-testid="referenced-states-panel">
       <div className="shrink-0">
         <p className={`text-xs ${shell.muted}`}>
           Live host states this design reads. Read-only — the host owns these values.
@@ -153,17 +120,17 @@ export function ReferencedStatesPanel({
                     value — a row naming no state — and a `shrink-0` value pushed
                     the row wider than its scroller, the hidden
                     horizontal-scrollbar class from PR #85. Both truncate now. */}
-                <LabelText
+                <EntityFocusLabel
                   className={`min-w-16 flex-1 truncate text-[11px] ${row.name ? 'font-medium text-[var(--shell-text)]' : `font-mono ${shell.muted}`}`}
                   title={
                     onFocusEntity ? `${row.name ?? row.key} · show in YAML` : (row.name ?? row.key)
                   }
                   testId={`referenced-state-label-${row.key}`}
-                  focusKey={onFocusEntity ? row.key : undefined}
+                  entityId={row.key}
                   onFocusEntity={onFocusEntity}
                 >
                   {row.name ?? row.key}
-                </LabelText>
+                </EntityFocusLabel>
                 {row.supplied ? (
                   <span
                     className="min-w-0 max-w-[50%] truncate font-mono text-[11px] text-[var(--shell-text)]"
