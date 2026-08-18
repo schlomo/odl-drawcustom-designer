@@ -18,6 +18,7 @@
     "test:e2e": "playwright test",
     "build:lib": "vite build --config vite.lib.config.ts",
     "build:site": "npm run build && npm run build:lib && node tools/assembleSite.ts",
+    "verify:types": "node tools/verifyNpmTypes.ts",
     "screenshot": "node tools/screenshot.ts"
   },
   "dependencies": {
@@ -47,6 +48,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@microsoft/api-extractor": "^7.58.12",
     "@playwright/test": "^1.61.1",
     "@tailwindcss/vite": "^4.3.0",
     "@testing-library/jest-dom": "^6.9.1",
@@ -71,6 +73,7 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.60.1",
     "vite": "^8.1.5",
+    "vite-plugin-dts": "^5.0.3",
     "vitest": "^4.1.8"
   },
   "overrides": {

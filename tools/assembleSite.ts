@@ -16,7 +16,14 @@ import { join } from 'node:path'
  */
 
 const LIB_ESM = 'odl-drawcustom-designer.js'
-const REQUIRED_LIB_FILES = ['index.html', 'host.js', LIB_ESM]
+// The bundled declaration file (issue #122) is required here too: it's
+// produced by a separate plugin hook (vite-plugin-dts's afterBuild) inside
+// the same `vite build`, so a plugin that silently no-ops (emits nothing,
+// exits 0) would otherwise slip past `npm run build:lib` and only be
+// noticed once a consumer's own tsc failed to resolve types — this gate
+// catches it at site-assembly time instead.
+const LIB_DTS = 'odl-drawcustom-designer.d.ts'
+const REQUIRED_LIB_FILES = ['index.html', 'host.js', LIB_ESM, LIB_DTS]
 
 interface AssembleSiteOptions {
   /** App build output; becomes the site root. */

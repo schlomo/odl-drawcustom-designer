@@ -33,7 +33,8 @@ export interface NpmPackageJson {
   description: string
   type: 'module'
   main: string
-  exports: { '.': string }
+  types: string
+  exports: { '.': { types: string; default: string } }
   files: string[]
   license: string
   repository: { type: 'git'; url: string }
@@ -43,6 +44,13 @@ export interface NpmPackageJson {
 }
 
 const LIBRARY_FILE = 'odl-drawcustom-designer.js'
+/**
+ * Bundled declaration file (issue #122) — `vite.lib.config.ts`'s `dts()`
+ * plugin names it after `build.lib.fileName` (`.js` -> `.d.ts`), so this
+ * constant intentionally matches `LIBRARY_FILE`'s stem rather than being
+ * independently chosen.
+ */
+const LIBRARY_TYPES_FILE = 'odl-drawcustom-designer.d.ts'
 
 /** APP_GITHUB_REPO_URL carries a trailing slash for use as a link target; strip it for git URLs. */
 const REPO_URL_NO_TRAILING_SLASH = APP_GITHUB_REPO_URL.replace(/\/$/, '')
@@ -57,8 +65,9 @@ export function buildNpmPackageJson(version: string): NpmPackageJson {
     description: APP_TAGLINE,
     type: 'module',
     main: `./${LIBRARY_FILE}`,
-    exports: { '.': `./${LIBRARY_FILE}` },
-    files: [LIBRARY_FILE, 'README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY.md'],
+    types: `./${LIBRARY_TYPES_FILE}`,
+    exports: { '.': { types: `./${LIBRARY_TYPES_FILE}`, default: `./${LIBRARY_FILE}` } },
+    files: [LIBRARY_FILE, LIBRARY_TYPES_FILE, 'README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY.md'],
     license: 'Apache-2.0',
     repository: { type: 'git', url: `git+${REPO_URL_NO_TRAILING_SLASH}.git` },
     homepage: APP_GITHUB_REPO_URL,

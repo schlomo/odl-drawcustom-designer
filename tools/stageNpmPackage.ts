@@ -23,6 +23,14 @@ export interface StageNpmPackageOptions {
   repoRoot: string
   /** Path to the built single-file ESM (dist-lib/odl-drawcustom-designer.js). */
   distLibJsPath: string
+  /**
+   * Path to the bundled declaration file (dist-lib/odl-drawcustom-designer.d.ts,
+   * issue #122) — a sibling of `distLibJsPath` produced by the same
+   * `npm run build:lib` (vite.lib.config.ts's `dts()` plugin). Copied like
+   * every other staged file below: a missing file fails loudly (`copyFileSync`
+   * throws ENOENT) rather than shipping a package with no types.
+   */
+  distLibDtsPath: string
   /** Directory to assemble the npm package into (e.g. dist-npm/). Created if missing. */
   stagingDir: string
   /** Pre-generated THIRD_PARTY.md content (tools/thirdPartyNotices.ts) — generated once, reused here. */
@@ -30,10 +38,11 @@ export interface StageNpmPackageOptions {
 }
 
 export function stageNpmPackage(options: StageNpmPackageOptions): void {
-  const { version, repoRoot, distLibJsPath, stagingDir, thirdPartyMarkdown } = options
+  const { version, repoRoot, distLibJsPath, distLibDtsPath, stagingDir, thirdPartyMarkdown } = options
   mkdirSync(stagingDir, { recursive: true })
 
   copyFileSync(distLibJsPath, join(stagingDir, basename(distLibJsPath)))
+  copyFileSync(distLibDtsPath, join(stagingDir, basename(distLibDtsPath)))
   copyFileSync(join(repoRoot, 'LICENSE'), join(stagingDir, 'LICENSE'))
   copyFileSync(join(repoRoot, 'NOTICE'), join(stagingDir, 'NOTICE'))
   copyFileSync(join(repoRoot, 'README.md'), join(stagingDir, 'README.md'))

@@ -208,7 +208,7 @@ export function planRelease(input: PlanReleaseInput): ReleaseDecision {
  * normal release path and the npm-recovery path below, which both need to
  * regenerate the same markdown for staging.
  */
-function buildThirdPartyMarkdown(repoRoot: string): string {
+export function buildThirdPartyMarkdown(repoRoot: string): string {
   const repoPackageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as {
     dependencies?: Record<string, string>
   }
@@ -230,9 +230,10 @@ function buildAndStageNpmPackage(version: string, repoRoot: string): { stagingDi
     env: { ...process.env, APP_VERSION: version },
   })
   const distLibJsPath = join(repoRoot, 'dist-lib', 'odl-drawcustom-designer.js')
+  const distLibDtsPath = join(repoRoot, 'dist-lib', 'odl-drawcustom-designer.d.ts')
   const thirdPartyMarkdown = buildThirdPartyMarkdown(repoRoot)
   const stagingDir = join(repoRoot, 'dist-npm')
-  stageNpmPackage({ version, repoRoot, distLibJsPath, stagingDir, thirdPartyMarkdown })
+  stageNpmPackage({ version, repoRoot, distLibJsPath, distLibDtsPath, stagingDir, thirdPartyMarkdown })
   return { stagingDir }
 }
 
@@ -314,6 +315,11 @@ if (import.meta.main) {
 
   const repoRoot = process.cwd()
   const distLibJsPath = join(repoRoot, 'dist-lib', 'odl-drawcustom-designer.js')
+  // Bundled declaration file (issue #122) — a sibling of the ESM, produced by
+  // the same build:lib run (vite.lib.config.ts's dts() plugin). Declaration
+  // generation failing loudly (tools/dtsDiagnostics.ts) means this file is
+  // guaranteed present whenever the build step below succeeds.
+  const distLibDtsPath = join(repoRoot, 'dist-lib', 'odl-drawcustom-designer.d.ts')
 
   // Build the library with the derived version injected (tools/version.ts /
   // tools/buildDefines.ts read APP_VERSION from the environment).
@@ -330,9 +336,12 @@ if (import.meta.main) {
   const thirdPartyPath = join(repoRoot, 'dist-lib', 'THIRD_PARTY.md')
   writeFileSync(thirdPartyPath, thirdPartyMarkdown)
 
-  // sha256 checksum of the built artifact — a release asset, verifiable with
-  // `shasum -a 256 -c` (bare `-c` defaults to SHA-1 and mis-verifies).
+  // sha256 checksums of the built artifacts — release assets, verifiable with
+  // `shasum -a 256 -c` (bare `-c` defaults to SHA-1 and mis-verifies). The
+  // declaration file gets its own checksum alongside the ESM's, same as every
+  // other binary release asset.
   const checksumPath = writeChecksumFile(distLibJsPath)
+  const dtsChecksumPath = writeChecksumFile(distLibDtsPath)
 
   // Stage the npm package BEFORE the irreversible `gh release create` below
   // (issue #113 review finding): this is pure file assembly (copy the built
@@ -347,6 +356,7 @@ if (import.meta.main) {
     version: plan.version,
     repoRoot,
     distLibJsPath,
+    distLibDtsPath,
     stagingDir,
     thirdPartyMarkdown,
   })
@@ -363,10 +373,12 @@ if (import.meta.main) {
       'create',
       tag,
       distLibJsPath,
+      distLibDtsPath,
       'LICENSE',
       'NOTICE',
       thirdPartyPath,
       checksumPath,
+      dtsChecksumPath,
       '--title',
       tag,
       '--generate-notes',

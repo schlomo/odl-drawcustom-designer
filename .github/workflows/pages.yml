@@ -61,6 +61,12 @@ jobs:
       # explicit config — so the script lists all three.
       - run: npm run test:ci
       - run: npm run build
+      # Builds the library and scratch-consumer-verifies the bundled .d.ts
+      # (issue #122): npm pack the staged package, install it into a
+      # throwaway project, and tsc a correct + an incorrect usage fixture.
+      # This is also the only place `checks` exercises `npm run build:lib`
+      # at all — a broken library build fails here, not only at release.
+      - run: npm run verify:types
 
       - name: Cache Playwright browsers
         uses: actions/cache@v6

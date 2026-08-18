@@ -19,9 +19,9 @@ npm install @schlomo/odl-drawcustom-designer
 import { mount, version } from '@schlomo/odl-drawcustom-designer'
 ```
 
-One self-contained ESM file, plus `LICENSE`/`NOTICE`/`THIRD_PARTY.md` in the package. **Known gap:** no `.d.ts` types ship yet — plain JS, with the shapes documented here and in [`src/embed/types.ts`](../src/embed/types.ts). Release procedure and semver policy: [`docs/releasing.md`](releasing.md).
+One self-contained ESM file, plus a bundled `odl-drawcustom-designer.d.ts` (issue #122) and `LICENSE`/`NOTICE`/`THIRD_PARTY.md` in the package. `package.json`'s `types`/`exports['.'].types` point at the declaration file, so a plain `import { mount } from '@schlomo/odl-drawcustom-designer'` gets full TypeScript types automatically — no separate `@types` package, no manual wiring. The shapes are also documented here and in [`src/embed/types.ts`](../src/embed/types.ts). Release procedure and semver policy: [`docs/releasing.md`](releasing.md).
 
-**GitHub release asset (fallback):** download the tagged release's `odl-drawcustom-designer.js`, `LICENSE`, `NOTICE`, `THIRD_PARTY.md` and `odl-drawcustom-designer.js.sha256` (verify with `shasum -a 256 -c odl-drawcustom-designer.js.sha256` — `-a 256` matters, bare `shasum -c` defaults to SHA-1), and vendor the ESM as a static file.
+**GitHub release asset (fallback):** download the tagged release's `odl-drawcustom-designer.js`, `odl-drawcustom-designer.d.ts`, `LICENSE`, `NOTICE`, `THIRD_PARTY.md`, `odl-drawcustom-designer.js.sha256` and `odl-drawcustom-designer.d.ts.sha256` (verify with `shasum -a 256 -c <file>.sha256` — `-a 256` matters, bare `shasum -c` defaults to SHA-1), and vendor the ESM (plus the `.d.ts`, for TypeScript hosts) as static files.
 
 ## Library build
 
@@ -29,13 +29,14 @@ One self-contained ESM file, plus `LICENSE`/`NOTICE`/`THIRD_PARTY.md` in the pac
 npm run build:lib
 ```
 
-Emits **one self-contained ESM file** — React, styles, and bundled fonts included; the host provides nothing (composition and the deliberate no-code-splitting decision: [`docs/bundle-audit.md`](bundle-audit.md)):
+Emits **one self-contained ESM file** — React, styles, and bundled fonts included; the host provides nothing (composition and the deliberate no-code-splitting decision: [`docs/bundle-audit.md`](bundle-audit.md)) — plus its bundled TypeScript declaration file (issue #122, one file, no `@types` package: [`vite.lib.config.ts`](../vite.lib.config.ts)):
 
 ```
 dist-lib/odl-drawcustom-designer.js
+dist-lib/odl-drawcustom-designer.d.ts
 ```
 
-`dist-lib/` also contains the demo host page (copied from `demo/`). Try it:
+`dist-lib/` also contains the demo host page (copied from `demo/`) — `npm run build:site`'s site assembly ([`tools/assembleSite.ts`](../tools/assembleSite.ts)) publishes the `.d.ts` alongside the ESM at `/embed/` too, though the demo page itself is plain JS and doesn't consume it. Try it:
 
 ```bash
 npm run build:site && npm run preview
