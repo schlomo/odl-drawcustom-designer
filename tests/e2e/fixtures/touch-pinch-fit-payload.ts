@@ -15,7 +15,7 @@ import type { SharePayload } from '../../../src/share'
  * specifically about the untouched *default* ('fit') zoom.
  */
 
-/** A real e-paper display size — fitScale ≈159% in this suite's viewport (well above the '200' level, and on the wrong side of the old hardcoded 'fit → 100'). */
+/** A real e-paper display size — fitScale ≈159% in this suite's viewport (above the '100' level, below '200' — so '200' is the nearest level above it, and on the wrong side of the old hardcoded 'fit → 100'). */
 export const PINCH_FIT_SMALL_CANVAS = { width: 296, height: 128 } as const
 
 export const PINCH_FIT_SMALL_RECT = {

@@ -216,6 +216,16 @@ interface MarqueeSession {
   pointerId: number
   startCanvas: { x: number; y: number }
   additive: boolean
+  /**
+   * Selection at the moment this marquee began (review finding M1, round 5)
+   * — captured before the non-additive pointerdown branches' own
+   * `onSelectElement(null)` deselect, which fires outside this session's
+   * lifecycle and so can't be undone by the cancel path alone. Restored
+   * verbatim if the session is cancelled (2nd-finger escalation to
+   * navigation) rather than committed; irrelevant to a normal commit, which
+   * computes its own next selection from the marquee rect.
+   */
+  previousSelection: readonly number[]
 }
 
 /**
@@ -816,6 +826,30 @@ export function DesignerCanvas({
   }, [])
 
   /**
+   * Rebuilds an arbitrary prior selection via the existing single-index
+   * `onSelectElement` mechanism (review finding M1, round 5) — there is no
+   * "set selection to this exact array" prop, so a multi-selection is
+   * replayed as one non-additive select followed by additive toggles, each
+   * toggle adding (never removing) since none of the later indices are in
+   * the accumulating set yet. An empty array means "was already
+   * deselected", which `onSelectElement(null)` also expresses (and is a
+   * no-op if selection is already empty).
+   */
+  const restoreSelection = useCallback(
+    (indices: readonly number[]) => {
+      if (indices.length === 0) {
+        onSelectElement(null)
+        return
+      }
+      onSelectElement(indices[0]!)
+      for (let i = 1; i < indices.length; i++) {
+        onSelectElement(indices[i]!, { additive: true })
+      }
+    },
+    [onSelectElement],
+  )
+
+  /**
    * The single exit for a marquee session, parameterized by `cancel`
    * (review finding M1/M2, issue #149 follow-up) rather than a second
    * function — a second finger landing mid-marquee (`maybeStartTwoFingerSession`
@@ -824,6 +858,18 @@ export function DesignerCanvas({
    * (not even the empty-marquee "deselect" fallback — that fallback is part
    * of *committing* an empty drag as a click-to-deselect, not part of
    * aborting one). A plain pointerup/lost-capture still commits as before.
+   *
+   * Round 5 (M1 second half): the non-additive pointerdown branches that
+   * start a marquee call `onSelectElement(null)` *before* the session even
+   * begins — outside this session's lifecycle entirely, so the cancel path
+   * above couldn't undo it (measured: selecting an element, then a 2-finger
+   * pan starting on empty canvas or the padding, cleared the selection).
+   * `session.previousSelection` (captured at `beginMarqueeSession`, before
+   * that deselect) makes the cancel path's restore cover the ENTIRE
+   * marquee-adjacent selection change, not just the parts the session
+   * itself owns — the deselect-before-marquee behavior for mouse and the
+   * live marquee rect feedback are both unchanged; only the cancel path
+   * now restores what the deselect touched.
    *
    * m4: releases pointer capture itself (matching `finishDrag`'s
    * self-contained pattern) instead of relying on the caller to do it
@@ -842,7 +888,11 @@ export function DesignerCanvas({
         releaseCapturedPointer(pointerCaptureTargetRef.current, session.pointerId)
       }
       pointerCaptureTargetRef.current = null
-      if (!session || options?.cancel) {
+      if (!session) {
+        return
+      }
+      if (options?.cancel) {
+        restoreSelection(session.previousSelection)
         return
       }
       if (rect && (rect.width >= 2 || rect.height >= 2)) {
@@ -853,7 +903,7 @@ export function DesignerCanvas({
         onSelectElement(null)
       }
     },
-    [onSelectAllInRect, onSelectElement, releaseCapturedPointer],
+    [onSelectAllInRect, onSelectElement, releaseCapturedPointer, restoreSelection],
   )
 
   /**
@@ -931,6 +981,7 @@ export function DesignerCanvas({
       pointerId: number,
       startCanvas: { x: number; y: number },
       additive: boolean,
+      previousSelection: readonly number[],
     ) => {
       target.setPointerCapture(pointerId)
       pointerCaptureTargetRef.current = target
@@ -938,6 +989,7 @@ export function DesignerCanvas({
         pointerId,
         startCanvas,
         additive,
+        previousSelection,
       }
       setMarqueeSession(marqueeSessionRef.current)
     },
@@ -1436,7 +1488,13 @@ export function DesignerCanvas({
 
       const startMarquee = () => {
         event.preventDefault()
-        beginMarqueeSession(event.currentTarget, event.pointerId, canvasPoint, additive)
+        // `selectedIndices` here is the pre-deselect value even when a
+        // branch below already called `onSelectElement(null)` first — that
+        // call only queues a React state update; this closure still reads
+        // the value from the render that created it (review finding M1,
+        // round 5: the deselect fires outside the marquee session, so
+        // finishMarquee's cancel path needs its own record to undo it).
+        beginMarqueeSession(event.currentTarget, event.pointerId, canvasPoint, additive, selectedIndices)
       }
 
       if (!onPaper || forceMarquee) {

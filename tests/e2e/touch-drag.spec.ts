@@ -261,9 +261,27 @@ test.describe('two-finger navigation (#155)', () => {
     await canvasPaper(page)
   })
 
-  test('a 2-finger drag pans the canvas viewport without moving or selecting anything', async ({
+  test('a 2-finger drag pans the canvas viewport without moving or deselecting anything', async ({
     page,
   }) => {
+    // Explicit mouse select (not relying on the share-hash loader's own
+    // auto-select-on-single-element quirk) — review finding M1 (round 5):
+    // finger 1 landing alone on empty canvas starts a real, if brief,
+    // marquee session (before finger 2 arrives and escalates to
+    // navigation), and that marquee's own non-additive pointerdown branch
+    // deselects *outside* the session lifecycle. Round 4's cancel fix only
+    // stopped the marquee from committing `onSelectAllInRect`; it didn't
+    // undo that separate deselect, so a 2-finger pan starting on empty
+    // canvas or the padding still cleared whatever was selected.
+    await clickCanvasPoint(
+      page,
+      { x: TOUCH_DRAG_RECT.centerX, y: TOUCH_DRAG_RECT.centerY },
+      TOUCH_DRAG_CANVAS,
+    )
+    await expect(page.getByTestId('property-panel-selection')).toContainText(
+      TOUCH_DRAG_RECT.typeLabel,
+    )
+
     const before = await viewportScroll(page)
     expect(before.canScroll).toBe(true)
     expect(before.scrollTop).toBe(0)
@@ -302,15 +320,30 @@ test.describe('two-finger navigation (#155)', () => {
     const after = await viewportScroll(page)
     expect(after.scrollTop).toBeGreaterThan(before.scrollTop + 50)
 
-    // Navigation only — never an element gesture.
-    await expect(page.getByTestId('property-panel-selection')).toHaveCount(0)
+    // Navigation only — never an element gesture, and the selection made
+    // before the gesture survives it (review finding M1).
+    await expect(page.getByTestId('property-panel-selection')).toContainText(
+      TOUCH_DRAG_RECT.typeLabel,
+    )
     const yamlAfter = await yamlContent(page).textContent()
     expect(yamlAfter).toBe(yamlBefore)
   })
 
-  test('a pinch-out gesture zooms the canvas in without moving or selecting anything', async ({
+  test('a pinch-out gesture zooms the canvas in without moving or deselecting anything', async ({
     page,
   }) => {
+    // Explicit mouse select — see the pan spec above for why (review
+    // finding M1, round 5): a pinch starting on empty canvas begins the
+    // same brief marquee-then-cancel path as a pan does.
+    await clickCanvasPoint(
+      page,
+      { x: TOUCH_DRAG_RECT.centerX, y: TOUCH_DRAG_RECT.centerY },
+      TOUCH_DRAG_CANVAS,
+    )
+    await expect(page.getByTestId('property-panel-selection')).toContainText(
+      TOUCH_DRAG_RECT.typeLabel,
+    )
+
     await expect(page.getByRole('button', { name: '100%' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -358,12 +391,14 @@ test.describe('two-finger navigation (#155)', () => {
       'true',
     )
 
-    // Navigation only — never an element gesture.
-    await expect(page.getByTestId('property-panel-selection')).toHaveCount(0)
+    // Navigation only — never an element gesture, and the selection made
+    // before the gesture survives it (review finding M1).
+    await expect(page.getByTestId('property-panel-selection')).toContainText(
+      TOUCH_DRAG_RECT.typeLabel,
+    )
     const yamlAfter = await yamlContent(page).textContent()
     expect(yamlAfter).toBe(yamlBefore)
   })
-
 
   test('lifting one finger while the other keeps moving still pans with the remaining finger', async ({
     page,
@@ -423,6 +458,17 @@ test.describe('two-finger navigation (#155)', () => {
   })
 
   test('a 3rd finger touching down during a 2-finger pan has no effect', async ({ page }) => {
+    // Explicit mouse select — see the pan spec above for why (review
+    // finding M1, round 5).
+    await clickCanvasPoint(
+      page,
+      { x: TOUCH_DRAG_RECT.centerX, y: TOUCH_DRAG_RECT.centerY },
+      TOUCH_DRAG_CANVAS,
+    )
+    await expect(page.getByTestId('property-panel-selection')).toContainText(
+      TOUCH_DRAG_RECT.typeLabel,
+    )
+
     const before = await viewportScroll(page)
     const yamlBefore = await yamlContent(page).textContent()
 
@@ -464,9 +510,109 @@ test.describe('two-finger navigation (#155)', () => {
 
     const after = await viewportScroll(page)
     expect(after.scrollTop).toBeGreaterThan(before.scrollTop + 50)
-    await expect(page.getByTestId('property-panel-selection')).toHaveCount(0)
+    // The selection made before the gesture survives it (review finding M1).
+    await expect(page.getByTestId('property-panel-selection')).toContainText(
+      TOUCH_DRAG_RECT.typeLabel,
+    )
     const yamlAfter = await yamlContent(page).textContent()
     expect(yamlAfter).toBe(yamlBefore)
+  })
+
+  test('a 2-finger pan starting on empty canvas keeps the prior selection (review finding M1)', async ({
+    page,
+  }) => {
+    await clickCanvasPoint(
+      page,
+      { x: TOUCH_DRAG_RECT.centerX, y: TOUCH_DRAG_RECT.centerY },
+      TOUCH_DRAG_CANVAS,
+    )
+    await expect(page.getByTestId('property-panel-selection')).toContainText(
+      TOUCH_DRAG_RECT.typeLabel,
+    )
+    const before = await viewportScroll(page)
+
+    // Finger 1 lands alone first, on empty canvas — it runs the full
+    // pointerdown logic (only one active pointer so far) and starts a real,
+    // if brief, marquee session, whose non-additive branch deselects
+    // *before* the session begins. Finger 2 then escalates to 2-finger
+    // navigation, cancelling that marquee. Before the fix, the cancel only
+    // stopped the marquee from committing a new selection — it didn't undo
+    // the deselect, so the rectangle's selection was lost the instant
+    // finger 1 touched down, even though nothing was ever "selected away".
+    await withTouchGesture(page, TOUCH_DRAG_CANVAS, async ({ toClient, dispatch, settle }) => {
+      const p1Start = toClient({ x: 300, y: 100 })
+      const p2Start = toClient({ x: 340, y: 140 })
+      await dispatch('touchStart', [{ ...p1Start, id: 1 }])
+      await settle()
+      await dispatch('touchStart', [
+        { ...p1Start, id: 1 },
+        { ...p2Start, id: 2 },
+      ])
+      await settle()
+      for (let i = 1; i <= 5; i++) {
+        const dy = (-100 * i) / 5
+        await dispatch('touchMove', [
+          { x: p1Start.x, y: p1Start.y + dy, id: 1 },
+          { x: p2Start.x, y: p2Start.y + dy, id: 2 },
+        ])
+        await settle()
+      }
+      await dispatch('touchEnd', [])
+    })
+
+    const after = await viewportScroll(page)
+    expect(after.scrollTop).toBeGreaterThan(before.scrollTop + 50)
+    await expect(page.getByTestId('property-panel-selection')).toContainText(
+      TOUCH_DRAG_RECT.typeLabel,
+    )
+  })
+
+  test('a 2-finger pan starting on the viewport padding keeps the prior selection (review finding M1)', async ({
+    page,
+  }) => {
+    await clickCanvasPoint(
+      page,
+      { x: TOUCH_DRAG_RECT.centerX, y: TOUCH_DRAG_RECT.centerY },
+      TOUCH_DRAG_CANVAS,
+    )
+    await expect(page.getByTestId('property-panel-selection')).toContainText(
+      TOUCH_DRAG_RECT.typeLabel,
+    )
+    const before = await viewportScroll(page)
+
+    // Same mechanism as the empty-canvas spec above, but finger 1 lands
+    // outside the paper entirely (the scroll padding — negative canvas-space,
+    // matching the round-2 padding-marquee spec) — the `!onPaper` branch's
+    // own deselect is the one under test here.
+    await withTouchGesture(page, TOUCH_DRAG_CANVAS, async ({ toClient, dispatch, settle }) => {
+      const p1Start = toClient({ x: -15, y: -15 })
+      const p2Start = toClient({ x: 60, y: -15 })
+      await dispatch('touchStart', [{ ...p1Start, id: 1 }])
+      await settle()
+      await dispatch('touchStart', [
+        { ...p1Start, id: 1 },
+        { ...p2Start, id: 2 },
+      ])
+      await settle()
+      // Fingers move up (negative dy): content follows the fingers, so
+      // this pans the viewport down (increasing scrollTop) — same
+      // direction convention as every other pan spec in this file.
+      for (let i = 1; i <= 5; i++) {
+        const dy = (-100 * i) / 5
+        await dispatch('touchMove', [
+          { x: p1Start.x, y: p1Start.y + dy, id: 1 },
+          { x: p2Start.x, y: p2Start.y + dy, id: 2 },
+        ])
+        await settle()
+      }
+      await dispatch('touchEnd', [])
+    })
+
+    const after = await viewportScroll(page)
+    expect(after.scrollTop).toBeGreaterThan(before.scrollTop + 50)
+    await expect(page.getByTestId('property-panel-selection')).toContainText(
+      TOUCH_DRAG_RECT.typeLabel,
+    )
   })
 })
 

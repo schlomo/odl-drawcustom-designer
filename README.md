@@ -108,7 +108,7 @@ OpenDisplay uses the same payload shape with `action: opendisplay.drawcustom`.
 - **Alignment** — align selection horizontally and vertically
 - **Layer order** — bring to front, send to back, move up/down
 - **Zoom** — 50%, 100%, 200%, and fit-to-panel
-- **Touch (tablets)** — 1 finger is always element intent: select, drag, resize handles, and marquee (also starting from the scroll padding around the canvas, not just the canvas itself). 2 fingers are always navigation: drag to pan, pinch to zoom (steps between the same 50/100/200/fit levels as the toolbar). Extra fingers beyond two are ignored. The panel-width/height dividers don't yet respond to touch ([#156](https://github.com/schlomo/odl-drawcustom-designer/issues/156)).
+- **Touch (tablets)** — 1 finger is always element intent: select, drag, resize handles, and marquee (also starting from the scroll padding around the canvas, not just the canvas itself); a second finger landing mid-gesture cancels it (the element/selection reverts) rather than committing it. 2 fingers are always navigation: drag to pan, pinch to zoom — pinch steps between the toolbar's 50/100/200% levels and leaves Fit on the first pinch (it never zooms back to Fit). Extra fingers beyond two are ignored. The panel-width/height dividers don't yet respond to touch ([#156](https://github.com/schlomo/odl-drawcustom-designer/issues/156)).
 - **Orientation** — 0°, 90°, 180°, 270°; a quarter turn swaps the canvas W/H and the design is always edited upright
 - **Designer overlays** — optional hints for hidden-on-tag elements (`visible: false`, shapes with fill or color set to `none`)
 - **Dither preview** — toggle ordered dither (d=2) on the flat canvas
