@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "main", ae = "7b263aa", oe = "7b263aa", k = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "main", ae = "a16ce88", oe = "a16ce88", k = "0.0.0-dev";
 function A(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -49465,7 +49465,6 @@ function Hq({ message: e }) {
 	return /* @__PURE__ */ (0, G.jsx)("p", {
 		className: `mt-2 rounded-md border px-2 py-1.5 text-[10px] leading-snug ${XG(e.severity)}`,
 		role: "status",
-		"aria-label": e.title,
 		children: /* @__PURE__ */ (0, G.jsx)("span", {
 			className: `font-medium ${ZG(e.severity)}`,
 			children: e.summary === e.title ? e.title : `${e.title} — ${e.summary}`
