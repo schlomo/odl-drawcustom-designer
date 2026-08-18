@@ -76,6 +76,7 @@ handle.setTargets(targets)   // replace the displays the picker offers
 handle.setActions(actions)   // replace your action buttons
 handle.setPayload(yamlString)// replace the payload (throws on bad YAML)
 handle.getPayload()          // read the current payload YAML — see below
+handle.getPngBlob()          // read the designer's own PNG export — see below
 handle.setTheme('light')     // switch the container-scoped theme
 handle.destroy()             // unmount and empty the container
 ```
@@ -98,6 +99,25 @@ handle.destroy()             // unmount and empty the container
 - **Right after a `setPayload()` push, with an edit still pending:** the push wins. A host push is authoritative — it replaces the payload wholesale, so it also **discards** any debounced edit typed before it, and the editor is re-serialized from the pushed payload. Without that, the flush above (which `getPayload()` itself triggers) would have committed the pre-push draft over the payload the host had just pushed.
 
 The payload read channel (`registerPayloadSource`) registers in the same commit as the push channel (`registerPushTarget`) — both are `useLayoutEffect` — so there is no window where a host push has already applied but a read still reports stale, pre-push data.
+
+### `getPngBlob()`
+
+`handle.getPngBlob()` returns a `Promise` of the designer's own PNG export — exactly the bytes Copy PNG / Download PNG would produce right now outside Display preview, full font/renderer fidelity included. It exists for the same reason `getPayload()` does: read access instead of driving the UI. A host with no rendering backend of its own (a demo, a thin adapter with nothing to "dry-run" against) can implement [`renderPreview`](#renderpreview-issue-109) by reading this instead of writing a second renderer:
+
+```js
+const handle = mount(el, {
+  async renderPreview(payload, context) {
+    const designPng = await handle.getPngBlob()
+    return stampWithSomeInfo(designPng, context) // your own overlay, optional
+  },
+})
+```
+
+- **Always the client-side render, independent of Display preview** — even while the toggle is on and a host image is showing on screen, `getPngBlob()` still answers with the designer's own rasterization, never the host's own last-returned bytes. A `renderPreview` built on top of it therefore can never call back into itself.
+- **Rejects rather than falling back**, in the brief window right after `mount()`/`mountStandaloneApp()` returns and before the designer has committed its first render — there is no bootstrap fallback the way `getPayload()` has one for text, since fonts and assets have not loaded yet either. In ordinary use (calling it from inside `renderPreview`, itself only reachable once the toggle exists and has been clicked) this window has already passed.
+- Throws `MountHandle used after destroy()` like every other method here — that failure is synchronous, only the render itself is a `Promise`.
+
+[`demo/host.js`](../demo/host.js) is the reference use: its fake `renderPreview` has no backend of its own, so it calls `handle.getPngBlob()` and stamps a small info strip on top ([`demo/preview-render.js`](../demo/preview-render.js)) — see the `renderPreview` section below for why this replaced an earlier from-scratch rasterizer.
 
 ### Version
 
@@ -402,11 +422,15 @@ const handle = mount(el, {
 - **The display config and the State Simulator stay editable** — neither is part of the payload. A **display-config change re-requests the render**: `context.display` is the oriented logical canvas the payload's coordinates are authored against (`{ width, height, rotation }`, already swapped for a quarter turn — issue #139), so a resolution pick or a re-orientation asks the host for a render of the new surface. Until that answer lands the image is fit into the canvas box (`object-contain`), so a disagreement letterboxes visibly rather than being stretched to a shape it was not rendered for. Simulator states are the designer's own mock data and never travel — a host resolves templates from its own state.
 - **Copy PNG, Download PNG and zoom keep working — on the host render.** The image occupies the canvas paper, so Fit / 50 / 100 / 200% apply to it unchanged, and the two PNG exports carry the *host's* bytes. They never silently substitute the designer's own rasterization: with no render on screen yet they report "Display preview is still rendering". A download taken in preview mode is named `display-preview-<session>.png`, so it lands beside the designer's own `<session>.png` instead of overwriting it — diffing the two is what this seam is for.
 - **The dither control stays live and re-requests.** It travels in `context.service` and a flip asks for a new render, so the preview always agrees with the designer's own dither setting. `service` is the slice [issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105) formalizes into the full drawcustom service-options seam; it grows there additively, so read the fields you know. `dither` uses the service option's own domain (`0` flat, `1`, `2` ordered halftone) — the designer's control produces `0` or `2` today.
-- **Re-requests are debounced, and answers are matched to their request.** Anything the designer sent can change while the preview shows — a `setPayload()` push, the display config, the selected display, the dither option — and each change re-requests after a short quiet period (250ms), so a burst collapses into one round trip. (Not typing: the design cannot be edited in preview mode at all.) The chip says "Rendering on the display…" and the previous render stays on screen underneath. A response whose request has already been superseded is **discarded, never painted** — a slow render cannot overwrite a newer one, whichever order they arrive in.
+- **Re-requests are debounced, and answers are matched to their request.** Anything the designer sent can change while the preview shows — a `setPayload()` push, the display config, the selected display, the dither option — and each change re-requests after a short quiet period (250ms), so a burst collapses into one round trip. (Not typing: the design cannot be edited in preview mode at all.) The chip says "Rendering on the display…". A response whose request has already been superseded is **discarded, never painted** — a slow render cannot overwrite a newer one, whichever order they arrive in.
+  - **A geometry change (a resolution pick, a re-orientation) clears the image immediately**, before the re-request even fires (maintainer manual-validation finding, PR #143): the old image was rendered for the old shape, so leaving it up would letterbox it into the new canvas box for the ~250ms until the new render lands — a visible double resize (the canvas re-orients, the old image letterboxes, then the new render lands). The paper goes blank and the loading chip appears at once instead.
+  - **Dither and payload/target changes keep the previous render on screen underneath** while they re-request — none of them can change the image's dimensions, so there is nothing to letterbox, and swapping in place once the new answer lands avoids flashing the canvas empty for no reason.
 - **Reject to report failure.** The designer states it in the preview area (your `Error`'s own message when it has one) and shows **no image at all**: a stated error beats a stale or wrong render, and there is no silent fall back to the designer's own rendering, which would quietly answer a different question. Throwing synchronously is treated identically. Turning the preview off and on again retries.
 - **What it is asked to render** is exactly the string [`getPayload()`](#getpayload-issue-104) returns at that instant — the same serializer, the same pending-edit flush an action click gets — so the image is a render of precisely what a Send action would transmit.
 
-[`demo/host.js`](../demo/host.js) implements the provider with [`demo/preview-render.js`](../demo/preview-render.js): a deliberately crude host-side rasterizer (its own monospace font, its own template resolution, its own 1-bit quantization) standing in for a server render, at `context.display`'s size, with an artificial delay and a "Simulate preview failure" button. Its render is a snapshot by design — the demo's ticking clock freezes at request time, because a display render is a moment in time and the designer re-requests only when something it sent changes. It is deliberately *not* the designer's renderer — the visible difference is the whole point of the seam ([`tests/e2e/embed-preview.spec.ts`](../tests/e2e/embed-preview.spec.ts)).
+[`demo/host.js`](../demo/host.js) implements the provider with [`demo/preview-render.js`](../demo/preview-render.js), with an artificial delay and a "Simulate preview failure" button. An earlier version wrote its own crude rasterizer (its own monospace font, its own line-by-line YAML "parser", its own 1-bit quantization) to keep the image visibly different from the designer's own preview — the intended point of the seam being a genuinely independent render to diff against. That parser could not handle a YAML **block scalar** (`value: |-` for a literal newline, `value: >-` for a long folded string — see [`src/core/yaml/blockScalars.ts`](../src/core/yaml/blockScalars.ts), both of which the real serializer produces for ordinary text values) and rendered the scalar's own marker as literal text — a maintainer manual-validation finding on PR #143 caught it as "| -" garbage on screen.
+
+This fake host has no real backend to render against, so — maintainer ruling on that finding — it now round-trips the designer's own PNG export ([`getPngBlob()`](#getpngblob) above, full font/renderer fidelity) instead of maintaining a second, ever-incomplete renderer, and stamps a small, deterministic info strip on top (size, rotation, dither) so the image still reads as *this host's* render rather than a copy of the designer's client preview. Its render is still a snapshot by design — the demo's ticking clock state is whatever this page's template evaluation resolves it to at the moment `getPngBlob()` is called, and the designer re-requests only when something it sent changes, not on every clock tick ([`tests/e2e/embed-preview.spec.ts`](../tests/e2e/embed-preview.spec.ts)).
 
 ### `payload`
 

@@ -210,6 +210,27 @@ export function App({ bootstrap, host }: AppProps) {
     return host.registerPayloadSource(readCurrentPayload)
   }, [host, readCurrentPayload])
 
+  // The designer's own PNG-export read channel (issue #109 review,
+  // maintainer-ruled demo fix): DesignerCanvas publishes its current
+  // rasterizer into this parent-owned ref (fonts/assets live there, not
+  // here), and this registers that live closure with the host the same way
+  // `readCurrentPayload` above registers the payload read — same
+  // commit-time (`useLayoutEffect`) reasoning applies.
+  const pngBlobSourceRef = useRef<(() => Promise<Blob>) | null>(null)
+  const getCurrentDesignPngBlob = useCallback((): Promise<Blob> => {
+    const source = pngBlobSourceRef.current
+    if (!source) {
+      return Promise.reject(new Error('The designer canvas is not ready yet'))
+    }
+    return source()
+  }, [])
+  useLayoutEffect(() => {
+    if (!host.registerRenderSource) {
+      return
+    }
+    return host.registerRenderSource(getCurrentDesignPngBlob)
+  }, [host, getCurrentDesignPngBlob])
+
   /**
    * The surface a host render must be produced at: the oriented logical canvas
    * the payload's coordinates live in (issue #139). Memoized because the hook
@@ -669,6 +690,7 @@ export function App({ bootstrap, host }: AppProps) {
               blocked={mutationBlocked}
               blockedVisible={yamlBlockedVisible}
               displayPreview={displayPreview}
+              pngBlobSourceRef={pngBlobSourceRef}
             />
           </div>
           <YamlPanel

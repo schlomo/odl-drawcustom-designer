@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type RefObject,
 } from 'react'
 import { safeRenderElement, type DrawElement, type RenderContext } from '../../core'
 import { CanvasElementSlot } from './CanvasElementSlot'
@@ -99,6 +100,7 @@ import {
 } from '../preferences/canvasZoom'
 import type { SelectElementOptions } from '../hooks/useProjectState'
 import { useExportActionFeedback } from '../hooks/useExportActionFeedback'
+import { usePublishedCallback } from '../hooks/usePublishedCallback'
 import { CanvasSelectionToolbar } from './CanvasSelectionToolbar'
 import { CanvasHeaderToolbar } from './CanvasHeaderToolbar'
 import { DisplayPreviewImage } from './DisplayPreviewImage'
@@ -167,6 +169,16 @@ interface DesignerCanvasProps {
    * visual trace is rendered at all.
    */
   displayPreview?: DisplayPreviewView
+  /**
+   * Published with the designer's own PNG-export source (issue #109 review,
+   * maintainer-ruled demo fix): App forwards this to
+   * `DesignerHost.registerRenderSource`, which is what backs
+   * `MountHandle.getPngBlob()` — a host with no rendering backend of its own
+   * reads the designer's own rasterization instead of building a second
+   * renderer. Parent-owned, published the same way `YamlPanel`'s
+   * `flushPendingRef`/`discardPendingRef` are.
+   */
+  pngBlobSourceRef?: RefObject<(() => Promise<Blob>) | null>
 }
 
 interface DragOverlay {
@@ -252,6 +264,7 @@ export function DesignerCanvas({
   blocked = false,
   blockedVisible = false,
   displayPreview,
+  pngBlobSourceRef,
 }: DesignerCanvasProps) {
   const previewActive = displayPreview?.active ?? false
   const previewDisabledReason = displayPreview?.disabledReason ?? null
@@ -1284,13 +1297,17 @@ export function DesignerCanvas({
     return lines
   }, [renderContext.height, renderContext.width, snapGrid.enabled, snapGrid.size])
 
-  const exportPreviewPng = useCallback(async (): Promise<Blob | null> => {
-    // Copy/Download PNG stay live in preview mode and act on what is on screen
-    // (maintainer ruling): the host's render, never a client rasterization
-    // silently substituted for it.
-    if (previewActive && displayPreview) {
-      return displayPreview.getImageBlob()
-    }
+  /**
+   * The designer's own rasterization of the current design, full font/render
+   * fidelity, independent of Display preview — this is what "Copy/Download
+   * PNG" produce outside preview mode, and it is also what backs
+   * `MountHandle.getPngBlob()` (issue #109 review, maintainer-ruled demo
+   * fix): a host with no rendering backend of its own reads this instead of
+   * writing a second renderer. Deliberately does not consult
+   * `previewActive`/`displayPreview` — a `renderPreview` provider built on
+   * top of `getPngBlob()` must never be able to call back into itself.
+   */
+  const renderCurrentDesignPngBlob = useCallback((): Promise<Blob> => {
     return renderPayloadToPngBlob({
       elements: baseElements,
       renderContext: {
@@ -1301,15 +1318,19 @@ export function DesignerCanvas({
       fontFamilies,
       opentypeFonts,
     })
-  }, [
-    baseElements,
-    displayAssetImages,
-    displayPreview,
-    fontFamilies,
-    opentypeFonts,
-    previewActive,
-    renderContext,
-  ])
+  }, [baseElements, displayAssetImages, fontFamilies, opentypeFonts, renderContext])
+
+  usePublishedCallback(pngBlobSourceRef, renderCurrentDesignPngBlob)
+
+  const exportPreviewPng = useCallback(async (): Promise<Blob | null> => {
+    // Copy/Download PNG stay live in preview mode and act on what is on screen
+    // (maintainer ruling): the host's render, never a client rasterization
+    // silently substituted for it.
+    if (previewActive && displayPreview) {
+      return displayPreview.getImageBlob()
+    }
+    return renderCurrentDesignPngBlob()
+  }, [displayPreview, previewActive, renderCurrentDesignPngBlob])
 
   const handleCopyPng = useCallback(async () => {
     try {

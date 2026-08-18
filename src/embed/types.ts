@@ -479,6 +479,27 @@ export interface MountHandle {
    * for the full semantics and rationale.
    */
   getPayload(): string
+  /**
+   * The designer's own rasterization of the current payload, right now — the
+   * exact bytes its own Copy PNG / Download PNG would produce outside
+   * Display preview, full font/renderer fidelity included. Exists so a host
+   * with no rendering backend of its own (a demo, a thin adapter) can answer
+   * `renderPreview` by reading this instead of writing a second renderer —
+   * the same "read access" fix {@link getPayload} is for reading the payload
+   * instead of driving the Save button.
+   *
+   * - **Independent of Display preview.** Always the client-side render, even
+   *   while the toggle is on and a host image is showing — a `renderPreview`
+   *   provider built on this can therefore never call itself.
+   * - **Rejects, never throws synchronously**, while the designer has not
+   *   yet committed its first render (the brief window right after
+   *   `mount()`/`mountStandaloneApp()` returns) — there is no bootstrap
+   *   fallback for a raster the way {@link getPayload} falls back to
+   *   serialized YAML, since fonts/assets have not loaded yet either.
+   * - Throws (does not reject) `MountHandle used after destroy()`, like every
+   *   other method on this handle.
+   */
+  getPngBlob(): Promise<Blob>
 }
 
 /**

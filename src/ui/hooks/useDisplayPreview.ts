@@ -160,6 +160,42 @@ export function useDisplayPreview({
 
   useEffect(() => releaseOwnedUrl, [releaseOwnedUrl])
 
+  /**
+   * Sequencing fix (maintainer manual-validation finding on PR #143, video
+   * evidence): a geometry change (a resolution pick, a re-orientation) used
+   * to leave the *old* image on screen until the re-request answered — the
+   * canvas re-orients first, the stale image letterboxes into the new shape,
+   * then the new render lands. Two visible size jumps instead of one clean
+   * transition.
+   *
+   * Dither and target-driven re-requests deliberately keep the old behavior
+   * (swap in place once the new answer lands): dither can never change the
+   * image's dimensions, so there is nothing to letterbox. Only `display`
+   * (width/height/rotation) triggers this immediate clear — tracked against
+   * the previous value here, not derived from the debounced-request effect
+   * below, so the paper goes blank (and the loading chip appears) the instant
+   * the geometry changes, well before the 250ms debounce even schedules the
+   * re-request.
+   */
+  const previousDisplayRef = useRef(display)
+  useEffect(() => {
+    const previous = previousDisplayRef.current
+    previousDisplayRef.current = display
+    if (!active) {
+      return
+    }
+    const geometryChanged =
+      previous.width !== display.width ||
+      previous.height !== display.height ||
+      previous.rotation !== display.rotation
+    if (!geometryChanged) {
+      return
+    }
+    setError(null)
+    clearImage()
+    setLoading(true)
+  }, [active, clearImage, display])
+
   // Leaving is always allowed; only entering can be refused.
   const disabledReason = active ? null : blockedReason
 

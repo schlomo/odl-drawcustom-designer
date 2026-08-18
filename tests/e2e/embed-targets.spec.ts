@@ -32,9 +32,19 @@ const paperSize = (page: Page) =>
       return `${parseFloat(width)}×${parseFloat(height)}`
     })
 
-/** The host grows from one display to its full inventory (demo/host.js). */
+/**
+ * The host grows from one display to its full inventory (demo/host.js): one
+ * repeatable "Add a display" button, each press extending the targets list by
+ * one more fixture display (office, then hallway, in that order) — the
+ * consolidation of what used to be a "Push display list" button jumping
+ * straight to three, and a garage-only "Add a display". Two presses reach the
+ * same three-target inventory (kitchen + office + hallway) the old single
+ * button did.
+ */
 const pushDisplayList = async (page: Page) => {
-  await page.getByRole('button', { name: 'Push display list' }).click()
+  const addDisplay = page.getByRole('button', { name: 'Add a display' })
+  await addDisplay.click()
+  await addDisplay.click()
   await expect(picker(page).getByRole('option')).toHaveCount(4)
 }
 
@@ -144,6 +154,12 @@ test('a display added after mount shows up in the picker without a reload', asyn
   await expect(picker(page).getByRole('option')).toHaveCount(5)
   await picker(page).selectOption({ label: 'Garage tag (152×152 BW)' })
   await expect(page.getByRole('button', { name: 'Resolution' })).toContainText(/152\s*×\s*152/)
+
+  // Every fixture display is now in the picker (kitchen + office + hallway +
+  // garage) — nothing left to discover, so the obvious behavior is to
+  // disable the button rather than silently wrap and re-offer a display the
+  // host already pushed.
+  await expect(page.getByRole('button', { name: 'All fixture displays added' })).toBeDisabled()
 })
 
 test('the virtual display entry unlocks the display config', async ({ page }) => {

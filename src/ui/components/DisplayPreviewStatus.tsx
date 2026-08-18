@@ -11,9 +11,15 @@ interface DisplayPreviewStatusProps {
  *
  * Two deliberately different weights:
  *
- * - **Loading is subtle** — a corner chip, non-blocking. A re-request keeps the
- *   previous host render on screen underneath, so a dither flip or a payload
- *   edit does not flash the canvas empty.
+ * - **Loading is subtle** — a corner chip, non-blocking. A dither flip or a
+ *   payload edit keeps the previous host render on screen underneath while it
+ *   re-requests, since neither can change the image's shape. A geometry
+ *   change (a resolution pick, a re-orientation) is the one exception: the
+ *   hook clears the image immediately on that change (maintainer
+ *   manual-validation finding, PR #143) — the old image is authored for the
+ *   old shape, so leaving it up would letterbox into the new canvas box
+ *   before the new render lands, a visible double resize. This chip is what
+ *   fills the blank paper in between.
  * - **A failure is explicit** — a centered, stated error, and the hook has
  *   already dropped the image: a clear error beats a stale or wrong render
  *   (maintainer ruling). Never a silent fall back to the designer's own

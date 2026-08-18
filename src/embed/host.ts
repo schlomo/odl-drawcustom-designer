@@ -140,6 +140,19 @@ export interface DesignerHost {
    * designer output).
    */
   registerPayloadSource?(getPayload: () => string): () => void
+  /**
+   * Registers the shell's own-PNG-export getter (`MountHandle.getPngBlob()`,
+   * maintainer-ruled fix for a demo-provider bug on PR #143): the same "read,
+   * don't drive the UI" shape {@link registerPayloadSource} established for
+   * text — a host that wants the designer's *own* rasterization of the
+   * current design (full font/renderer fidelity, no host backend of its own)
+   * reads it here instead of reimplementing a renderer. Always the
+   * client-side render — independent of whether Display preview is currently
+   * showing a host image, so a `renderPreview` provider built on top of this
+   * can never call itself. Supplied by the mount lifecycle, never by an
+   * adapter, exactly like {@link registerPayloadSource}.
+   */
+  registerRenderSource?(getPngBlob: () => Promise<Blob>): () => void
 }
 
 /**
