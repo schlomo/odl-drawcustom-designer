@@ -814,20 +814,20 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 	function F(e) {
 		M.current === e && (de(j), de(M)), N.current === e && (de(N), op._currentValue = se);
 	}
-	var I, ge;
-	function _e(e) {
+	var I, L;
+	function ge(e) {
 		if (I === void 0) try {
 			throw Error();
 		} catch (e) {
 			var t = e.stack.trim().match(/\n( *(at )?)/);
-			I = t && t[1] || "", ge = -1 < e.stack.indexOf("\n    at") ? " (<anonymous>)" : -1 < e.stack.indexOf("@") ? "@unknown:0:0" : "";
+			I = t && t[1] || "", L = -1 < e.stack.indexOf("\n    at") ? " (<anonymous>)" : -1 < e.stack.indexOf("@") ? "@unknown:0:0" : "";
 		}
-		return "\n" + I + e + ge;
+		return "\n" + I + e + L;
 	}
-	var ve = !1;
-	function ye(e, t) {
-		if (!e || ve) return "";
-		ve = !0;
+	var _e = !1;
+	function ve(e, t) {
+		if (!e || _e) return "";
+		_e = !0;
 		var n = Error.prepareStackTrace;
 		Error.prepareStackTrace = void 0;
 		try {
@@ -887,38 +887,38 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 				}
 			}
 		} finally {
-			ve = !1, Error.prepareStackTrace = n;
+			_e = !1, Error.prepareStackTrace = n;
 		}
-		return (n = e ? e.displayName || e.name : "") ? _e(n) : "";
+		return (n = e ? e.displayName || e.name : "") ? ge(n) : "";
 	}
-	function be(e, t) {
+	function ye(e, t) {
 		switch (e.tag) {
 			case 26:
 			case 27:
-			case 5: return _e(e.type);
-			case 16: return _e("Lazy");
-			case 13: return e.child !== t && t !== null ? _e("Suspense Fallback") : _e("Suspense");
-			case 19: return _e("SuspenseList");
+			case 5: return ge(e.type);
+			case 16: return ge("Lazy");
+			case 13: return e.child !== t && t !== null ? ge("Suspense Fallback") : ge("Suspense");
+			case 19: return ge("SuspenseList");
 			case 0:
-			case 15: return ye(e.type, !1);
-			case 11: return ye(e.type.render, !1);
-			case 1: return ye(e.type, !0);
-			case 31: return _e("Activity");
+			case 15: return ve(e.type, !1);
+			case 11: return ve(e.type.render, !1);
+			case 1: return ve(e.type, !0);
+			case 31: return ge("Activity");
 			default: return "";
 		}
 	}
-	function xe(e) {
+	function be(e) {
 		try {
 			var t = "", n = null;
 			do
-				t += be(e, n), n = e, e = e.return;
+				t += ye(e, n), n = e, e = e.return;
 			while (e);
 			return t;
 		} catch (e) {
 			return "\nError generating stack: " + e.message + "\n" + e.stack;
 		}
 	}
-	var Se = Object.prototype.hasOwnProperty, Ce = t.unstable_scheduleCallback, we = t.unstable_cancelCallback, Te = t.unstable_shouldYield, Ee = t.unstable_requestPaint, De = t.unstable_now, Oe = t.unstable_getCurrentPriorityLevel, ke = t.unstable_ImmediatePriority, Ae = t.unstable_UserBlockingPriority, je = t.unstable_NormalPriority, Me = t.unstable_LowPriority, L = t.unstable_IdlePriority, R = t.log, Ne = t.unstable_setDisableYieldValue, Pe = null, Fe = null;
+	var xe = Object.prototype.hasOwnProperty, Se = t.unstable_scheduleCallback, Ce = t.unstable_cancelCallback, we = t.unstable_shouldYield, Te = t.unstable_requestPaint, Ee = t.unstable_now, De = t.unstable_getCurrentPriorityLevel, Oe = t.unstable_ImmediatePriority, ke = t.unstable_UserBlockingPriority, Ae = t.unstable_NormalPriority, je = t.unstable_LowPriority, Me = t.unstable_IdlePriority, R = t.log, Ne = t.unstable_setDisableYieldValue, Pe = null, Fe = null;
 	function z(e) {
 		if (typeof R == "function" && Ne(e), Fe && typeof Fe.setStrictMode == "function") try {
 			Fe.setStrictMode(Pe, e);
@@ -1160,7 +1160,7 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 	}
 	var yt = RegExp("^[:A-Z_a-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD][:A-Z_a-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD\\-.0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040]*$"), bt = {}, xt = {};
 	function St(e) {
-		return Se.call(xt, e) ? !0 : Se.call(bt, e) ? !1 : yt.test(e) ? xt[e] = !0 : (bt[e] = !0, !1);
+		return xe.call(xt, e) ? !0 : xe.call(bt, e) ? !1 : yt.test(e) ? xt[e] = !0 : (bt[e] = !0, !1);
 	}
 	function Ct(e, t, n) {
 		if (St(t)) if (n === null) e.removeAttribute(t);
@@ -1855,7 +1855,7 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 		if (n.length !== r.length) return !1;
 		for (r = 0; r < n.length; r++) {
 			var i = n[r];
-			if (!Se.call(t, i) || !_r(e[i], t[i])) return !1;
+			if (!xe.call(t, i) || !_r(e[i], t[i])) return !1;
 		}
 		return !0;
 	}
@@ -2086,13 +2086,13 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 			return n === void 0 ? (t = {
 				value: e,
 				source: t,
-				stack: xe(t)
+				stack: be(t)
 			}, fi.set(e, t), t) : n;
 		}
 		return {
 			value: e,
 			source: t,
-			stack: xe(t)
+			stack: be(t)
 		};
 	}
 	var mi = [], hi = 0, gi = null, _i = 0, vi = [], yi = 0, bi = null, xi = 1, Si = "";
@@ -2372,7 +2372,7 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 	}
 	var fa = k.S;
 	k.S = function(e, t) {
-		ou = De(), typeof t == "object" && t && typeof t.then == "function" && la(e, t), fa !== null && fa(e, t);
+		ou = Ee(), typeof t == "object" && t && typeof t.then == "function" && la(e, t), fa !== null && fa(e, t);
 	};
 	var pa = ue(null);
 	function ma() {
@@ -4442,15 +4442,15 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 						}
 						e = e.sibling;
 					}
-					r.tail !== null && De() > su && (t.flags |= 128, a = !0, Ic(r, !1), t.lanes = 4194304);
+					r.tail !== null && Ee() > su && (t.flags |= 128, a = !0, Ic(r, !1), t.lanes = 4194304);
 				}
 				else {
 					if (!a) if (e = oo(o), e !== null) {
 						if (t.flags |= 128, a = !0, e = e.updateQueue, t.updateQueue = e, Fc(t, e), Ic(r, !0), r.tail === null && r.tailMode === "hidden" && !o.alternate && !ki) return Lc(t), null;
-					} else 2 * De() - r.renderingStartTime > su && n !== 536870912 && (t.flags |= 128, a = !0, Ic(r, !1), t.lanes = 4194304);
+					} else 2 * Ee() - r.renderingStartTime > su && n !== 536870912 && (t.flags |= 128, a = !0, Ic(r, !1), t.lanes = 4194304);
 					r.isBackwards ? (o.sibling = t.child, t.child = o) : (e = r.last, e === null ? t.child = o : e.sibling = o, r.last = o);
 				}
-				return r.tail === null ? (Lc(t), null) : (e = r.tail, r.rendering = e, r.tail = e.sibling, r.renderingStartTime = De(), e.sibling = null, n = ao.current, fe(ao, a ? n & 1 | 2 : n & 1), ki && W(t, r.treeForkCount), e);
+				return r.tail === null ? (Lc(t), null) : (e = r.tail, r.rendering = e, r.tail = e.sibling, r.renderingStartTime = Ee(), e.sibling = null, n = ao.current, fe(ao, a ? n & 1 | 2 : n & 1), ki && W(t, r.treeForkCount), e);
 			case 22:
 			case 23: return io(t), Za(), r = t.memoizedState !== null, e === null ? r && (t.flags |= 8192) : e.memoizedState !== null !== r && (t.flags |= 8192), r ? n & 536870912 && !(t.flags & 128) && (Lc(t), t.subtreeFlags & 6 && (t.flags |= 8192)) : Lc(t), n = t.updateQueue, n !== null && Fc(t, n.retryQueue), n = null, e !== null && e.memoizedState !== null && e.memoizedState.cachePool !== null && (n = e.memoizedState.cachePool.pool), r = null, t.memoizedState !== null && t.memoizedState.cachePool !== null && (r = t.memoizedState.cachePool.pool), r !== n && (t.flags |= 2048), e !== null && de(pa), null;
 			case 24: return n = null, e !== null && (n = e.memoizedState.cache), t.memoizedState.cache !== n && (t.flags |= 2048), Wi(na), Lc(t), null;
@@ -5056,7 +5056,7 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 				gl(t, e), yl(e), r & 4 && (r = e.updateQueue, r !== null && (e.updateQueue = null, hl(e, r)));
 				break;
 			case 13:
-				gl(t, e), yl(e), e.child.flags & 8192 && e.memoizedState !== null != (n !== null && n.memoizedState !== null) && (au = De()), r & 4 && (r = e.updateQueue, r !== null && (e.updateQueue = null, hl(e, r)));
+				gl(t, e), yl(e), e.child.flags & 8192 && e.memoizedState !== null != (n !== null && n.memoizedState !== null) && (au = Ee()), r & 4 && (r = e.updateQueue, r !== null && (e.updateQueue = null, hl(e, r)));
 				break;
 			case 22:
 				a = e.memoizedState !== null;
@@ -5523,7 +5523,7 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 						case 5: break;
 						default: throw Error(i(329));
 					}
-					if ((t & 62914560) === t && (a = au + 300 - De(), 10 < a)) {
+					if ((t & 62914560) === t && (a = au + 300 - Ee(), 10 < a)) {
 						if (Tu(r, t, eu, !Kl), V(r, 0, !0) !== 0) break a;
 						pu = t, r.timeoutHandle = ef(Cu.bind(null, r, n, ru, cu, iu, t, eu, Ql, tu, Kl, o, "Throttled", -0, 0), a);
 						break a;
@@ -5547,7 +5547,7 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 				waitingForViewTransition: !1,
 				unsuspend: Jt
 			}, Ml(t, a, d);
-			var m = (a & 62914560) === a ? au - De() : (a & 4194048) === a ? ou - De() : 0;
+			var m = (a & 62914560) === a ? au - Ee() : (a & 4194048) === a ? ou - Ee() : 0;
 			if (m = tp(d, m), m !== null) {
 				pu = a, e.cancelPendingCommit = m(Uu.bind(null, e, t, a, n, r, i, o, s, c, u, d, null, f, p)), Tu(e, a, o, !l);
 				return;
@@ -5669,7 +5669,7 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 		var n = Bl;
 		Bl |= 2;
 		var r = ju(), a = Mu();
-		Vl !== e || Ul !== t ? (cu = null, su = De() + 500, Ou(e, t)) : ql = H(e, t);
+		Vl !== e || Ul !== t ? (cu = null, su = Ee() + 500, Ou(e, t)) : ql = H(e, t);
 		a: do
 			try {
 				if (Wl !== 0 && Hl !== null) {
@@ -5736,7 +5736,7 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 		return Hi = Vi = null, k.H = r, k.A = a, Bl = n, Hl === null ? (Vl = null, Ul = 0, Yr(), Xl) : 0;
 	}
 	function Lu() {
-		for (; Hl !== null && !Te();) Ru(Hl);
+		for (; Hl !== null && !we();) Ru(Hl);
 	}
 	function Ru(e) {
 		var t = jc(e.alternate, e, Yl);
@@ -5816,7 +5816,7 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 		if (Bl & 6) throw Error(i(327));
 		if (t !== null) {
 			if (t === e.current) throw Error(i(177));
-			if (o = t.lanes | t.childLanes, o |= Jr, Ke(e, n, o, s, c, l), e === Vl && (Hl = Vl = null, Ul = 0), fu = t, du = e, pu = n, mu = o, hu = a, gu = r, t.subtreeFlags & 10256 || t.flags & 10256 ? (e.callbackNode = null, e.callbackPriority = 0, rd(je, function() {
+			if (o = t.lanes | t.childLanes, o |= Jr, Ke(e, n, o, s, c, l), e === Vl && (Hl = Vl = null, Ul = 0), fu = t, du = e, pu = n, mu = o, hu = a, gu = r, t.subtreeFlags & 10256 || t.flags & 10256 ? (e.callbackNode = null, e.callbackPriority = 0, rd(Ae, function() {
 				return Yu(), null;
 			})) : (e.callbackNode = null, e.callbackPriority = 0), r = (t.flags & 13878) != 0, t.subtreeFlags & 13878 || r) {
 				r = k.T, k.T = null, a = A.p, A.p = 2, s = Bl, Bl |= 4;
@@ -5898,7 +5898,7 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 	}
 	function Ku() {
 		if (uu === 4 || uu === 3) {
-			uu = 0, Ee();
+			uu = 0, Te();
 			var e = du, t = fu, n = pu, r = gu;
 			t.subtreeFlags & 10256 || t.flags & 10256 ? uu = 5 : (uu = 0, fu = du = null, qu(e, e.pendingLanes));
 			var i = e.pendingLanes;
@@ -5973,7 +5973,7 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 	}
 	function $u(e, t, n) {
 		var r = e.pingCache;
-		r !== null && r.delete(t), e.pingedLanes |= e.suspendedLanes & n, e.warmLanes &= ~n, Vl === e && (Ul & n) === n && (Xl === 4 || Xl === 3 && (Ul & 62914560) === Ul && 300 > De() - au ? !(Bl & 2) && Ou(e, 0) : $l |= n, tu === Ul && (tu = 0)), ud(e);
+		r !== null && r.delete(t), e.pingedLanes |= e.suspendedLanes & n, e.warmLanes &= ~n, Vl === e && (Ul & n) === n && (Xl === 4 || Xl === 3 && (Ul & 62914560) === Ul && 300 > Ee() - au ? !(Bl & 2) && Ou(e, 0) : $l |= n, tu === Ul && (tu = 0)), ud(e);
 	}
 	function ed(e, t) {
 		t === 0 && (t = U()), e = Qr(e, t), e !== null && (Ge(e, t), ud(e));
@@ -6001,7 +6001,7 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 		r !== null && r.delete(t), ed(e, n);
 	}
 	function rd(e, t) {
-		return Ce(e, t);
+		return Se(e, t);
 	}
 	var id = null, ad = null, od = !1, sd = !1, cd = !1, ld = 0;
 	function ud(e) {
@@ -6034,7 +6034,7 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 		sd = od = !1;
 		var e = 0;
 		ld !== 0 && $d() && (e = ld);
-		for (var t = De(), n = null, r = id; r !== null;) {
+		for (var t = Ee(), n = null, r = id; r !== null;) {
 			var i = r.next, a = md(r, t);
 			a === 0 ? (r.next = null, n === null ? id = i : n.next = i, i === null && (ad = n)) : (n = r, (e !== 0 || a & 3) && (sd = !0)), r = i;
 		}
@@ -6045,32 +6045,32 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 			var o = 31 - Ie(a), s = 1 << o, c = i[o];
 			c === -1 ? ((s & n) === 0 || (s & r) !== 0) && (i[o] = Ue(s, t)) : c <= t && (e.expiredLanes |= s), a &= ~s;
 		}
-		if (t = Vl, n = Ul, n = V(e, e === t ? n : 0, e.cancelPendingCommit !== null || e.timeoutHandle !== -1), r = e.callbackNode, n === 0 || e === t && (Wl === 2 || Wl === 9) || e.cancelPendingCommit !== null) return r !== null && r !== null && we(r), e.callbackNode = null, e.callbackPriority = 0;
+		if (t = Vl, n = Ul, n = V(e, e === t ? n : 0, e.cancelPendingCommit !== null || e.timeoutHandle !== -1), r = e.callbackNode, n === 0 || e === t && (Wl === 2 || Wl === 9) || e.cancelPendingCommit !== null) return r !== null && r !== null && Ce(r), e.callbackNode = null, e.callbackPriority = 0;
 		if (!(n & 3) || H(e, n)) {
 			if (t = n & -n, t === e.callbackPriority) return t;
-			switch (r !== null && we(r), Ze(n)) {
+			switch (r !== null && Ce(r), Ze(n)) {
 				case 2:
 				case 8:
-					n = Ae;
+					n = ke;
 					break;
 				case 32:
-					n = je;
+					n = Ae;
 					break;
 				case 268435456:
-					n = L;
+					n = Me;
 					break;
-				default: n = je;
+				default: n = Ae;
 			}
-			return r = hd.bind(null, e), n = Ce(n, r), e.callbackPriority = t, e.callbackNode = n, t;
+			return r = hd.bind(null, e), n = Se(n, r), e.callbackPriority = t, e.callbackNode = n, t;
 		}
-		return r !== null && r !== null && we(r), e.callbackPriority = 2, e.callbackNode = null, 2;
+		return r !== null && r !== null && Ce(r), e.callbackPriority = 2, e.callbackNode = null, 2;
 	}
 	function hd(e, t) {
 		if (uu !== 0 && uu !== 5) return e.callbackNode = null, e.callbackPriority = 0, null;
 		var n = e.callbackNode;
 		if (Ju() && e.callbackNode !== n) return null;
 		var r = Ul;
-		return r = V(e, e === Vl ? r : 0, e.cancelPendingCommit !== null || e.timeoutHandle !== -1), r === 0 ? null : (Su(e, r, t), md(e, De()), e.callbackNode != null && e.callbackNode === n ? hd.bind(null, e) : null);
+		return r = V(e, e === Vl ? r : 0, e.cancelPendingCommit !== null || e.timeoutHandle !== -1), r === 0 ? null : (Su(e, r, t), md(e, Ee()), e.callbackNode != null && e.callbackNode === n ? hd.bind(null, e) : null);
 	}
 	function gd(e, t) {
 		if (Ju()) return null;
@@ -6078,7 +6078,7 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 	}
 	function _d() {
 		rf(function() {
-			Bl & 6 ? Ce(ke, fd) : pd();
+			Bl & 6 ? Se(Oe, fd) : pd();
 		});
 	}
 	function vd() {
@@ -7654,7 +7654,7 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 										var c = 1 << 31 - Ie(o);
 										s.entanglements[1] |= c, o &= ~c;
 									}
-									ud(a), !(Bl & 6) && (su = De() + 500, dd(0, !1));
+									ud(a), !(Bl & 6) && (su = Ee() + 500, dd(0, !1));
 								}
 							}
 							break;
@@ -7765,12 +7765,12 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 			case "mouseleave":
 			case "pointerenter":
 			case "pointerleave": return 8;
-			case "message": switch (Oe()) {
-				case ke: return 2;
-				case Ae: return 8;
-				case je:
-				case Me: return 32;
-				case L: return 268435456;
+			case "message": switch (De()) {
+				case Oe: return 2;
+				case ke: return 8;
+				case Ae:
+				case je: return 32;
+				case Me: return 268435456;
 				default: return 32;
 			}
 			default: return 32;
@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/133-status-api", ae = "90283e4", oe = "61d2bec", k = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/133-status-api", ae = "02ad6a9", oe = "1848b2b", k = "0.0.0-dev";
 function A(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -8040,15 +8040,15 @@ function ue(e = ae) {
 }
 //#endregion
 //#region node_modules/yaml/browser/dist/nodes/identity.js
-var de = Symbol.for("yaml.alias"), fe = Symbol.for("yaml.document"), j = Symbol.for("yaml.map"), M = Symbol.for("yaml.pair"), pe = Symbol.for("yaml.scalar"), N = Symbol.for("yaml.seq"), me = Symbol.for("yaml.node.type"), he = (e) => !!e && typeof e == "object" && e[me] === de, P = (e) => !!e && typeof e == "object" && e[me] === fe, F = (e) => !!e && typeof e == "object" && e[me] === j, I = (e) => !!e && typeof e == "object" && e[me] === M, ge = (e) => !!e && typeof e == "object" && e[me] === pe, _e = (e) => !!e && typeof e == "object" && e[me] === N;
-function ve(e) {
+var de = Symbol.for("yaml.alias"), fe = Symbol.for("yaml.document"), j = Symbol.for("yaml.map"), M = Symbol.for("yaml.pair"), pe = Symbol.for("yaml.scalar"), N = Symbol.for("yaml.seq"), me = Symbol.for("yaml.node.type"), he = (e) => !!e && typeof e == "object" && e[me] === de, P = (e) => !!e && typeof e == "object" && e[me] === fe, F = (e) => !!e && typeof e == "object" && e[me] === j, I = (e) => !!e && typeof e == "object" && e[me] === M, L = (e) => !!e && typeof e == "object" && e[me] === pe, ge = (e) => !!e && typeof e == "object" && e[me] === N;
+function _e(e) {
 	if (e && typeof e == "object") switch (e[me]) {
 		case j:
 		case N: return !0;
 	}
 	return !1;
 }
-function ye(e) {
+function ve(e) {
 	if (e && typeof e == "object") switch (e[me]) {
 		case de:
 		case j:
@@ -8057,66 +8057,66 @@ function ye(e) {
 	}
 	return !1;
 }
-var be = (e) => (ge(e) || ve(e)) && !!e.anchor, xe = Symbol("break visit"), Se = Symbol("skip children"), Ce = Symbol("remove node");
-function we(e, t) {
-	let n = Oe(t);
-	P(e) ? Te(null, e.contents, n, Object.freeze([e])) === Ce && (e.contents = null) : Te(null, e, n, Object.freeze([]));
+var ye = (e) => (L(e) || _e(e)) && !!e.anchor, be = Symbol("break visit"), xe = Symbol("skip children"), Se = Symbol("remove node");
+function Ce(e, t) {
+	let n = De(t);
+	P(e) ? we(null, e.contents, n, Object.freeze([e])) === Se && (e.contents = null) : we(null, e, n, Object.freeze([]));
 }
-we.BREAK = xe, we.SKIP = Se, we.REMOVE = Ce;
-function Te(e, t, n, r) {
-	let i = ke(e, t, n, r);
-	if (ye(i) || I(i)) return Ae(e, r, i), Te(e, i, n, r);
+Ce.BREAK = be, Ce.SKIP = xe, Ce.REMOVE = Se;
+function we(e, t, n, r) {
+	let i = Oe(e, t, n, r);
+	if (ve(i) || I(i)) return ke(e, r, i), we(e, i, n, r);
 	if (typeof i != "symbol") {
-		if (ve(t)) {
+		if (_e(t)) {
 			r = Object.freeze(r.concat(t));
 			for (let e = 0; e < t.items.length; ++e) {
-				let i = Te(e, t.items[e], n, r);
+				let i = we(e, t.items[e], n, r);
 				if (typeof i == "number") e = i - 1;
-				else if (i === xe) return xe;
-				else i === Ce && (t.items.splice(e, 1), --e);
+				else if (i === be) return be;
+				else i === Se && (t.items.splice(e, 1), --e);
 			}
 		} else if (I(t)) {
 			r = Object.freeze(r.concat(t));
-			let e = Te("key", t.key, n, r);
-			if (e === xe) return xe;
-			e === Ce && (t.key = null);
-			let i = Te("value", t.value, n, r);
-			if (i === xe) return xe;
-			i === Ce && (t.value = null);
+			let e = we("key", t.key, n, r);
+			if (e === be) return be;
+			e === Se && (t.key = null);
+			let i = we("value", t.value, n, r);
+			if (i === be) return be;
+			i === Se && (t.value = null);
 		}
 	}
 	return i;
 }
-async function Ee(e, t) {
-	let n = Oe(t);
-	P(e) ? await De(null, e.contents, n, Object.freeze([e])) === Ce && (e.contents = null) : await De(null, e, n, Object.freeze([]));
+async function Te(e, t) {
+	let n = De(t);
+	P(e) ? await Ee(null, e.contents, n, Object.freeze([e])) === Se && (e.contents = null) : await Ee(null, e, n, Object.freeze([]));
 }
-Ee.BREAK = xe, Ee.SKIP = Se, Ee.REMOVE = Ce;
-async function De(e, t, n, r) {
-	let i = await ke(e, t, n, r);
-	if (ye(i) || I(i)) return Ae(e, r, i), De(e, i, n, r);
+Te.BREAK = be, Te.SKIP = xe, Te.REMOVE = Se;
+async function Ee(e, t, n, r) {
+	let i = await Oe(e, t, n, r);
+	if (ve(i) || I(i)) return ke(e, r, i), Ee(e, i, n, r);
 	if (typeof i != "symbol") {
-		if (ve(t)) {
+		if (_e(t)) {
 			r = Object.freeze(r.concat(t));
 			for (let e = 0; e < t.items.length; ++e) {
-				let i = await De(e, t.items[e], n, r);
+				let i = await Ee(e, t.items[e], n, r);
 				if (typeof i == "number") e = i - 1;
-				else if (i === xe) return xe;
-				else i === Ce && (t.items.splice(e, 1), --e);
+				else if (i === be) return be;
+				else i === Se && (t.items.splice(e, 1), --e);
 			}
 		} else if (I(t)) {
 			r = Object.freeze(r.concat(t));
-			let e = await De("key", t.key, n, r);
-			if (e === xe) return xe;
-			e === Ce && (t.key = null);
-			let i = await De("value", t.value, n, r);
-			if (i === xe) return xe;
-			i === Ce && (t.value = null);
+			let e = await Ee("key", t.key, n, r);
+			if (e === be) return be;
+			e === Se && (t.key = null);
+			let i = await Ee("value", t.value, n, r);
+			if (i === be) return be;
+			i === Se && (t.value = null);
 		}
 	}
 	return i;
 }
-function Oe(e) {
+function De(e) {
 	return typeof e == "object" && (e.Collection || e.Node || e.Value) ? Object.assign({
 		Alias: e.Node,
 		Map: e.Node,
@@ -8131,17 +8131,17 @@ function Oe(e) {
 		Seq: e.Collection
 	}, e) : e;
 }
-function ke(e, t, n, r) {
+function Oe(e, t, n, r) {
 	if (typeof n == "function") return n(e, t, r);
 	if (F(t)) return n.Map?.(e, t, r);
-	if (_e(t)) return n.Seq?.(e, t, r);
+	if (ge(t)) return n.Seq?.(e, t, r);
 	if (I(t)) return n.Pair?.(e, t, r);
-	if (ge(t)) return n.Scalar?.(e, t, r);
+	if (L(t)) return n.Scalar?.(e, t, r);
 	if (he(t)) return n.Alias?.(e, t, r);
 }
-function Ae(e, t, n) {
+function ke(e, t, n) {
 	let r = t[t.length - 1];
-	if (ve(r)) r.items[e] = n;
+	if (_e(r)) r.items[e] = n;
 	else if (I(r)) e === "key" ? r.key = n : r.value = n;
 	else if (P(r)) r.contents = n;
 	else {
@@ -8151,14 +8151,14 @@ function Ae(e, t, n) {
 }
 //#endregion
 //#region node_modules/yaml/browser/dist/doc/directives.js
-var je = {
+var Ae = {
 	"!": "%21",
 	",": "%2C",
 	"[": "%5B",
 	"]": "%5D",
 	"{": "%7B",
 	"}": "%7D"
-}, Me = (e) => e.replace(/[!,[\]{}]/g, (e) => je[e]), L = class e {
+}, je = (e) => e.replace(/[!,[\]{}]/g, (e) => Ae[e]), Me = class e {
 	constructor(t, n) {
 		this.docStart = null, this.docEnd = !1, this.yaml = Object.assign({}, e.defaultYaml, t), this.tags = Object.assign({}, e.defaultTags, n);
 	}
@@ -8223,25 +8223,25 @@ var je = {
 		return n === "!" ? e : (t(`Could not resolve tag: ${e}`), null);
 	}
 	tagString(e) {
-		for (let [t, n] of Object.entries(this.tags)) if (e.startsWith(n)) return t + Me(e.substring(n.length));
+		for (let [t, n] of Object.entries(this.tags)) if (e.startsWith(n)) return t + je(e.substring(n.length));
 		return e[0] === "!" ? e : `!<${e}>`;
 	}
 	toString(e) {
 		let t = this.yaml.explicit ? [`%YAML ${this.yaml.version || "1.2"}`] : [], n = Object.entries(this.tags), r;
-		if (e && n.length > 0 && ye(e.contents)) {
+		if (e && n.length > 0 && ve(e.contents)) {
 			let t = {};
-			we(e.contents, (e, n) => {
-				ye(n) && n.tag && (t[n.tag] = !0);
+			Ce(e.contents, (e, n) => {
+				ve(n) && n.tag && (t[n.tag] = !0);
 			}), r = Object.keys(t);
 		} else r = [];
 		for (let [i, a] of n) i === "!!" && a === "tag:yaml.org,2002:" || (!e || r.some((e) => e.startsWith(a))) && t.push(`%TAG ${i} ${a}`);
 		return t.join("\n");
 	}
 };
-L.defaultYaml = {
+Me.defaultYaml = {
 	explicit: !1,
 	version: "1.2"
-}, L.defaultTags = { "!!": "tag:yaml.org,2002:" };
+}, Me.defaultTags = { "!!": "tag:yaml.org,2002:" };
 //#endregion
 //#region node_modules/yaml/browser/dist/doc/anchors.js
 function R(e) {
@@ -8253,7 +8253,7 @@ function R(e) {
 }
 function Ne(e) {
 	let t = /* @__PURE__ */ new Set();
-	return we(e, { Value(e, n) {
+	return Ce(e, { Value(e, n) {
 		n.anchor && t.add(n.anchor);
 	} }), t;
 }
@@ -8274,7 +8274,7 @@ function Fe(e, t) {
 		setAnchors: () => {
 			for (let e of n) {
 				let t = r.get(e);
-				if (typeof t == "object" && t.anchor && (ge(t.node) || ve(t.node))) t.node.anchor = t.anchor;
+				if (typeof t == "object" && t.anchor && (L(t.node) || _e(t.node))) t.node.anchor = t.anchor;
 				else {
 					let t = /* @__PURE__ */ Error("Failed to resolve repeated object (this should not happen)");
 					throw t.source = e, t;
@@ -8310,7 +8310,7 @@ function z(e, t, n, r) {
 function Ie(e, t, n) {
 	if (Array.isArray(e)) return e.map((e, t) => Ie(e, String(t), n));
 	if (e && typeof e.toJSON == "function") {
-		if (!n || !be(e)) return e.toJSON(t, n);
+		if (!n || !ye(e)) return e.toJSON(t, n);
 		let r = {
 			aliasCount: 0,
 			count: 1,
@@ -8356,8 +8356,8 @@ var Le = class {
 	resolve(e, t) {
 		if (t?.maxAliasCount === 0) throw ReferenceError("Alias resolution is disabled");
 		let n;
-		t?.aliasResolveCache ? n = t.aliasResolveCache : (n = [], we(e, { Node: (e, t) => {
-			(he(t) || be(t)) && n.push(t);
+		t?.aliasResolveCache ? n = t.aliasResolveCache : (n = [], Ce(e, { Node: (e, t) => {
+			(he(t) || ye(t)) && n.push(t);
 		} }), t && (t.aliasResolveCache = n));
 		let r;
 		for (let e of n) {
@@ -8395,7 +8395,7 @@ function ze(e, t, n) {
 	if (he(t)) {
 		let r = t.resolve(e), i = n && r && n.get(r);
 		return i ? i.count * i.aliasCount : 0;
-	} else if (ve(t)) {
+	} else if (_e(t)) {
 		let r = 0;
 		for (let i of t.items) {
 			let t = ze(e, i, n);
@@ -8434,7 +8434,7 @@ function He(e, t, n) {
 	return n.find((t) => t.identify?.(e) && !t.format);
 }
 function V(e, t, n) {
-	if (P(e) && (e = e.contents), ye(e)) return e;
+	if (P(e) && (e = e.contents), ve(e)) return e;
 	if (I(e)) {
 		let t = n.schema[j].createNode?.(n.schema, null, n);
 		return t.items.push(e), t;
@@ -8493,13 +8493,13 @@ var Ue = (e) => e == null || typeof e == "object" && !!e[Symbol.iterator]().next
 	}
 	clone(e) {
 		let t = Object.create(Object.getPrototypeOf(this), Object.getOwnPropertyDescriptors(this));
-		return e && (t.schema = e), t.items = t.items.map((t) => ye(t) || I(t) ? t.clone(e) : t), this.range && (t.range = this.range.slice()), t;
+		return e && (t.schema = e), t.items = t.items.map((t) => ve(t) || I(t) ? t.clone(e) : t), this.range && (t.range = this.range.slice()), t;
 	}
 	addIn(e, t) {
 		if (Ue(e)) this.add(t);
 		else {
 			let [n, ...r] = e, i = this.get(n, !0);
-			if (ve(i)) i.addIn(r, t);
+			if (_e(i)) i.addIn(r, t);
 			else if (i === void 0 && this.schema) this.set(n, H(this.schema, r, t));
 			else throw Error(`Expected YAML collection at ${n}. Remaining path: ${r}`);
 		}
@@ -8508,32 +8508,32 @@ var Ue = (e) => e == null || typeof e == "object" && !!e[Symbol.iterator]().next
 		let [t, ...n] = e;
 		if (n.length === 0) return this.delete(t);
 		let r = this.get(t, !0);
-		if (ve(r)) return r.deleteIn(n);
+		if (_e(r)) return r.deleteIn(n);
 		throw Error(`Expected YAML collection at ${t}. Remaining path: ${n}`);
 	}
 	getIn(e, t) {
 		let [n, ...r] = e, i = this.get(n, !0);
-		return r.length === 0 ? !t && ge(i) ? i.value : i : ve(i) ? i.getIn(r, t) : void 0;
+		return r.length === 0 ? !t && L(i) ? i.value : i : _e(i) ? i.getIn(r, t) : void 0;
 	}
 	hasAllNullValues(e) {
 		return this.items.every((t) => {
 			if (!I(t)) return !1;
 			let n = t.value;
-			return n == null || e && ge(n) && n.value == null && !n.commentBefore && !n.comment && !n.tag;
+			return n == null || e && L(n) && n.value == null && !n.commentBefore && !n.comment && !n.tag;
 		});
 	}
 	hasIn(e) {
 		let [t, ...n] = e;
 		if (n.length === 0) return this.has(t);
 		let r = this.get(t, !0);
-		return ve(r) ? r.hasIn(n) : !1;
+		return _e(r) ? r.hasIn(n) : !1;
 	}
 	setIn(e, t) {
 		let [n, ...r] = e;
 		if (r.length === 0) this.set(n, t);
 		else {
 			let e = this.get(n, !0);
-			if (ve(e)) e.setIn(r, t);
+			if (_e(e)) e.setIn(r, t);
 			else if (e === void 0 && this.schema) this.set(n, H(this.schema, r, t));
 			else throw Error(`Expected YAML collection at ${n}. Remaining path: ${r}`);
 		}
@@ -8806,7 +8806,7 @@ function lt(e, t) {
 		if (n.length > 0) return n.find((e) => e.format === t.format) ?? n[0];
 	}
 	let n, r;
-	if (ge(t)) {
+	if (L(t)) {
 		r = t.value;
 		let i = e.filter((e) => e.identify?.(r));
 		if (i.length > 1) {
@@ -8823,7 +8823,7 @@ function lt(e, t) {
 }
 function ut(e, t, { anchors: n, doc: r }) {
 	if (!r.directives) return "";
-	let i = [], a = (ge(e) || ve(e)) && e.anchor;
+	let i = [], a = (L(e) || _e(e)) && e.anchor;
 	a && R(a) && (n.add(a), i.push(`&${a}`));
 	let o = e.tag ?? (t.default ? null : t.tag);
 	return o && i.push(r.directives.tagString(o)), i.join(" ");
@@ -8835,22 +8835,22 @@ function dt(e, t, n, r) {
 		if (t.resolvedAliases?.has(e)) throw TypeError("Cannot stringify circular structure without alias nodes");
 		t.resolvedAliases ? t.resolvedAliases.add(e) : t.resolvedAliases = /* @__PURE__ */ new Set([e]), e = e.resolve(t.doc);
 	}
-	let i, a = ye(e) ? e : t.doc.createNode(e, { onTagObj: (e) => i = e });
+	let i, a = ve(e) ? e : t.doc.createNode(e, { onTagObj: (e) => i = e });
 	i ??= lt(t.doc.schema.tags, a);
 	let o = ut(a, i, t);
 	o.length > 0 && (t.indentAtStart = (t.indentAtStart ?? 0) + o.length + 1);
-	let s = typeof i.stringify == "function" ? i.stringify(a, t, n, r) : ge(a) ? st(a, t, n, r) : a.toString(t, n, r);
-	return o ? ge(a) || s[0] === "{" || s[0] === "[" ? `${o} ${s}` : `${o}\n${t.indent}${s}` : s;
+	let s = typeof i.stringify == "function" ? i.stringify(a, t, n, r) : L(a) ? st(a, t, n, r) : a.toString(t, n, r);
+	return o ? L(a) || s[0] === "{" || s[0] === "[" ? `${o} ${s}` : `${o}\n${t.indent}${s}` : s;
 }
 //#endregion
 //#region node_modules/yaml/browser/dist/stringify/stringifyPair.js
 function ft({ key: e, value: t }, n, r, i) {
-	let { allNullValues: a, doc: o, indent: s, indentStep: c, options: { commentString: l, indentSeq: u, simpleKeys: d } } = n, f = ye(e) && e.comment || null;
+	let { allNullValues: a, doc: o, indent: s, indentStep: c, options: { commentString: l, indentSeq: u, simpleKeys: d } } = n, f = ve(e) && e.comment || null;
 	if (d) {
 		if (f) throw Error("With simple keys, key nodes cannot have comments");
-		if (ve(e) || !ye(e) && typeof e == "object") throw Error("With simple keys, collection cannot be used as a key value");
+		if (_e(e) || !ve(e) && typeof e == "object") throw Error("With simple keys, collection cannot be used as a key value");
 	}
-	let p = !d && (!e || f && t == null && !n.inFlow || ve(e) || (ge(e) ? e.type === B.BLOCK_FOLDED || e.type === B.BLOCK_LITERAL : typeof e == "object"));
+	let p = !d && (!e || f && t == null && !n.inFlow || _e(e) || (L(e) ? e.type === B.BLOCK_FOLDED || e.type === B.BLOCK_LITERAL : typeof e == "object"));
 	n = Object.assign({}, n, {
 		allNullValues: !1,
 		implicitKey: !p && (d || !a),
@@ -8866,7 +8866,7 @@ function ft({ key: e, value: t }, n, r, i) {
 	} else if (a && !d || t == null && p) return g = `? ${g}`, f && !m ? g += Ke(g, n.indent, l(f)) : h && i && i(), g;
 	m && (f = null), p ? (f && (g += Ke(g, n.indent, l(f))), g = `? ${g}\n${s}:`) : (g = `${g}:`, f && (g += Ke(g, n.indent, l(f))));
 	let _, v, y;
-	ye(t) ? (_ = !!t.spaceBefore, v = t.commentBefore, y = t.comment) : (_ = !1, v = null, y = null, t && typeof t == "object" && (t = o.createNode(t))), n.implicitKey = !1, !p && !f && ge(t) && (n.indentAtStart = g.length + 1), h = !1, !u && c.length >= 2 && !n.inFlow && !p && _e(t) && !t.flow && !t.tag && !t.anchor && (n.indent = n.indent.substring(2));
+	ve(t) ? (_ = !!t.spaceBefore, v = t.commentBefore, y = t.comment) : (_ = !1, v = null, y = null, t && typeof t == "object" && (t = o.createNode(t))), n.implicitKey = !1, !p && !f && L(t) && (n.indentAtStart = g.length + 1), h = !1, !u && c.length >= 2 && !n.inFlow && !p && ge(t) && !t.flow && !t.tag && !t.anchor && (n.indent = n.indent.substring(2));
 	let b = !1, x = dt(t, n, () => b = !0, () => h = !0), S = " ";
 	if (f || _ || v) {
 		if (S = _ ? "\n" : "", v) {
@@ -8874,7 +8874,7 @@ function ft({ key: e, value: t }, n, r, i) {
 			S += `\n${Ge(e, n.indent)}`;
 		}
 		x === "" && !n.inFlow ? S === "\n" && y && (S = "\n\n") : S += `\n${n.indent}`;
-	} else if (!p && ve(t)) {
+	} else if (!p && _e(t)) {
 		let e = x[0], r = x.indexOf("\n"), i = r !== -1, a = n.inFlow ?? t.flow ?? t.items.length === 0;
 		if (i || !a) {
 			let t = !1;
@@ -8901,10 +8901,10 @@ var mt = "<<", ht = {
 	test: /^<<$/,
 	resolve: () => Object.assign(new B(Symbol(mt)), { addToJSMap: _t }),
 	stringify: () => mt
-}, gt = (e, t) => (ht.identify(t) || ge(t) && (!t.type || t.type === B.PLAIN) && ht.identify(t.value)) && e?.doc.schema.tags.some((e) => e.tag === ht.tag && e.default);
+}, gt = (e, t) => (ht.identify(t) || L(t) && (!t.type || t.type === B.PLAIN) && ht.identify(t.value)) && e?.doc.schema.tags.some((e) => e.tag === ht.tag && e.default);
 function _t(e, t, n) {
 	let r = yt(e, n);
-	if (_e(r)) for (let n of r.items) vt(e, t, n);
+	if (ge(r)) for (let n of r.items) vt(e, t, n);
 	else if (Array.isArray(r)) for (let n of r) vt(e, t, n);
 	else vt(e, t, r);
 }
@@ -8926,7 +8926,7 @@ function yt(e, t) {
 //#endregion
 //#region node_modules/yaml/browser/dist/nodes/addPairToJSMap.js
 function bt(e, t, { key: n, value: r }) {
-	if (ye(n) && n.addToJSMap) n.addToJSMap(e, t, r);
+	if (ve(n) && n.addToJSMap) n.addToJSMap(e, t, r);
 	else if (gt(e, n)) _t(e, t, r);
 	else {
 		let i = Ie(n, "", e);
@@ -8947,7 +8947,7 @@ function bt(e, t, { key: n, value: r }) {
 function xt(e, t, n) {
 	if (t === null) return "";
 	if (typeof t != "object") return String(t);
-	if (ye(e) && n?.doc) {
+	if (ve(e) && n?.doc) {
 		let t = ct(n.doc, {});
 		t.anchors = /* @__PURE__ */ new Set();
 		for (let e of n.anchors.keys()) t.anchors.add(e.anchor);
@@ -8972,7 +8972,7 @@ var Ct = class e {
 	}
 	clone(t) {
 		let { key: n, value: r } = this;
-		return ye(n) && (n = n.clone(t)), ye(r) && (r = r.clone(t)), new e(n, r);
+		return ve(n) && (n = n.clone(t)), ve(r) && (r = r.clone(t)), new e(n, r);
 	}
 	toJSON(e, t) {
 		return bt(t, t?.mapAsMap ? /* @__PURE__ */ new Map() : {}, this);
@@ -8993,9 +8993,9 @@ function Tt({ comment: e, items: t }, n, { blockItemPrefix: r, flowChars: i, ite
 	}), d = !1, f = [];
 	for (let e = 0; e < t.length; ++e) {
 		let i = t[e], o = null;
-		if (ye(i)) !d && i.spaceBefore && f.push(""), Dt(n, f, i.commentBefore, d), i.comment && (o = i.comment);
+		if (ve(i)) !d && i.spaceBefore && f.push(""), Dt(n, f, i.commentBefore, d), i.comment && (o = i.comment);
 		else if (I(i)) {
-			let e = ye(i.key) ? i.key : null;
+			let e = ve(i.key) ? i.key : null;
 			e && (!d && e.spaceBefore && f.push(""), Dt(n, f, e.commentBefore, d));
 		}
 		d = !1;
@@ -9023,11 +9023,11 @@ function Et({ items: e }, t, { flowChars: n, itemIndent: r }) {
 	}), l = !1, u = 0, d = [];
 	for (let n = 0; n < e.length; ++n) {
 		let i = e[n], a = null;
-		if (ye(i)) i.spaceBefore && d.push(""), Dt(t, d, i.commentBefore, !1), i.comment && (a = i.comment);
+		if (ve(i)) i.spaceBefore && d.push(""), Dt(t, d, i.commentBefore, !1), i.comment && (a = i.comment);
 		else if (I(i)) {
-			let e = ye(i.key) ? i.key : null;
+			let e = ve(i.key) ? i.key : null;
 			e && (e.spaceBefore && d.push(""), Dt(t, d, e.commentBefore, !1), e.comment && (l = !0));
-			let n = ye(i.value) ? i.value : null;
+			let n = ve(i.value) ? i.value : null;
 			n ? (n.comment && (a = n.comment), n.commentBefore && (l = !0)) : i.value == null && e?.comment && (a = e.comment);
 		}
 		a && (l = !0);
@@ -9055,8 +9055,8 @@ function Dt({ indent: e, options: { commentString: t } }, n, r, i) {
 //#endregion
 //#region node_modules/yaml/browser/dist/nodes/YAMLMap.js
 function Ot(e, t) {
-	let n = ge(t) ? t.value : t;
-	for (let r of e) if (I(r) && (r.key === t || r.key === n || ge(r.key) && r.key.value === n)) return r;
+	let n = L(t) ? t.value : t;
+	for (let r of e) if (I(r) && (r.key === t || r.key === n || L(r.key) && r.key.value === n)) return r;
 }
 var kt = class extends U {
 	static get tagName() {
@@ -9081,7 +9081,7 @@ var kt = class extends U {
 		let r = Ot(this.items, n.key), i = this.schema?.sortMapEntries;
 		if (r) {
 			if (!t) throw Error(`Key ${n.key} already set`);
-			ge(r.value) && Be(n.value) ? r.value.value = n.value : r.value = n.value;
+			L(r.value) && Be(n.value) ? r.value.value = n.value : r.value = n.value;
 		} else if (i) {
 			let e = this.items.findIndex((e) => i(n, e) < 0);
 			e === -1 ? this.items.push(n) : this.items.splice(e, 0, n);
@@ -9093,7 +9093,7 @@ var kt = class extends U {
 	}
 	get(e, t) {
 		let n = Ot(this.items, e)?.value;
-		return (!t && ge(n) ? n.value : n) ?? void 0;
+		return (!t && L(n) ? n.value : n) ?? void 0;
 	}
 	has(e) {
 		return !!Ot(this.items, e);
@@ -9148,7 +9148,7 @@ var kt = class extends U {
 		let n = Mt(e);
 		if (typeof n != "number") return;
 		let r = this.items[n];
-		return !t && ge(r) ? r.value : r;
+		return !t && L(r) ? r.value : r;
 	}
 	has(e) {
 		let t = Mt(e);
@@ -9158,7 +9158,7 @@ var kt = class extends U {
 		let n = Mt(e);
 		if (typeof n != "number") throw Error(`Expected a valid index, not ${e}.`);
 		let r = this.items[n];
-		ge(r) && Be(t) ? r.value = t : this.items[n] = t;
+		L(r) && Be(t) ? r.value = t : this.items[n] = t;
 	}
 	toJSON(e, t) {
 		let n = [];
@@ -9195,7 +9195,7 @@ var kt = class extends U {
 	}
 };
 function Mt(e) {
-	let t = ge(e) ? e.value : e;
+	let t = L(e) ? e.value : e;
 	return t && typeof t == "string" && (t = Number(t)), typeof t == "number" && Number.isInteger(t) && t >= 0 ? t : null;
 }
 //#endregion
@@ -9206,7 +9206,7 @@ var Nt = {
 	nodeClass: jt,
 	tag: "tag:yaml.org,2002:seq",
 	resolve(e, t) {
-		return _e(e) || t("Expected a sequence for this tag"), e;
+		return ge(e) || t("Expected a sequence for this tag"), e;
 	},
 	createNode: (e, t, n) => jt.from(e, t, n)
 }, Pt = {
@@ -9408,7 +9408,7 @@ var Yt = ({ value: e }) => JSON.stringify(e), Xt = [
 //#endregion
 //#region node_modules/yaml/browser/dist/schema/yaml-1.1/pairs.js
 function $t(e, t) {
-	if (_e(e)) for (let n = 0; n < e.items.length; ++n) {
+	if (ge(e)) for (let n = 0; n < e.items.length; ++n) {
 		let r = e.items[n];
 		if (!I(r)) {
 			if (F(r)) {
@@ -9479,7 +9479,7 @@ var rn = {
 	tag: "tag:yaml.org,2002:omap",
 	resolve(e, t) {
 		let n = $t(e, t), r = [];
-		for (let { key: e } of n.items) ge(e) && (r.includes(e.value) ? t(`Ordered maps must not include duplicate keys: ${e.value}`) : r.push(e.value));
+		for (let { key: e } of n.items) L(e) && (r.includes(e.value) ? t(`Ordered maps must not include duplicate keys: ${e.value}`) : r.push(e.value));
 		return Object.assign(new nn(), n);
 	},
 	createNode: (e, t, n) => nn.from(e, t, n)
@@ -9605,7 +9605,7 @@ var mn = {
 	}
 	get(e, t) {
 		let n = Ot(this.items, e);
-		return !t && I(n) ? ge(n.key) ? n.key.value : n.key : n;
+		return !t && I(n) ? L(n.key) ? n.key.value : n.key : n;
 	}
 	set(e, t) {
 		if (typeof t != "boolean") throw Error(`Expected boolean value for set(key, value) in a YAML set, not ${typeof t}`);
@@ -9796,7 +9796,7 @@ function Mn(e, t) {
 	}
 	let o = !1, s = null;
 	if (e.contents) {
-		if (ye(e.contents)) {
+		if (ve(e.contents)) {
 			if (e.contents.spaceBefore && r && n.push(""), e.contents.commentBefore) {
 				let t = a(e.contents.commentBefore);
 				n.push(Ge(t, ""));
@@ -9835,11 +9835,11 @@ var Nn = class e {
 		}, n);
 		this.options = i;
 		let { version: a } = i;
-		n?._directives ? (this.directives = n._directives.atDocument(), this.directives.yaml.explicit && (a = this.directives.yaml.version)) : this.directives = new L({ version: a }), this.setSchema(a, n), this.contents = e === void 0 ? null : this.createNode(e, r, n);
+		n?._directives ? (this.directives = n._directives.atDocument(), this.directives.yaml.explicit && (a = this.directives.yaml.version)) : this.directives = new Me({ version: a }), this.setSchema(a, n), this.contents = e === void 0 ? null : this.createNode(e, r, n);
 	}
 	clone() {
 		let t = Object.create(e.prototype, { [me]: { value: fe } });
-		return t.commentBefore = this.commentBefore, t.comment = this.comment, t.errors = this.errors.slice(), t.warnings = this.warnings.slice(), t.options = Object.assign({}, this.options), this.directives && (t.directives = this.directives.clone()), t.schema = this.schema.clone(), t.contents = ye(this.contents) ? this.contents.clone(t.schema) : this.contents, this.range && (t.range = this.range.slice()), t;
+		return t.commentBefore = this.commentBefore, t.comment = this.comment, t.errors = this.errors.slice(), t.warnings = this.warnings.slice(), t.options = Object.assign({}, this.options), this.directives && (t.directives = this.directives.clone()), t.schema = this.schema.clone(), t.contents = ve(this.contents) ? this.contents.clone(t.schema) : this.contents, this.range && (t.range = this.range.slice()), t;
 	}
 	add(e) {
 		Pn(this.contents) && this.contents.add(e);
@@ -9870,7 +9870,7 @@ var Nn = class e {
 			schema: this.schema,
 			sourceObjects: f
 		}, m = V(e, l, p);
-		return o && ve(m) && (m.flow = !0), d(), m;
+		return o && _e(m) && (m.flow = !0), d(), m;
 	}
 	createPair(e, t, n = {}) {
 		return new Ct(this.createNode(e, null, n), this.createNode(t, null, n));
@@ -9882,16 +9882,16 @@ var Nn = class e {
 		return Ue(e) ? this.contents == null ? !1 : (this.contents = null, !0) : Pn(this.contents) ? this.contents.deleteIn(e) : !1;
 	}
 	get(e, t) {
-		return ve(this.contents) ? this.contents.get(e, t) : void 0;
+		return _e(this.contents) ? this.contents.get(e, t) : void 0;
 	}
 	getIn(e, t) {
-		return Ue(e) ? !t && ge(this.contents) ? this.contents.value : this.contents : ve(this.contents) ? this.contents.getIn(e, t) : void 0;
+		return Ue(e) ? !t && L(this.contents) ? this.contents.value : this.contents : _e(this.contents) ? this.contents.getIn(e, t) : void 0;
 	}
 	has(e) {
-		return ve(this.contents) ? this.contents.has(e) : !1;
+		return _e(this.contents) ? this.contents.has(e) : !1;
 	}
 	hasIn(e) {
-		return Ue(e) ? this.contents !== void 0 : ve(this.contents) ? this.contents.hasIn(e) : !1;
+		return Ue(e) ? this.contents !== void 0 : _e(this.contents) ? this.contents.hasIn(e) : !1;
 	}
 	set(e, t) {
 		this.contents == null ? this.contents = H(this.schema, [e], t) : Pn(this.contents) && this.contents.set(e, t);
@@ -9904,14 +9904,14 @@ var Nn = class e {
 		let n;
 		switch (e) {
 			case "1.1":
-				this.directives ? this.directives.yaml.version = "1.1" : this.directives = new L({ version: "1.1" }), n = {
+				this.directives ? this.directives.yaml.version = "1.1" : this.directives = new Me({ version: "1.1" }), n = {
 					resolveKnownTags: !1,
 					schema: "yaml-1.1"
 				};
 				break;
 			case "1.2":
 			case "next":
-				this.directives ? this.directives.yaml.version = e : this.directives = new L({ version: e }), n = {
+				this.directives ? this.directives.yaml.version = e : this.directives = new Me({ version: e }), n = {
 					resolveKnownTags: !0,
 					schema: "core"
 				};
@@ -9958,7 +9958,7 @@ var Nn = class e {
 	}
 };
 function Pn(e) {
-	if (ve(e)) return !0;
+	if (_e(e)) return !0;
 	throw Error("Expected a YAML collection as document contents");
 }
 //#endregion
@@ -10081,7 +10081,7 @@ function Vn(e, t, n) {
 function Hn(e, t, n) {
 	let { uniqueKeys: r } = e.options;
 	if (r === !1) return !1;
-	let i = typeof r == "function" ? r : (e, t) => e === t || ge(e) && ge(t) && e.value === t.value;
+	let i = typeof r == "function" ? r : (e, t) => e === t || L(e) && L(t) && e.value === t.value;
 	return t.some((e) => i(e.key, n));
 }
 //#endregion
@@ -10325,7 +10325,7 @@ function Zn(e, t, n, r, i) {
 		if (r?.collection === s) t.schema.tags.push(Object.assign({}, r, { default: !1 })), c = r;
 		else return r ? i(a, "BAD_COLLECTION_TYPE", `${r.tag} used for ${s} collection, but expects ${r.collection ?? "scalar"}`, !0) : i(a, "TAG_RESOLVE_FAILED", `Unresolved tag: ${o}`, !0), Xn(e, t, n, i, o);
 	}
-	let l = Xn(e, t, n, i, o, c), u = c.resolve?.(l, (e) => i(a, "TAG_RESOLVE_FAILED", e), t.options) ?? l, d = ye(u) ? u : new B(u);
+	let l = Xn(e, t, n, i, o, c), u = c.resolve?.(l, (e) => i(a, "TAG_RESOLVE_FAILED", e), t.options) ?? l, d = ve(u) ? u : new B(u);
 	return d.range = l.range, d.tag = o, c?.format && (d.format = c.format), d;
 }
 //#endregion
@@ -10604,7 +10604,7 @@ function lr(e, t, n, r) {
 	let u;
 	try {
 		let a = l.resolve(i, (e) => r(n ?? t, "TAG_RESOLVE_FAILED", e), e.options);
-		u = ge(a) ? a : new B(a);
+		u = L(a) ? a : new B(a);
 	} catch (e) {
 		let a = e instanceof Error ? e.message : String(e);
 		r(n ?? t, "TAG_RESOLVE_FAILED", a), u = new B(i);
@@ -10680,7 +10680,7 @@ function mr(e, t, n, r) {
 			break;
 		default: r(t, "UNEXPECTED_TOKEN", t.type === "error" ? t.message : `Unsupported token (type: ${t.type})`), u = !1;
 	}
-	return l ??= hr(e, t.offset, void 0, null, n, r), s && l.anchor === "" && r(s, "BAD_ALIAS", "Anchor cannot be an empty string"), i && e.options.stringKeys && (!ge(l) || typeof l.value != "string" || l.tag && l.tag !== "tag:yaml.org,2002:str") && r(c ?? t, "NON_STRING_KEY", "With stringKeys, all keys must be strings"), a && (l.spaceBefore = !0), o && (t.type === "scalar" && t.source === "" ? l.comment = o : l.commentBefore = o), e.options.keepSourceTokens && u && (l.srcToken = t), l;
+	return l ??= hr(e, t.offset, void 0, null, n, r), s && l.anchor === "" && r(s, "BAD_ALIAS", "Anchor cannot be an empty string"), i && e.options.stringKeys && (!L(l) || typeof l.value != "string" || l.tag && l.tag !== "tag:yaml.org,2002:str") && r(c ?? t, "NON_STRING_KEY", "With stringKeys, all keys must be strings"), a && (l.spaceBefore = !0), o && (t.type === "scalar" && t.source === "" ? l.comment = o : l.commentBefore = o), e.options.keepSourceTokens && u && (l.srcToken = t), l;
 }
 function hr(e, t, n, r, { spaceBefore: i, comment: a, anchor: o, tag: s, end: c }, l) {
 	let u = lr(e, {
@@ -10758,7 +10758,7 @@ var br = class {
 		this.doc = null, this.atDirectives = !1, this.prelude = [], this.errors = [], this.warnings = [], this.onError = (e, t, n, r) => {
 			let i = vr(e);
 			r ? this.warnings.push(new Ln(i, t, n)) : this.errors.push(new In(i, t, n));
-		}, this.directives = new L({ version: e.version || "1.2" }), this.options = e;
+		}, this.directives = new Me({ version: e.version || "1.2" }), this.options = e;
 	}
 	decorate(e, t) {
 		let { comment: n, afterEmptyLine: r } = yr(this.prelude);
@@ -10766,7 +10766,7 @@ var br = class {
 			let i = e.contents;
 			if (t) e.comment = e.comment ? `${e.comment}\n${n}` : n;
 			else if (r || e.directives.docStart || !i) e.commentBefore = n;
-			else if (ve(i) && !i.flow && i.items.length > 0) {
+			else if (_e(i) && !i.flow && i.items.length > 0) {
 				let e = i.items[0];
 				I(e) && (e = e.key);
 				let t = e.commentBefore;
@@ -12060,7 +12060,7 @@ function ri(e, t = {}) {
 	return t.elementType === "multiline" && ti(e, n) && ei(e, n).length > 1 || e.length >= 80 ? B.BLOCK_FOLDED : null;
 }
 function ii(e) {
-	we(e, { Scalar(e, t, n) {
+	Ce(e, { Scalar(e, t, n) {
 		let r = n[n.length - 1];
 		if (!I(r) || r.value !== t) return;
 		let i = r.key, a = i instanceof B && typeof i.value == "string" ? i.value : void 0, o = n[n.length - 2], s = F(o) && typeof o.get("type") == "string" ? o.get("type") : void 0, c = F(o) && typeof o.get("delimiter") == "string" ? o.get("delimiter") : void 0, l = ri(t.value, {
@@ -12131,7 +12131,7 @@ function mi(e) {
 		return null;
 	}
 	let { contents: n } = t;
-	return n != null && _e(n) ? n : null;
+	return n != null && ge(n) ? n : null;
 }
 function hi(e) {
 	let t = mi(e);
@@ -25279,7 +25279,7 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 		}, F.UTF16 = function(e) {
 			return e.length * 2;
 		};
-		var ge = {
+		var L = {
 			"x-mac-croatian": "ÄÅÇÉÑÖÜáàâäãåçéèêëíìîïñóòôöõúùûü†°¢£§•¶ß®Š™´¨≠ŽØ∞±≤≥∆µ∂∑∏š∫ªºΩžø¿¡¬√ƒ≈Ć«Č…\xA0ÀÃÕŒœĐ—“”‘’÷◊©⁄€‹›Æ»–·‚„‰ÂćÁčÈÍÎÏÌÓÔđÒÚÛÙıˆ˜¯πË˚¸Êæˇ",
 			"x-mac-cyrillic": "АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ†°Ґ£§•¶І®©™Ђђ≠Ѓѓ∞±≤≥іµґЈЄєЇїЉљЊњјЅ¬√ƒ≈∆«»…\xA0ЋћЌќѕ–—“”‘’÷„ЎўЏџ№Ёёяабвгдежзийклмнопрстуфхцчшщъыьэю",
 			"x-mac-gaelic": "ÄÅÇÉÑÖÜáàâäãåçéèêëíìîïñóòôöõúùûü†°¢£§•¶ß®©™´¨≠ÆØḂ±≤≥ḃĊċḊḋḞḟĠġṀæøṁṖṗɼƒſṠ«»…\xA0ÀÃÕŒœ–—“”‘’ṡẛÿŸṪ€‹›Ŷŷṫ·Ỳỳ⁊ÂÊÁËÈÍÎÏÌÓÔ♣ÒÚÛÙıÝýŴŵẄẅẀẁẂẃ",
@@ -25292,7 +25292,7 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			"x-mac-turkish": "ÄÅÇÉÑÖÜáàâäãåçéèêëíìîïñóòôöõúùûü†°¢£§•¶ß®©™´¨≠ÆØ∞±≤≥¥µ∂∑∏π∫ªºΩæø¿¡¬√ƒ≈∆«»…\xA0ÀÃÕŒœ–—“”‘’÷◊ÿŸĞğİıŞş‡·‚„‰ÂÊÁËÈÍÎÏÌÓÔÒÚÛÙˆ˜¯˘˙˚¸˝˛ˇ"
 		};
 		he.MACSTRING = function(e, t, n, r) {
-			let i = ge[r];
+			let i = L[r];
 			if (i === void 0) return;
 			let a = "";
 			for (let r = 0; r < n; r++) {
@@ -25301,25 +25301,25 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			}
 			return a;
 		};
-		var _e = typeof WeakMap == "function" && /* @__PURE__ */ new WeakMap(), ve, ye = function(e) {
-			if (!ve) {
-				ve = {};
-				for (let e in ge) ve[e] = new String(e);
+		var ge = typeof WeakMap == "function" && /* @__PURE__ */ new WeakMap(), _e, ve = function(e) {
+			if (!_e) {
+				_e = {};
+				for (let e in L) _e[e] = new String(e);
 			}
-			let t = ve[e];
+			let t = _e[e];
 			if (t === void 0) return;
-			if (_e) {
-				let e = _e.get(t);
+			if (ge) {
+				let e = ge.get(t);
 				if (e !== void 0) return e;
 			}
-			let n = ge[e];
+			let n = L[e];
 			if (n === void 0) return;
 			let r = {};
 			for (let e = 0; e < n.length; e++) r[n.charCodeAt(e)] = e + 128;
-			return _e && _e.set(t, r), r;
+			return ge && ge.set(t, r), r;
 		};
 		P.MACSTRING = function(e, t) {
-			let n = ye(t);
+			let n = ve(t);
 			if (n === void 0) return;
 			let r = [];
 			for (let t = 0; t < e.length; t++) {
@@ -25332,30 +25332,30 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			let n = P.MACSTRING(e, t);
 			return n === void 0 ? 0 : n.length;
 		};
-		function be(e) {
+		function ye(e) {
 			return e >= -128 && e <= 127;
 		}
-		function xe(e, t, n) {
+		function be(e, t, n) {
 			let r = 0, i = e.length;
 			for (; t < i && r < 64 && e[t] === 0;) ++t, ++r;
 			return n.push(128 | r - 1), t;
 		}
-		function Se(e, t, n) {
+		function xe(e, t, n) {
 			let r = 0, i = e.length, a = t;
 			for (; a < i && r < 64;) {
 				let t = e[a];
-				if (!be(t) || t === 0 && a + 1 < i && e[a + 1] === 0) break;
+				if (!ye(t) || t === 0 && a + 1 < i && e[a + 1] === 0) break;
 				++a, ++r;
 			}
 			n.push(r - 1);
 			for (let r = t; r < a; ++r) n.push(e[r] + 256 & 255);
 			return a;
 		}
-		function Ce(e, t, n) {
+		function Se(e, t, n) {
 			let r = 0, i = e.length, a = t;
 			for (; a < i && r < 64;) {
 				let t = e[a];
-				if (t === 0 || be(t) && a + 1 < i && be(e[a + 1])) break;
+				if (t === 0 || ye(t) && a + 1 < i && ye(e[a + 1])) break;
 				++a, ++r;
 			}
 			n.push(64 | r - 1);
@@ -25369,7 +25369,7 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			let t = 0, n = [];
 			for (; t < e.length;) {
 				let r = e[t];
-				t = r === 0 ? xe(e, t, n) : r >= -128 && r <= 127 ? Se(e, t, n) : Ce(e, t, n);
+				t = r === 0 ? be(e, t, n) : r >= -128 && r <= 127 ? xe(e, t, n) : Se(e, t, n);
 			}
 			return n;
 		}, P.INDEX = function(e) {
@@ -25427,10 +25427,10 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			} else throw Error("Unknown operand type " + t);
 			return n;
 		}, P.OP = P.BYTE, F.OP = F.BYTE;
-		var we = typeof WeakMap == "function" && /* @__PURE__ */ new WeakMap();
+		var Ce = typeof WeakMap == "function" && /* @__PURE__ */ new WeakMap();
 		P.CHARSTRING = function(e) {
-			if (we) {
-				let t = we.get(e);
+			if (Ce) {
+				let t = Ce.get(e);
 				if (t !== void 0) return t;
 			}
 			let t = [], n = e.length;
@@ -25438,7 +25438,7 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 				let n = e[r], i = P[n.type](n.value);
 				for (let e = 0; e < i.length; e++) t.push(i[e]);
 			}
-			return we && we.set(e, t), t;
+			return Ce && Ce.set(e, t), t;
 		}, F.CHARSTRING = function(e) {
 			return P.CHARSTRING(e).length;
 		}, P.OBJECT = function(e) {
@@ -25478,7 +25478,7 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 		}, F.LITERAL = function(e) {
 			return e.length;
 		};
-		function Te(e, t, n) {
+		function we(e, t, n) {
 			if (t && t.length) for (let e = 0; e < t.length; e += 1) {
 				let n = t[e];
 				this[n.name] = n.value;
@@ -25491,12 +25491,12 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 				}
 			}
 		}
-		Te.prototype.encode = function() {
+		we.prototype.encode = function() {
 			return P.TABLE(this);
-		}, Te.prototype.sizeOf = function() {
+		}, we.prototype.sizeOf = function() {
 			return F.TABLE(this);
 		};
-		function Ee(e, t, n) {
+		function Te(e, t, n) {
 			n === void 0 && (n = t.length);
 			let r = Array(t.length + 1);
 			r[0] = {
@@ -25511,7 +25511,7 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			};
 			return r;
 		}
-		function De(e, t, n) {
+		function Ee(e, t, n) {
 			let r = t.length, i = Array(r + 1);
 			i[0] = {
 				name: e + "Count",
@@ -25525,7 +25525,7 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			};
 			return i;
 		}
-		function Oe(e, t, n) {
+		function De(e, t, n) {
 			let r = t.length, i = [];
 			i[0] = {
 				name: e + "Count",
@@ -25535,16 +25535,16 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			for (let e = 0; e < r; e++) i = i.concat(n(t[e], e));
 			return i;
 		}
-		function ke(e) {
-			e.format === 1 ? Te.call(this, "coverageTable", [{
+		function Oe(e) {
+			e.format === 1 ? we.call(this, "coverageTable", [{
 				name: "coverageFormat",
 				type: "USHORT",
 				value: 1
-			}].concat(Ee("glyph", e.glyphs))) : e.format === 2 ? Te.call(this, "coverageTable", [{
+			}].concat(Te("glyph", e.glyphs))) : e.format === 2 ? we.call(this, "coverageTable", [{
 				name: "coverageFormat",
 				type: "USHORT",
 				value: 2
-			}].concat(Oe("rangeRecord", e.ranges, function(e, t) {
+			}].concat(De("rangeRecord", e.ranges, function(e, t) {
 				return [
 					{
 						name: "startGlyphID" + t,
@@ -25564,9 +25564,9 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 				];
 			}))) : j.assert(!1, "Coverage format must be 1 or 2.");
 		}
-		ke.prototype = Object.create(Te.prototype), ke.prototype.constructor = ke;
-		function Ae(e) {
-			Te.call(this, "scriptListTable", Oe("scriptRecord", e, function(e, t) {
+		Oe.prototype = Object.create(we.prototype), Oe.prototype.constructor = Oe;
+		function ke(e) {
+			we.call(this, "scriptListTable", De("scriptRecord", e, function(e, t) {
 				let n = e.script, r = n.defaultLangSys;
 				return j.assert(!!r, "Unable to write GSUB: script " + e.tag + " has no default language system."), [{
 					name: "scriptTag" + t,
@@ -25575,10 +25575,10 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 				}, {
 					name: "script" + t,
 					type: "TABLE",
-					value: new Te("scriptTable", [{
+					value: new we("scriptTable", [{
 						name: "defaultLangSys",
 						type: "TABLE",
-						value: new Te("defaultLangSys", [{
+						value: new we("defaultLangSys", [{
 							name: "lookupOrder",
 							type: "USHORT",
 							value: 0
@@ -25586,8 +25586,8 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 							name: "reqFeatureIndex",
 							type: "USHORT",
 							value: r.reqFeatureIndex
-						}].concat(Ee("featureIndex", r.featureIndexes)))
-					}].concat(Oe("langSys", n.langSysRecords, function(e, t) {
+						}].concat(Te("featureIndex", r.featureIndexes)))
+					}].concat(De("langSys", n.langSysRecords, function(e, t) {
 						let n = e.langSys;
 						return [{
 							name: "langSysTag" + t,
@@ -25596,7 +25596,7 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 						}, {
 							name: "langSys" + t,
 							type: "TABLE",
-							value: new Te("langSys", [{
+							value: new we("langSys", [{
 								name: "lookupOrder",
 								type: "USHORT",
 								value: 0
@@ -25604,15 +25604,15 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 								name: "reqFeatureIndex",
 								type: "USHORT",
 								value: n.reqFeatureIndex
-							}].concat(Ee("featureIndex", n.featureIndexes)))
+							}].concat(Te("featureIndex", n.featureIndexes)))
 						}];
 					})))
 				}];
 			}));
 		}
-		Ae.prototype = Object.create(Te.prototype), Ae.prototype.constructor = Ae;
-		function je(e) {
-			Te.call(this, "featureListTable", Oe("featureRecord", e, function(e, t) {
+		ke.prototype = Object.create(we.prototype), ke.prototype.constructor = ke;
+		function Ae(e) {
+			we.call(this, "featureListTable", De("featureRecord", e, function(e, t) {
 				let n = e.feature;
 				return [{
 					name: "featureTag" + t,
@@ -25621,19 +25621,19 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 				}, {
 					name: "feature" + t,
 					type: "TABLE",
-					value: new Te("featureTable", [{
+					value: new we("featureTable", [{
 						name: "featureParams",
 						type: "USHORT",
 						value: n.featureParams
-					}].concat(Ee("lookupListIndex", n.lookupListIndexes)))
+					}].concat(Te("lookupListIndex", n.lookupListIndexes)))
 				}];
 			}));
 		}
-		je.prototype = Object.create(Te.prototype), je.prototype.constructor = je;
-		function Me(e, t) {
-			Te.call(this, "lookupListTable", De("lookup", e, function(e) {
+		Ae.prototype = Object.create(we.prototype), Ae.prototype.constructor = Ae;
+		function je(e, t) {
+			we.call(this, "lookupListTable", Ee("lookup", e, function(e) {
 				let n = t[e.lookupType];
-				return j.assert(!!n, "Unable to write GSUB lookup type " + e.lookupType + " tables."), new Te("lookupTable", [{
+				return j.assert(!!n, "Unable to write GSUB lookup type " + e.lookupType + " tables."), new we("lookupTable", [{
 					name: "lookupType",
 					type: "USHORT",
 					value: e.lookupType
@@ -25641,12 +25641,12 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 					name: "lookupFlag",
 					type: "USHORT",
 					value: e.lookupFlag
-				}].concat(De("subtable", e.subtables, n)));
+				}].concat(Ee("subtable", e.subtables, n)));
 			}));
 		}
-		Me.prototype = Object.create(Te.prototype), Me.prototype.constructor = Me;
-		function L(e) {
-			e.format === 1 ? Te.call(this, "classDefTable", [{
+		je.prototype = Object.create(we.prototype), je.prototype.constructor = je;
+		function Me(e) {
+			e.format === 1 ? we.call(this, "classDefTable", [{
 				name: "classFormat",
 				type: "USHORT",
 				value: 1
@@ -25654,11 +25654,11 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 				name: "startGlyphID",
 				type: "USHORT",
 				value: e.startGlyph
-			}].concat(Ee("glyph", e.classes))) : e.format === 2 ? Te.call(this, "classDefTable", [{
+			}].concat(Te("glyph", e.classes))) : e.format === 2 ? we.call(this, "classDefTable", [{
 				name: "classFormat",
 				type: "USHORT",
 				value: 2
-			}].concat(Oe("rangeRecord", e.ranges, function(e, t) {
+			}].concat(De("rangeRecord", e.ranges, function(e, t) {
 				return [
 					{
 						name: "startGlyphID" + t,
@@ -25678,18 +25678,18 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 				];
 			}))) : j.assert(!1, "Class format must be 1 or 2.");
 		}
-		L.prototype = Object.create(Te.prototype), L.prototype.constructor = L;
+		Me.prototype = Object.create(we.prototype), Me.prototype.constructor = Me;
 		var R = {
-			Table: Te,
-			Record: Te,
-			Coverage: ke,
-			ClassDef: L,
-			ScriptList: Ae,
-			FeatureList: je,
-			LookupList: Me,
-			ushortList: Ee,
-			tableList: De,
-			recordList: Oe
+			Table: we,
+			Record: we,
+			Coverage: Oe,
+			ClassDef: Me,
+			ScriptList: ke,
+			FeatureList: Ae,
+			LookupList: je,
+			ushortList: Te,
+			tableList: Ee,
+			recordList: De
 		};
 		function Ne(e, t) {
 			return e.getUint8(t);
@@ -26862,7 +26862,7 @@ var KYt = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 		};
 		function lt(e, t, n, r) {
 			e.length = t.parseUShort(), e.language = t.parseUShort() - 1;
-			let i = t.parseByteList(e.length), a = Object.assign({}, i), o = ge[Qe(n, r, e.language)];
+			let i = t.parseByteList(e.length), a = Object.assign({}, i), o = L[Qe(n, r, e.language)];
 			for (let e = 0; e < o.length; e++) a[o.charCodeAt(e)] = i[128 + e];
 			e.glyphIndexMap = a;
 		}
@@ -36139,7 +36139,7 @@ var vz = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 					"expr",
 					"cases",
 					"default"
-				] }), de = d.extend("Case", { fields: ["cond", "body"] }), fe = p.extend("Output"), j = d.extend("Capture", { fields: ["body"] }), M = h.extend("TemplateData"), pe = d.extend("UnaryOp", { fields: ["target"] }), N = d.extend("BinOp", { fields: ["left", "right"] }), me = N.extend("In"), he = N.extend("Is"), P = N.extend("Or"), F = N.extend("And"), I = pe.extend("Not"), ge = N.extend("Add"), _e = N.extend("Concat"), ve = N.extend("Sub"), ye = N.extend("Mul"), be = N.extend("Div"), xe = N.extend("FloorDiv"), Se = N.extend("Mod"), Ce = N.extend("Pow"), we = pe.extend("Neg"), Te = pe.extend("Pos"), Ee = d.extend("Compare", { fields: ["expr", "ops"] }), De = d.extend("CompareOperand", { fields: ["expr", "type"] }), Oe = d.extend("CallExtension", {
+				] }), de = d.extend("Case", { fields: ["cond", "body"] }), fe = p.extend("Output"), j = d.extend("Capture", { fields: ["body"] }), M = h.extend("TemplateData"), pe = d.extend("UnaryOp", { fields: ["target"] }), N = d.extend("BinOp", { fields: ["left", "right"] }), me = N.extend("In"), he = N.extend("Is"), P = N.extend("Or"), F = N.extend("And"), I = pe.extend("Not"), L = N.extend("Add"), ge = N.extend("Concat"), _e = N.extend("Sub"), ve = N.extend("Mul"), ye = N.extend("Div"), be = N.extend("FloorDiv"), xe = N.extend("Mod"), Se = N.extend("Pow"), Ce = pe.extend("Neg"), we = pe.extend("Pos"), Te = d.extend("Compare", { fields: ["expr", "ops"] }), Ee = d.extend("CompareOperand", { fields: ["expr", "type"] }), De = d.extend("CallExtension", {
 					init: function(e, t, n, r) {
 						this.parent(), this.extName = e.__name || e, this.prop = t, this.args = n || new p(), this.contentArgs = r || [], this.autoescape = e.autoescape;
 					},
@@ -36149,8 +36149,8 @@ var vz = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 						"args",
 						"contentArgs"
 					]
-				}), ke = Oe.extend("CallExtensionAsync");
-				function Ae(e, t, n) {
+				}), Oe = De.extend("CallExtensionAsync");
+				function ke(e, t, n) {
 					var r = e.split("\n");
 					r.forEach(function(e, i) {
 						e && (n && i > 0 || !n) && process.stdout.write(" ".repeat(t));
@@ -36158,20 +36158,20 @@ var vz = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 						process.stdout.write("" + e + a);
 					});
 				}
-				function je(e, t) {
-					if (t ||= 0, Ae(e.typename + ": ", t), e instanceof p) Ae("\n"), e.children.forEach(function(e) {
-						je(e, t + 2);
+				function Ae(e, t) {
+					if (t ||= 0, ke(e.typename + ": ", t), e instanceof p) ke("\n"), e.children.forEach(function(e) {
+						Ae(e, t + 2);
 					});
-					else if (e instanceof Oe) Ae(e.extName + "." + e.prop + "\n"), e.args && je(e.args, t + 2), e.contentArgs && e.contentArgs.forEach(function(e) {
-						je(e, t + 2);
+					else if (e instanceof De) ke(e.extName + "." + e.prop + "\n"), e.args && Ae(e.args, t + 2), e.contentArgs && e.contentArgs.forEach(function(e) {
+						Ae(e, t + 2);
 					});
 					else {
 						var n = [], r = null;
 						e.iterFields(function(e, t) {
 							e instanceof d ? n.push([t, e]) : (r ||= {}, r[t] = e);
-						}), r ? Ae(JSON.stringify(r, null, 2) + "\n", null, !0) : Ae("\n"), n.forEach(function(e) {
+						}), r ? ke(JSON.stringify(r, null, 2) + "\n", null, !0) : ke("\n"), n.forEach(function(e) {
 							var n = e[0], r = e[1];
-							Ae("[" + n + "] =>", t + 2), je(r, t + 4);
+							ke("[" + n + "] =>", t + 2), Ae(r, t + 4);
 						});
 					}
 				}
@@ -36217,21 +36217,21 @@ var vz = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 					Or: P,
 					And: F,
 					Not: I,
-					Add: ge,
-					Concat: _e,
-					Sub: ve,
-					Mul: ye,
-					Div: be,
-					FloorDiv: xe,
-					Mod: Se,
-					Pow: Ce,
-					Neg: we,
-					Pos: Te,
-					Compare: Ee,
-					CompareOperand: De,
-					CallExtension: Oe,
-					CallExtensionAsync: ke,
-					printNodes: je
+					Add: L,
+					Concat: ge,
+					Sub: _e,
+					Mul: ve,
+					Div: ye,
+					FloorDiv: be,
+					Mod: xe,
+					Pow: Se,
+					Neg: Ce,
+					Pos: we,
+					Compare: Te,
+					CompareOperand: Ee,
+					CallExtension: De,
+					CallExtensionAsync: Oe,
+					printNodes: Ae
 				};
 			}),
 			(function(e, t) {}),
@@ -39801,64 +39801,64 @@ function MZt() {
 				}], me = void 0, he = 0, P = 0, F = 0;
 				u.clear();
 				for (var I = g.start; I <= g.end; I++) {
-					var ge = r[I];
-					if (me = N[N.length - 1], u.set(ge, (u.get(ge) || 0) + 1), ge & o && u.set(o, (u.get(o) || 0) + 1), ge & v) if (ge & (se | A)) {
+					var L = r[I];
+					if (me = N[N.length - 1], u.set(L, (u.get(L) || 0) + 1), L & o && u.set(o, (u.get(o) || 0) + 1), L & v) if (L & (se | A)) {
 						p[I] = me._level;
-						var _e = (ge === se ? M : j)(me._level);
-						_e <= n && !he && !P ? N.push({
-							_level: _e,
+						var ge = (L === se ? M : j)(me._level);
+						ge <= n && !he && !P ? N.push({
+							_level: ge,
 							_override: 0,
 							_isolate: 0
 						}) : he || P++;
-					} else if (ge & (k | oe)) {
+					} else if (L & (k | oe)) {
 						p[I] = me._level;
-						var ve = (ge === k ? M : j)(me._level);
-						ve <= n && !he && !P ? N.push({
-							_level: ve,
-							_override: ge & k ? C : S,
+						var _e = (L === k ? M : j)(me._level);
+						_e <= n && !he && !P ? N.push({
+							_level: _e,
+							_override: L & k ? C : S,
 							_isolate: 0
 						}) : he || P++;
-					} else if (ge & i) {
-						ge & de && (ge = Zt(I + 1, !0) === 1 ? ue : le), p[I] = me._level, me._override && f(I, me._override);
-						var ye = (ge === ue ? M : j)(me._level);
-						ye <= n && he === 0 && P === 0 ? (F++, N.push({
-							_level: ye,
+					} else if (L & i) {
+						L & de && (L = Zt(I + 1, !0) === 1 ? ue : le), p[I] = me._level, me._override && f(I, me._override);
+						var ve = (L === ue ? M : j)(me._level);
+						ve <= n && he === 0 && P === 0 ? (F++, N.push({
+							_level: ve,
 							_override: 0,
 							_isolate: 1,
 							_isolInitIndex: I
 						})) : he++;
-					} else if (ge & fe) {
+					} else if (L & fe) {
 						if (he > 0) he--;
 						else if (F > 0) {
 							for (P = 0; !N[N.length - 1]._isolate;) N.pop();
-							var be = N[N.length - 1]._isolInitIndex;
-							be != null && (m.set(be, I), m.set(I, be)), N.pop(), F--;
+							var ye = N[N.length - 1]._isolInitIndex;
+							ye != null && (m.set(ye, I), m.set(I, ye)), N.pop(), F--;
 						}
 						me = N[N.length - 1], p[I] = me._level, me._override && f(I, me._override);
-					} else ge & ce ? (he === 0 && (P > 0 ? P-- : !me._isolate && N.length > 1 && (N.pop(), me = N[N.length - 1])), p[I] = me._level) : ge & ee && (p[I] = g.level);
-					else p[I] = me._level, me._override && ge !== re && f(I, me._override);
+					} else L & ce ? (he === 0 && (P > 0 ? P-- : !me._isolate && N.length > 1 && (N.pop(), me = N[N.length - 1])), p[I] = me._level) : L & ee && (p[I] = g.level);
+					else p[I] = me._level, me._override && L !== re && f(I, me._override);
 				}
-				for (var xe = [], Se = null, Ce = g.start; Ce <= g.end; Ce++) {
-					var we = r[Ce];
-					if (!(we & s)) {
-						var Te = p[Ce], Ee = we & i, De = we === fe;
-						Se && Te === Se._level ? (Se._end = Ce, Se._endsWithIsolInit = Ee) : xe.push(Se = {
-							_start: Ce,
-							_end: Ce,
-							_level: Te,
-							_startsWithPDI: De,
-							_endsWithIsolInit: Ee
+				for (var be = [], xe = null, Se = g.start; Se <= g.end; Se++) {
+					var Ce = r[Se];
+					if (!(Ce & s)) {
+						var we = p[Se], Te = Ce & i, Ee = Ce === fe;
+						xe && we === xe._level ? (xe._end = Se, xe._endsWithIsolInit = Te) : be.push(xe = {
+							_start: Se,
+							_end: Se,
+							_level: we,
+							_startsWithPDI: Ee,
+							_endsWithIsolInit: Te
 						});
 					}
 				}
-				for (var Oe = [], ke = 0; ke < xe.length; ke++) {
-					var Ae = xe[ke];
-					if (!Ae._startsWithPDI || Ae._startsWithPDI && !m.has(Ae._start)) {
-						for (var je = [Se = Ae], Me = void 0; Se && Se._endsWithIsolInit && (Me = m.get(Se._end)) != null;) for (var L = ke + 1; L < xe.length; L++) if (xe[L]._start === Me) {
-							je.push(Se = xe[L]);
+				for (var De = [], Oe = 0; Oe < be.length; Oe++) {
+					var ke = be[Oe];
+					if (!ke._startsWithPDI || ke._startsWithPDI && !m.has(ke._start)) {
+						for (var Ae = [xe = ke], je = void 0; xe && xe._endsWithIsolInit && (je = m.get(xe._end)) != null;) for (var Me = Oe + 1; Me < be.length; Me++) if (be[Me]._start === je) {
+							Ae.push(xe = be[Me]);
 							break;
 						}
-						for (var R = [], Ne = 0; Ne < je.length; Ne++) for (var Pe = je[Ne], Fe = Pe._start; Fe <= Pe._end; Fe++) R.push(Fe);
+						for (var R = [], Ne = 0; Ne < Ae.length; Ne++) for (var Pe = Ae[Ne], Fe = Pe._start; Fe <= Pe._end; Fe++) R.push(Fe);
 						for (var z = p[R[0]], Ie = g.level, Le = R[0] - 1; Le >= 0; Le--) if (!(r[Le] & s)) {
 							Ie = p[Le];
 							break;
@@ -39870,15 +39870,15 @@ function MZt() {
 								break;
 							}
 						}
-						Oe.push({
+						De.push({
 							_seqIndices: R,
 							_sosType: Math.max(Ie, z) % 2 ? C : S,
 							_eosType: Math.max(Be, ze) % 2 ? C : S
 						});
 					}
 				}
-				for (var Ve = 0; Ve < Oe.length; Ve++) {
-					var He = Oe[Ve], V = He._seqIndices, H = He._sosType, Ue = He._eosType, U = p[V[0]] & 1 ? C : S;
+				for (var Ve = 0; Ve < De.length; Ve++) {
+					var He = De[Ve], V = He._seqIndices, H = He._sosType, Ue = He._eosType, U = p[V[0]] & 1 ? C : S;
 					if (u.get(ie)) for (var We = 0; We < V.length; We++) {
 						var Ge = V[We];
 						if (r[Ge] & ie) {
@@ -46993,10 +46993,10 @@ function W4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 	let se = k?.active ?? !1, ce = k?.disabledReason ?? null, le = (0, v.useId)(), ue = (0, v.useRef)(null), de = (0, v.useRef)(null), fe = (0, v.useRef)(null), j = (0, v.useRef)(!1), [M, pe] = (0, v.useState)(null), [N, me] = (0, v.useState)("default"), [he, P] = (0, v.useState)({
 		width: 0,
 		height: 0
-	}), [F, I] = (0, v.useState)(() => y4t()), { flashSuccess: ge, flashError: _e, getFeedback: ve, getFeedbackMessage: ye } = FK(), be = (0, v.useRef)(null), xe = (0, v.useRef)(null), Se = (0, v.useRef)(null), Ce = vK(be), we = vK(xe), { toolbarRef: Te, showLabels: Ee } = yK(i4t, {
-		fitWidth: _K(Ce.width, we.width),
-		measureRef: Se
-	}), [De, Oe] = (0, v.useState)(() => /* @__PURE__ */ new Map()), [ke, Ae] = (0, v.useState)(() => /* @__PURE__ */ new Map()), [je, Me] = (0, v.useState)(() => /* @__PURE__ */ new Map()), [L, R] = (0, v.useState)(() => /* @__PURE__ */ new Map()), [Ne, Pe] = (0, v.useState)(() => /* @__PURE__ */ new Map()), [Fe, z] = (0, v.useState)(null), [Ie, Le] = (0, v.useState)(null), [Re, ze] = (0, v.useState)(null), Be = (0, v.useRef)(null), B = (0, v.useRef)(null), [Ve, He] = (0, v.useState)([]), [V, H] = (0, v.useState)([]), [Ue, U] = (0, v.useState)(null), We = Ue ?? e;
+	}), [F, I] = (0, v.useState)(() => y4t()), { flashSuccess: L, flashError: ge, getFeedback: _e, getFeedbackMessage: ve } = FK(), ye = (0, v.useRef)(null), be = (0, v.useRef)(null), xe = (0, v.useRef)(null), Se = vK(ye), Ce = vK(be), { toolbarRef: we, showLabels: Te } = yK(i4t, {
+		fitWidth: _K(Se.width, Ce.width),
+		measureRef: xe
+	}), [Ee, De] = (0, v.useState)(() => /* @__PURE__ */ new Map()), [Oe, ke] = (0, v.useState)(() => /* @__PURE__ */ new Map()), [Ae, je] = (0, v.useState)(() => /* @__PURE__ */ new Map()), [Me, R] = (0, v.useState)(() => /* @__PURE__ */ new Map()), [Ne, Pe] = (0, v.useState)(() => /* @__PURE__ */ new Map()), [Fe, z] = (0, v.useState)(null), [Ie, Le] = (0, v.useState)(null), [Re, ze] = (0, v.useState)(null), Be = (0, v.useRef)(null), B = (0, v.useRef)(null), [Ve, He] = (0, v.useState)([]), [V, H] = (0, v.useState)([]), [Ue, U] = (0, v.useState)(null), We = Ue ?? e;
 	(0, v.useEffect)(() => {
 		de.current = Fe;
 	}, [Fe]), (0, v.useEffect)(() => {
@@ -47040,7 +47040,7 @@ function W4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 	(0, v.useEffect)(() => {
 		b4t(F);
 	}, [F]);
-	let Qe = bK(e, TW), $e = (0, v.useMemo)(() => (DW(Qe, L), We.flatMap((e, t) => {
+	let Qe = bK(e, TW), $e = (0, v.useMemo)(() => (DW(Qe, Me), We.flatMap((e, t) => {
 		if (!RW(e, n)) return [];
 		let r = zW(e, n);
 		return r ? [{
@@ -47051,27 +47051,27 @@ function W4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 		We,
 		Qe,
 		n,
-		L,
+		Me,
 		Ne,
-		ke
+		Oe
 	]), et = (0, v.useCallback)((e) => {
 		let n = t[e];
 		return n != null && lG(n);
 	}, [t]), tt = bK(e, c2t), nt = (0, v.useMemo)(() => Qe.length !== 0 && Qe.some((e) => {
 		let t = Ne.get(e);
 		return t == null || t.status !== "ready" && t.status !== "missing" && t.status !== "failed";
-	}), [Qe, Ne]), rt = (0, v.useMemo)(() => b2t(e, n, Ne, nt, ke), [
+	}), [Qe, Ne]), rt = (0, v.useMemo)(() => b2t(e, n, Ne, nt, Oe), [
 		e,
 		n,
 		Ne,
 		nt,
-		L,
-		ke
+		Me,
+		Oe
 	]), it = (0, v.useMemo)(() => qG([...u, ...rt]), [u, rt]);
 	(0, v.useEffect)(() => {
 		let e = !1;
 		return s2t(tt, () => e).then((t) => {
-			e || (Oe((e) => l2t(e, t.images) ? e : t.images), Ae((e) => d2t(e, t.outcomes) ? e : t.outcomes));
+			e || (De((e) => l2t(e, t.images) ? e : t.images), ke((e) => d2t(e, t.outcomes) ? e : t.outcomes));
 		}), () => {
 			e = !0;
 		};
@@ -47087,17 +47087,17 @@ function W4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 			families: e,
 			batch: t
 		}))).then((t) => {
-			e || (Me((e) => l0t(e, t.families) ? e : t.families), R((e) => w0t(e, t.batch.fonts) ? e : t.batch.fonts), Pe((e) => f2t(e, t.batch.outcomes) ? e : t.batch.outcomes));
+			e || (je((e) => l0t(e, t.families) ? e : t.families), R((e) => w0t(e, t.batch.fonts) ? e : t.batch.fonts), Pe((e) => f2t(e, t.batch.outcomes) ? e : t.batch.outcomes));
 		}), () => {
 			e = !0;
 		};
 	}, [i, Qe]);
-	let at = (0, v.useMemo)(() => u2t(De, tt), [
-		De,
+	let at = (0, v.useMemo)(() => u2t(Ee, tt), [
+		Ee,
 		i,
 		tt
 	]), ot = (0, v.useMemo)(() => {
-		DW(Qe, L);
+		DW(Qe, Me);
 		let t = /* @__PURE__ */ new Map();
 		for (let i of r) {
 			let r = e[i];
@@ -47109,11 +47109,11 @@ function W4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 	}, [
 		e,
 		Qe,
-		L,
+		Me,
 		n,
 		r,
 		Ne,
-		ke
+		Oe
 	]), st = (0, v.useMemo)(() => {
 		if (Ge == null || Ke) return null;
 		let t = Ve.find((e) => e.index === Ge);
@@ -47123,18 +47123,18 @@ function W4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 		e,
 		Ke,
 		Ge
-	]), ct = (0, v.useMemo)(() => st ? (DW(Qe, L), zW(st, n)) : Ke ? CK([...ot.values()]) : null, [
+	]), ct = (0, v.useMemo)(() => st ? (DW(Qe, Me), zW(st, n)) : Ke ? CK([...ot.values()]) : null, [
 		Qe,
 		Ke,
-		L,
+		Me,
 		st,
 		n,
 		ot,
 		Ne,
-		ke
-	]), lt = (0, v.useMemo)(() => st ? (DW(Qe, L), uV(st, n)) : null, [
+		Oe
+	]), lt = (0, v.useMemo)(() => st ? (DW(Qe, Me), uV(st, n)) : null, [
 		Qe,
-		L,
+		Me,
 		st,
 		n
 	]), ut = (0, v.useMemo)(() => {
@@ -47455,13 +47455,13 @@ function W4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 			showHiddenHints: !1
 		},
 		assetImages: at,
-		fontFamilies: je,
-		opentypeFonts: L
+		fontFamilies: Ae,
+		opentypeFonts: Me
 	}), [
 		We,
 		at,
-		je,
-		L,
+		Ae,
+		Me,
 		n
 	]);
 	IK(A, Pt);
@@ -47473,41 +47473,41 @@ function W4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 		try {
 			let e = await Ft();
 			if (!e) {
-				_e("copy-png", qK);
+				ge("copy-png", qK);
 				return;
 			}
 			let t = await r4t(e);
-			t.ok ? ge("copy-png") : _e("copy-png", t.reason);
+			t.ok ? L("copy-png") : ge("copy-png", t.reason);
 		} catch {
-			_e("copy-png", "PNG export failed");
+			ge("copy-png", "PNG export failed");
 		}
 	}, [
 		Ft,
-		_e,
-		ge
+		ge,
+		L
 	]), Lt = (0, v.useCallback)(async () => {
 		try {
 			let e = await Ft();
 			if (!e) {
-				_e("download-png", qK);
+				ge("download-png", qK);
 				return;
 			}
-			mK(e, se ? X2t(a) : Y2t(a)), ge("download-png");
+			mK(e, se ? X2t(a) : Y2t(a)), L("download-png");
 		} catch {
-			_e("download-png", "PNG export failed");
+			ge("download-png", "PNG export failed");
 		}
 	}, [
 		Ft,
-		_e,
 		ge,
+		L,
 		se,
 		a
 	]), Rt = {
-		showLabels: Ee,
+		showLabels: Te,
 		zoomMode: F,
 		onZoomModeChange: I,
-		getFeedback: ve,
-		getFeedbackMessage: ye,
+		getFeedback: _e,
+		getFeedbackMessage: ve,
 		onCopyPng: () => void It(),
 		onDownloadPng: () => void Lt(),
 		canUndo: te,
@@ -47527,11 +47527,11 @@ function W4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 		"aria-label": "E-paper canvas",
 		children: [
 			/* @__PURE__ */ (0, K.jsxs)("div", {
-				ref: be,
+				ref: ye,
 				className: `relative flex min-w-0 items-center justify-between gap-2 overflow-visible border-b ${q.panelBorder} px-4 py-2`,
 				children: [
 					/* @__PURE__ */ (0, K.jsxs)("div", {
-						ref: xe,
+						ref: be,
 						"data-testid": "canvas-heading",
 						className: "flex min-w-0 shrink-0 items-center gap-2",
 						children: [/* @__PURE__ */ (0, K.jsx)("h2", {
@@ -47564,7 +47564,7 @@ function W4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 						}) : null]
 					}),
 					/* @__PURE__ */ (0, K.jsx)("div", {
-						ref: Te,
+						ref: we,
 						className: "shrink-0",
 						children: /* @__PURE__ */ (0, K.jsx)(KK, { ...Rt })
 					}),
@@ -47572,7 +47572,7 @@ function W4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 						"aria-hidden": !0,
 						className: "pointer-events-none invisible fixed top-0 -left-[10000px] h-0 overflow-hidden",
 						children: /* @__PURE__ */ (0, K.jsx)("div", {
-							ref: Se,
+							ref: xe,
 							className: "w-max whitespace-nowrap",
 							children: /* @__PURE__ */ (0, K.jsx)(KK, {
 								...Rt,
@@ -47680,10 +47680,10 @@ function W4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 											hidden: Dt.has(t),
 											renderContext: n,
 											assetImages: at,
-											fontFamilies: je,
-											opentypeFonts: L,
+											fontFamilies: Ae,
+											opentypeFonts: Me,
 											fontLoadOutcomes: Ne,
-											imageLoadOutcomes: ke
+											imageLoadOutcomes: Oe
 										}, t)),
 										Ve.map((e) => /* @__PURE__ */ (0, K.jsx)(rG, {
 											element: e.element,
@@ -47691,10 +47691,10 @@ function W4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 											layerZIndex: We.length + e.index + 1,
 											renderContext: n,
 											assetImages: at,
-											fontFamilies: je,
-											opentypeFonts: L,
+											fontFamilies: Ae,
+											opentypeFonts: Me,
 											fontLoadOutcomes: Ne,
-											imageLoadOutcomes: ke
+											imageLoadOutcomes: Oe
 										}, `drag-overlay-${e.index}`)),
 										/* @__PURE__ */ (0, K.jsxs)("svg", {
 											viewBox: `0 0 ${n.width} ${n.height}`,
@@ -71417,32 +71417,32 @@ function fln({ elements: e, sessionName: t, selectedIndex: n, selectionSource: r
 		e,
 		p
 	]);
-	let ge = (0, v.useRef)(e);
+	let L = (0, v.useRef)(e);
 	(0, v.useEffect)(() => {
-		ge.current = e;
+		L.current = e;
 	}, [e]);
-	let _e = (0, v.useMemo)(() => Kcn(Wcn(k, n, r, u), Gcn(k, l)), [
+	let ge = (0, v.useMemo)(() => Kcn(Wcn(k, n, r, u), Gcn(k, l)), [
 		k,
 		u,
 		l,
 		n,
 		r
-	]), ve = (0, v.useMemo)(() => K9t(x), [x]);
+	]), _e = (0, v.useMemo)(() => K9t(x), [x]);
 	(0, v.useEffect)(() => {
-		d?.(ve);
-	}, [d, ve]);
-	let ye = (0, v.useCallback)(async () => {
+		d?.(_e);
+	}, [d, _e]);
+	let ve = (0, v.useCallback)(async () => {
 		let e = await gK(x);
 		e.ok ? le("copy-yaml") : ue("copy-yaml", e.reason);
 	}, [
 		ue,
 		le,
 		x
-	]), be = {
+	]), ye = {
 		showLabels: P,
 		getFeedback: de,
 		getFeedbackMessage: fe,
-		onCopyYaml: () => void ye(),
+		onCopyYaml: () => void ve(),
 		onDownloadYaml: (0, v.useCallback)(() => {
 			mK(Z2t(x), J2t(t)), le("download-yaml");
 		}, [
@@ -71458,37 +71458,37 @@ function fln({ elements: e, sessionName: t, selectedIndex: n, selectionSource: r
 		fontSize: ie,
 		onDecreaseFontSize: oe,
 		onIncreaseFontSize: ae
-	}, xe = (0, v.useCallback)(() => {
+	}, be = (0, v.useCallback)(() => {
 		te.current != null && (window.clearTimeout(te.current), te.current = null);
 		let e = ee.current;
-		ee.current = null, !(e == null || uJ(ge.current, e)) && (D.current = !0, a(e));
-	}, [a]), Se = (0, v.useCallback)(() => {
+		ee.current = null, !(e == null || uJ(L.current, e)) && (D.current = !0, a(e));
+	}, [a]), xe = (0, v.useCallback)(() => {
 		te.current != null && (window.clearTimeout(te.current), te.current = null), ee.current = null, D.current = !1;
 	}, []);
 	(0, v.useEffect)(() => () => {
 		te.current != null && window.clearTimeout(te.current);
-	}, []), IK(_, xe), IK(y, Se);
-	let Ce = (0, v.useCallback)((e) => {
+	}, []), IK(_, be), IK(y, xe);
+	let Se = (0, v.useCallback)((e) => {
 		S(e);
 		let t = lJ(e);
 		if (t === null) {
 			ee.current = null, te.current != null && (window.clearTimeout(te.current), te.current = null);
 			return;
 		}
-		if (uJ(ge.current, t)) {
+		if (uJ(L.current, t)) {
 			ee.current = null, te.current != null && (window.clearTimeout(te.current), te.current = null);
 			return;
 		}
 		ee.current = t, te.current != null && window.clearTimeout(te.current), te.current = window.setTimeout(() => {
-			te.current = null, xe();
+			te.current = null, be();
 		}, 80);
-	}, [xe]), we = (0, v.useCallback)((e, t) => {
+	}, [be]), Ce = (0, v.useCallback)((e, t) => {
 		if (!k) return;
-		let r = xi(t, e, ge.current, ee.current);
-		r.shouldFlushPending && xe(), !(r.index == null || r.index === n) && i(r.index, "yaml");
+		let r = xi(t, e, L.current, ee.current);
+		r.shouldFlushPending && be(), !(r.index == null || r.index === n) && i(r.index, "yaml");
 	}, [
 		k,
-		xe,
+		be,
 		i,
 		n
 	]);
@@ -71520,7 +71520,7 @@ function fln({ elements: e, sessionName: t, selectedIndex: n, selectionSource: r
 					/* @__PURE__ */ (0, K.jsx)("div", {
 						ref: he,
 						className: "shrink-0",
-						children: /* @__PURE__ */ (0, K.jsx)($7, { ...be })
+						children: /* @__PURE__ */ (0, K.jsx)($7, { ...ye })
 					}),
 					/* @__PURE__ */ (0, K.jsx)("div", {
 						"aria-hidden": !0,
@@ -71529,7 +71529,7 @@ function fln({ elements: e, sessionName: t, selectedIndex: n, selectionSource: r
 							ref: pe,
 							className: "w-max whitespace-nowrap",
 							children: /* @__PURE__ */ (0, K.jsx)($7, {
-								...be,
+								...ye,
 								measureOnly: !0
 							})
 						})
@@ -71546,15 +71546,15 @@ function fln({ elements: e, sessionName: t, selectedIndex: n, selectionSource: r
 					height: "100%",
 					mockContext: m,
 					templatePreviewEnabled: se,
-					scrollCommand: _e,
+					scrollCommand: ge,
 					preserveLinkedElementIndex: k ? n : null,
 					scrollLinkedElementOnSync: C,
 					yamlSelectionRef: ne,
 					yamlScrollRef: re,
-					onCursorPositionChange: we,
-					onEditorBlur: xe,
+					onCursorPositionChange: Ce,
+					onEditorBlur: be,
 					value: x,
-					onChange: Ce,
+					onChange: Se,
 					readOnly: b
 				})
 			})
@@ -71872,18 +71872,18 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 				this.onsuccess = this.onerror = null, t.apply(this, arguments), n && (this.onsuccess = this.onsuccess ? P(n, this.onsuccess) : n), r && (this.onerror = this.onerror ? P(r, this.onerror) : r);
 			};
 		}
-		function ge(e, t) {
+		function L(e, t) {
 			return e === N ? t : function(n) {
 				var r = e.apply(this, arguments), n = (o(n, r), this.onsuccess), i = this.onerror, a = (this.onsuccess = null, this.onerror = null, t.apply(this, arguments));
 				return n && (this.onsuccess = this.onsuccess ? P(n, this.onsuccess) : n), i && (this.onerror = this.onerror ? P(i, this.onerror) : i), r === void 0 ? a === void 0 ? void 0 : a : o(r, a);
 			};
 		}
-		function _e(e, t) {
+		function ge(e, t) {
 			return e === N ? t : function() {
 				return !1 !== t.apply(this, arguments) && e.apply(this, arguments);
 			};
 		}
-		function ve(e, t) {
+		function _e(e, t) {
 			return e === N ? t : function() {
 				var n = e.apply(this, arguments);
 				if (n && typeof n.then == "function") {
@@ -71896,21 +71896,21 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			};
 		}
 		T.ModifyError = ue, T.DexieError = ce, T.BulkError = de;
-		var ye = typeof location < "u" && /^(http|https):\/\/(localhost|127\.0\.0\.1)/.test(location.href);
-		function be(e) {
-			ye = e;
+		var ve = typeof location < "u" && /^(http|https):\/\/(localhost|127\.0\.0\.1)/.test(location.href);
+		function ye(e) {
+			ve = e;
 		}
-		var xe = {}, Se = 100, Ce = typeof Promise > "u" ? [] : (A = Promise.resolve(), typeof crypto < "u" && crypto.subtle ? [
-			Ce = crypto.subtle.digest("SHA-512", new Uint8Array([0])),
-			s(Ce),
+		var be = {}, xe = 100, Se = typeof Promise > "u" ? [] : (A = Promise.resolve(), typeof crypto < "u" && crypto.subtle ? [
+			Se = crypto.subtle.digest("SHA-512", new Uint8Array([0])),
+			s(Se),
 			A
 		] : [
 			A,
 			s(A),
 			A
-		]), A = Ce[0], we = Ce[1], we = we && we.then, Te = A && A.constructor, Ee = !!Ce[2], De = function(e, t) {
-			Ne.push([e, t]), ke &&= (queueMicrotask(Ve), !1);
-		}, Oe = !0, ke = !0, Ae = [], je = [], Me = me, L = {
+		]), A = Se[0], Ce = Se[1], Ce = Ce && Ce.then, we = A && A.constructor, Te = !!Se[2], Ee = function(e, t) {
+			Ne.push([e, t]), Oe &&= (queueMicrotask(Ve), !1);
+		}, De = !0, Oe = !0, ke = [], Ae = [], je = me, Me = {
 			id: "global",
 			global: !0,
 			ref: 0,
@@ -71919,13 +71919,13 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			pgp: !1,
 			env: {},
 			finalize: N
-		}, R = L, Ne = [], Pe = 0, Fe = [];
+		}, R = Me, Ne = [], Pe = 0, Fe = [];
 		function z(e) {
 			if (typeof this != "object") throw TypeError("Promises must be constructed via new");
 			this._listeners = [], this._lib = !1;
 			var t = this._PSD = R;
 			if (typeof e != "function") {
-				if (e !== xe) throw TypeError("Not a function");
+				if (e !== be) throw TypeError("Not a function");
 				this._state = arguments[1], this._value = arguments[2], !1 === this._state && Re(this, this._value);
 			} else this._state = null, this._value = null, ++t.ref, function e(t, n) {
 				try {
@@ -71952,10 +71952,10 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 					});
 					return this._consoleTask && (s._consoleTask = this._consoleTask), s;
 				}
-				return n.prototype = xe, n;
+				return n.prototype = be, n;
 			},
 			set: function(e) {
-				f(this, "then", e && e.prototype === xe ? Ie : {
+				f(this, "then", e && e.prototype === be ? Ie : {
 					get: function() {
 						return e;
 					},
@@ -71968,16 +71968,16 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 		}
 		function Re(e, t) {
 			var n, r;
-			je.push(t), e._state === null && (n = e._lib && He(), t = Me(t), e._state = !1, e._value = t, r = e, Ae.some(function(e) {
+			Ae.push(t), e._state === null && (n = e._lib && He(), t = je(t), e._state = !1, e._value = t, r = e, ke.some(function(e) {
 				return e._value === r._value;
-			}) || Ae.push(r), ze(e), n) && V();
+			}) || ke.push(r), ze(e), n) && V();
 		}
 		function ze(e) {
 			var t = e._listeners;
 			e._listeners = [];
 			for (var n = 0, r = t.length; n < r; ++n) Be(e, t[n]);
 			var i = e._PSD;
-			--i.ref || i.finalize(), Pe === 0 && (++Pe, De(function() {
+			--i.ref || i.finalize(), Pe === 0 && (++Pe, Ee(function() {
 				--Pe == 0 && H();
 			}, []));
 		}
@@ -71986,7 +71986,7 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			else {
 				var n = e._state ? t.onFulfilled : t.onRejected;
 				if (n === null) return (e._state ? t.resolve : t.reject)(e._value);
-				++t.psd.ref, ++Pe, De(B, [
+				++t.psd.ref, ++Pe, Ee(B, [
 					n,
 					e,
 					t
@@ -71996,10 +71996,10 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 		function B(e, t, n) {
 			try {
 				var r, i = t._value;
-				!t._state && je.length && (je = []), r = ye && t._consoleTask ? t._consoleTask.run(function() {
+				!t._state && Ae.length && (Ae = []), r = ve && t._consoleTask ? t._consoleTask.run(function() {
 					return e(i);
-				}) : e(i), t._state || je.indexOf(i) !== -1 || ((e) => {
-					for (var t = Ae.length; t;) if (Ae[--t]._value === e._value) return Ae.splice(t, 1);
+				}) : e(i), t._state || Ae.indexOf(i) !== -1 || ((e) => {
+					for (var t = ke.length; t;) if (ke[--t]._value === e._value) return ke.splice(t, 1);
 				})(t), n.resolve(r);
 			} catch (e) {
 				n.reject(e);
@@ -72008,13 +72008,13 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			}
 		}
 		function Ve() {
-			rt(L, function() {
+			rt(Me, function() {
 				He() && V();
 			});
 		}
 		function He() {
-			var e = Oe;
-			return ke = Oe = !1, e;
+			var e = De;
+			return Oe = De = !1, e;
 		}
 		function V() {
 			var e, t, n;
@@ -72024,15 +72024,15 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 					r[0].apply(null, r[1]);
 				}
 			while (0 < Ne.length);
-			ke = Oe = !0;
+			Oe = De = !0;
 		}
 		function H() {
-			for (var e = Ae, t = (Ae = [], e.forEach(function(e) {
+			for (var e = ke, t = (ke = [], e.forEach(function(e) {
 				e._PSD.onunhandled.call(null, e._value, e);
 			}), Fe.slice(0)), n = t.length; n;) t[--n]();
 		}
 		function Ue(e) {
-			return new z(xe, !1, e);
+			return new z(be, !1, e);
 		}
 		function U(e, t) {
 			var n = R;
@@ -72080,7 +72080,7 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 					n.then(r, i).finally(clearTimeout.bind(null, a));
 				}) : this;
 			}
-		}), typeof Symbol < "u" && Symbol.toStringTag && f(z.prototype, Symbol.toStringTag, "Dexie.Promise"), L.env = nt(), u(z, {
+		}), typeof Symbol < "u" && Symbol.toStringTag && f(z.prototype, Symbol.toStringTag, "Dexie.Promise"), Me.env = nt(), u(z, {
 			all: function() {
 				var e = oe.apply(null, arguments).map($e);
 				return new z(function(t, n) {
@@ -72096,7 +72096,7 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			resolve: function(e) {
 				return e instanceof z ? e : e && typeof e.then == "function" ? new z(function(t, n) {
 					e.then(t, n);
-				}) : new z(xe, !0, e);
+				}) : new z(be, !0, e);
 			},
 			reject: Ue,
 			race: function() {
@@ -72122,18 +72122,18 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			usePSD: rt,
 			scheduler: {
 				get: function() {
-					return De;
+					return Ee;
 				},
 				set: function(e) {
-					De = e;
+					Ee = e;
 				}
 			},
 			rejectionMapper: {
 				get: function() {
-					return Me;
+					return je;
 				},
 				set: function(e) {
-					Me = e;
+					je = e;
 				}
 			},
 			follow: function(e, t) {
@@ -72146,14 +72146,14 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 								r.unhandleds.length === 0 ? t() : n(r.unhandleds[0]);
 							}, Fe.push(function t() {
 								e(), Fe.splice(Fe.indexOf(t), 1);
-							}), ++Pe, De(function() {
+							}), ++Pe, Ee(function() {
 								--Pe == 0 && H();
 							}, []);
 						}, r.finalize), e();
 					}, t, n, r);
 				});
 			}
-		}), Te && (Te.allSettled && f(z, "allSettled", function() {
+		}), we && (we.allSettled && f(z, "allSettled", function() {
 			var e = oe.apply(null, arguments).map($e);
 			return new z(function(t) {
 				e.length === 0 && t([]);
@@ -72174,7 +72174,7 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 					});
 				});
 			});
-		}), Te.any && typeof AggregateError < "u" && f(z, "any", function() {
+		}), we.any && typeof AggregateError < "u" && f(z, "any", function() {
 			var e = oe.apply(null, arguments).map($e);
 			return new z(function(t, n) {
 				e.length === 0 && n(/* @__PURE__ */ AggregateError([]));
@@ -72187,14 +72187,14 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 					});
 				});
 			});
-		}), Te.withResolvers) && (z.withResolvers = Te.withResolvers);
+		}), we.withResolvers) && (z.withResolvers = we.withResolvers);
 		var We = {
 			awaits: 0,
 			echoes: 0,
 			id: 0
 		}, Ge = 0, Ke = [], qe = 0, Je = 0, Ye = 0;
 		function Xe(e, t, n, r) {
-			var i = R, a = Object.create(i), t = (a.parent = i, a.ref = 0, a.global = !1, a.id = ++Ye, L.env, a.env = Ee ? {
+			var i = R, a = Object.create(i), t = (a.parent = i, a.ref = 0, a.global = !1, a.id = ++Ye, Me.env, a.env = Te ? {
 				Promise: z,
 				PromiseProp: {
 					value: z,
@@ -72213,13 +72213,13 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			return a.ref === 0 && a.finalize(), t;
 		}
 		function Ze() {
-			return We.id ||= ++Ge, ++We.awaits, We.echoes += Se, We.id;
+			return We.id ||= ++Ge, ++We.awaits, We.echoes += xe, We.id;
 		}
 		function Qe() {
-			return !!We.awaits && (--We.awaits == 0 && (We.id = 0), We.echoes = We.awaits * Se, !0);
+			return !!We.awaits && (--We.awaits == 0 && (We.id = 0), We.echoes = We.awaits * xe, !0);
 		}
 		function $e(e) {
-			return We.echoes && e && e.constructor === Te ? (Ze(), e.then(function(e) {
+			return We.echoes && e && e.constructor === we ? (Ze(), e.then(function(e) {
 				return Qe(), e;
 			}, function(e) {
 				return Qe(), ot(e);
@@ -72233,11 +72233,11 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			var n, i, a = R;
 			(t ? !We.echoes || qe++ && e === R : !qe || --qe && e === R) || queueMicrotask(t ? function(e) {
 				++Je, We.echoes && --We.echoes != 0 || (We.echoes = We.awaits = We.id = 0), Ke.push(R), tt(e, !0);
-			}.bind(null, e) : et), e !== R && (R = e, a === L && (L.env = nt()), Ee) && (n = L.env.Promise, i = e.env, a.global || e.global) && (Object.defineProperty(r, "Promise", i.PromiseProp), n.all = i.all, n.race = i.race, n.resolve = i.resolve, n.reject = i.reject, i.allSettled && (n.allSettled = i.allSettled), i.any) && (n.any = i.any);
+			}.bind(null, e) : et), e !== R && (R = e, a === Me && (Me.env = nt()), Te) && (n = Me.env.Promise, i = e.env, a.global || e.global) && (Object.defineProperty(r, "Promise", i.PromiseProp), n.all = i.all, n.race = i.race, n.resolve = i.resolve, n.reject = i.reject, i.allSettled && (n.allSettled = i.allSettled), i.any) && (n.any = i.any);
 		}
 		function nt() {
 			var e = r.Promise;
-			return Ee ? {
+			return Te ? {
 				Promise: e,
 				PromiseProp: Object.getOwnPropertyDescriptor(r, "Promise"),
 				all: e.all,
@@ -72268,9 +72268,9 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			} : e;
 		}
 		function at(e) {
-			Promise === Te && We.echoes === 0 ? qe === 0 ? e() : enqueueNativeMicroTask(e) : setTimeout(e, 0);
+			Promise === we && We.echoes === 0 ? qe === 0 ? e() : enqueueNativeMicroTask(e) : setTimeout(e, 0);
 		}
-		("" + we).indexOf("[native code]") === -1 && (Ze = Qe = N);
+		("" + Ce).indexOf("[native code]") === -1 && (Ze = Qe = N);
 		var ot = z.reject, st = "￿", ct = "Invalid key provided. Keys must be of type string, number, Date or Array<string | number | Date>.", lt = "String expected.", ut = "__dbnames", dt = "readonly", ft = "readwrite";
 		function pt(e, t) {
 			return e ? t ? function() {
@@ -72372,7 +72372,7 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			return a;
 		}
 		Tt.prototype._trans = function(e, t, n) {
-			var r = this._tx || R.trans, i = this.name, a = ye && typeof console < "u" && console.createTask && console.createTask(`Dexie: ${e === "readonly" ? "read" : "write"} ${this.name}`);
+			var r = this._tx || R.trans, i = this.name, a = ve && typeof console < "u" && console.createTask && console.createTask(`Dexie: ${e === "readonly" ? "read" : "write"} ${this.name}`);
 			function o(e, n, r) {
 				if (r.schema[i]) return t(r.idbtrans, r);
 				throw new M.NotFound("Table " + i + " not part of transaction");
@@ -72451,7 +72451,7 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			if (n && this.db._maxKey !== st) return s = n.keyPath.slice(0, t.length), this.where(s).equals(s.map(function(t) {
 				return e[t];
 			}));
-			!n && ye && console.warn(`The query ${JSON.stringify(e)} on ${this.name} would benefit from a compound index [${t.join("+")}]`);
+			!n && ve && console.warn(`The query ${JSON.stringify(e)} on ${this.name} would benefit from a compound index [${t.join("+")}]`);
 			var r = this.schema.idxByName;
 			function o(e, t) {
 				return _t(e, t) === 0;
@@ -72731,7 +72731,7 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			return t;
 			function s(e, r, o) {
 				var c, l;
-				if (typeof e != "object") return r ||= _e, l = {
+				if (typeof e != "object") return r ||= ge, l = {
 					subscribers: [],
 					fire: o ||= N,
 					subscribe: function(e) {
@@ -73801,7 +73801,7 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 					if (e.change.length || e.recreate) return console.warn(`Unable to patch indexes of table ${e.name} because it has changes on the type of index or primary key.`), { value: void 0 };
 					var n = t.objectStore(e.name);
 					e.add.forEach(function(t) {
-						ye && console.debug(`Dexie upgrade patch: Creating missing index ${e.name}.${t.src}`), bn(n, t);
+						ve && console.debug(`Dexie upgrade patch: Creating missing index ${e.name}.${t.src}`), bn(n, t);
 					});
 				})(i[r]);
 				if (typeof a == "object") return a.value;
@@ -73850,7 +73850,7 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 		}
 		function yn(e, t) {
 			i(e).forEach(function(n) {
-				t.db.objectStoreNames.contains(n) || (ye && console.debug("Dexie: Creating missing table", n), vn(t, n, e[n].primKey, e[n].indexes));
+				t.db.objectStoreNames.contains(n) || (ve && console.debug("Dexie: Creating missing table", n), vn(t, n, e[n].primKey, e[n].indexes));
 			});
 		}
 		function bn(e, t) {
@@ -73914,7 +73914,7 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 				this._cfg.tables
 			], i(r), r), t._storeNames = i(r), this;
 		}, Tn.prototype.upgrade = function(e) {
-			return this._cfg.contentUpgrade = ve(this._cfg.contentUpgrade || N, e), this;
+			return this._cfg.contentUpgrade = _e(this._cfg.contentUpgrade || N, e), this;
 		};
 		var wn = Tn;
 		function Tn() {}
@@ -74191,7 +74191,7 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 					return e.on.ready.fire(e.vip);
 				})).then(function n() {
 					var r;
-					if (0 < t.onReadyBeingFired.length) return r = t.onReadyBeingFired.reduce(ve, N), t.onReadyBeingFired = [], z.resolve(kn(function() {
+					if (0 < t.onReadyBeingFired.length) return r = t.onReadyBeingFired.reduce(_e, N), t.onReadyBeingFired = [], z.resolve(kn(function() {
 						return r(e.vip);
 					})).then(n);
 				});
@@ -74853,7 +74853,7 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			})), this;
 		}, pr.prototype.open = function() {
 			var e = this;
-			return rt(L, function() {
+			return rt(Me, function() {
 				return Kn(e);
 			});
 		}, pr.prototype._close = function() {
@@ -75014,7 +75014,7 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 				u.dbReadyResolve = e;
 			}), u.openCanceller = new z(function(e, t) {
 				u.cancelOpen = t;
-			}), this._state = u, this.name = e, this.on = Et(this, "populate", "blocked", "versionchange", "close", { ready: [ve, N] }), this.once = function(e, t) {
+			}), this._state = u, this.name = e, this.on = Et(this, "populate", "blocked", "versionchange", "close", { ready: [_e, N] }), this.once = function(e, t) {
 				var n = function() {
 					var r = [...arguments];
 					c.on(e).unsubscribe(n), t.apply(c, r);
@@ -75061,7 +75061,7 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 				this.db = i, this._tx = n, this.name = e, this.schema = t, this.hook = i._allTables[e] ? i._allTables[e].hook : Et(null, {
 					creating: [F, N],
 					reading: [he, me],
-					updating: [ge, N],
+					updating: [L, N],
 					deleting: [I, N]
 				});
 			})), this.Transaction = (a = this, Dt(Qt.prototype, function(e, t, n, r, i) {
@@ -75124,13 +75124,13 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 				return e(c);
 			});
 		}
-		var mr, we = typeof Symbol < "u" && "observable" in Symbol ? Symbol.observable : "@@observable", hr = (gr.prototype.subscribe = function(e, t, n) {
+		var mr, Ce = typeof Symbol < "u" && "observable" in Symbol ? Symbol.observable : "@@observable", hr = (gr.prototype.subscribe = function(e, t, n) {
 			return this._subscribe(e && typeof e != "function" ? e : {
 				next: e,
 				error: t,
 				complete: n
 			});
-		}, gr.prototype[we] = function() {
+		}, gr.prototype[Ce] = function() {
 			return this;
 		}, gr);
 		function gr(e) {
@@ -75239,7 +75239,7 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 				};
 			},
 			ignoreTransaction: function(e) {
-				return R.trans ? rt(R.transless || L, e) : e();
+				return R.trans ? rt(R.transless || Me, e) : e();
 			},
 			vip: kn,
 			async: function(e) {
@@ -75269,10 +75269,10 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			Promise: z,
 			debug: {
 				get: function() {
-					return ye;
+					return ve;
 				},
 				set: function(e) {
-					be(e);
+					ye(e);
 				}
 			},
 			derive: p,
@@ -75321,16 +75321,16 @@ var e9 = /* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 			xr || br.postMessage(e);
 		})), typeof addEventListener < "u" && (addEventListener("pagehide", function(e) {
 			if (!fr.disableBfCache && e.persisted) {
-				ye && console.debug("Dexie: handling persisted pagehide"), br?.close();
+				ve && console.debug("Dexie: handling persisted pagehide"), br?.close();
 				for (var t = 0, n = En.toArray(); t < n.length; t++) n[t].close({ disableAutoOpen: !1 });
 			}
 		}), addEventListener("pageshow", function(e) {
-			!fr.disableBfCache && e.persisted && (ye && console.debug("Dexie: handling persisted pageshow"), Sr(), yr({ all: new jn(-Infinity, [[]]) }));
+			!fr.disableBfCache && e.persisted && (ve && console.debug("Dexie: handling persisted pageshow"), Sr(), yr({ all: new jn(-Infinity, [[]]) }));
 		})), z.rejectionMapper = function(e, t) {
 			return !e || e instanceof ce || e instanceof TypeError || e instanceof SyntaxError || !e.name || !pe[e.name] ? e : (t = new pe[e.name](t || e.message, e), "stack" in e && f(t, "stack", { get: function() {
 				return this.inner.stack;
 			} }), t);
-		}, be(ye), t(fr, Object.freeze({
+		}, ye(ve), t(fr, Object.freeze({
 			__proto__: null,
 			DEFAULT_MAX_CONNECTIONS: 1e3,
 			Dexie: fr,
@@ -76035,86 +76035,92 @@ function wun(e, t, n, r) {
 	};
 }
 function Tun(e, t, { yamlDiscardPendingRef: n } = {}) {
-	let [r, i] = (0, v.useState)(e.sessionName), [a, o] = (0, v.useState)(e.elements), [s, c] = (0, v.useState)([]), [l, u] = (0, v.useState)("ui"), [d, f] = (0, v.useState)(e.canvas), [p, m] = (0, v.useState)(e.service), [h, g] = (0, v.useState)(e.mockStates), [_, y] = (0, v.useState)(e.mockAttributes), [b, x] = (0, v.useState)(e.variables), [S, C] = (0, v.useState)(t.states != null), [w, T] = (0, v.useState)(() => t.states ? T9(t.states) : nun), [E, D] = (0, v.useState)(e.hostDisplay ?? null), [O, ee] = (0, v.useState)(e.hostDisplay != null), [te, ne] = (0, v.useState)(t.actions ?? N9), [re, ie] = (0, v.useState)(t.targets ?? z9), [ae, oe] = (0, v.useState)(() => G9(t.targets ?? z9)), [k, A] = (0, v.useState)(0), [se, ce] = (0, v.useState)(() => Zln()), [le, ue] = (0, v.useState)(() => eun().enabled), de = (0, v.useRef)(h), fe = (0, v.useRef)(_), j = (0, v.useRef)(S), M = (0, v.useRef)(null), pe = (0, v.useRef)(0), N = (0, v.useRef)(null), me = (0, v.useRef)(!1), he = (0, v.useRef)(null), P = (0, v.useRef)(a), F = (0, v.useRef)(d), I = (0, v.useRef)(E), ge = (0, v.useRef)(O), _e = (0, v.useRef)(ae), ve = (0, v.useRef)(!1), ye = (0, v.useRef)(!1), be = (0, v.useRef)(!1), xe = (0, v.useRef)(null), Se = (0, v.useRef)(p), Ce = (0, v.useRef)(s), [we] = (0, v.useState)(() => Sun(e.editHistory)), Te = (0, v.useRef)(we), [Ee, De] = (0, v.useState)(() => ({
-		canUndo: we.canUndo,
-		canRedo: we.canRedo,
-		undoDepth: we.undoDepth
+	let [r, i] = (0, v.useState)(e.sessionName), [a, o] = (0, v.useState)(e.elements), [s, c] = (0, v.useState)([]), [l, u] = (0, v.useState)("ui"), [d, f] = (0, v.useState)(e.canvas), [p, m] = (0, v.useState)(e.service), [h, g] = (0, v.useState)(e.mockStates), [_, y] = (0, v.useState)(e.mockAttributes), [b, x] = (0, v.useState)(e.variables), [S, C] = (0, v.useState)(t.states != null), [w, T] = (0, v.useState)(() => t.states ? T9(t.states) : nun), [E, D] = (0, v.useState)(e.hostDisplay ?? null), [O, ee] = (0, v.useState)(e.hostDisplay != null), [te, ne] = (0, v.useState)(t.actions ?? N9), [re, ie] = (0, v.useState)(t.targets ?? z9), [ae, oe] = (0, v.useState)(() => G9(t.targets ?? z9)), [k, A] = (0, v.useState)(0), [se, ce] = (0, v.useState)(() => Zln()), [le, ue] = (0, v.useState)(() => eun().enabled), de = (0, v.useRef)(h), fe = (0, v.useRef)(_), j = (0, v.useRef)(S), M = (0, v.useRef)(null), pe = (0, v.useRef)(0), N = (0, v.useRef)(null), me = (0, v.useRef)(!1), [he, P] = (0, v.useState)(0), F = (0, v.useCallback)((e) => {
+		pe.current += 1, e && (N.current = Date.now()), P((e) => e + 1);
+	}, []), I = (0, v.useRef)(null), L = (0, v.useRef)(a), ge = (0, v.useRef)(d), _e = (0, v.useRef)(E), ve = (0, v.useRef)(O), ye = (0, v.useRef)(ae), be = (0, v.useRef)(!1), xe = (0, v.useRef)(!1), Se = (0, v.useRef)(!1), Ce = (0, v.useRef)(null), we = (0, v.useRef)(p), Te = (0, v.useRef)(s), [Ee] = (0, v.useState)(() => Sun(e.editHistory)), De = (0, v.useRef)(Ee), [Oe, ke] = (0, v.useState)(() => ({
+		canUndo: Ee.canUndo,
+		canRedo: Ee.canRedo,
+		undoDepth: Ee.undoDepth
 	}));
 	(0, v.useEffect)(() => {
 		de.current = h;
 	}, [h]), (0, v.useEffect)(() => {
 		fe.current = _;
 	}, [_]);
-	let Oe = (0, v.useCallback)((e) => {
-		let t = P.current, n = typeof e == "function" ? e(t) : e;
-		P.current = n, o(n), n !== t && (Te.current.isCoalescing() || (pe.current += 1, me.current || (N.current = Date.now())));
-	}, []), ke = (0, v.useCallback)((e) => {
-		let t = typeof e == "function" ? e(F.current) : e;
-		F.current = t, f(t);
-	}, []), Ae = (0, v.useCallback)((e) => {
-		_e.current = e, oe(e);
-	}, []), je = (0, v.useCallback)((e) => {
-		ve.current = !1;
-		let t = M9(e.capabilities, F.current.previewDitherMode);
-		ke(t), I.current = t, D(t), ge.current = !0, ee(!0), Ae({
+	let Ae = (0, v.useCallback)((e) => {
+		let t = L.current, n = typeof e == "function" ? e(t) : e;
+		L.current = n, o(n), n !== t && (De.current.isCoalescing() || F(!me.current));
+	}, [F]), je = (0, v.useCallback)((e) => {
+		let t = typeof e == "function" ? e(ge.current) : e;
+		ge.current = t, f(t);
+	}, []), Me = (0, v.useCallback)((e) => {
+		ye.current = e, oe(e);
+	}, []), R = (0, v.useCallback)((e) => {
+		be.current = !1;
+		let t = M9(e.capabilities, ge.current.previewDitherMode);
+		je(t), _e.current = t, D(t), ve.current = !0, ee(!0), Me({
 			id: e.id,
 			label: e.label,
 			capabilities: e.capabilities
 		});
-	}, [ke, Ae]), Me = (0, v.useCallback)((e) => {
-		let t = typeof e == "function" ? e(Se.current) : e;
-		Se.current = t, m(t);
-	}, []), L = (0, v.useCallback)((e) => {
-		let t = typeof e == "function" ? e(Ce.current) : e;
-		Ce.current = t, c(t);
-	}, []), R = (0, v.useCallback)(() => {
-		let e = Te.current;
-		De({
+	}, [je, Me]), Ne = (0, v.useCallback)((e) => {
+		let t = typeof e == "function" ? e(we.current) : e;
+		we.current = t, m(t);
+	}, []), Pe = (0, v.useCallback)((e) => {
+		let t = typeof e == "function" ? e(Te.current) : e;
+		Te.current = t, c(t);
+	}, []), Fe = (0, v.useCallback)(() => {
+		let e = De.current;
+		ke({
 			canUndo: e.canUndo,
 			canRedo: e.canRedo,
 			undoDepth: e.undoDepth
 		});
-	}, []), Ne = (0, v.useCallback)(() => {
-		Te.current.clear(), R();
-	}, [R]), Pe = (0, v.useCallback)(() => h9({
-		elements: P.current,
-		canvas: F.current,
-		service: Se.current,
-		selectedIndices: Ce.current
-	}), []), Fe = (0, v.useCallback)((e) => {
+	}, []), z = (0, v.useCallback)(() => {
+		De.current.clear(), Fe();
+	}, [Fe]), Ie = (0, v.useCallback)(() => h9({
+		elements: L.current,
+		canvas: ge.current,
+		service: we.current,
+		selectedIndices: Te.current
+	}), []), Le = (0, v.useCallback)((e) => {
 		let t = structuredClone(e.elements);
-		P.current = t, o(t), pe.current += 1, N.current = Date.now();
+		L.current = t, o(t), F(!0);
 		let n = Z6t(e.selectedIndices, e.elements.length);
-		Ce.current = n, c(n), u("ui");
-	}, []), z = (0, v.useCallback)((e) => {
-		let t = Pe();
-		e(), !g9(t, Pe()) && (Te.current.recordBefore(t), R());
-	}, [Pe, R]), Ie = (0, v.useCallback)(() => {
-		Te.current.beginCoalesce(Pe()), he.current = P.current;
-	}, [Pe]), Le = (0, v.useCallback)(() => {
-		let e = Te.current.isCoalescing();
-		Te.current.endCoalesce(Pe()), R(), e && he.current !== null && P.current !== he.current && (pe.current += 1, N.current = Date.now()), he.current = null;
-	}, [Pe, R]), Re = (0, v.useCallback)(() => {
-		let e = Te.current.undo(Pe());
-		e && (Fe(e), R());
+		Te.current = n, c(n), u("ui");
+	}, [F]), Re = (0, v.useCallback)((e) => {
+		let t = Ie();
+		e(), !g9(t, Ie()) && (De.current.recordBefore(t), Fe());
+	}, [Ie, Fe]), ze = (0, v.useCallback)(() => {
+		De.current.beginCoalesce(Ie()), I.current = L.current;
+	}, [Ie]), Be = (0, v.useCallback)(() => {
+		let e = De.current.isCoalescing();
+		De.current.endCoalesce(Ie()), Fe(), e && I.current !== null && L.current !== I.current && F(!0), I.current = null;
 	}, [
-		Pe,
+		Ie,
 		Fe,
-		R
-	]), ze = (0, v.useCallback)(() => {
-		let e = Te.current.redo(Pe());
-		e && (Fe(e), R());
+		F
+	]), B = (0, v.useCallback)(() => {
+		let e = De.current.undo(Ie());
+		e && (Le(e), Fe());
 	}, [
-		Pe,
-		Fe,
-		R
-	]), Be = (0, v.useRef)(t.persistence), B = t.persistence != null;
+		Ie,
+		Le,
+		Fe
+	]), Ve = (0, v.useCallback)(() => {
+		let e = De.current.redo(Ie());
+		e && (Le(e), Fe());
+	}, [
+		Ie,
+		Le,
+		Fe
+	]), He = (0, v.useRef)(t.persistence), V = t.persistence != null;
 	(0, v.useEffect)(() => {
-		Be.current = t.persistence;
+		He.current = t.persistence;
 	}, [t.persistence]), (0, v.useEffect)(() => {
-		if (!B) return;
+		if (!V) return;
 		let e = window.setTimeout(() => {
-			Be.current?.writeMocks({
+			He.current?.writeMocks({
 				states: h,
 				attributes: _
 			});
@@ -76123,96 +76129,96 @@ function Tun(e, t, { yamlDiscardPendingRef: n } = {}) {
 			window.clearTimeout(e);
 		};
 	}, [
-		B,
+		V,
 		h,
 		_
 	]), (0, v.useEffect)(() => {
-		if (!B) return;
+		if (!V) return;
 		let e = window.setTimeout(() => {
-			Be.current?.writeVariables(b);
+			He.current?.writeVariables(b);
 		}, 250);
 		return () => {
 			window.clearTimeout(e);
 		};
-	}, [B, b]), (0, v.useEffect)(() => {
-		if (!B) return;
+	}, [V, b]), (0, v.useEffect)(() => {
+		if (!V) return;
 		let e = window.setTimeout(() => {
-			Be.current?.writeSession({
+			He.current?.writeSession({
 				name: r,
 				canvas: d,
 				service: p,
 				elements: a,
-				editHistory: Cun(Te.current)
+				editHistory: Cun(De.current)
 			});
 		}, 250);
 		return () => {
 			window.clearTimeout(e);
 		};
 	}, [
-		B,
+		V,
 		d,
 		a,
-		Ee,
+		Oe,
 		p,
 		r
 	]);
-	let Ve = (0, v.useCallback)((e) => {
+	let H = (0, v.useCallback)((e) => {
 		ie((t) => gun(t, e) ? t : e);
-		let t = _e.current;
-		if (!ye.current) {
+		let t = ye.current;
+		if (!xe.current) {
 			let n = G9(e);
 			if (n && n.id !== t?.id) {
-				je(n);
+				R(n);
 				return;
 			}
 		}
 		let n = K9(e, t?.id ?? null);
 		if (!t || !n) return;
 		let r = !W9(t.capabilities, n.capabilities);
-		if (n.label === t.label && !r || (Ae({
+		if (n.label === t.label && !r || (Me({
 			id: t.id,
 			label: n.label,
 			capabilities: n.capabilities
 		}), !r)) return;
-		let i = M9(n.capabilities, F.current.previewDitherMode);
-		if (I.current = i, D(i), ge.current) {
-			let e = F.current.rotation;
-			ke(ve.current ? {
+		let i = M9(n.capabilities, ge.current.previewDitherMode);
+		if (_e.current = i, D(i), ve.current) {
+			let e = ge.current.rotation;
+			je(be.current ? {
 				...i,
 				...Eq(i, e),
 				rotation: e
 			} : i);
 		}
 	}, [
+		R,
 		je,
-		ke,
-		Ae
-	]), He = (0, v.useCallback)((e) => {
-		if (be.current) {
+		Me
+	]), Ue = (0, v.useCallback)((e) => {
+		if (Se.current) {
 			e();
 			return;
 		}
-		be.current = !0;
+		Se.current = !0;
 		try {
 			e();
 		} finally {
-			for (be.current = !1; xe.current !== null;) {
-				let e = xe.current;
-				xe.current = null, be.current = !0;
+			for (Se.current = !1; Ce.current !== null;) {
+				let e = Ce.current;
+				Ce.current = null, Se.current = !0;
 				try {
-					Ve(e);
+					H(e);
 				} finally {
-					be.current = !1;
+					Se.current = !1;
 				}
 			}
 		}
-	}, [Ve]), V = (0, v.useCallback)((e) => {
-		if (be.current) {
-			xe.current = e;
+	}, [H]), U = (0, v.useCallback)((e) => {
+		if (Se.current) {
+			Ce.current = e;
 			return;
 		}
-		He(() => Ve(e));
-	}, [Ve, He]);
+		Ue(() => H(e));
+	}, [H, Ue]);
 	(0, v.useLayoutEffect)(() => {
 		if (t.registerPushTarget) return t.registerPushTarget({
 			applyStates: (e) => {
@@ -76223,40 +76229,40 @@ function Tun(e, t, { yamlDiscardPendingRef: n } = {}) {
 			applyActions: (e) => {
 				ne((t) => fun(t, e) ? t : e);
 			},
-			applyTargets: V,
+			applyTargets: U,
 			applyPayload: (e) => {
-				if (!uJ(P.current, e)) {
-					n?.current?.(), Ne(), me.current = !0;
+				if (n?.current?.(), !uJ(L.current, e)) {
+					z(), me.current = !0;
 					try {
-						Oe(structuredClone(e));
+						Ae(structuredClone(e));
 					} finally {
 						me.current = !1;
 					}
-					L([]);
+					Pe([]);
 				}
 			}
 		});
 	}, [
 		t,
-		Oe,
-		L,
-		V,
-		Ne,
+		Ae,
+		Pe,
+		U,
+		z,
 		n
 	]), (0, v.useEffect)(() => {
 		Qln(se);
 	}, [se]), (0, v.useEffect)(() => {
 		tun({ enabled: le });
 	}, [le]);
-	let H = bun((0, v.useMemo)(() => KXt(a), [a])), Ue = (0, v.useMemo)(() => JSON.stringify(_z(a).entityIds), [a]), U = (0, v.useMemo)(() => JSON.parse(Ue), [Ue]), We = (0, v.useMemo)(() => wun(U, h, _, b), [
-		U,
+	let We = bun((0, v.useMemo)(() => KXt(a), [a])), Ge = (0, v.useMemo)(() => JSON.stringify(_z(a).entityIds), [a]), Ke = (0, v.useMemo)(() => JSON.parse(Ge), [Ge]), qe = (0, v.useMemo)(() => wun(Ke, h, _, b), [
+		Ke,
 		h,
 		_,
 		b
-	]), Ge = (0, v.useMemo)(() => ({
-		...We,
-		now: H
-	}), [We, H]), Ke = (0, v.useMemo)(() => ({
+	]), Je = (0, v.useMemo)(() => ({
+		...qe,
+		now: We
+	}), [qe, We]), Ye = (0, v.useMemo)(() => ({
 		width: d.width,
 		height: d.height,
 		colorMode: d.colorMode,
@@ -76270,16 +76276,16 @@ function Tun(e, t, { yamlDiscardPendingRef: n } = {}) {
 		d.previewDitherMode,
 		d.paletteOverrides,
 		le
-	]), qe = (0, v.useMemo)(() => JSON.stringify(a.map((e) => kz(e) ? e : null)), [a]), Je = (0, v.useMemo)(() => {
-		let e = JSON.parse(qe), t = /* @__PURE__ */ new Map();
+	]), Xe = (0, v.useMemo)(() => JSON.stringify(a.map((e) => kz(e) ? e : null)), [a]), Ze = (0, v.useMemo)(() => {
+		let e = JSON.parse(Xe), t = /* @__PURE__ */ new Map();
 		return e.forEach((e, n) => {
-			e != null && t.set(n, Az(e, Ge));
+			e != null && t.set(n, Az(e, Je));
 		}), t;
-	}, [Ge, qe]), Ye = (0, v.useMemo)(() => a.map((e, t) => Je.get(t) ?? Az(e, Ge)), [
+	}, [Je, Xe]), Qe = (0, v.useMemo)(() => a.map((e, t) => Ze.get(t) ?? Az(e, Je)), [
 		a,
-		Ge,
-		Je
-	]), Xe = (0, v.useMemo)(() => Object.keys(We.states).sort(), [We.states]), Ze = (0, v.useMemo)(() => S ? {
+		Je,
+		Ze
+	]), $e = (0, v.useMemo)(() => Object.keys(qe.states).sort(), [qe.states]), et = (0, v.useMemo)(() => S ? {
 		values: h,
 		attributes: _,
 		names: w
@@ -76288,14 +76294,14 @@ function Tun(e, t, { yamlDiscardPendingRef: n } = {}) {
 		h,
 		_,
 		w
-	]), Qe = s.length > 0 ? s[s.length - 1] : null, $e = (0, v.useCallback)((e, t) => {
+	]), tt = s.length > 0 ? s[s.length - 1] : null, nt = (0, v.useCallback)((e, t) => {
 		let { additive: n = !1, source: r = "ui" } = xun(t);
 		if (u(r), e == null) {
-			L([]);
+			Pe([]);
 			return;
 		}
 		if (n) {
-			L((t) => {
+			Pe((t) => {
 				if (t.includes(e)) {
 					let n = t.filter((t) => t !== e);
 					return n.length > 0 ? n : [];
@@ -76304,52 +76310,52 @@ function Tun(e, t, { yamlDiscardPendingRef: n } = {}) {
 			});
 			return;
 		}
-		L([e]);
-	}, [L]), et = (0, v.useCallback)(() => {
-		u("ui"), L([]);
-	}, [L]), tt = (0, v.useCallback)((e, t = !1) => {
-		let n = Ye.flatMap((t, n) => {
-			if (!RW(t, Ke)) return [];
-			let r = zW(t, Ke);
+		Pe([e]);
+	}, [Pe]), rt = (0, v.useCallback)(() => {
+		u("ui"), Pe([]);
+	}, [Pe]), it = (0, v.useCallback)((e, t = !1) => {
+		let n = Qe.flatMap((t, n) => {
+			if (!RW(t, Ye)) return [];
+			let r = zW(t, Ye);
 			return r && m4t(r, e) ? [n] : [];
 		});
 		if (u("ui"), t) {
-			L((e) => q9([.../* @__PURE__ */ new Set([...e, ...n])]));
+			Pe((e) => q9([.../* @__PURE__ */ new Set([...e, ...n])]));
 			return;
 		}
-		L(q9(n));
+		Pe(q9(n));
 	}, [
-		L,
-		Ye,
-		Ke
-	]), nt = (0, v.useCallback)((e) => {
-		ke((t) => ({
+		Pe,
+		Qe,
+		Ye
+	]), at = (0, v.useCallback)((e) => {
+		je((t) => ({
 			...t,
 			colorMode: e
 		}));
-	}, [ke]), rt = (0, v.useCallback)((e, t) => {
-		ke((n) => ({
+	}, [je]), ot = (0, v.useCallback)((e, t) => {
+		je((n) => ({
 			...n,
 			width: e,
 			height: t
 		}));
-	}, [ke]), it = (0, v.useCallback)((e) => {
-		ve.current = !0, ke((t) => ({
+	}, [je]), st = (0, v.useCallback)((e) => {
+		be.current = !0, je((t) => ({
 			...t,
 			...Eq(t, e),
 			rotation: e
 		}));
-	}, [ke]), at = (0, v.useCallback)((e, t) => {
+	}, [je]), ct = (0, v.useCallback)((e, t) => {
 		M.current = null, g((n) => ({
 			...n,
 			[e]: t
 		}));
-	}, []), ot = (0, v.useCallback)((e, t) => {
+	}, []), lt = (0, v.useCallback)((e, t) => {
 		M.current = null, g((n) => ({
 			...n,
 			[e]: t
 		}));
-	}, []), st = (0, v.useCallback)((e) => {
+	}, []), ut = (0, v.useCallback)((e) => {
 		M.current = null, g((t) => {
 			if (!(e in t)) return t;
 			let n = { ...t };
@@ -76359,7 +76365,7 @@ function Tun(e, t, { yamlDiscardPendingRef: n } = {}) {
 			let n = { ...t };
 			return delete n[e], n;
 		});
-	}, []), ct = (0, v.useCallback)((e, t, n) => {
+	}, []), dt = (0, v.useCallback)((e, t, n) => {
 		M.current = null, y((r) => ({
 			...r,
 			[e]: {
@@ -76367,7 +76373,7 @@ function Tun(e, t, { yamlDiscardPendingRef: n } = {}) {
 				[t]: n
 			}
 		}));
-	}, []), lt = (0, v.useCallback)((e, t, n) => {
+	}, []), ft = (0, v.useCallback)((e, t, n) => {
 		let r = n.trim();
 		r !== t && (M.current = null, y((n) => {
 			let i = n[e];
@@ -76379,7 +76385,7 @@ function Tun(e, t, { yamlDiscardPendingRef: n } = {}) {
 				[e]: a
 			};
 		}));
-	}, []), ut = (0, v.useCallback)((e, t) => {
+	}, []), pt = (0, v.useCallback)((e, t) => {
 		M.current = null, y((n) => {
 			let r = n[e];
 			if (!r || !(t in r)) return n;
@@ -76388,30 +76394,30 @@ function Tun(e, t, { yamlDiscardPendingRef: n } = {}) {
 			let a = { ...n };
 			return Object.keys(i).length > 0 ? a[e] = i : delete a[e], a;
 		});
-	}, []), dt = (0, v.useCallback)((e, t) => {
+	}, []), mt = (0, v.useCallback)((e, t) => {
 		_9(e) && x((n) => ({
 			...n,
 			[e]: t
 		}));
-	}, []), ft = (0, v.useCallback)((e, t) => {
+	}, []), ht = (0, v.useCallback)((e, t) => {
 		_9(e) && x((n) => ({
 			...n,
 			[e]: t
 		}));
-	}, []), pt = (0, v.useCallback)((e, t) => {
+	}, []), gt = (0, v.useCallback)((e, t) => {
 		_9(t) && x((n) => {
 			if (!(e in n) || e === t) return n;
 			let r = {};
 			for (let [i, a] of Object.entries(n)) r[i === e ? t : i] = a;
 			return r;
 		});
-	}, []), mt = (0, v.useCallback)((e) => {
+	}, []), _t = (0, v.useCallback)((e) => {
 		x((t) => {
 			if (!(e in t)) return t;
 			let n = { ...t };
 			return delete n[e], n;
 		});
-	}, []), ht = (0, v.useCallback)(async (e, t, n) => {
+	}, []), vt = (0, v.useCallback)(async (e, t, n) => {
 		let r = await Xln(t, n, e);
 		if (!r.ok) return r;
 		try {
@@ -76425,24 +76431,24 @@ function Tun(e, t, { yamlDiscardPendingRef: n } = {}) {
 				message: "Could not save the file locally. Try reloading the page."
 			};
 		}
-	}, []), gt = (0, v.useCallback)(async (e) => {
+	}, []), yt = (0, v.useCallback)(async (e) => {
 		if (e === "/local/showcase.png") {
 			iz(e).status === "resolved" && await o9(e), Z0t(), A((e) => e + 1);
 			return;
 		}
 		await o9(e), A((e) => e + 1);
-	}, []), _t = (0, v.useCallback)((e) => {
-		if (!Te.current.isCoalescing()) {
-			z(() => {
-				Oe((t) => f9(t, e));
+	}, []), bt = (0, v.useCallback)((e) => {
+		if (!De.current.isCoalescing()) {
+			Re(() => {
+				Ae((t) => f9(t, e));
 			});
 			return;
 		}
-		Oe((t) => f9(t, e));
-	}, [Oe, z]), vt = (0, v.useCallback)((e, t) => {
-		if (!Te.current.isCoalescing()) {
-			z(() => {
-				Oe((n) => {
+		Ae((t) => f9(t, e));
+	}, [Ae, Re]), xt = (0, v.useCallback)((e, t) => {
+		if (!De.current.isCoalescing()) {
+			Re(() => {
+				Ae((n) => {
 					if (e < 0 || e >= n.length) return n;
 					let r = [...n];
 					return r[e] = t, r;
@@ -76450,14 +76456,14 @@ function Tun(e, t, { yamlDiscardPendingRef: n } = {}) {
 			});
 			return;
 		}
-		Oe((n) => {
+		Ae((n) => {
 			if (e < 0 || e >= n.length) return n;
 			let r = [...n];
 			return r[e] = t, r;
 		});
-	}, [Oe, z]), yt = (0, v.useCallback)((e, t, n) => {
+	}, [Ae, Re]), St = (0, v.useCallback)((e, t, n) => {
 		let r = () => {
-			Oe((r) => {
+			Ae((r) => {
 				if (e < 0 || e >= r.length) return r;
 				let i = r[e];
 				if (i.type !== "plot" && pq(i, t, n)) return r;
@@ -76473,16 +76479,16 @@ function Tun(e, t, { yamlDiscardPendingRef: n } = {}) {
 				return a;
 			});
 		};
-		if (Te.current.isCoalescing()) {
+		if (De.current.isCoalescing()) {
 			r();
 			return;
 		}
-		z(r);
-	}, [Oe, z]), bt = (0, v.useCallback)((e, t) => {
+		Re(r);
+	}, [Ae, Re]), Ct = (0, v.useCallback)((e, t) => {
 		let n = () => {
-			Oe((n) => {
+			Ae((n) => {
 				let r = n;
-				for (let n of Ce.current) {
+				for (let n of Te.current) {
 					if (n < 0 || n >= r.length) continue;
 					let i = r[n];
 					if (i.type !== "plot" && pq(i, e, t)) continue;
@@ -76500,314 +76506,315 @@ function Tun(e, t, { yamlDiscardPendingRef: n } = {}) {
 				return r;
 			});
 		};
-		if (Te.current.isCoalescing()) {
+		if (De.current.isCoalescing()) {
 			n();
 			return;
 		}
-		z(n);
-	}, [Oe, z]), xt = (0, v.useCallback)((e) => {
-		z(() => {
-			Oe((t) => e < 0 || e >= t.length ? t : t.filter((t, n) => n !== e)), L((t) => t.filter((t) => t !== e).map((t) => t > e ? t - 1 : t));
+		Re(n);
+	}, [Ae, Re]), wt = (0, v.useCallback)((e) => {
+		Re(() => {
+			Ae((t) => e < 0 || e >= t.length ? t : t.filter((t, n) => n !== e)), Pe((t) => t.filter((t) => t !== e).map((t) => t > e ? t - 1 : t));
 		});
 	}, [
-		Oe,
-		L,
-		z
-	]), St = (0, v.useCallback)(() => {
-		z(() => {
-			Oe((e) => {
-				let t = new Set(Ce.current);
+		Ae,
+		Pe,
+		Re
+	]), Tt = (0, v.useCallback)(() => {
+		Re(() => {
+			Ae((e) => {
+				let t = new Set(Te.current);
 				return e.filter((e, n) => !t.has(n));
-			}), L([]);
+			}), Pe([]);
 		});
 	}, [
-		Oe,
-		L,
-		z
-	]), Ct = (0, v.useCallback)((e) => {
+		Ae,
+		Pe,
+		Re
+	]), Et = (0, v.useCallback)((e) => {
 		if (!ZK(a, e)) return {
 			ok: !1,
 			message: XK
 		};
 		let t = Vln(e), { nextElements: n, index: r } = K4t(a, t);
-		return z(() => {
-			L([r]), u("ui"), Oe(n);
+		return Re(() => {
+			Pe([r]), u("ui"), Ae(n);
 		}), {
 			ok: !0,
 			index: r
 		};
 	}, [
-		Oe,
-		L,
-		z,
+		Ae,
+		Pe,
+		Re,
 		a
-	]), wt = (0, v.useCallback)(() => {
-		Ne(), Oe([]), L([]), M.current = null, g((e) => Hln(e)), y((e) => Uln(e)), x((e) => Wln(e));
+	]), Dt = (0, v.useCallback)(() => {
+		z(), Ae([]), Pe([]), M.current = null, g((e) => Hln(e)), y((e) => Uln(e)), x((e) => Wln(e));
 	}, [
-		Oe,
-		L,
-		Ne
-	]), Tt = (0, v.useCallback)(() => {
-		ye.current = !0;
-		let e = !ge.current;
-		ge.current = e, ee(e);
-		let t = I.current;
-		e && t && ke((e) => ({
+		Ae,
+		Pe,
+		z
+	]), Ot = (0, v.useCallback)(() => {
+		xe.current = !0;
+		let e = !ve.current;
+		ve.current = e, ee(e);
+		let t = _e.current;
+		e && t && je((e) => ({
 			...t,
 			...Eq(t, e.rotation),
 			rotation: e.rotation,
 			previewDitherMode: e.previewDitherMode
 		}));
-	}, [ke]), Et = (0, v.useCallback)((e) => {
+	}, [je]), kt = (0, v.useCallback)((e) => {
 		if (e === null) {
-			ye.current = !0, ve.current = !1, ge.current = !1, ee(!1);
+			xe.current = !0, be.current = !1, ve.current = !1, ee(!1);
 			return;
 		}
 		let t = K9(re, e);
-		t && (ye.current = !0, je(t));
-	}, [je, re]), Dt = O && ae != null && K9(re, ae.id) != null ? ae.id : null, Ot = t.onTargetSelected, kt = (0, v.useRef)(null);
+		t && (xe.current = !0, R(t));
+	}, [R, re]), At = O && ae != null && K9(re, ae.id) != null ? ae.id : null, jt = t.onTargetSelected, Mt = (0, v.useRef)(null);
 	(0, v.useEffect)(() => {
-		kt.current !== Dt && (kt.current = Dt, He(() => Ot?.(Dt)));
+		Mt.current !== At && (Mt.current = At, Ue(() => jt?.(At)));
 	}, [
-		Dt,
-		Ot,
-		He
+		At,
+		jt,
+		Ue
 	]);
-	let At = (0, v.useCallback)(() => {
-		Q0t(), Ne(), ge.current && I.current || ke({ ...Lln }), Oe(zln()), L([]);
+	let Nt = (0, v.useCallback)(() => {
+		Q0t(), z(), ve.current && _e.current || je({ ...Lln }), Ae(zln()), Pe([]);
 		let e = Bln();
 		j.current || (M.current = null, g(e.states), y(e.attributes)), x(e.variables);
 	}, [
-		ke,
-		Oe,
-		L,
-		Ne
-	]), jt = (0, v.useCallback)((e, t, n) => {
-		z(() => {
-			Oe((r) => p9(r, [e], t, n, {
+		je,
+		Ae,
+		Pe,
+		z
+	]), Pt = (0, v.useCallback)((e, t, n) => {
+		Re(() => {
+			Ae((r) => p9(r, [e], t, n, {
 				canvas: {
-					width: F.current.width,
-					height: F.current.height
+					width: ge.current.width,
+					height: ge.current.height
 				},
 				snapGrid: se,
-				resolveBounds: (e) => zW(e, Ke)
+				resolveBounds: (e) => zW(e, Ye)
 			}));
 		});
 	}, [
-		Oe,
-		z,
-		Ke,
+		Ae,
+		Re,
+		Ye,
 		se
-	]), Mt = (0, v.useCallback)((e, t) => {
-		z(() => {
-			Oe((n) => p9(n, Ce.current, e, t, {
+	]), Ft = (0, v.useCallback)((e, t) => {
+		Re(() => {
+			Ae((n) => p9(n, Te.current, e, t, {
 				canvas: {
-					width: F.current.width,
-					height: F.current.height
+					width: ge.current.width,
+					height: ge.current.height
 				},
 				snapGrid: se,
-				resolveBounds: (e) => zW(e, Ke)
+				resolveBounds: (e) => zW(e, Ye)
 			}));
 		});
 	}, [
-		Oe,
-		z,
-		Ke,
+		Ae,
+		Re,
+		Ye,
 		se
-	]), Nt = (0, v.useCallback)((e, t) => {
-		e === t || e < 0 || e >= a.length || t < 0 || t >= a.length || z(() => {
-			L((n) => aJ(n, e, t)), u("ui"), Oe((n) => OG(n, e, t));
+	]), It = (0, v.useCallback)((e, t) => {
+		e === t || e < 0 || e >= a.length || t < 0 || t >= a.length || Re(() => {
+			Pe((n) => aJ(n, e, t)), u("ui"), Ae((n) => OG(n, e, t));
 		});
 	}, [
-		Oe,
-		L,
-		z,
+		Ae,
+		Pe,
+		Re,
 		a.length
-	]), Pt = (0, v.useCallback)((e) => {
+	]), Lt = (0, v.useCallback)((e) => {
 		if (s.length === 0) return;
 		let t = e === "up" ? [...s].sort((e, t) => t - e) : [...s].sort((e, t) => e - t);
-		z(() => {
-			let n = P.current, r = [...Ce.current];
+		Re(() => {
+			let n = L.current, r = [...Te.current];
 			for (let i of t) {
 				let t = e === "up" ? i + 1 : i - 1;
 				t < 0 || t >= n.length || (n = OG(n, i, t), r = aJ(r, i, t));
 			}
-			Oe(n), L(r), u("ui");
+			Ae(n), Pe(r), u("ui");
 		});
 	}, [
-		Oe,
-		L,
-		z,
+		Ae,
+		Pe,
+		Re,
 		s
-	]), Ft = (0, v.useCallback)(() => {
+	]), Rt = (0, v.useCallback)(() => {
 		if (s.length === 0) return;
 		let e = new Set(s);
-		z(() => {
-			Oe((t) => {
-				let n = t.filter((t, n) => !e.has(n)), r = q9(Ce.current).map((e) => t[e]);
+		Re(() => {
+			Ae((t) => {
+				let n = t.filter((t, n) => !e.has(n)), r = q9(Te.current).map((e) => t[e]);
 				return [...n, ...r];
-			}), L(Y6t(Ce.current, P.current.length)), u("ui");
+			}), Pe(Y6t(Te.current, L.current.length)), u("ui");
 		});
 	}, [
-		Oe,
-		L,
-		z,
+		Ae,
+		Pe,
+		Re,
 		s
-	]), It = (0, v.useCallback)(() => {
+	]), zt = (0, v.useCallback)(() => {
 		if (s.length === 0) return;
 		let e = new Set(s);
-		z(() => {
-			Oe((t) => {
+		Re(() => {
+			Ae((t) => {
 				let n = t.filter((t, n) => !e.has(n));
-				return [...q9(Ce.current).map((e) => t[e]), ...n];
-			}), L(X6t(Ce.current)), u("ui");
+				return [...q9(Te.current).map((e) => t[e]), ...n];
+			}), Pe(X6t(Te.current)), u("ui");
 		});
 	}, [
-		Oe,
-		L,
-		z,
+		Ae,
+		Pe,
+		Re,
 		s
-	]), Lt = (0, v.useCallback)((e, t) => {
-		e.length !== 0 && z(() => {
-			let { elements: n, indices: r } = Kln(P.current, [...e], t);
-			Oe(n), L(r), u("ui");
+	]), Bt = (0, v.useCallback)((e, t) => {
+		e.length !== 0 && Re(() => {
+			let { elements: n, indices: r } = Kln(L.current, [...e], t);
+			Ae(n), Pe(r), u("ui");
 		});
 	}, [
-		Oe,
-		L,
-		z
-	]), Rt = (0, v.useCallback)((e, t) => {
-		Nt(e, t);
-	}, [Nt]), zt = (0, v.useCallback)((e) => {
-		e < 0 || e >= a.length - 1 || Nt(e, a.length - 1);
-	}, [Nt, a.length]), Bt = (0, v.useCallback)((e) => {
-		e <= 0 || e >= a.length || Nt(e, 0);
-	}, [Nt, a.length]), Vt = (0, v.useCallback)((e) => {
-		e >= a.length - 1 || Nt(e, e + 1);
-	}, [Nt, a.length]), Ht = (0, v.useCallback)((e) => {
-		e <= 0 || Nt(e, e - 1);
-	}, [Nt]), Ut = Rt, Wt = (0, v.useCallback)((e, t) => {
-		s.length < 2 || z(() => {
-			Oe((n) => SK(n, Ce.current) ? f4t(n, Ce.current, t, e, {
-				width: F.current.width,
-				height: F.current.height
+		Ae,
+		Pe,
+		Re
+	]), Vt = (0, v.useCallback)((e, t) => {
+		It(e, t);
+	}, [It]), Ht = (0, v.useCallback)((e) => {
+		e < 0 || e >= a.length - 1 || It(e, a.length - 1);
+	}, [It, a.length]), Ut = (0, v.useCallback)((e) => {
+		e <= 0 || e >= a.length || It(e, 0);
+	}, [It, a.length]), Wt = (0, v.useCallback)((e) => {
+		e >= a.length - 1 || It(e, e + 1);
+	}, [It, a.length]), Gt = (0, v.useCallback)((e) => {
+		e <= 0 || It(e, e - 1);
+	}, [It]), Kt = Vt, qt = (0, v.useCallback)((e, t) => {
+		s.length < 2 || Re(() => {
+			Ae((n) => SK(n, Te.current) ? f4t(n, Te.current, t, e, {
+				width: ge.current.width,
+				height: ge.current.height
 			}) : n);
 		});
 	}, [
-		Oe,
-		z,
+		Ae,
+		Re,
 		s
-	]), Gt = (0, v.useCallback)(() => {
-		ke((e) => ({
+	]), Jt = (0, v.useCallback)(() => {
+		je((e) => ({
 			...e,
 			previewDitherMode: e.previewDitherMode === 2 ? 0 : 2
 		}));
-	}, [ke]), Kt = (0, v.useCallback)(() => {
+	}, [je]), Yt = (0, v.useCallback)(() => {
 		ce((e) => ({
 			...e,
 			enabled: !e.enabled
 		}));
-	}, []), qt = (0, v.useCallback)(() => {
+	}, []), Xt = (0, v.useCallback)(() => {
 		ue((e) => !e);
-	}, []), Jt = (0, v.useCallback)((e) => {
+	}, []), Zt = (0, v.useCallback)((e) => {
 		ce((t) => ({
 			...t,
 			size: Math.max(1, e)
 		}));
-	}, []), Yt = (0, v.useCallback)((e) => {
-		u("yaml"), L(q9(e));
-	}, [L]), Xt = (0, v.useMemo)(() => s.map((e) => a[e]).filter((e) => e != null), [a, s]), Zt = Qe == null ? null : a[Qe] ?? null;
+	}, []), Qt = (0, v.useCallback)((e) => {
+		u("yaml"), Pe(q9(e));
+	}, [Pe]), $t = (0, v.useMemo)(() => s.map((e) => a[e]).filter((e) => e != null), [a, s]), en = tt == null ? null : a[tt] ?? null;
 	return {
 		sessionName: r,
 		setSessionName: i,
 		service: p,
-		setService: Me,
+		setService: Ne,
 		elements: a,
 		setElements: (0, v.useCallback)((e) => {
-			z(() => {
-				Oe(e);
+			Re(() => {
+				Ae(e);
 			});
-		}, [Oe, z]),
-		getElementsSnapshot: (0, v.useCallback)(() => P.current, []),
+		}, [Ae, Re]),
+		getElementsSnapshot: (0, v.useCallback)(() => L.current, []),
 		getEditStatus: (0, v.useCallback)(() => ({
 			lastEditAt: N.current,
 			payloadRevision: pe.current
 		}), []),
-		previewElements: Ye,
+		editStatusVersion: he,
+		previewElements: Qe,
 		selectedIndices: s,
-		selectedIndex: Qe,
+		selectedIndex: tt,
 		selectionSource: l,
-		selectedElement: Zt,
-		selectedElements: Xt,
-		selectElement: $e,
-		clearSelection: et,
-		selectAllInRect: tt,
-		applyYamlSelection: Yt,
+		selectedElement: en,
+		selectedElements: $t,
+		selectElement: nt,
+		clearSelection: rt,
+		selectAllInRect: it,
+		applyYamlSelection: Qt,
 		canvas: d,
-		renderContext: Ke,
-		setColorMode: nt,
-		setCanvasSize: rt,
-		setRotation: it,
+		renderContext: Ye,
+		setColorMode: at,
+		setCanvasSize: ot,
+		setRotation: st,
 		displayLock: E ? O ? "locked" : "unlocked" : null,
-		toggleDisplayLock: Tt,
+		toggleDisplayLock: Ot,
 		hostTargets: re,
 		selectedTargetId: ae?.id ?? null,
 		selectedTargetLabel: ae?.label ?? null,
-		selectDisplayTarget: Et,
-		activeTargetId: Dt,
+		selectDisplayTarget: kt,
+		activeTargetId: At,
 		hostActions: te,
-		mockContext: We,
-		previewMockContext: Ge,
-		hostStateCatalog: Ze,
-		setMockState: at,
-		addMockEntity: ot,
-		removeMockEntity: st,
-		setMockAttribute: ct,
-		renameMockAttribute: lt,
-		removeMockAttribute: ut,
+		mockContext: qe,
+		previewMockContext: Je,
+		hostStateCatalog: et,
+		setMockState: ct,
+		addMockEntity: lt,
+		removeMockEntity: ut,
+		setMockAttribute: dt,
+		renameMockAttribute: ft,
+		removeMockAttribute: pt,
 		variables: b,
-		setVariable: dt,
-		addVariable: ft,
-		renameVariable: pt,
-		removeVariable: mt,
-		extraEntityIds: Xe,
+		setVariable: mt,
+		addVariable: ht,
+		renameVariable: gt,
+		removeVariable: _t,
+		extraEntityIds: $e,
 		assetRevision: k,
-		uploadAsset: ht,
-		clearAsset: gt,
-		updateElement: vt,
-		updateElementsBatch: _t,
-		updateElementProperty: yt,
-		updateSelectedProperty: bt,
-		deleteElement: xt,
-		deleteSelectedElements: St,
-		addElement: Ct,
-		clearElements: wt,
-		loadDemo: At,
-		nudgeElement: jt,
-		nudgeSelectedElements: Mt,
-		bringToFront: zt,
-		sendToBack: Bt,
-		moveLayerUp: Vt,
-		moveLayerDown: Ht,
-		bringSelectionToFront: Ft,
-		sendSelectionToBack: It,
-		moveSelectionLayer: Pt,
-		alignSelection: Wt,
-		reorderElement: Ut,
-		reorderSelection: Lt,
+		uploadAsset: vt,
+		clearAsset: yt,
+		updateElement: xt,
+		updateElementsBatch: bt,
+		updateElementProperty: St,
+		updateSelectedProperty: Ct,
+		deleteElement: wt,
+		deleteSelectedElements: Tt,
+		addElement: Et,
+		clearElements: Dt,
+		loadDemo: Nt,
+		nudgeElement: Pt,
+		nudgeSelectedElements: Ft,
+		bringToFront: Ht,
+		sendToBack: Ut,
+		moveLayerUp: Wt,
+		moveLayerDown: Gt,
+		bringSelectionToFront: Rt,
+		sendSelectionToBack: zt,
+		moveSelectionLayer: Lt,
+		alignSelection: qt,
+		reorderElement: Kt,
+		reorderSelection: Bt,
 		snapGrid: se,
-		toggleSnapGrid: Kt,
+		toggleSnapGrid: Yt,
 		showHiddenHints: le,
-		toggleShowHiddenHints: qt,
-		setSnapGridSize: Jt,
-		togglePreviewDither: Gt,
-		undo: Re,
-		redo: ze,
-		canUndo: Ee.canUndo,
-		canRedo: Ee.canRedo,
-		historyUndoDepth: Ee.undoDepth,
-		beginEditCoalesce: Ie,
-		endEditCoalesce: Le
+		toggleShowHiddenHints: Xt,
+		setSnapGridSize: Zt,
+		togglePreviewDither: Jt,
+		undo: B,
+		redo: Ve,
+		canUndo: Oe.canUndo,
+		canRedo: Oe.canRedo,
+		historyUndoDepth: Oe.undoDepth,
+		beginEditCoalesce: ze,
+		endEditCoalesce: Be
 	};
 }
 //#endregion
@@ -76911,85 +76918,89 @@ function Z9(e) {
 }
 //#endregion
 //#region src/ui/App.tsx
-var Pun = 300;
-function Fun(e) {
+var Pun = 300, Fun = 1e3;
+function Iun(e) {
 	let t = e.indexOf("\n");
 	return t === -1 ? e : e.slice(0, t);
 }
-function Iun({ bootstrap: e, host: t }) {
-	let n = (0, v.useRef)(null), r = (0, v.useRef)(null), i = vK(r), a = Z9(t), o = Oun({ applyToDocument: a == null }), { mode: s, cycleMode: c } = o, l = a ?? o.resolvedTheme, { couplingEnabled: u } = Q7(), [d, f] = (0, v.useState)(null), [p, m] = (0, v.useState)(null), [h, g] = (0, v.useState)([]), [_, y] = (0, v.useState)(!1), [b, x] = (0, v.useState)(!1), [E, D] = (0, v.useState)(!1), O = kun(E), [ee, te] = (0, v.useState)(null), { flashSuccess: ne, flashError: re, getFeedback: k, getFeedbackMessage: de } = FK(), fe = (0, v.useRef)(null), j = (0, v.useRef)(null), { sessionName: M, service: pe, elements: N, getElementsSnapshot: me, getEditStatus: he, previewElements: P, selectedIndices: F, selectedIndex: I, selectionSource: ge, selectedElements: _e, selectElement: ve, applyYamlSelection: ye, canvas: be, renderContext: xe, setColorMode: Se, setCanvasSize: Ce, setRotation: we, displayLock: Te, toggleDisplayLock: Ee, hostTargets: De, selectedTargetId: Oe, selectedTargetLabel: ke, selectDisplayTarget: Ae, activeTargetId: je, hostActions: Me, setElements: L, mockContext: R, previewMockContext: Ne, hostStateCatalog: Pe, setMockState: Fe, addMockEntity: z, removeMockEntity: Ie, setMockAttribute: Le, renameMockAttribute: Re, removeMockAttribute: ze, variables: Be, setVariable: B, addVariable: Ve, renameVariable: He, removeVariable: V, extraEntityIds: H, assetRevision: Ue, uploadAsset: U, clearAsset: We, updateElement: Ge, updateElementsBatch: Ke, updateElementProperty: qe, updateSelectedProperty: Je, deleteSelectedElements: Ye, addElement: Xe, clearElements: Ze, loadDemo: Qe, nudgeSelectedElements: $e, selectAllInRect: et, bringSelectionToFront: tt, sendSelectionToBack: nt, moveSelectionLayer: rt, alignSelection: it, reorderElement: at, reorderSelection: ot, snapGrid: st, toggleSnapGrid: ct, showHiddenHints: lt, toggleShowHiddenHints: ut, togglePreviewDither: dt, undo: ft, redo: pt, canUndo: mt, canRedo: ht, beginEditCoalesce: gt, endEditCoalesce: _t } = Tun(e, t, { yamlDiscardPendingRef: j }), vt = (0, v.useRef)(N);
+function Lun({ bootstrap: e, host: t }) {
+	let n = (0, v.useRef)(null), r = (0, v.useRef)(null), i = vK(r), a = Z9(t), o = Oun({ applyToDocument: a == null }), { mode: s, cycleMode: c } = o, l = a ?? o.resolvedTheme, { couplingEnabled: u } = Q7(), [d, f] = (0, v.useState)(null), [p, m] = (0, v.useState)(null), [h, g] = (0, v.useState)([]), [_, y] = (0, v.useState)(!1), [b, x] = (0, v.useState)(!1), [E, D] = (0, v.useState)(!1), O = kun(E), [ee, te] = (0, v.useState)(null), { flashSuccess: ne, flashError: re, getFeedback: k, getFeedbackMessage: de } = FK(), fe = (0, v.useRef)(null), j = (0, v.useRef)(null), { sessionName: M, service: pe, elements: N, getElementsSnapshot: me, getEditStatus: he, editStatusVersion: P, previewElements: F, selectedIndices: I, selectedIndex: L, selectionSource: ge, selectedElements: _e, selectElement: ve, applyYamlSelection: ye, canvas: be, renderContext: xe, setColorMode: Se, setCanvasSize: Ce, setRotation: we, displayLock: Te, toggleDisplayLock: Ee, hostTargets: De, selectedTargetId: Oe, selectedTargetLabel: ke, selectDisplayTarget: Ae, activeTargetId: je, hostActions: Me, setElements: R, mockContext: Ne, previewMockContext: Pe, hostStateCatalog: Fe, setMockState: z, addMockEntity: Ie, removeMockEntity: Le, setMockAttribute: Re, renameMockAttribute: ze, removeMockAttribute: Be, variables: B, setVariable: Ve, addVariable: He, renameVariable: V, removeVariable: H, extraEntityIds: Ue, assetRevision: U, uploadAsset: We, clearAsset: Ge, updateElement: Ke, updateElementsBatch: qe, updateElementProperty: Je, updateSelectedProperty: Ye, deleteSelectedElements: Xe, addElement: Ze, clearElements: Qe, loadDemo: $e, nudgeSelectedElements: et, selectAllInRect: tt, bringSelectionToFront: nt, sendSelectionToBack: rt, moveSelectionLayer: it, alignSelection: at, reorderElement: ot, reorderSelection: st, snapGrid: ct, toggleSnapGrid: lt, showHiddenHints: ut, toggleShowHiddenHints: dt, togglePreviewDither: ft, undo: pt, redo: mt, canUndo: ht, canRedo: gt, beginEditCoalesce: _t, endEditCoalesce: vt } = Tun(e, t, { yamlDiscardPendingRef: j }), yt = (0, v.useRef)(N);
 	(0, v.useEffect)(() => {
-		vt.current = N;
+		yt.current = N;
 	}, [N]);
-	let yt = (0, v.useCallback)(() => (fe.current?.(), fi(me())), [me]);
+	let bt = (0, v.useCallback)(() => (fe.current?.(), fi(me())), [me]);
 	(0, v.useLayoutEffect)(() => {
-		if (t.registerPayloadSource) return t.registerPayloadSource(yt);
-	}, [t, yt]);
-	let bt = (0, v.useRef)(null), xt = (0, v.useCallback)(() => {
-		let e = bt.current;
+		if (t.registerPayloadSource) return t.registerPayloadSource(bt);
+	}, [t, bt]);
+	let xt = (0, v.useRef)(null), St = (0, v.useCallback)(() => {
+		let e = xt.current;
 		return e ? e() : Promise.reject(/* @__PURE__ */ Error("The designer canvas is not ready yet"));
 	}, []);
 	(0, v.useLayoutEffect)(() => {
-		if (t.registerRenderSource) return t.registerRenderSource(xt);
-	}, [t, xt]);
-	let St = (0, v.useCallback)(() => {
+		if (t.registerRenderSource) return t.registerRenderSource(St);
+	}, [t, St]);
+	let Ct = (0, v.useCallback)(() => {
 		let { lastEditAt: e, payloadRevision: t } = he(), n = {
 			yamlValid: !E,
 			lastEditAt: e,
 			payloadRevision: t,
-			selectedElementCount: F.length
+			selectedElementCount: I.length
 		};
 		if (!E) return Object.freeze(n);
 		let r = x2t(h) ?? "YAML document is invalid";
 		return Object.freeze({
 			...n,
-			yamlErrorSummary: Fun(r)
+			yamlErrorSummary: Iun(r)
 		});
 	}, [
 		he,
-		F.length,
+		I.length,
 		E,
 		h
-	]), Ct = (0, v.useCallback)(() => (fe.current?.(), St()), [St]);
+	]), wt = (0, v.useCallback)(() => (fe.current?.(), Ct()), [Ct]);
 	(0, v.useLayoutEffect)(() => {
-		if (t.registerStatusSource) return t.registerStatusSource(Ct);
-	}, [t, Ct]);
-	let wt = (0, v.useRef)(Ct);
+		if (t.registerStatusSource) return t.registerStatusSource(wt);
+	}, [t, wt]);
+	let Tt = (0, v.useRef)(wt);
 	(0, v.useLayoutEffect)(() => {
-		wt.current = Ct;
+		Tt.current = wt;
 	});
-	let Tt = (0, v.useRef)(null), Et = (0, v.useRef)(null), Dt = (0, v.useCallback)(() => {
-		Et.current != null && (window.clearTimeout(Et.current), Et.current = null);
+	let Et = (0, v.useRef)(null), Dt = (0, v.useRef)(null), Ot = (0, v.useRef)(null), kt = (0, v.useCallback)(() => {
+		Dt.current != null && (window.clearTimeout(Dt.current), Dt.current = null);
 	}, []);
 	(0, v.useEffect)(() => {
 		if (!t.onStatusChange) return;
-		let e = St(), n = {
+		let e = Ct(), n = {
 			yamlValid: e.yamlValid,
 			payloadRevision: e.payloadRevision
-		}, r = Tt.current;
+		}, r = Et.current;
 		if (r == null) {
-			Tt.current = n;
+			Et.current = n;
 			return;
 		}
 		if (r.yamlValid === n.yamlValid && r.payloadRevision === n.payloadRevision) {
-			Dt();
+			kt(), Ot.current = null;
 			return;
 		}
-		Dt(), Et.current = window.setTimeout(() => {
-			Et.current = null;
-			let e = wt.current();
-			Tt.current = {
+		kt();
+		let i = Date.now();
+		Ot.current ??= i;
+		let a = Fun - (i - Ot.current), o = Math.max(0, Math.min(Pun, a));
+		Dt.current = window.setTimeout(() => {
+			Dt.current = null, Ot.current = null;
+			let e = Tt.current();
+			Et.current = {
 				yamlValid: e.yamlValid,
 				payloadRevision: e.payloadRevision
 			}, t.onStatusChange?.(e);
-		}, Pun);
+		}, o);
 	}, [
 		t,
-		St,
-		N,
-		Dt
-	]), (0, v.useEffect)(() => Dt, [Dt]);
-	let Ot = (0, v.useMemo)(() => ({
+		Ct,
+		P,
+		kt
+	]), (0, v.useEffect)(() => kt, [kt]);
+	let At = (0, v.useMemo)(() => ({
 		width: be.width,
 		height: be.height,
 		rotation: be.rotation
@@ -76997,40 +77008,40 @@ function Iun({ bootstrap: e, host: t }) {
 		be.height,
 		be.rotation,
 		be.width
-	]), kt = V4t({
+	]), jt = V4t({
 		renderPreview: t.renderPreview,
-		readPayload: yt,
+		readPayload: bt,
 		ditherMode: be.previewDitherMode,
-		display: Ot,
+		display: At,
 		targetId: je ?? void 0,
 		blockedReason: E ? z4t : null,
 		payloadRevision: N
-	}), At = E || kt.active;
+	}), Mt = E || jt.active;
 	(0, v.useEffect)(() => {
 		e.importSource === "hash" && n0t();
 	}, [e.importSource]);
-	let jt = (0, v.useMemo)(() => w3t(N), [Ue, N]), Mt = (0, v.useMemo)(() => e.importSource === "hash" ? gln(N) : [], [e.importSource, N]), Nt = (0, v.useCallback)((e) => {
-		let t = Xe(e);
+	let Nt = (0, v.useMemo)(() => w3t(N), [U, N]), Pt = (0, v.useMemo)(() => e.importSource === "hash" ? gln(N) : [], [e.importSource, N]), Ft = (0, v.useCallback)((e) => {
+		let t = Ze(e);
 		return t.ok || te({
 			severity: "info",
 			title: "Cannot add element",
 			summary: t.message
 		}), t;
-	}, [Xe]);
+	}, [Ze]);
 	(0, v.useEffect)(() => {
 		if (ee == null) return;
 		let e = window.setTimeout(() => te(null), 4e3);
 		return () => window.clearTimeout(e);
 	}, [ee]);
-	let Pt = (0, v.useCallback)(() => {
-		mln(N.length) && !hln() || Qe();
-	}, [N.length, Qe]), Ft = (0, v.useCallback)((e) => {
-		t.onAction?.(e, yt(), { targetId: je ?? void 0 });
+	let It = (0, v.useCallback)(() => {
+		mln(N.length) && !hln() || $e();
+	}, [N.length, $e]), Lt = (0, v.useCallback)((e) => {
+		t.onAction?.(e, bt(), { targetId: je ?? void 0 });
 	}, [
 		je,
 		t,
-		yt
-	]), It = (0, v.useCallback)(async () => {
+		bt
+	]), Rt = (0, v.useCallback)(async () => {
 		let e = await gK(r0t(t0t($1t({
 			name: M,
 			canvas: be,
@@ -77048,65 +77059,65 @@ function Iun({ bootstrap: e, host: t }) {
 		ne,
 		pe,
 		M
-	]), Lt = (0, v.useCallback)((e) => {
-		let t = vt.current, n = F.map((n) => dJ(t, e, n)).filter((e) => e != null);
-		if (L(e), n.length > 0) {
-			n.length === F.length && n.every((e, t) => e === F[t]) || ye(n);
+	]), zt = (0, v.useCallback)((e) => {
+		let t = yt.current, n = I.map((n) => dJ(t, e, n)).filter((e) => e != null);
+		if (R(e), n.length > 0) {
+			n.length === I.length && n.every((e, t) => e === I[t]) || ye(n);
 			return;
 		}
-		let r = dJ(t, e, I);
+		let r = dJ(t, e, L);
 		if (r != null) {
-			r !== I && ve(r, { source: "yaml" });
+			r !== L && ve(r, { source: "yaml" });
 			return;
 		}
-		I != null && e.length === t.length && I < e.length && e[I]?.type === t[I]?.type || ve(null, { source: "yaml" });
+		L != null && e.length === t.length && L < e.length && e[L]?.type === t[L]?.type || ve(null, { source: "yaml" });
 	}, [
 		ye,
+		L,
 		I,
-		F,
 		ve,
-		L
-	]), Rt = (0, v.useCallback)(() => {
-		Ye();
-	}, [Ye]), zt = (0, v.useCallback)((e, t) => {
-		F.length !== 0 && $e(e, t);
-	}, [$e, F.length]), Bt = (0, v.useCallback)(() => {
-		gt(), x(!0);
-	}, [gt]), Vt = (0, v.useCallback)(() => {
-		_t(), x(!1);
-	}, [_t]), Ht = (0, v.useCallback)((e, t) => {
-		if (F.length === 1) {
-			qe(F[0], e, t);
+		R
+	]), Bt = (0, v.useCallback)(() => {
+		Xe();
+	}, [Xe]), Vt = (0, v.useCallback)((e, t) => {
+		I.length !== 0 && et(e, t);
+	}, [et, I.length]), Ht = (0, v.useCallback)(() => {
+		_t(), x(!0);
+	}, [_t]), Ut = (0, v.useCallback)(() => {
+		vt(), x(!1);
+	}, [vt]), Wt = (0, v.useCallback)((e, t) => {
+		if (I.length === 1) {
+			Je(I[0], e, t);
 			return;
 		}
-		F.length > 1 && Je(e, t);
+		I.length > 1 && Ye(e, t);
 	}, [
-		F,
-		qe,
-		Je
-	]), Ut = (0, v.useCallback)((e) => U(e.name, "font", e), [U]), Wt = (0, v.useCallback)((e, t) => U(e, "image", t), [U]), Gt = (0, v.useCallback)((e, t, n) => {
-		let r = n ?? (F.includes(e) && F.length > 1 ? F : [e]);
+		I,
+		Je,
+		Ye
+	]), Gt = (0, v.useCallback)((e) => We(e.name, "font", e), [We]), Kt = (0, v.useCallback)((e, t) => We(e, "image", t), [We]), qt = (0, v.useCallback)((e, t, n) => {
+		let r = n ?? (I.includes(e) && I.length > 1 ? I : [e]);
 		if (r.length > 1) {
-			ot(r, t);
+			st(r, t);
 			return;
 		}
-		at(e, t);
+		ot(e, t);
 	}, [
-		at,
 		ot,
-		F
-	]), Kt = (0, v.useCallback)((e) => {
+		st,
+		I
+	]), Jt = (0, v.useCallback)((e) => {
 		u && f({
 			entityId: e,
 			token: `sim:${e}:${Date.now()}`
 		});
-	}, [u]), qt = (0, v.useCallback)((e) => {
+	}, [u]), Yt = (0, v.useCallback)((e) => {
 		u && m({
 			elementIndex: e,
 			token: `canvas:${e}:${Date.now()}`
 		});
 	}, [u]);
-	return p && p.elementIndex !== I && m(null), /* @__PURE__ */ (0, K.jsxs)("div", {
+	return p && p.elementIndex !== L && m(null), /* @__PURE__ */ (0, K.jsxs)("div", {
 		className: t.fill === "viewport" ? q.app : q.appEmbedded,
 		children: [
 			/* @__PURE__ */ (0, K.jsxs)("header", {
@@ -77193,8 +77204,8 @@ function Iun({ bootstrap: e, host: t }) {
 								"aria-label": "Session",
 								children: /* @__PURE__ */ (0, K.jsx)(X9, {
 									variant: "destructive",
-									onClick: Ze,
-									disabled: At,
+									onClick: Qe,
+									disabled: Mt,
 									children: "Clear all"
 								})
 							}),
@@ -77203,8 +77214,8 @@ function Iun({ bootstrap: e, host: t }) {
 								role: "group",
 								"aria-label": "Demo",
 								children: /* @__PURE__ */ (0, K.jsx)(X9, {
-									onClick: Pt,
-									disabled: At,
+									onClick: It,
+									disabled: Mt,
 									children: "Load Demo"
 								})
 							}),
@@ -77215,7 +77226,7 @@ function Iun({ bootstrap: e, host: t }) {
 								children: /* @__PURE__ */ (0, K.jsx)(Nun, {
 									actions: Me,
 									designerDisabledReason: E ? "Fix the YAML errors before running this action" : null,
-									onAction: Ft
+									onAction: Lt
 								})
 							}) : null,
 							t.shareLink ? /* @__PURE__ */ (0, K.jsx)("div", {
@@ -77229,7 +77240,7 @@ function Iun({ bootstrap: e, host: t }) {
 									iconPath: E4t("share"),
 									tooltip: "Copy share link",
 									label: "Copy share link",
-									onClick: () => void It()
+									onClick: () => void Rt()
 								})
 							}) : null,
 							a == null ? /* @__PURE__ */ (0, K.jsx)("div", {
@@ -77247,18 +77258,18 @@ function Iun({ bootstrap: e, host: t }) {
 				]
 			}),
 			ee == null ? null : /* @__PURE__ */ (0, K.jsx)(ZG, { message: ee }),
-			Mt.map((e, t) => /* @__PURE__ */ (0, K.jsx)(ZG, { message: e }, `hash-import-${e.title}-${t}`)),
+			Pt.map((e, t) => /* @__PURE__ */ (0, K.jsx)(ZG, { message: e }, `hash-import-${e.title}-${t}`)),
 			/* @__PURE__ */ (0, K.jsxs)("div", {
 				className: "flex min-h-0 flex-1",
 				children: [
 					/* @__PURE__ */ (0, K.jsx)(U6t, {
 						elements: N,
-						previewElements: P,
-						selectedIndices: F,
+						previewElements: F,
+						selectedIndices: I,
 						canvas: be,
-						mockContext: R,
-						hostStateCatalog: Pe,
-						assetRevision: Ue,
+						mockContext: Ne,
+						hostStateCatalog: Fe,
+						assetRevision: U,
 						onSelectElement: ve,
 						onCanvasSizeChange: Ce,
 						onColorModeChange: Se,
@@ -77269,22 +77280,22 @@ function Iun({ bootstrap: e, host: t }) {
 						selectedTargetId: Oe,
 						selectedTargetLabel: ke,
 						onSelectDisplayTarget: Ae,
-						onSetMockState: Fe,
-						onAddMockEntity: z,
-						onRemoveMockEntity: Ie,
-						onSetMockAttribute: Le,
-						onRenameMockAttribute: Re,
-						onRemoveMockAttribute: ze,
-						variables: Be,
-						onSetVariable: B,
-						onAddVariable: Ve,
-						onRenameVariable: He,
-						onRemoveVariable: V,
-						onUploadAsset: U,
-						onClearAsset: We,
-						onReorderElement: Gt,
-						onFocusSimulatorEntity: Kt,
-						yamlBlocked: At
+						onSetMockState: z,
+						onAddMockEntity: Ie,
+						onRemoveMockEntity: Le,
+						onSetMockAttribute: Re,
+						onRenameMockAttribute: ze,
+						onRemoveMockAttribute: Be,
+						variables: B,
+						onSetVariable: Ve,
+						onAddVariable: He,
+						onRenameVariable: V,
+						onRemoveVariable: H,
+						onUploadAsset: We,
+						onClearAsset: Ge,
+						onReorderElement: qt,
+						onFocusSimulatorEntity: Jt,
+						yamlBlocked: Mt
 					}),
 					/* @__PURE__ */ (0, K.jsxs)("div", {
 						ref: n,
@@ -77292,51 +77303,51 @@ function Iun({ bootstrap: e, host: t }) {
 						children: [
 							/* @__PURE__ */ (0, K.jsx)($4t, {
 								elements: N,
-								onAddElement: Nt,
-								blocked: At
+								onAddElement: Ft,
+								blocked: Mt
 							}),
 							/* @__PURE__ */ (0, K.jsx)("div", {
 								ref: r,
 								"data-canvas-allocation": !0,
 								className: "flex min-h-0 min-w-0 flex-1 flex-col",
 								children: /* @__PURE__ */ (0, K.jsx)(W4t, {
-									elements: P,
+									elements: F,
 									editElements: N,
 									renderContext: xe,
-									selectedIndices: F,
-									assetRevision: Ue,
+									selectedIndices: I,
+									assetRevision: U,
 									sessionName: M,
 									allocationSize: i,
-									snapGrid: st,
-									showHiddenHints: lt,
-									onToggleShowHiddenHints: ut,
+									snapGrid: ct,
+									showHiddenHints: ut,
+									onToggleShowHiddenHints: dt,
 									extraStatusMessages: h,
 									onSelectElement: ve,
-									onSelectAllInRect: et,
-									onAlignSelection: it,
-									onUpdateElement: Ge,
-									onUpdateElementsBatch: Ke,
-									onBringSelectionToFront: tt,
-									onSendSelectionToBack: nt,
-									onMoveSelectionLayer: rt,
+									onSelectAllInRect: tt,
+									onAlignSelection: at,
+									onUpdateElement: Ke,
+									onUpdateElementsBatch: qe,
+									onBringSelectionToFront: nt,
+									onSendSelectionToBack: rt,
+									onMoveSelectionLayer: it,
 									elementCount: N.length,
-									onDeleteSelected: Rt,
-									onNudgeSelected: zt,
-									onToggleSnap: ct,
+									onDeleteSelected: Bt,
+									onNudgeSelected: Vt,
+									onToggleSnap: lt,
 									previewDitherMode: be.previewDitherMode,
-									onTogglePreviewDither: dt,
+									onTogglePreviewDither: ft,
 									onDragActiveChange: y,
-									onSelectedElementPointerDown: qt,
-									onBeginEditCoalesce: gt,
-									onEndEditCoalesce: _t,
-									canUndo: mt,
-									canRedo: ht,
-									onUndo: ft,
-									onRedo: pt,
-									blocked: At,
+									onSelectedElementPointerDown: Yt,
+									onBeginEditCoalesce: _t,
+									onEndEditCoalesce: vt,
+									canUndo: ht,
+									canRedo: gt,
+									onUndo: pt,
+									onRedo: mt,
+									blocked: Mt,
 									blockedVisible: O,
-									displayPreview: kt,
-									pngBlobSourceRef: bt
+									displayPreview: jt,
+									pngBlobSourceRef: xt
 								})
 							}),
 							/* @__PURE__ */ (0, K.jsx)(fln, {
@@ -77344,14 +77355,14 @@ function Iun({ bootstrap: e, host: t }) {
 								containerRef: n,
 								elements: N,
 								sessionName: M,
-								extraEntityIds: H,
-								mockContext: Ne,
-								hostStatesFed: Pe != null,
-								onElementsChange: Lt,
+								extraEntityIds: Ue,
+								mockContext: Pe,
+								hostStatesFed: Fe != null,
+								onElementsChange: zt,
 								onSelectElement: ve,
 								onStatusMessagesChange: g,
 								onYamlBlockedChange: D,
-								selectedIndex: I,
+								selectedIndex: L,
 								selectionSource: ge,
 								entityScrollRequest: d,
 								elementScrollRequest: p,
@@ -77359,26 +77370,26 @@ function Iun({ bootstrap: e, host: t }) {
 								propertyEditing: b,
 								flushPendingRef: fe,
 								discardPendingRef: j,
-								readOnly: kt.active
+								readOnly: jt.active
 							})
 						]
 					}),
 					/* @__PURE__ */ (0, K.jsx)(G3t, {
 						elements: _e,
-						indices: F,
+						indices: I,
 						elementCount: N.length,
-						fontKeys: jt,
-						onPropertyChange: Ht,
-						onUploadFont: Ut,
-						onUploadImageForUrl: Wt,
-						onBeginPropertyEdit: Bt,
-						onEndPropertyEdit: Vt,
-						onDelete: Rt,
-						onBringToFront: tt,
-						onSendToBack: nt,
-						onMoveUp: () => rt("up"),
-						onMoveDown: () => rt("down"),
-						blocked: At,
+						fontKeys: Nt,
+						onPropertyChange: Wt,
+						onUploadFont: Gt,
+						onUploadImageForUrl: Kt,
+						onBeginPropertyEdit: Ht,
+						onEndPropertyEdit: Ut,
+						onDelete: Bt,
+						onBringToFront: nt,
+						onSendToBack: rt,
+						onMoveUp: () => it("up"),
+						onMoveDown: () => it("down"),
+						blocked: Mt,
 						blockedVisible: O
 					})
 				]
@@ -77388,7 +77399,7 @@ function Iun({ bootstrap: e, host: t }) {
 }
 //#endregion
 //#region src/embed/embeddedHost.ts
-function Lun(e, t) {
+function Run(e, t) {
 	let n = e.states ? w9(e.states) : {
 		states: {},
 		attributes: {}
@@ -77405,7 +77416,7 @@ function Lun(e, t) {
 		importSource: "default"
 	};
 }
-function Run(e) {
+function zun(e) {
 	e.states !== void 0 && C9(e.states);
 	let t = e.actions ? L9(e.actions) : void 0;
 	t && R9(t, e.onAction, "mount()");
@@ -77428,16 +77439,16 @@ function Run(e) {
 		renderPreview: e.renderPreview,
 		resolveAsset: e.resolveAsset,
 		onStatusChange: e.onStatusChange,
-		loadBootstrap: () => Lun(e, n)
+		loadBootstrap: () => Run(e, n)
 	};
 }
 //#endregion
 //#region src/embed/mount.tsx
 var Q9 = "data-odl-designer-styles";
-function zun(e) {
+function Bun(e) {
 	return e.shadowRoot ?? e.attachShadow({ mode: "open" });
 }
-function Bun(e) {
+function Vun(e) {
 	if (e.querySelector(`style[${Q9}]`)) return;
 	let t = e.host.ownerDocument.createElement("style");
 	t.setAttribute(Q9, ""), t.textContent = b, e.appendChild(t);
@@ -77445,7 +77456,7 @@ function Bun(e) {
 function $9(e, t) {
 	e.classList.toggle("dark", t === "dark"), e.dataset.theme = t;
 }
-function Vun(e, t) {
+function Hun(e, t) {
 	let n = (e) => t.theme.owner === "designer" ? () => {
 		throw Error("setTheme() is unavailable: this host owns the theme preference");
 	} : (t) => $9(e, t);
@@ -77454,8 +77465,8 @@ function Vun(e, t) {
 		setTheme: n(e),
 		cleanup() {}
 	};
-	let r = zun(e);
-	Bun(r);
+	let r = Bun(e);
+	Vun(r);
 	let i = e.ownerDocument.createElement("div");
 	return i.style.height = "100%", i.setAttribute("data-odl-designer-root", ""), $9(i, Z9(t) ?? "light"), r.appendChild(i), {
 		element: i,
@@ -77463,7 +77474,7 @@ function Vun(e, t) {
 		cleanup: () => i.remove()
 	};
 }
-function Hun() {
+function Uun() {
 	return Object.freeze({
 		yamlValid: !0,
 		lastEditAt: null,
@@ -77471,7 +77482,7 @@ function Hun() {
 		selectedElementCount: 0
 	});
 }
-function Uun(e, t) {
+function Wun(e, t) {
 	let n = t.loadBootstrap(), r = [], i = () => {
 		for (let e of r.splice(0).reverse()) e();
 	}, a = (e) => {
@@ -77482,7 +77493,7 @@ function Uun(e, t) {
 		}
 	};
 	t.resolveAsset && r.push(hXt(t.resolveAsset));
-	let o = a(() => Vun(e, t));
+	let o = a(() => Hun(e, t));
 	r.push(() => o.cleanup());
 	let s = null, c = [], l = (e) => {
 		if (s) {
@@ -77517,7 +77528,7 @@ function Uun(e, t) {
 	}, h = !1, g = null, _ = 0, b = 0, x = a(() => (0, y.createRoot)(o.element));
 	r.push(() => x.unmount());
 	let S = () => {
-		g && x.render(/* @__PURE__ */ (0, K.jsx)(v.StrictMode, { children: /* @__PURE__ */ (0, K.jsx)(Iun, {
+		g && x.render(/* @__PURE__ */ (0, K.jsx)(v.StrictMode, { children: /* @__PURE__ */ (0, K.jsx)(Lun, {
 			bootstrap: g,
 			host: m
 		}, _) }));
@@ -77584,12 +77595,12 @@ function Uun(e, t) {
 			return D(), d ? d() : Promise.reject(/* @__PURE__ */ Error("MountHandle.getPngBlob() called before the designer finished mounting"));
 		},
 		getStatus() {
-			return D(), f ? f() : Hun();
+			return D(), f ? f() : Uun();
 		}
 	};
 }
-function Wun(e, t = {}) {
-	return Uun(e, Run(t));
+function Gun(e, t = {}) {
+	return Wun(e, zun(t));
 }
 //#endregion
-export { Wun as mount, k as version };
+export { Gun as mount, k as version };
