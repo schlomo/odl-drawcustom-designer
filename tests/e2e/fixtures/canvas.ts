@@ -137,11 +137,20 @@ export async function touchDragCanvasPoint(
  * pan/pinch). Canvas-space points are converted to client pixels via the
  * paper's bounding box, same conversion the other helpers here use.
  *
- * `run` gets a `dispatch` function taking the *full* current set of active
- * touch points on every call — matching `Input.dispatchTouchEvent`'s own
- * model, where Chromium diffs against the previous dispatch by `id` to work
- * out what's new/moved/gone. Reuse the same `id` across calls for a point
- * that's continuing; simply add or drop entries to introduce or end touches.
+ * `run` gets a `dispatch` function whose `points` argument means something
+ * different depending on `type` (measured against real CDP behavior — this
+ * cost two false positives before it was pinned down, so don't re-derive it
+ * from the touchStart/touchMove case below):
+ *
+ * - `'touchStart'` / `'touchMove'`: the *full current set* of active touch
+ *   points, keyed by `id`. Reuse the same `id` across calls for a point
+ *   that's continuing; add a new `id` to introduce a finger while one or
+ *   more others stay down (a `'touchStart'` dispatch with more points than
+ *   the previous dispatch had).
+ * - `'touchEnd'` / `'touchCancel'`: the points that are *ending* in this
+ *   dispatch, not the ones still down — pass just the lifted finger's
+ *   entry to end one touch while another continues, or an empty array to
+ *   end every touch still active.
  */
 export async function withTouchGesture(
   page: Page,

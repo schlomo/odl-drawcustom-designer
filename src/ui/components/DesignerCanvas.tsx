@@ -152,6 +152,15 @@ interface DesignerCanvasProps {
   onSelectedElementPointerDown?: (index: number) => void
   onBeginEditCoalesce?: () => void
   onEndEditCoalesce?: () => void
+  /**
+   * True cancel of an in-flight coalesced edit (issue #149 follow-up review
+   * M1/M2): drops the coalescing bookkeeping AND restores the elements
+   * array to the coalesce-start snapshot, unlike `onEndEditCoalesce` which
+   * commits whatever the gesture left behind as one undo entry. A second
+   * finger landing mid-drag/resize uses this — escalating to 2-finger
+   * navigation aborts the drag, it doesn't finish it.
+   */
+  onCancelEditCoalesce?: () => void
   canUndo?: boolean
   canRedo?: boolean
   onUndo?: () => void
@@ -227,26 +236,49 @@ interface TwoFingerSession {
   referenceDistance: number
 }
 
-/** Ascending explicit zoom levels a pinch steps between — the same four values the toolbar's zoom buttons expose (`canvasZoom.ts`); pinch never introduces a continuous/arbitrary zoom value. */
-const PINCH_ZOOM_STEP_ORDER: readonly CanvasZoomMode[] = ['50', '100', '200']
-
-/** Two touch points must spread (or close) by this ratio, relative to the last step, to fire one zoom step — tuned for one deliberate pinch gesture per step, not per pixel. */
-const PINCH_ZOOM_STEP_RATIO = 1.4
+/** Ascending explicit zoom levels a pinch steps between — three of the four values the toolbar's zoom buttons expose (`canvasZoom.ts`); `fit` is deliberately not one of them, see {@link nextZoomModeForPinch}. Pinch never introduces a continuous/arbitrary zoom value. */
+const PINCH_ZOOM_STEP_ORDER: readonly ('50' | '100' | '200')[] = ['50', '100', '200']
 
 /**
- * `fit` has no position in {@link PINCH_ZOOM_STEP_ORDER} (its scale is
- * computed from the viewport, not a fixed level) — mirroring how the
- * toolbar's own zoom control only ever jumps between the four fixed levels,
- * a pinch starting in `fit` mode switches straight to the nearest explicit
- * percent in the pinch's direction, exactly once, rather than trying to
- * compute a "current step index" for a scale that isn't one of the four.
+ * Two touch points must spread (or close) by this ratio, relative to the
+ * *last step* (not the gesture's start), to fire one zoom step — a single
+ * continuous pinch can ratchet through multiple steps (e.g. `fit` → `100`
+ * → `200` in one spread) by re-crossing this ratio again from each new
+ * reference distance; it is not a one-step-per-gesture cap.
+ */
+const PINCH_ZOOM_STEP_RATIO = 1.4
+
+function explicitZoomScale(mode: '50' | '100' | '200'): number {
+  return mode === '50' ? 0.5 : mode === '100' ? 1 : 2
+}
+
+/**
+ * `fit` has no fixed position in {@link PINCH_ZOOM_STEP_ORDER} — its scale
+ * (`fitScale`) is computed from the viewport, and can land anywhere,
+ * including *beyond* every explicit level (a small canvas in a big
+ * viewport can fit at well over 200%; a huge canvas can fit at well under
+ * 50%). A pinch from `fit` must land on the nearest explicit level
+ * strictly ABOVE `fitScale` for `'increase'` and strictly BELOW it for
+ * `'decrease'` — never a level that sits the opposite way from `fitScale`
+ * than the finger gesture asked for, which is what hardcoding `fit → 100`
+ * / `fit → 50` did (review finding B1: a 159%-fit canvas pinched OUT
+ * landed on 100%, i.e. it SHRANK). If no explicit level exists in that
+ * direction (fit's scale is already beyond the whole range), the pinch is
+ * a no-op — returning `current` unchanged, never a wrong-direction jump.
  */
 function nextZoomModeForPinch(
   current: CanvasZoomMode,
   direction: 'increase' | 'decrease',
+  fitScale: number,
 ): CanvasZoomMode {
   if (current === 'fit') {
-    return direction === 'increase' ? '100' : '50'
+    const inDirection =
+      direction === 'increase'
+        ? PINCH_ZOOM_STEP_ORDER.filter((mode) => explicitZoomScale(mode) > fitScale)
+        : [...PINCH_ZOOM_STEP_ORDER]
+            .reverse()
+            .filter((mode) => explicitZoomScale(mode) < fitScale)
+    return inDirection[0] ?? current
   }
   const index = PINCH_ZOOM_STEP_ORDER.indexOf(current)
   const nextIndex =
@@ -305,6 +337,7 @@ export function DesignerCanvas({
   onSelectedElementPointerDown,
   onBeginEditCoalesce,
   onEndEditCoalesce,
+  onCancelEditCoalesce,
   canUndo = false,
   canRedo = false,
   onUndo,
@@ -379,6 +412,16 @@ export function DesignerCanvas({
     clientX: number
     clientY: number
   } | null>(null)
+  /**
+   * Bumped every time `pendingZoomAnchorRef` is set (review finding m1):
+   * the consuming layout effect depends on this, not on `effectiveScale`
+   * alone — a `setZoomMode` call can leave `effectiveScale` numerically
+   * unchanged (e.g. `fit`'s scale happens to equal an explicit level's), in
+   * which case `effectiveScale`/`viewportLayout` are the same object/value
+   * as last render and the effect would never re-run, leaving the anchor to
+   * strand and wrongly apply to some later, unrelated scale change.
+   */
+  const [zoomAnchorTick, setZoomAnchorTick] = useState(0)
   const [dragOverlays, setDragOverlays] = useState<DragOverlay[]>([])
   const [canvasSnapGuides, setCanvasSnapGuides] = useState<CanvasSnapEdge[]>([])
   /** Preview stack frozen at drag start so live YAML/property updates do not re-render every layer. */
@@ -474,6 +517,16 @@ export function DesignerCanvas({
   // under the gesture's midpoint before the step is still under it after —
   // a `setZoomMode` call with no pending anchor (the toolbar buttons, or the
   // initial mount) leaves scroll untouched.
+  //
+  // Depends on `zoomAnchorTick`, not `effectiveScale`/`viewportLayout`
+  // (review finding m1): those two can end up numerically/referentially
+  // unchanged even though `zoomMode` genuinely changed (`fit`'s computed
+  // scale can coincide with an explicit level's), in which case this effect
+  // would never re-run and the anchor set for THIS step would strand and
+  // later misapply to some unrelated scale change. `setZoomAnchorTick` is
+  // only ever called in the same synchronous update as the `setZoomMode`
+  // that set this anchor, so both land in one React commit — this effect
+  // always runs against the already-painted result of that same step.
   useLayoutEffect(() => {
     const anchor = pendingZoomAnchorRef.current
     if (!anchor) {
@@ -490,7 +543,7 @@ export function DesignerCanvas({
     const anchoredClientY = rect.top + (anchor.canvasPoint.y / renderContext.height) * rect.height
     container.scrollLeft += anchoredClientX - anchor.clientX
     container.scrollTop += anchoredClientY - anchor.clientY
-  }, [effectiveScale, renderContext.height, renderContext.width, viewportLayout])
+  }, [zoomAnchorTick, renderContext.height, renderContext.width])
 
   const fontAssetKeys = useStableAssetKeys(elements, collectFontKeysFromElements)
 
@@ -762,39 +815,85 @@ export function DesignerCanvas({
     }
   }, [])
 
-  const finishMarquee = useCallback(() => {
-    const session = marqueeSessionRef.current
-    marqueeSessionRef.current = null
-    setMarqueeSession(null)
-    const rect = marqueeRectRef.current
-    marqueeRectRef.current = null
-    setMarqueeRect(null)
-    if (!session) {
-      return
-    }
-    if (rect && (rect.width >= 2 || rect.height >= 2)) {
-      onSelectAllInRect(rect, session.additive)
-      return
-    }
-    if (!session.additive) {
-      onSelectElement(null)
-    }
-  }, [onSelectAllInRect, onSelectElement])
+  /**
+   * The single exit for a marquee session, parameterized by `cancel`
+   * (review finding M1/M2, issue #149 follow-up) rather than a second
+   * function — a second finger landing mid-marquee (`maybeStartTwoFingerSession`
+   * below) must produce a TRUE cancel: selection left exactly as it was
+   * before the marquee started, `onSelectAllInRect` never called at all
+   * (not even the empty-marquee "deselect" fallback — that fallback is part
+   * of *committing* an empty drag as a click-to-deselect, not part of
+   * aborting one). A plain pointerup/lost-capture still commits as before.
+   *
+   * m4: releases pointer capture itself (matching `finishDrag`'s
+   * self-contained pattern) instead of relying on the caller to do it
+   * first — `maybeStartTwoFingerSession`'s cancel path had no such caller,
+   * leaving the marquee's pointer captured on the container after an abort.
+   */
+  const finishMarquee = useCallback(
+    (options?: { cancel?: boolean }) => {
+      const session = marqueeSessionRef.current
+      marqueeSessionRef.current = null
+      setMarqueeSession(null)
+      const rect = marqueeRectRef.current
+      marqueeRectRef.current = null
+      setMarqueeRect(null)
+      if (session) {
+        releaseCapturedPointer(pointerCaptureTargetRef.current, session.pointerId)
+      }
+      pointerCaptureTargetRef.current = null
+      if (!session || options?.cancel) {
+        return
+      }
+      if (rect && (rect.width >= 2 || rect.height >= 2)) {
+        onSelectAllInRect(rect, session.additive)
+        return
+      }
+      if (!session.additive) {
+        onSelectElement(null)
+      }
+    },
+    [onSelectAllInRect, onSelectElement, releaseCapturedPointer],
+  )
 
-  const finishDrag = useCallback(() => {
-    const session = dragSessionRef.current
-    if (session) {
-      releaseCapturedPointer(pointerCaptureTargetRef.current, session.pointerId)
-    }
-    pointerCaptureTargetRef.current = null
-    setFrozenElements(null)
-    dragSessionRef.current = null
-    setDragSession(null)
-    setDragOverlays([])
-    setCanvasSnapGuides([])
-    onDragActiveChange?.(false)
-    onEndEditCoalesce?.()
-  }, [onDragActiveChange, onEndEditCoalesce, releaseCapturedPointer])
+  /**
+   * The single exit for a drag/resize session, parameterized by `cancel`
+   * (review finding M1/M2) rather than a second function — a second finger
+   * landing mid-drag must produce a TRUE cancel: the element(s) restored to
+   * their pre-gesture state and NO undo entry written, not "frozen at its
+   * partial position with one permanent undo entry" (the reviewer's
+   * measured pre-fix behavior). `onCancelEditCoalesce` (vs. the commit
+   * path's `onEndEditCoalesce`) is exactly `EditHistory.cancelCoalesce()`
+   * plus restoring the coalesce-start snapshot (`useProjectState.ts`) — the
+   * full elements array, not a reconstruction from this session's own
+   * `starts`, so it can't drift from whatever else the coalesce covered.
+   *
+   * ADR-009: still exactly one `onDragActiveChange(false)` call and exactly
+   * one coalesce-closing call (cancel XOR end, never both) — ending the
+   * suspension of the elements→editor sync in the cancel case syncs the
+   * now-restored elements, the same single drag-end sync path as a commit.
+   */
+  const finishDrag = useCallback(
+    (options?: { cancel?: boolean }) => {
+      const session = dragSessionRef.current
+      if (session) {
+        releaseCapturedPointer(pointerCaptureTargetRef.current, session.pointerId)
+      }
+      pointerCaptureTargetRef.current = null
+      setFrozenElements(null)
+      dragSessionRef.current = null
+      setDragSession(null)
+      setDragOverlays([])
+      setCanvasSnapGuides([])
+      onDragActiveChange?.(false)
+      if (options?.cancel) {
+        onCancelEditCoalesce?.()
+      } else {
+        onEndEditCoalesce?.()
+      }
+    },
+    [onCancelEditCoalesce, onDragActiveChange, onEndEditCoalesce, releaseCapturedPointer],
+  )
 
   const updateBulkMoveVisual = useCallback(
     (
@@ -872,13 +971,16 @@ export function DesignerCanvas({
   }, [])
 
   /**
-   * Issue #155: the exact instant `activePointersRef` reaches two entries,
-   * start navigation — canceling (never blending with) any in-flight
-   * 1-finger gesture first, which is also the defect fix (a 2nd finger must
-   * never perturb an active drag/resize/marquee session). A 3rd+ finger
-   * touching down while a session is already active is a no-op here: it's
-   * still tracked in `activePointersRef`, but the session keeps riding its
-   * original two ids.
+   * Issue #149 follow-up (review M1/M2) / #155: the exact instant
+   * `activePointersRef` reaches two entries, start navigation — TRUE
+   * CANCELING (never committing, never blending with) any in-flight
+   * 1-finger gesture first: escalating to navigation aborts the intent, it
+   * doesn't finish it. A marquee never calls `onSelectAllInRect`, leaving
+   * selection exactly as it was; a drag/resize restores the pre-gesture
+   * elements and writes no undo entry (see `finishMarquee`/`finishDrag`'s
+   * `cancel` option). A 3rd+ finger touching down while a session is
+   * already active is a no-op here: it's still tracked in
+   * `activePointersRef`, but the session keeps riding its original two ids.
    */
   const maybeStartTwoFingerSession = useCallback(
     (target: HTMLElement) => {
@@ -886,10 +988,10 @@ export function DesignerCanvas({
         return
       }
       if (dragSessionRef.current) {
-        finishDrag()
+        finishDrag({ cancel: true })
       }
       if (marqueeSessionRef.current) {
-        finishMarquee()
+        finishMarquee({ cancel: true })
       }
       const [idA, idB] = [...activePointersRef.current.keys()] as [number, number]
       const a = activePointersRef.current.get(idA)
@@ -913,9 +1015,13 @@ export function DesignerCanvas({
    * Issue #155: pan follows the 2-finger midpoint every move; pinch zoom
    * steps the existing discrete `zoomMode` (never a continuous value — see
    * {@link PINCH_ZOOM_STEP_ORDER}) when the two touches' distance has
-   * spread or closed by {@link PINCH_ZOOM_STEP_RATIO} since the last step,
-   * anchored via `pendingZoomAnchorRef` (consumed by the layout effect
-   * above) so the canvas point under the gesture midpoint doesn't jump.
+   * spread or closed by {@link PINCH_ZOOM_STEP_RATIO} since the last step
+   * (a ratchet — see that constant's doc for why one continuous pinch can
+   * fire several steps), anchored via `pendingZoomAnchorRef` (consumed by
+   * the layout effect above, bumping `zoomAnchorTick` so that effect is
+   * guaranteed to run even when the resulting scale happens to be
+   * numerically unchanged — review finding m1) so the canvas point under
+   * the gesture midpoint doesn't jump.
    */
   const updateTwoFingerGesture = useCallback(
     (session: TwoFingerSession) => {
@@ -941,6 +1047,7 @@ export function DesignerCanvas({
         const nextMode = nextZoomModeForPinch(
           zoomMode,
           ratio >= PINCH_ZOOM_STEP_RATIO ? 'increase' : 'decrease',
+          fitScale,
         )
         if (nextMode !== zoomMode) {
           const anchorCanvasPoint = mapClientToCanvas(midpoint.x, midpoint.y, true)
@@ -950,6 +1057,7 @@ export function DesignerCanvas({
               clientX: midpoint.x,
               clientY: midpoint.y,
             }
+            setZoomAnchorTick((tick) => tick + 1)
           }
           setZoomMode(nextMode)
         }
@@ -962,7 +1070,7 @@ export function DesignerCanvas({
         referenceDistance: nextReferenceDistance,
       }
     },
-    [mapClientToCanvas, zoomMode],
+    [fitScale, mapClientToCanvas, zoomMode],
   )
 
   const handlePointerMove = useCallback(
@@ -1217,18 +1325,18 @@ export function DesignerCanvas({
         return
       }
 
+      // finishDrag/finishMarquee release capture themselves (m4) — no need
+      // to also release it here first.
       const session = dragSessionRef.current
       if (session && event.pointerId === session.pointerId) {
-        releaseCapturedPointer(event.currentTarget, session.pointerId)
         finishDrag()
       }
       const marquee = marqueeSessionRef.current
       if (marquee && event.pointerId === marquee.pointerId) {
-        releaseCapturedPointer(event.currentTarget, marquee.pointerId)
         finishMarquee()
       }
     },
-    [finishDrag, finishMarquee, finishTwoFingerSession, releaseCapturedPointer],
+    [finishDrag, finishMarquee, finishTwoFingerSession],
   )
 
   const handleLostPointerCapture = useCallback(
