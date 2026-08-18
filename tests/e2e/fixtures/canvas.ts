@@ -75,6 +75,62 @@ export async function dragCanvasPoint(
 }
 
 /**
+ * Drag from one canvas-coordinate point to another via a *real touch*
+ * gesture, injected through the Chrome DevTools Protocol
+ * (`Input.dispatchTouchEvent`) rather than `page.mouse` — Playwright's
+ * `page.mouse` always synthesizes mouse-type pointer events, which are never
+ * subject to CSS `touch-action` gesture arbitration. Only a genuine touch
+ * input runs through Chromium's real touch-vs-scroll decision, which is
+ * exactly the mechanism issue #149 is about ("browser claims the gesture").
+ *
+ * Requires a browser context created with `hasTouch: true` (`test.use({
+ * hasTouch: true })`) — without it Chromium has no touch input stack to
+ * dispatch into.
+ */
+export async function touchDragCanvasPoint(
+  page: Page,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  canvasSize: { width: number; height: number },
+  options?: { steps?: number; settleMs?: number },
+): Promise<void> {
+  const paper = await canvasPaper(page)
+  const box = await paper.boundingBox()
+  if (!box) {
+    throw new Error('[data-canvas-paper] has no bounding box — is the canvas rendered?')
+  }
+
+  const start = toClientPoint(box, from, canvasSize)
+  const end = toClientPoint(box, to, canvasSize)
+  const steps = options?.steps ?? 8
+  const settleMs = options?.settleMs ?? 16
+
+  const client = await page.context().newCDPSession(page)
+  try {
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x: start.x, y: start.y }],
+    })
+    await page.waitForTimeout(settleMs)
+    for (let i = 1; i <= steps; i++) {
+      await client.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [
+          {
+            x: start.x + ((end.x - start.x) * i) / steps,
+            y: start.y + ((end.y - start.y) * i) / steps,
+          },
+        ],
+      })
+      await page.waitForTimeout(settleMs)
+    }
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  } finally {
+    await client.detach().catch(() => {})
+  }
+}
+
+/**
  * Move the mouse to a canvas-coordinate point without pressing a button —
  * drives the pointermove hover path (cursor affordance) in DesignerCanvas.
  */

@@ -770,6 +770,14 @@ export function DesignerCanvas({
 
       const marquee = marqueeSessionRef.current
       if (marquee && event.pointerId === marquee.pointerId && point) {
+        // Issue #149: unlike the drag/resize branch below, this path used to
+        // fall through to the early `return` further down without ever
+        // calling `preventDefault()` — a real, deterministic gap (not a
+        // browser-timing race) that let a touch marquee-drag be claimed as a
+        // viewport scroll even where `touch-action` doesn't already rule it
+        // out. Keep both fixes: this call is the belt, the paper's
+        // `touch-action: none` is the suspenders.
+        event.preventDefault()
         didDragRef.current = true
         const rect = normalizeMarqueeRect(marquee.startCanvas, point)
         marqueeRectRef.current = rect
@@ -1549,6 +1557,20 @@ export function DesignerCanvas({
                   height: renderContext.height,
                   transform: paperTransform(effectiveScale),
                   transformOrigin: 'top left',
+                  // Issue #149: a touch starting on the paper (drag, resize
+                  // handle, marquee-select) must never be reinterpreted by the
+                  // browser as panning the scrollable viewport
+                  // (`canvas-viewport`, `overflow-auto`, used to scroll a
+                  // zoomed-in canvas). `touch-action` is evaluated by the
+                  // browser before any JS runs and is NOT overridden by
+                  // calling `preventDefault()` in a pointer handler, so this
+                  // is the actual fix, not a belt-and-suspenders addition.
+                  // Scoped to the paper only (not the whole viewport): the
+                  // surrounding scroll padding must stay pannable by touch,
+                  // and this must never leak into the sidebar/properties
+                  // panel or the YAML editor, which keep normal touch
+                  // scrolling.
+                  touchAction: 'none',
                 } satisfies CSSProperties
               }
             >
