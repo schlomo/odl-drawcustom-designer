@@ -528,13 +528,15 @@ export function useProjectState(
   }, [])
 
   const restoreSnapshot = useCallback(
-    (snapshot: EditSnapshot) => {
+    (snapshot: EditSnapshot, options: { bump: boolean } = { bump: true }) => {
       const nextElements = structuredClone(snapshot.elements)
       elementsRef.current = nextElements
       setElements(nextElements)
-      // Issue #133: undo/redo bypasses `commitElements`, but it is still a
-      // user-originated change (the user pressed undo/redo).
-      bumpEditStatus(true)
+      if (options.bump) {
+        // Issue #133: undo/redo bypasses `commitElements`, but it is still a
+        // user-originated change (the user pressed undo/redo).
+        bumpEditStatus(true)
+      }
       const nextSelection = clampSelectedIndices(snapshot.selectedIndices, snapshot.elements.length)
       selectedIndicesRef.current = nextSelection
       setSelectedIndices(nextSelection)
@@ -614,7 +616,12 @@ export function useProjectState(
     coalesceBeforeRef.current = null
     historyRef.current!.cancelCoalesce()
     if (before) {
-      restoreSnapshot(before)
+      // Integration hazard (PR #153 rebase onto #152's bumpEditStatus): a
+      // cancelled gesture must be observationally void — unlike
+      // undo/redo's use of `restoreSnapshot`, this rollback is not itself a
+      // user edit, so it must not bump payloadRevision/lastEditAt or
+      // notify editStatusVersion watchers.
+      restoreSnapshot(before, { bump: false })
     }
   }, [restoreSnapshot])
 
