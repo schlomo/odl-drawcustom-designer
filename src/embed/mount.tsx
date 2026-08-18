@@ -7,6 +7,7 @@ import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import { createEmbeddedHost } from './embeddedHost'
 import { hostSuppliedTheme, type DesignerHost } from './host'
 import { assertActionsAreHandled, normalizeHostActions } from './hostActions'
+import { assertHostStates } from './hostContract'
 import { normalizeHostTargets } from './hostTargets'
 import type { EmbedTheme, HostPushTarget, MountHandle, MountOptions } from './types'
 
@@ -254,6 +255,13 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
     },
     setStates(states) {
       assertMounted()
+      // Validated before queueing, same reason as `setActions()`/`setTargets()`
+      // below: a queued push cannot report its own failure to the host later.
+      // Ordering is the point (maintainer ruling 2026-08-17) — a rejected push
+      // must not latch the host-fed policy or become the retained
+      // last-applied reference, or the identical re-push a ticking host makes
+      // gets deduped as "unchanged" and the channel stays wedged.
+      assertHostStates(states)
       push((target) => target.applyStates(states))
     },
     setPayload(payload) {

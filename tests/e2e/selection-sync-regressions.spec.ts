@@ -196,3 +196,51 @@ test(
     await expect(page.getByTestId('property-panel-selection')).toContainText('circle')
   },
 )
+
+// PR #142 maintainer manual-validation finding: clicking a state's name in
+// the standalone State Simulator had no discoverable jump-to-first-use
+// affordance — only focusing the (easy-to-miss) mock-value input reported the
+// entity, and that wiring had no test coverage. Also covers the entity-locate
+// bug the same finding exposed: a state reached only through dotted access on
+// the `states` global (`states.<domain>.<object>`, ADR-004 — the bundled
+// showcase demo's own payload uses this exact form) has no quotes to anchor
+// on, and sits right after a literal `states.`, i.e. immediately preceded by
+// a dot — which locateFirstEntityOccurrenceInYaml's bare-identifier fallback
+// deliberately excludes. Real EditorView layout needed to prove the pane
+// actually scrolls, hence e2e over a jsdom assertion.
+test(
+  'clicking a Simulator entity label scrolls the YAML editor to its dotted-access template (#142)',
+  async ({ page }) => {
+    const padding = Array.from(
+      { length: 40 },
+      () => '- type: line\n  x_start: 0\n  x_end: 1',
+    ).join('\n')
+    await replaceYamlDocument(
+      page,
+      [
+        padding,
+        '- type: text',
+        '  value: "{{ states.sensor.outdoor_temperature.state }}"',
+        '  x: 20',
+        '  y: 20',
+        '',
+      ].join('\n'),
+    )
+    await blurYamlEditor(page)
+    await expect(page.getByTestId('element-list-row')).toHaveCount(41)
+
+    await yamlContent(page).click()
+    await page.keyboard.press('ControlOrMeta+Home')
+    const templatedLine = yamlLineContaining(page, 'outdoor_temperature')
+    await expect(templatedLine).not.toBeInViewport()
+
+    await page.getByRole('button', { name: 'Simulator', exact: true }).click()
+    const newEntityInput = page.getByLabel('New entity id')
+    await newEntityInput.fill('sensor.outdoor_temperature')
+    await newEntityInput.press('Enter')
+
+    await page.getByTestId('simulator-entity-label-sensor.outdoor_temperature').click()
+
+    await expect(templatedLine).toBeInViewport()
+  },
+)

@@ -13,6 +13,8 @@ export interface YamlHeaderToolbarProps {
   onCopyYaml: () => void
   onDownloadYaml: () => void
   templatePreviewEnabled: boolean
+  /** True when a host owns the states (issue #107) — changes the toggle's copy. */
+  hostStatesFed?: boolean
   onToggleTemplatePreview: () => void
   couplingEnabled: boolean
   onToggleCoupling: () => void
@@ -30,6 +32,7 @@ export function YamlHeaderToolbar({
   onCopyYaml,
   onDownloadYaml,
   templatePreviewEnabled,
+  hostStatesFed = false,
   onToggleTemplatePreview,
   couplingEnabled,
   onToggleCoupling,
@@ -67,6 +70,7 @@ export function YamlHeaderToolbar({
       <div className={toolbarGroupRow} role="group" aria-label="YAML editor options">
         <YamlTemplatePreviewToggle
           enabled={templatePreviewEnabled}
+          hostStatesFed={hostStatesFed}
           onToggle={measureOnly ? noop : onToggleTemplatePreview}
           showTextLabel={labelsVisible}
           data-yaml-toolbar

@@ -194,6 +194,45 @@ data contract — no new lifecycle, no new adapter shape:
   referenced-states panel shows only the states the current payload actually
   references, with host display names, as a compact visual aid. The full
   catalog remains reachable via YAML/template autocomplete, unchanged.
+
+  *Shipped shape* (issue #107, `docs/embedding.md`):
+
+  - The field is `HostState.name` — domain-neutral, presentation only (no
+    template can read it) and re-pushable like everything else; the
+    issue-#110 push diff covers it, so a rename-only push lands.
+  - **Presence of the `states` channel is the policy.** Any push or mount
+    option — an empty map included — hands the catalog to the host: the
+    Simulator's sidebar tab *becomes* the read-only States panel, and no
+    state-editing UI is rendered anywhere. With no push at all, the Simulator
+    is byte-identical to what it always was.
+  - The panel lists the states the payload references
+    (`scanPayloadForTemplates` — helper calls **and** dotted access, whose
+    attribute bases are unioned into the same set, so the panel and the
+    evaluator agree on what a payload reads), each with its name, key, value and
+    referenced attributes, and marks anything the host does not supply
+    **"not supplied"** rather than inventing a value. Picking a row jumps the
+    YAML editor to the reference, as the Simulator's rows do.
+  - **Load Demo under a host-fed adapter loads the payload only** (maintainer
+    ruling 2026-08-16, from PR #137 manual validation): the showcase's
+    simulator states are Simulator data and would flash until the next push
+    overwrote them to unknown. Shared variables still seed — they are not a
+    host channel, so no push can supply or clobber them. Standalone Load Demo
+    is unchanged.
+  - **`states` is validated at the push boundary** (maintainer ruling
+    2026-08-17), the same contract `actions` and `targets` hold: `setStates()`
+    and the mount option check the shape *before* anything is applied, throw a
+    `TypeError` naming the key, and leave the designer untouched — including the
+    Simulator-off latch and the retained last-applied reference, so a rejected
+    push stays re-pushable instead of wedging the channel.
+  - **Variables are not host state** (maintainer ruling 2026-08-17). The
+    Simulator-off policy covers *states* only: no channel pushes variables, so
+    the variables editor is its own component (`VariablesEditor`) — rendered
+    beside the read-only States panel in host-fed mode, and inside the Simulator
+    standalone. This settles the open question PR #142 raised rather than
+    deciding it by omission.
+  - A rename-only push costs the panel and nothing else: the attribute merge
+    keeps its previous map's identity when no attribute moved, so `mockContext`,
+    the evaluated preview and the canvas are untouched.
 - **Actions** — `actions: [{ id, label, icon?, severity?, needsPayload?, disabledReason? }]`
   + `onAction(id, payload, { targetId })`. The designer renders the button list
   in its own chrome; meaning, auth, and the actual service call are entirely

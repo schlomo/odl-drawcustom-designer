@@ -71,6 +71,12 @@ interface YamlPanelProps {
   propertyEditing?: boolean
   mockContext?: HaMockContext
   /**
+   * True when a host owns the states (issue #107) — the inline template-preview
+   * toggle then explains its values as the host's, not the State Simulator's,
+   * which does not exist in that mode.
+   */
+  hostStatesFed?: boolean
+  /**
    * Reports whether the live editor document currently fails to parse or
    * validate (issue #35) — the parent uses this to block canvas/property
    * panel interactions while true.
@@ -138,6 +144,7 @@ export function YamlPanel({
   canvasDragging = false,
   propertyEditing = false,
   mockContext,
+  hostStatesFed = false,
   onYamlBlockedChange,
   flushPendingRef,
   discardPendingRef,
@@ -297,6 +304,7 @@ export function YamlPanel({
     onCopyYaml: () => void handleCopyYaml(),
     onDownloadYaml: handleDownloadYaml,
     templatePreviewEnabled,
+    hostStatesFed,
     onToggleTemplatePreview: toggleTemplatePreview,
     couplingEnabled,
     onToggleCoupling: toggleCoupling,

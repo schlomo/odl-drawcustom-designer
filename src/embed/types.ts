@@ -93,19 +93,33 @@ export type HostActionHandler = (
   context: HostActionContext,
 ) => void
 
-/** A pushed state value with optional attributes. */
+/** A pushed state value with optional attributes and an optional display name. */
 export interface HostState {
   state: string | number | boolean
   attributes?: Record<string, unknown>
+  /**
+   * Human-readable label for this state key (issue #107, ADR-018 state
+   * catalog) — what the referenced-states panel shows instead of the raw key
+   * ("Living-room temperature", not `sensor.demo_temperature`).
+   *
+   * Presentation only, and re-pushable like every other field: templates never
+   * see it (a payload reads `states()`/`state_attr()`, which are unaffected by
+   * whether the host named the key), and the designer never parses meaning out
+   * of it. Surrounding whitespace is trimmed; a blank name counts as none, and
+   * an unnamed key shows as its key.
+   */
+  name?: string
 }
 
 /**
- * Host-pushed states: state key -> state value or {state, attributes}. The
- * keys are the host's own identifiers, opaque to the designer — they are what
- * a payload's templates name (`states('…')`, `state_attr('…', '…')`).
+ * Host-pushed states: state key -> state value or {state, attributes, name}.
+ * The keys are the host's own identifiers, opaque to the designer — they are
+ * what a payload's templates name (`states('…')`, `state_attr('…', '…')`).
  *
- * When provided, this replaces the State Simulator's persisted mock source
- * for template preview (ADR-010).
+ * When provided, this **replaces the State Simulator entirely** (issue #107,
+ * ADR-018 Simulator policy): the designer shows a read-only referenced-states
+ * panel instead, and the full catalog stays reachable through YAML/template
+ * autocomplete.
  *
  * Ownership contract (issue #110): treated as an **immutable snapshot** at
  * the moment `setStates()` is called. Repeated pushes are diffed
@@ -201,7 +215,12 @@ export type HostTargetSelectedHandler = (targetId: string | null) => void
 export interface MountOptions {
   /** Initial drawcustom YAML payload (list of draw elements). */
   payload?: string
-  /** Initial states for template preview. */
+  /**
+   * Initial states for template preview. A mount option *is* an initial push
+   * (ADR-018 seam grammar): identical to calling {@link MountHandle.setStates}
+   * before the first painted frame, validated the same way — a malformed map
+   * throws out of `mount()`, like an invalid `payload`.
+   */
   states?: HostStates
   /** Initial theme; defaults to 'light'. */
   theme?: EmbedTheme
@@ -265,6 +284,14 @@ export interface MountHandle {
    * object as an immutable snapshot — see `HostStates`'s ownership contract
    * above; mutating it and calling `setStates()` again with the same reference
    * is unsupported and gets treated as a no-op push.
+   *
+   * Throws on a malformed map (a non-primitive or missing `state`, a
+   * non-object `attributes`, a non-string `name`, or a `states` argument that
+   * is not an object) with a message naming the offending key, and **changes
+   * nothing** when it does: no values, no names, no Simulator-off latch, and
+   * the rejected map never becomes the last-applied push the diff compares
+   * against — so the same bad map fails again rather than being deduped, and a
+   * corrected one applies normally.
    */
   setStates(states: HostStates): void
   /** Replace the current payload with new drawcustom YAML (throws on invalid YAML). */
@@ -347,6 +374,7 @@ export interface MountHandle {
  * setState from.
  */
 export interface HostPushTarget {
+  /** Pre-validated by `assertHostStates` at the handle boundary. */
   applyStates(states: HostStates): void
   applyPayload(elements: DrawElement[]): void
   /** Pre-validated by `normalizeHostActions` at the handle boundary. */

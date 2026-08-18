@@ -6,6 +6,7 @@ import type {
   HostAction,
   HostActionHandler,
   HostPushTarget,
+  HostStates,
   HostTarget,
   HostTargetSelectedHandler,
 } from './types'
@@ -60,6 +61,21 @@ export interface DesignerHost {
    * designer writes no session, mocks or variables at all (ADR-010).
    */
   readonly persistence: DesignerPersistence | null
+  /**
+   * Host-fed states the shell paints before the first push (issue #107,
+   * ADR-018 state catalog): the adapter's rendering of the `states` mount
+   * option, which the seam grammar defines as an initial push. Later pushes
+   * arrive through {@link HostPushTarget.applyStates}.
+   *
+   * Its **presence** — not its content — is what says "this host owns the
+   * states": the State Simulator is off and the read-only referenced-states
+   * panel takes its tab from the first painted frame, so an empty map still
+   * counts as host-fed. Absent (standalone) leaves the Simulator exactly as it
+   * was. The state *values* reach the shell through the bootstrap's mock maps
+   * as they always have; this channel carries the policy and the friendly
+   * names.
+   */
+  readonly states?: HostStates
   /**
    * Host action buttons the shell paints before the first push (issue #108,
    * ADR-018): the adapter's rendering of the `actions` mount option, which

@@ -12,6 +12,22 @@ const ENTITY_HELPER_PATTERNS = [
   new RegExp(`state_attr\\s*\\(\\s*['"](${ENTITY_ID_PATTERN})['"]`, 'g'),
 ] as const
 
+/**
+ * Dotted access on the `states` global — `states.<domain>.<object>`, with or
+ * without a trailing `.state` / `.attributes.<attr>`. The evaluator resolves
+ * this form (see evaluate.ts's dotted state buckets), so the scan has to see it
+ * too: otherwise the referenced-states panel and the Simulator list nothing for
+ * a payload that previews perfectly.
+ *
+ * Deliberately narrow: the lookbehind keeps it to the *global* — a member named
+ * `states` on something else (`ns.states.sensor.x`) or an identifier merely
+ * ending in it (`my_states.…`) references no entity.
+ */
+const STATES_DOTTED_PATTERN = new RegExp(
+  `(?<![\\w.$])states\\.(${ENTITY_ID_PATTERN})`,
+  'g',
+)
+
 const ATTRIBUTE_REFERENCE_PATTERNS = [
   // state_attr('entity.id', 'attribute')
   new RegExp(
@@ -111,7 +127,7 @@ export function extractTemplateExpressions(value: string): string[] {
 export function extractEntityIds(value: string): string[] {
   const entityIds = new Set<string>()
 
-  for (const pattern of ENTITY_HELPER_PATTERNS) {
+  for (const pattern of [...ENTITY_HELPER_PATTERNS, STATES_DOTTED_PATTERN]) {
     pattern.lastIndex = 0
     for (const match of value.matchAll(pattern)) {
       entityIds.add(match[1])
