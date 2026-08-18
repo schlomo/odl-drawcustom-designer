@@ -324,6 +324,59 @@ export type HostPreviewRenderer = (
   context: HostPreviewContext,
 ) => Promise<Blob | string>
 
+/**
+ * Read-only snapshot of designer status (issue #133, ADR-018's observability
+ * clause: "state flows out via a read handle plus optional change
+ * notification; status is derived, never authoritative, and carries no
+ * designer internals"). Answers "is the YAML good, what did the user just do,
+ * how much has changed" without exposing elements, YAML text or any other
+ * internal shape.
+ *
+ * Deliberately small — grow it by maintainer ruling, not speculation.
+ * Frozen: a later status is always a new object, never a mutation of one a
+ * host already holds.
+ */
+export interface DesignerStatus {
+  /** Whether the current YAML document parses and validates. */
+  readonly yamlValid: boolean
+  /**
+   * A one-line description of the first validation problem. Present only
+   * while {@link DesignerStatus.yamlValid} is `false` — a valid document
+   * carries no summary rather than an empty or stale one.
+   */
+  readonly yamlErrorSummary?: string
+  /**
+   * Epoch ms, in the **host's** clock domain (`Date.now()` at the moment of
+   * the edit) — never a designer-internal or build-time value — of the last
+   * user-originated change: typing committed to the canvas, a canvas drag, a
+   * property-panel edit, undo/redo. `null` before the user has made any edit
+   * during this mount.
+   *
+   * Never bumped by a host push (`setPayload()`, `setStates()`, …) — a push is
+   * the host acting on the designer, not the user acting on it.
+   */
+  readonly lastEditAt: number | null
+  /**
+   * Monotonic counter, incremented once per committed payload change —
+   * whether it came from the user (typing, a drag, undo/redo) or from a host
+   * `setPayload()` push. A host that only needs "has anything changed since I
+   * last looked" can diff this number instead of diffing YAML strings.
+   */
+  readonly payloadRevision: number
+  /** How many elements are currently selected on the canvas. */
+  readonly selectedElementCount: number
+}
+
+/**
+ * Fired on a status transition (issue #133) — a YAML validity flip or a
+ * {@link DesignerStatus.payloadRevision} change — debounced so a burst of
+ * keystrokes or drag updates yields one call, not one per commit. Not fired
+ * for a selection change alone. A stable closure fixed at mount, like
+ * `onAction`: ADR-018 pushes data, never functions, so there is no update
+ * channel for it.
+ */
+export type HostStatusChangeHandler = (status: DesignerStatus) => void
+
 export interface MountOptions {
   /** Initial drawcustom YAML payload (list of draw elements). */
   payload?: string
@@ -409,6 +462,16 @@ export interface MountOptions {
    * comes back can answer differently without a remount.
    */
   resolveAsset?: HostAssetResolver
+  /**
+   * Called on a designer status transition (issue #133) — see
+   * {@link HostStatusChangeHandler}. Optional: a host that only wants status
+   * on demand reads {@link MountHandle.getStatus} instead and never supplies
+   * this.
+   *
+   * A stable closure fixed at mount — there is no update channel for it
+   * (ADR-018: data is pushed, functions are not).
+   */
+  onStatusChange?: HostStatusChangeHandler
 }
 
 export interface MountHandle {
@@ -531,6 +594,19 @@ export interface MountHandle {
    *   other method on this handle.
    */
   getPngBlob(): Promise<Blob>
+  /**
+   * The designer's current status (issue #133, ADR-018's observability
+   * clause) — a small, frozen, derived snapshot; never authoritative, and it
+   * carries no designer internals (no elements, no YAML text).
+   *
+   * Always answers synchronously, including in the brief pre-registration
+   * window right after `mount()`/`mountStandaloneApp()` returns — before that
+   * registration has run, reports a default status (`yamlValid: true`, no
+   * edits yet, revision `0`, nothing selected), the same "safe default before
+   * the shell exists" shape {@link getPayload}'s bootstrap fallback uses.
+   * Throws `MountHandle used after destroy()` like every other method here.
+   */
+  getStatus(): DesignerStatus
 }
 
 /**

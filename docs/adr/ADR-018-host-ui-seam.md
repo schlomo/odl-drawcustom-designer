@@ -40,6 +40,14 @@ coexisting display channels, their last-write-wins precedence, the anonymous
 "Host display" entry, the two mapping bases — is **historical record, not
 current behavior**; the live contract is [`docs/embedding.md`](../embedding.md).
 
+Amended 2026-08-18 (issue #133): a third seam-grammar clause — **state flows
+out via a read handle plus optional change notification; status is derived,
+never authoritative, and carries no designer internals** — for
+`MountHandle.getStatus()` / `MountOptions.onStatusChange`, the observability
+read API answering "is the YAML good, what did the user just do, how much has
+changed" without exposing designer internals. See the seam grammar section
+below for the full clause and `docs/embedding.md` for the shipped shape.
+
 ## Context
 
 [PR #100](https://github.com/OpenDisplay/Home_Assistant_Integration/pull/100)
@@ -335,6 +343,25 @@ Every seam above follows one shape, and any future addition must fit it:
   (`onAction(id, payload, { targetId })`, `onTargetSelected(id | null)`) — the
   designer reports what the user did and hands over the current payload; it
   never exposes a second, action-specific save channel.
+- **State flows out via a read handle plus optional change notification;
+  status is derived, never authoritative, and carries no designer internals**
+  (issue #133, `MountHandle.getStatus()` / `MountOptions.onStatusChange`). This
+  is a third, narrower shape than the two above: not a typed push (nothing
+  flows *in*) and not an intent callback (nothing the user *did*, no payload
+  attached) — a small, frozen, on-demand snapshot (`yamlValid`,
+  `yamlErrorSummary`, `lastEditAt`, `payloadRevision`,
+  `selectedElementCount`) a host can either pull (`getStatus()`, answers
+  synchronously at any time) or subscribe to for transitions
+  (`onStatusChange`, debounced, fires on a validity flip or a revision change,
+  never on a selection change alone). "Derived, never authoritative" means the
+  designer's own state (elements, YAML text, undo history) stays the single
+  source of truth; status is a read-only report *about* that state, never a
+  second copy of it a host could feed back in — there is no `setStatus()`,
+  and there never will be, by the same logic that keeps `getPayload()` a pure
+  read. "Carries no designer internals" means the payload never appears in
+  it (unlike `onAction`/`renderPreview`, which the seam grammar's litmus test
+  ties to it) — a host that needs the payload alongside a status
+  transition reads `getPayload()` itself, the same call an action makes.
 - **A callback may push back.** Reacting to `onTargetSelected` / `onAction` with
   another push is supported by design, so every push channel that can be
   reached from its own notification must defer the re-entrant push and coalesce

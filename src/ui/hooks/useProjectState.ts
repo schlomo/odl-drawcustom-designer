@@ -179,6 +179,18 @@ function buildEffectiveMockContext(
   return { states, attributes: mockAttributes, variables }
 }
 
+/**
+ * `getStatus()`'s edit-tracking half (issue #133): the two fields
+ * `commitElements`/`restoreSnapshot` maintain and `App` combines with
+ * YAML-validity and selection state to build a {@link DesignerStatus}.
+ */
+export interface ProjectEditStatus {
+  /** Epoch ms of the last user-originated element change, or `null`. */
+  lastEditAt: number | null
+  /** Monotonic counter, incremented once per committed element change. */
+  payloadRevision: number
+}
+
 export interface ProjectStateEditorHooks {
   /**
    * Points at `YamlPanel`'s `discardPendingYamlEdit` (issue #104 review): a
@@ -281,6 +293,17 @@ export function useProjectState(
   // and on `HostStates` in src/embed/types.ts — construct a fresh object per
   // push instead.
   const lastHostStatesRef = useRef<HostStates | null>(null)
+  // Observability read state (issue #133, ADR-018's observability clause):
+  // `payloadRevisionRef` is bumped once per committed element change,
+  // whoever committed it; `lastEditAtRef` only for a **user**-originated one —
+  // `applyingHostPayloadRef` is the guard `applyPayload` below sets around its
+  // own `commitElements` call so a host `setPayload()` push cannot count as
+  // "the user doing something". Refs, not state: `getStatus()` reads them
+  // synchronously (the same "pull, don't push" shape `getElementsSnapshot`
+  // uses), and a state flip here would just be a render nothing consumes.
+  const payloadRevisionRef = useRef(0)
+  const lastEditAtRef = useRef<number | null>(null)
+  const applyingHostPayloadRef = useRef(false)
   const elementsRef = useRef(elements)
   const canvasRef = useRef(canvas)
   const hostDisplayRef = useRef(hostDisplay)
@@ -336,6 +359,13 @@ export function useProjectState(
     const next = typeof value === 'function' ? value(elementsRef.current) : value
     elementsRef.current = next
     setElements(next)
+    // Issue #133: every commit is a payload revision, whoever made it; only a
+    // commit *not* wrapped by `applyingHostPayloadRef` (i.e. not a host
+    // `setPayload()` push) counts as a user edit.
+    payloadRevisionRef.current += 1
+    if (!applyingHostPayloadRef.current) {
+      lastEditAtRef.current = Date.now()
+    }
   }, [])
 
   const commitCanvas = useCallback((value: CanvasConfig | ((current: CanvasConfig) => CanvasConfig)) => {
@@ -437,6 +467,11 @@ export function useProjectState(
       const nextElements = structuredClone(snapshot.elements)
       elementsRef.current = nextElements
       setElements(nextElements)
+      // Issue #133: undo/redo bypasses `commitElements`, but it is still a
+      // user-originated change (the user pressed undo/redo), so it bumps both
+      // fields directly rather than only the revision.
+      payloadRevisionRef.current += 1
+      lastEditAtRef.current = Date.now()
       const nextSelection = clampSelectedIndices(snapshot.selectedIndices, snapshot.elements.length)
       selectedIndicesRef.current = nextSelection
       setSelectedIndices(nextSelection)
@@ -759,7 +794,16 @@ export function useProjectState(
         // its debounce flush (issue #104 review).
         yamlDiscardPendingRef?.current?.()
         resetEditHistory()
-        commitElements(structuredClone(nextElements))
+        // Issue #133: a host push is not "the user doing something" — guard
+        // `commitElements`'s `lastEditAt` bump for the duration of this one
+        // synchronous call. The payload revision still bumps unconditionally
+        // (a host push is a committed change too).
+        applyingHostPayloadRef.current = true
+        try {
+          commitElements(structuredClone(nextElements))
+        } finally {
+          applyingHostPayloadRef.current = false
+        }
         commitSelectedIndices([])
       },
     })
@@ -1723,6 +1767,18 @@ export function useProjectState(
   // flush of any pending YAML-editor debounce.
   const getElementsSnapshot = useCallback(() => elementsRef.current, [])
 
+  // Synchronous accessor onto the edit-tracking refs above (issue #133) — the
+  // same "read a ref, not a render dependency" shape as `getElementsSnapshot`,
+  // since `getStatus()` must answer with the value at the instant it is
+  // called, not the value as of the last render.
+  const getEditStatus = useCallback(
+    (): ProjectEditStatus => ({
+      lastEditAt: lastEditAtRef.current,
+      payloadRevision: payloadRevisionRef.current,
+    }),
+    [],
+  )
+
   return {
     sessionName,
     setSessionName,
@@ -1731,6 +1787,7 @@ export function useProjectState(
     elements,
     setElements: setElementsWithHistory,
     getElementsSnapshot,
+    getEditStatus,
     previewElements,
     selectedIndices,
     selectedIndex,

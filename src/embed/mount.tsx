@@ -15,7 +15,13 @@ import { hostSuppliedTheme, type DesignerHost } from './host'
 import { assertActionsAreHandled, normalizeHostActions } from './hostActions'
 import { assertHostStates } from './hostContract'
 import { normalizeHostTargets } from './hostTargets'
-import type { EmbedTheme, HostPushTarget, MountHandle, MountOptions } from './types'
+import type {
+  DesignerStatus,
+  EmbedTheme,
+  HostPushTarget,
+  MountHandle,
+  MountOptions,
+} from './types'
 
 const STYLE_MARKER = 'data-odl-designer-styles'
 
@@ -101,6 +107,24 @@ function createRenderTarget(container: HTMLElement, host: DesignerHost): RenderT
     setTheme: themeSetter(wrapper),
     cleanup: () => wrapper.remove(),
   }
+}
+
+/**
+ * `MountHandle.getStatus()`'s answer in the pre-registration window (issue
+ * #133) — before the shell's status source has registered, there have been no
+ * edits, no revisions and no selection to report, and a synchronous host's
+ * initial `payload` has already been validated by `loadBootstrap()` (invalid
+ * YAML throws out of `mount()` itself), so `yamlValid: true` is always safe
+ * here. The same "safe default before the shell exists" shape `getPayload()`'s
+ * bootstrap fallback uses for text.
+ */
+function defaultDesignerStatus(): DesignerStatus {
+  return Object.freeze({
+    yamlValid: true,
+    lastEditAt: null,
+    payloadRevision: 0,
+    selectedElementCount: 0,
+  })
 }
 
 /**
@@ -192,6 +216,13 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
   // window rejects instead of answering with something meaningless.
   let pngSource: (() => Promise<Blob>) | null = null
 
+  // The mirror of `payloadSource` for `getStatus()` (issue #133): `getStatus()`
+  // calls whatever the shell last registered here, falling back to
+  // `defaultDesignerStatus()` before that registration has run — the same
+  // "pull, don't push" shape as `payloadSource` above, but for the derived
+  // status snapshot instead of the payload text.
+  let statusSource: (() => DesignerStatus) | null = null
+
   // The latest `setPayload()` accepted into `pendingPushes` during the
   // pre-registration window (Copilot finding on #104): once
   // `registerPushTarget` runs, queued pushes drain in order into
@@ -228,6 +259,14 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
       return () => {
         if (pngSource === getPngBlob) {
           pngSource = null
+        }
+      }
+    },
+    registerStatusSource(getStatus) {
+      statusSource = getStatus
+      return () => {
+        if (statusSource === getStatus) {
+          statusSource = null
         }
       }
     },
@@ -383,6 +422,10 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
         )
       }
       return pngSource()
+    },
+    getStatus() {
+      assertMounted()
+      return statusSource ? statusSource() : defaultDesignerStatus()
     },
   }
 }

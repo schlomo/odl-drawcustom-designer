@@ -19,7 +19,7 @@ import { copyTextToClipboard } from './lib/export-download'
 import { requestLoadDemoConfirm, shouldConfirmLoadDemo } from './lib/load-demo'
 import { toolbarGroupRow, toolbarGroupsRow } from './lib/export-action-feedback'
 import { getMissingAssetMessages } from './lib/missing-asset-messages'
-import type { StatusMessage } from './lib/status-messages'
+import { summarizeStatusMessages, type StatusMessage } from './lib/status-messages'
 import {
   DISPLAY_PREVIEW_YAML_BLOCKED_REASON,
   useDisplayPreview,
@@ -35,6 +35,7 @@ import { HostActionButtons } from './components/HostActionButtons'
 import { TextButton } from './components/TextButton'
 import { shell } from './styles/shell'
 import { hostSuppliedTheme, type DesignerHost } from '../embed/host'
+import type { DesignerStatus } from '../embed/types'
 import { serializeYamlPayload, type DrawElement } from '../core'
 import type { AddElementResult } from './hooks/useProjectState'
 import {
@@ -55,6 +56,15 @@ import {
 } from '../core'
 import { logoUrl } from '../assets/bundled-urls'
 import { toolIconPath } from './lib/mdi-tool-icons'
+
+/**
+ * Debounce window for `onStatusChange` notifications (issue #133): long
+ * enough that a burst of keystrokes (each committed on the YAML editor's own
+ * 80ms sync debounce) or a canvas drag's per-frame updates coalesce into one
+ * call, short enough that a host's "edited N seconds ago" indicator still
+ * feels immediate.
+ */
+const STATUS_CHANGE_DEBOUNCE_MS = 300
 
 interface AppProps {
   bootstrap: AppBootstrap
@@ -111,6 +121,7 @@ export function App({ bootstrap, host }: AppProps) {
     service,
     elements,
     getElementsSnapshot,
+    getEditStatus,
     previewElements,
     selectedIndices,
     selectedIndex,
@@ -230,6 +241,95 @@ export function App({ bootstrap, host }: AppProps) {
     }
     return host.registerRenderSource(getCurrentDesignPngBlob)
   }, [host, getCurrentDesignPngBlob])
+
+  // The designer's derived status snapshot (issue #133, ADR-018's
+  // observability clause): "is the YAML good, what did the user just do, how
+  // much has changed" — never designer internals. Combines YAML validity
+  // (`yamlBlocked`/`yamlStatusMessages`, lifted from `YamlPanel`) with the
+  // edit-tracking half `useProjectState` maintains (`getEditStatus`) and the
+  // current selection. Frozen: a later status is always a new object, never a
+  // mutation of one a host already holds.
+  const getDesignerStatus = useCallback((): DesignerStatus => {
+    const { lastEditAt, payloadRevision } = getEditStatus()
+    const base = {
+      yamlValid: !yamlBlocked,
+      lastEditAt,
+      payloadRevision,
+      selectedElementCount: selectedIndices.length,
+    }
+    return Object.freeze(
+      yamlBlocked
+        ? {
+            ...base,
+            yamlErrorSummary: summarizeStatusMessages(yamlStatusMessages) ?? 'YAML document is invalid',
+          }
+        : base,
+    )
+  }, [getEditStatus, selectedIndices.length, yamlBlocked, yamlStatusMessages])
+
+  // Read channel (issue #133): the same commit-time (`useLayoutEffect`)
+  // registration as `readCurrentPayload`/`getCurrentDesignPngBlob` above —
+  // `MountHandle.getStatus()` must never answer from a stale registration.
+  useLayoutEffect(() => {
+    if (!host.registerStatusSource) {
+      return
+    }
+    return host.registerStatusSource(getDesignerStatus)
+  }, [host, getDesignerStatus])
+
+  // Change notification (issue #133): fires only on a *transition* — a YAML
+  // validity flip or a payload-revision change — never for a selection change
+  // alone, and debounced so a burst of keystrokes or drag updates yields one
+  // call, not one per commit. A passive effect, not a layout one: this
+  // schedules a notification rather than registering a read/push channel a
+  // host could race the commit window on.
+  const lastNotifiedStatusRef = useRef<{ yamlValid: boolean; payloadRevision: number } | null>(
+    null,
+  )
+  const statusChangeTimerRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (!host.onStatusChange) {
+      return
+    }
+    const status = getDesignerStatus()
+    const transitionKey = { yamlValid: status.yamlValid, payloadRevision: status.payloadRevision }
+    const last = lastNotifiedStatusRef.current
+    if (last == null) {
+      // Baseline for this mount: getStatus() already answers this value
+      // synchronously, and onStatusChange documents itself as firing on a
+      // transition, not on first observation.
+      lastNotifiedStatusRef.current = transitionKey
+      return
+    }
+    if (
+      last.yamlValid === transitionKey.yamlValid &&
+      last.payloadRevision === transitionKey.payloadRevision
+    ) {
+      return
+    }
+    if (statusChangeTimerRef.current != null) {
+      window.clearTimeout(statusChangeTimerRef.current)
+    }
+    statusChangeTimerRef.current = window.setTimeout(() => {
+      statusChangeTimerRef.current = null
+      lastNotifiedStatusRef.current = transitionKey
+      host.onStatusChange?.(getDesignerStatus())
+    }, STATUS_CHANGE_DEBOUNCE_MS)
+  }, [host, getDesignerStatus])
+
+  // Unmount-only cleanup for the debounce timer above — deliberately its own
+  // effect with an empty dependency array, not a cleanup returned by the
+  // effect above: that effect re-runs on every qualifying render (including a
+  // selection-only change, which must not cancel an in-flight debounce), so
+  // its own cleanup would have to fire on every one of those re-runs too.
+  useEffect(
+    () => () => {
+      if (statusChangeTimerRef.current != null) {
+        window.clearTimeout(statusChangeTimerRef.current)
+      }
+    },
+    [],
+  )
 
   /**
    * The surface a host render must be produced at: the oriented logical canvas
