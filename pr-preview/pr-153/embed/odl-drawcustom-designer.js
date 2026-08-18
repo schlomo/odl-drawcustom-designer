@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "fix/149-touch-drag", ae = "aabf6f9", oe = "692a8b8", k = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "fix/149-touch-drag", ae = "b7b1647", oe = "b060a4c", k = "0.0.0-dev";
 function A(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -47172,10 +47172,21 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 	}, [n.height, n.width]), bt = (0, v.useCallback)((e, t) => {
 		e?.hasPointerCapture(t) && e.releasePointerCapture(t);
 	}, []), xt = (0, v.useCallback)((e) => {
+		if (e.length === 0) {
+			d(null);
+			return;
+		}
+		d(e[0]);
+		for (let t = 1; t < e.length; t++) d(e[t], { additive: !0 });
+	}, [d]), St = (0, v.useCallback)((e) => {
 		let t = Ve.current;
 		Ve.current = null, Le(null);
 		let n = Be.current;
-		if (Be.current = null, ze(null), t && bt(j.current, t.pointerId), j.current = null, !(!t || e?.cancel)) {
+		if (Be.current = null, ze(null), t && bt(j.current, t.pointerId), j.current = null, t) {
+			if (e?.cancel) {
+				xt(t.previousSelection);
+				return;
+			}
 			if (n && (n.width >= 2 || n.height >= 2)) {
 				f(n, t.additive);
 				return;
@@ -47185,8 +47196,9 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 	}, [
 		f,
 		d,
-		bt
-	]), St = (0, v.useCallback)((e) => {
+		bt,
+		xt
+	]), Ct = (0, v.useCallback)((e) => {
 		let t = fe.current;
 		t && bt(j.current, t.pointerId), j.current = null, Xe(null), fe.current = null, Fe(null), Ke([]), Je([]), E?.(!1), e?.cancel ? te?.() : ee?.();
 	}, [
@@ -47194,7 +47206,7 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 		E,
 		ee,
 		bt
-	]), Ct = (0, v.useCallback)((e, t, r) => {
+	]), wt = (0, v.useCallback)((e, t, r) => {
 		let i = {
 			width: n.width,
 			height: n.height
@@ -47208,32 +47220,33 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 		h,
 		n.height,
 		n.width
-	]), wt = (0, v.useCallback)((e, t, n) => {
+	]), Tt = (0, v.useCallback)((e, t, n) => {
 		Ke([{
 			index: e,
 			element: t
 		}]), m(e, n);
-	}, [m]), Tt = (0, v.useCallback)((e, t, n, r) => {
+	}, [m]), Et = (0, v.useCallback)((e, t, n, r, i) => {
 		e.setPointerCapture(t), j.current = e, Ve.current = {
 			pointerId: t,
 			startCanvas: n,
-			additive: r
+			additive: r,
+			previousSelection: i
 		}, Le(Ve.current);
-	}, []), Et = (0, v.useCallback)((t) => {
+	}, []), Dt = (0, v.useCallback)((t) => {
 		O?.(), Xe(e), fe.current = t, Fe(t), E?.(!0);
 	}, [
 		e,
 		O,
 		E
-	]), Dt = (0, v.useCallback)(() => {
+	]), Ot = (0, v.useCallback)(() => {
 		let e = V.current;
 		if (V.current = null, !e) return;
 		let t = H.current;
 		H.current = null;
 		for (let n of e.ids) t?.hasPointerCapture(n) && t.releasePointerCapture(n);
-	}, []), Ot = (0, v.useCallback)((e) => {
+	}, []), kt = (0, v.useCallback)((e) => {
 		if (V.current || He.current.size !== 2) return;
-		fe.current && St({ cancel: !0 }), Ve.current && xt({ cancel: !0 });
+		fe.current && Ct({ cancel: !0 }), Ve.current && St({ cancel: !0 });
 		let [t, n] = [...He.current.keys()], r = He.current.get(t), i = He.current.get(n);
 		!r || !i || (e.setPointerCapture(t), e.setPointerCapture(n), H.current = e, V.current = {
 			ids: [t, n],
@@ -47243,7 +47256,7 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 			},
 			referenceDistance: Math.hypot(i.x - r.x, i.y - r.y)
 		});
-	}, [St, xt]), kt = (0, v.useCallback)((e) => {
+	}, [Ct, St]), At = (0, v.useCallback)((e) => {
 		let t = de.current, n = He.current.get(e.ids[0]), r = He.current.get(e.ids[1]);
 		if (!t || !n || !r) return;
 		let i = {
@@ -47273,14 +47286,14 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 		tt,
 		yt,
 		I
-	]), At = (0, v.useCallback)((e) => {
+	]), jt = (0, v.useCallback)((e) => {
 		He.current.has(e.pointerId) && He.current.set(e.pointerId, {
 			x: e.clientX,
 			y: e.clientY
 		});
 		let i = V.current;
 		if (i && (e.pointerId === i.ids[0] || e.pointerId === i.ids[1])) {
-			e.preventDefault(), kt(i);
+			e.preventDefault(), At(i);
 			return;
 		}
 		let a = fe.current != null, o = Ve.current != null, c = yt(e.clientX, e.clientY, a || o);
@@ -47321,7 +47334,7 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 			};
 			Je(wK(o, i.width, i.height, s.size, s.enabled));
 			let { dx: l, dy: d } = DK(a, t, r, s.size, s.enabled, i);
-			(l !== 0 || d !== 0) && (u.starts.length === 1 ? wt(e.index, vG(e.startDisplayElement, l, d, i), vG(e.startElement, l, d, i)) : Ct(u.starts, l, d));
+			(l !== 0 || d !== 0) && (u.starts.length === 1 ? Tt(e.index, vG(e.startDisplayElement, l, d, i), vG(e.startElement, l, d, i)) : wt(u.starts, l, d));
 			return;
 		}
 		let d = u.starts[0];
@@ -47333,7 +47346,7 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 				width: n.width,
 				height: n.height
 			});
-			Je(TK(t.x, t.y, n.width, n.height, s.size, s.enabled)), p.type === "line" && f.type === "line" && wt(d.index, wG(p, e, t.x, t.y), wG(f, e, t.x, t.y));
+			Je(TK(t.x, t.y, n.width, n.height, s.size, s.enabled)), p.type === "line" && f.type === "line" && Tt(d.index, wG(p, e, t.x, t.y), wG(f, e, t.x, t.y));
 			return;
 		}
 		let h = YK(c, s, {
@@ -47341,12 +47354,12 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 			height: n.height
 		}), g = h.x, _ = h.y;
 		if (Je(TK(g, _, n.width, n.height, s.size, s.enabled)), G0t(f)) {
-			wt(d.index, SG(p, d.startBounds, g, _, m), SG(f, d.startBounds, g, _, m));
+			Tt(d.index, SG(p, d.startBounds, g, _, m), SG(f, d.startBounds, g, _, m));
 			return;
 		}
 		if (V0t(f)) {
 			let e = TG(d.startBounds, m, g, _), t = EK(e, n.width, n.height, s.size, s.enabled, { preserveSize: !1 });
-			Je(wK(e, n.width, n.height, s.size, s.enabled)), wt(d.index, CG(p, t), CG(f, t));
+			Je(wK(e, n.width, n.height, s.size, s.enabled)), Tt(d.index, CG(p, t), CG(f, t));
 		}
 	}, [
 		t,
@@ -47362,40 +47375,40 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 		r,
 		ht,
 		s,
-		Ct,
 		wt,
-		kt
-	]), jt = (0, v.useCallback)((e) => {
-		He.current.delete(e.pointerId);
-		let t = V.current;
-		if (t && (e.pointerId === t.ids[0] || e.pointerId === t.ids[1])) {
-			Dt();
-			return;
-		}
-		let n = fe.current;
-		n && e.pointerId === n.pointerId && St();
-		let r = Ve.current;
-		r && e.pointerId === r.pointerId && xt();
-	}, [
-		St,
-		xt,
-		Dt
+		Tt,
+		At
 	]), Mt = (0, v.useCallback)((e) => {
 		He.current.delete(e.pointerId);
 		let t = V.current;
 		if (t && (e.pointerId === t.ids[0] || e.pointerId === t.ids[1])) {
-			Dt();
+			Ot();
 			return;
 		}
 		let n = fe.current;
-		n && e.pointerId === n.pointerId && St();
+		n && e.pointerId === n.pointerId && Ct();
 		let r = Ve.current;
-		r && e.pointerId === r.pointerId && xt();
+		r && e.pointerId === r.pointerId && St();
 	}, [
+		Ct,
 		St,
-		xt,
-		Dt
-	]), Nt = (0, v.useCallback)((n) => n.flatMap((n) => {
+		Ot
+	]), Nt = (0, v.useCallback)((e) => {
+		He.current.delete(e.pointerId);
+		let t = V.current;
+		if (t && (e.pointerId === t.ids[0] || e.pointerId === t.ids[1])) {
+			Ot();
+			return;
+		}
+		let n = fe.current;
+		n && e.pointerId === n.pointerId && Ct();
+		let r = Ve.current;
+		r && e.pointerId === r.pointerId && St();
+	}, [
+		Ct,
+		St,
+		Ot
+	]), Pt = (0, v.useCallback)((n) => n.flatMap((n) => {
 		let r = t[n], i = e[n], a = ot.find((e) => e.index === n)?.bounds;
 		return !r || !i || !a ? [] : [{
 			index: n,
@@ -47407,20 +47420,20 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 		t,
 		e,
 		ot
-	]), Pt = (0, v.useCallback)((e) => {
+	]), Ft = (0, v.useCallback)((e) => {
 		if (oe) return;
 		if (e.pointerType === "touch" && (He.current.set(e.pointerId, {
 			x: e.clientX,
 			y: e.clientY
 		}), !e.isPrimary)) {
-			Ot(e.currentTarget);
+			kt(e.currentTarget);
 			return;
 		}
 		let t = yt(e.clientX, e.clientY, !1), n = t ?? yt(e.clientX, e.clientY, !0);
 		if (!n) return;
 		e.currentTarget.focus({ preventScroll: !0 }), M.current = !1, Ke([]), ze(null), Be.current = null;
 		let i = t != null, a = t ?? n, o = i ? ZG(ot, a, r, st) : null, s = e.shiftKey, c = e.altKey, l = () => {
-			e.preventDefault(), Tt(e.currentTarget, e.pointerId, n, s);
+			e.preventDefault(), Et(e.currentTarget, e.pointerId, n, s, r);
 		};
 		if (!i || c) {
 			!s && !c && d(null), l();
@@ -47429,12 +47442,12 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 		if (!$e && Qe != null && ht && vt) {
 			let t = _G(vt), n = eK(a, ht, t, _t);
 			if (n && !tK(a, ht, n, _t)) {
-				e.preventDefault(), e.currentTarget.setPointerCapture(e.pointerId), j.current = e.currentTarget, Et({
+				e.preventDefault(), e.currentTarget.setPointerCapture(e.pointerId), j.current = e.currentTarget, Dt({
 					kind: "resize",
 					indices: [Qe],
 					pointerId: e.pointerId,
 					startCanvas: a,
-					starts: Nt([Qe]),
+					starts: Pt([Qe]),
 					handle: n
 				});
 				return;
@@ -47445,8 +47458,8 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 			if (s) {
 				if (d(o.index, { additive: !0 }), t) return;
 			} else t ? D?.(o.index) : d(o.index);
-			let n = o && r.includes(o.index) && r.length > 1 ? r : s ? [.../* @__PURE__ */ new Set([...r, o.index])].sort((e, t) => e - t) : t ? r : [o.index], i = Nt(n).filter((e) => sG(e.startElement));
-			i.length > 0 && (e.preventDefault(), e.currentTarget.setPointerCapture(e.pointerId), j.current = e.currentTarget, Et({
+			let n = o && r.includes(o.index) && r.length > 1 ? r : s ? [.../* @__PURE__ */ new Set([...r, o.index])].sort((e, t) => e - t) : t ? r : [o.index], i = Pt(n).filter((e) => sG(e.startElement));
+			i.length > 0 && (e.preventDefault(), e.currentTarget.setPointerCapture(e.pointerId), j.current = e.currentTarget, Dt({
 				kind: "move",
 				indices: i.map((e) => e.index),
 				pointerId: e.pointerId,
@@ -47457,25 +47470,25 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 		}
 		s || d(null), l();
 	}, [
+		Dt,
 		Et,
-		Tt,
 		oe,
-		Nt,
+		Pt,
 		ot,
 		st,
 		$e,
 		_t,
 		yt,
-		Ot,
+		kt,
 		d,
 		D,
 		vt,
 		Qe,
 		r,
 		ht
-	]), Ft = (0, v.useCallback)((e) => {
+	]), It = (0, v.useCallback)((e) => {
 		M.current && (M.current = !1, e.preventDefault(), e.stopPropagation());
-	}, []), It = (0, v.useCallback)(() => {
+	}, []), Lt = (0, v.useCallback)(() => {
 		fe.current || (N(null), he("default"));
 	}, []);
 	(0, v.useEffect)(() => {
@@ -47527,12 +47540,12 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 		s.enabled,
 		s.size
 	]);
-	let Lt = (0, v.useMemo)(() => new Set(Ge.map((e) => e.index)), [Ge]), Rt = !$e && vt && ht ? gG(vt) : [], zt = r.some((e) => e < b - 1), Bt = r.some((e) => e > 0), Vt = yK(t, r), Ht = (0, v.useMemo)(() => !s.enabled || qe.length === 0 ? null : _4t(qe, n.width, n.height), [
+	let Rt = (0, v.useMemo)(() => new Set(Ge.map((e) => e.index)), [Ge]), zt = !$e && vt && ht ? gG(vt) : [], Bt = r.some((e) => e < b - 1), Vt = r.some((e) => e > 0), Ht = yK(t, r), Ut = (0, v.useMemo)(() => !s.enabled || qe.length === 0 ? null : _4t(qe, n.width, n.height), [
 		qe,
 		n.height,
 		n.width,
 		s.enabled
-	]), Ut = (0, v.useMemo)(() => {
+	]), Wt = (0, v.useMemo)(() => {
 		if (!s.enabled) return null;
 		let e = [];
 		for (let t = 0; t <= n.width; t += s.size) e.push({
@@ -47555,7 +47568,7 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 		n.width,
 		s.enabled,
 		s.size
-	]), Wt = (0, v.useCallback)(() => J2t({
+	]), Gt = (0, v.useCallback)(() => J2t({
 		elements: Ze,
 		renderContext: {
 			...n,
@@ -47571,14 +47584,14 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 		z,
 		n
 	]);
-	NK(se, Wt);
-	let Gt = (0, v.useCallback)(async () => ce && A ? A.getImageBlob() : Wt(), [
+	NK(se, Gt);
+	let Kt = (0, v.useCallback)(async () => ce && A ? A.getImageBlob() : Gt(), [
 		A,
 		ce,
-		Wt
-	]), Kt = (0, v.useCallback)(async () => {
+		Gt
+	]), qt = (0, v.useCallback)(async () => {
 		try {
-			let e = await Gt();
+			let e = await Kt();
 			if (!e) {
 				ve("copy-png", WK);
 				return;
@@ -47589,12 +47602,12 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 			ve("copy-png", "PNG export failed");
 		}
 	}, [
-		Gt,
+		Kt,
 		ve,
 		_e
-	]), qt = (0, v.useCallback)(async () => {
+	]), Jt = (0, v.useCallback)(async () => {
 		try {
-			let e = await Gt();
+			let e = await Kt();
 			if (!e) {
 				ve("download-png", WK);
 				return;
@@ -47604,19 +47617,19 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 			ve("download-png", "PNG export failed");
 		}
 	}, [
-		Gt,
+		Kt,
 		ve,
 		_e,
 		ce,
 		a
-	]), Jt = {
+	]), Yt = {
 		showLabels: Ee,
 		zoomMode: I,
 		onZoomModeChange: ge,
 		getFeedback: ye,
 		getFeedbackMessage: be,
-		onCopyPng: () => void Kt(),
-		onDownloadPng: () => void qt(),
+		onCopyPng: () => void qt(),
+		onDownloadPng: () => void Jt(),
 		canUndo: ne,
 		canRedo: re,
 		onUndo: () => ie?.(),
@@ -47673,7 +47686,7 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 					/* @__PURE__ */ (0, K.jsx)("div", {
 						ref: Te,
 						className: "shrink-0",
-						children: /* @__PURE__ */ (0, K.jsx)(UK, { ...Jt })
+						children: /* @__PURE__ */ (0, K.jsx)(UK, { ...Yt })
 					}),
 					/* @__PURE__ */ (0, K.jsx)("div", {
 						"aria-hidden": !0,
@@ -47682,7 +47695,7 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 							ref: Ce,
 							className: "w-max whitespace-nowrap",
 							children: /* @__PURE__ */ (0, K.jsx)(UK, {
-								...Jt,
+								...Yt,
 								measureOnly: !0,
 								canUndo: !0,
 								canRedo: !0
@@ -47698,9 +47711,9 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 					ce ? null : /* @__PURE__ */ (0, K.jsx)(M4t, {
 						blocked: oe,
 						selectionCount: r.length,
-						canAlign: Vt,
-						canMoveUp: zt,
-						canMoveDown: Bt,
+						canAlign: Ht,
+						canMoveUp: Bt,
+						canMoveDown: Vt,
 						onAlign: p,
 						boundsByIndex: pt,
 						onBringToFront: g,
@@ -47736,12 +47749,12 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 							cursor: B ? "grabbing" : me,
 							touchAction: "none"
 						},
-						onPointerDown: Pt,
-						onPointerMove: At,
-						onPointerUp: jt,
-						onPointerLeave: It,
-						onLostPointerCapture: Mt,
-						onClick: Ft,
+						onPointerDown: Ft,
+						onPointerMove: jt,
+						onPointerUp: Mt,
+						onPointerLeave: Lt,
+						onLostPointerCapture: Nt,
+						onClick: It,
 						children: et ? /* @__PURE__ */ (0, K.jsx)("div", {
 							className: "box-border flex p-6",
 							style: {
@@ -47771,11 +47784,11 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 										width: n.width,
 										height: n.height
 									}) : null : /* @__PURE__ */ (0, K.jsxs)(K.Fragment, { children: [
-										Ut ? /* @__PURE__ */ (0, K.jsx)("svg", {
+										Wt ? /* @__PURE__ */ (0, K.jsx)("svg", {
 											viewBox: `0 0 ${n.width} ${n.height}`,
 											className: "pointer-events-none absolute inset-0 z-0 h-full w-full",
 											"aria-hidden": !0,
-											children: Ut.map((e) => /* @__PURE__ */ (0, K.jsx)("line", {
+											children: Wt.map((e) => /* @__PURE__ */ (0, K.jsx)("line", {
 												x1: e.x1,
 												y1: e.y1,
 												x2: e.x2,
@@ -47787,7 +47800,7 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 										Ze.map((e, t) => /* @__PURE__ */ (0, K.jsx)(tG, {
 											element: e,
 											index: t,
-											hidden: Lt.has(t),
+											hidden: Rt.has(t),
 											renderContext: n,
 											assetImages: ft,
 											fontFamilies: Ae,
@@ -47831,7 +47844,7 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 													stroke: "#3b82f6",
 													strokeWidth: 2,
 													strokeDasharray: "6 3"
-												}), Rt.map(({ handle: e, interactive: t }) => {
+												}), zt.map(({ handle: e, interactive: t }) => {
 													let n = $G(ht, e, _t);
 													return /* @__PURE__ */ (0, K.jsx)("rect", {
 														x: n.x - JK / 2,
@@ -47854,7 +47867,7 @@ function q4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 													strokeWidth: 1,
 													strokeDasharray: "4 2"
 												}) : null,
-												Ht?.map((e) => /* @__PURE__ */ (0, K.jsxs)("g", { children: [/* @__PURE__ */ (0, K.jsx)("line", {
+												Ut?.map((e) => /* @__PURE__ */ (0, K.jsxs)("g", { children: [/* @__PURE__ */ (0, K.jsx)("line", {
 													x1: e.x1,
 													y1: e.y1,
 													x2: e.x2,
