@@ -199,8 +199,12 @@ export interface ProjectStateEditorHooks {
    * any debounced YAML draft before committing the pushed elements. A ref, not
    * a callback prop, so the shell can hand it over before the panel mounts and
    * the push registration never re-runs because of it.
+   *
+   * Returns whether a draft actually existed (issue #133 review round 4,
+   * MAJOR N11) — see `applyPayload` below for why that decides whether the
+   * MINOR-6 dedupe is safe to take.
    */
-  yamlDiscardPendingRef?: RefObject<(() => void) | null>
+  yamlDiscardPendingRef?: RefObject<(() => boolean) | null>
 }
 
 export function useProjectState(
@@ -885,14 +889,33 @@ export function useProjectState(
         // the user's typed text instead of the payload just pushed —
         // breaking `setPayload()`'s core guarantee ("afterwards, the payload
         // is exactly what I pushed") specifically in the deduped path.
-        yamlDiscardPendingRef?.current?.()
+        //
+        // Issue #133 review round 4 (MAJOR N11): the return value matters now
+        // too. Discarding only clears YamlPanel's *parsed* draft state — it
+        // does not touch the *text* already sitting in the CodeMirror
+        // document, and ADR-009 forbids anything else rewriting newer editor
+        // text out of band. The only thing that corrects the display is the
+        // external elements→editor sync, which fires when `elements` gets a
+        // new reference. So when a real draft existed, this push must not
+        // take the dedupe's early return below even if `nextElements` is
+        // content-identical to what's already committed — the editor is
+        // showing text nothing else will now fix, and only the full apply
+        // path (commit + selection reset) gives `elements` that new
+        // reference and lets the sync effect re-serialize over it.
+        const hadPendingDraft = yamlDiscardPendingRef?.current?.() ?? false
 
-        // Issue #133 MINOR 6: dedupe before committing anything else, the
-        // same full-bail pattern `applyStates` uses (issue #110) — a host
-        // that re-sends the identical payload (an unconditional heartbeat
-        // push, a reconnect resync) costs nothing beyond the discard above:
-        // no revision bump, no reset undo history, no cleared selection.
-        if (elementsSequenceEqual(elementsRef.current, nextElements)) {
+        // Issue #133 MINOR 6: dedupe only when there was no draft to correct
+        // — the same full-bail pattern `applyStates` uses (issue #110) for
+        // the common case, a host re-sending the identical payload with
+        // nothing pending (an unconditional heartbeat push, a reconnect
+        // resync), which costs nothing beyond the discard above: no revision
+        // bump, no reset undo history, no cleared selection. A push that
+        // kills a real draft is a *different* case (N11 above) and always
+        // falls through to the full apply path, which — honestly — does bump
+        // `payloadRevision`: the push observably changed something (the
+        // draft is gone, the editor re-synced), even though the committed
+        // elements end up structurally the same as before.
+        if (!hadPendingDraft && elementsSequenceEqual(elementsRef.current, nextElements)) {
           return
         }
         resetEditHistory()

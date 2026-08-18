@@ -95,8 +95,15 @@ interface YamlPanelProps {
    * an external payload push is authoritative, so the parent calls this in the
    * same synchronous path — *before* it commits the pushed elements — to
    * invalidate any debounced draft typed before the push.
+   *
+   * Returns whether a draft was actually pending (issue #133 review round 4,
+   * MAJOR N11): a push that kills a real draft must always take the full
+   * apply path (commit + re-sync) even when its elements are otherwise
+   * unchanged, since the editor is showing text nothing else will now
+   * correct — a plain `elements`-unchanged dedupe would leave the user's
+   * typed characters on screen with no committed trace of them.
    */
-  discardPendingRef?: RefObject<(() => void) | null>
+  discardPendingRef?: RefObject<(() => boolean) | null>
   /**
    * The document is shown but not editable (issue #109): the host display
    * preview is on, so the design must not move under a render that cannot
@@ -320,14 +327,21 @@ export function YamlPanel({
    *
    * Only refs are touched — no state, no render — so the caller can run this
    * synchronously right before committing the pushed elements.
+   *
+   * Returns whether a draft actually existed (issue #133 review round 4,
+   * MAJOR N11) — read `pendingParsedRef` *before* clearing it, since that is
+   * the caller's only way to know the editor was showing text the pushed
+   * elements have not yet corrected.
    */
   const discardPendingYamlEdit = useCallback(() => {
+    const hadPendingDraft = pendingParsedRef.current != null
     if (syncTimerRef.current != null) {
       window.clearTimeout(syncTimerRef.current)
       syncTimerRef.current = null
     }
     pendingParsedRef.current = null
     skipExternalSyncRef.current = false
+    return hadPendingDraft
   }, [])
 
   useEffect(

@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '../../src/embed'
 import type { MountHandle } from '../../src/embed'
 import type { DesignerStatus } from '../../src/embed/types'
+import { parseYamlPayload, serializeYamlPayload } from '../../src/core'
 import { YAML_SELECTION_COUPLING_STORAGE_KEY } from '../../src/ui/preferences/keys'
 
 // Full-designer mounts under parallel load exceed vitest's 5s default on
@@ -926,5 +927,66 @@ describe('MAJOR N5 (canvas drag, full-pipeline integration coverage) — issue #
     expect(onStatusChange).toHaveBeenCalledTimes(1)
     const reported = onStatusChange.mock.calls[0]![0] as DesignerStatus
     expect(reported.payloadRevision).toBe(before.payloadRevision + 1)
+  })
+})
+
+/**
+ * Round 4 of adversarial review on this PR (finding against pushed SHA
+ * `02ad6a9`, the round-3 fix commit): the N9 fix (discard the draft before
+ * the dedupe check) stopped the draft from surviving to commit later, but
+ * did nothing to correct what the editor was already *showing* — discarding
+ * only clears YamlPanel's parsed draft, not the CodeMirror document text,
+ * and ADR-009 forbids anything else rewriting newer editor text out of band.
+ */
+describe('review round 4 (issue #133)', () => {
+  it('MAJOR N11 — a deduped setPayload() with a pending draft commits and re-syncs the editor, not just discards the draft', async () => {
+    const handle = mountDesigner({ payload: PAYLOAD })
+    await waitForMounted()
+
+    vi.useFakeTimers()
+    const view = findMountedView()
+    const doc = view.state.doc.toString()
+    const valueFrom = doc.indexOf('value: Hello')
+    // A user edit, deliberately left pending (never advance past its 80ms
+    // debounce, never blurred) — the editor now shows text `elements` does
+    // not (and, after the push below, never will) reflect.
+    dispatchUserEdit(view, {
+      from: valueFrom,
+      to: valueFrom + 'value: Hello'.length,
+      insert: 'value: UserTyped',
+    })
+    expect(view.state.doc.toString()).toContain('UserTyped')
+
+    // Identical to the currently *committed* model (not to the draft) — the
+    // MINOR 6 dedupe path, which the reviewer's repro shows must not take
+    // its early return here.
+    act(() => handle.setPayload(PAYLOAD))
+
+    // Let the (discarded) draft's own debounce elapse, if it were somehow
+    // still alive.
+    act(() => {
+      vi.advanceTimersByTime(200)
+    })
+
+    const expectedText = serializeYamlPayload(parseYamlPayload(PAYLOAD))
+
+    // The editor must show exactly the pushed payload — no remnant of the
+    // discarded draft left uncorrected on screen.
+    expect(view.state.doc.toString()).not.toContain('UserTyped')
+    expect(view.state.doc.toString()).toBe(expectedText)
+
+    let payload!: string
+    act(() => {
+      payload = handle.getPayload()
+    })
+    expect(payload).not.toContain('UserTyped')
+    expect(payload).toBe(expectedText)
+
+    // Honest bookkeeping: the push observably changed something (the draft
+    // is gone, the editor re-synced) even though the committed elements end
+    // up structurally the same as before the draft — so, unlike an
+    // unchanged push with no draft in flight, this one *does* bump the
+    // revision.
+    expect(handle.getStatus().payloadRevision).toBe(1)
   })
 })

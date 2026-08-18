@@ -132,7 +132,7 @@ describe('YamlPanel suspends the elements → editor sync for the duration of a 
 
   it('shows a payload pushed mid-drag once the gesture ends, dropping a draft typed before the push', () => {
     vi.useFakeTimers()
-    const discardPendingRef = { current: null as (() => void) | null }
+    const discardPendingRef = { current: null as (() => boolean) | null }
     const elementsChanges: DrawElement[][] = []
     const { container, rerender } = render(
       <YamlPanel

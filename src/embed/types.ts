@@ -377,11 +377,19 @@ export interface DesignerStatus {
    *   full-bail pattern the `states`/`actions` channels use for an unchanged
    *   re-push (issue #110): no revision bump, no reset undo history, no
    *   cleared selection. Formatting/comment-only YAML differences dedupe too
-   *   (the comparison is over parsed elements, not the YAML text). The one
-   *   exception: a pending, not-yet-committed YAML edit the user was typing
-   *   before this push is **always** discarded, deduped or not — `setPayload()`
-   *   is authoritative over an in-flight draft regardless of whether the
-   *   pushed payload turns out to match what's already committed.
+   *   (the comparison is over parsed elements, not the YAML text). **Except**
+   *   while a pending, not-yet-committed YAML edit the user was typing before
+   *   this push exists: `setPayload()` is authoritative over an in-flight
+   *   draft regardless of whether the pushed payload turns out to match
+   *   what's already committed, so the draft is **always** discarded, deduped
+   *   or not — and when there was a real draft to discard, the dedupe is
+   *   skipped entirely and the push takes the full apply path instead,
+   *   which **does** bump the revision even though the committed elements
+   *   end up structurally the same as before. This is deliberate, not an
+   *   inconsistency: the push observably changed something (the draft the
+   *   editor was showing is gone, replaced by a fresh sync of the pushed
+   *   payload) — a plain content comparison alone would miss that and leave
+   *   the editor's on-screen text uncorrected.
    * - Every other committed change (a single keystroke's debounced commit, a
    *   click-driven property edit, undo, redo, a genuinely different
    *   `setPayload()` push) bumps exactly once.

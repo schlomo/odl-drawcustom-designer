@@ -135,9 +135,11 @@ export function App({ bootstrap, host }: AppProps) {
   //   would, so a host read never lags text the user already typed;
   // - discard: a host payload push overrules a draft typed before it, so the
   //   push applier drops that draft instead of letting a later flush commit it
-  //   back over the pushed payload.
+  //   back over the pushed payload. Returns whether a draft actually existed
+  //   (issue #133 review round 4, MAJOR N11) — the push applier uses that to
+  //   decide whether a dedupe would leave stale text on screen.
   const yamlFlushPendingRef = useRef<(() => void) | null>(null)
-  const yamlDiscardPendingRef = useRef<(() => void) | null>(null)
+  const yamlDiscardPendingRef = useRef<(() => boolean) | null>(null)
   const {
     sessionName,
     service,
