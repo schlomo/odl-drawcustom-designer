@@ -3,12 +3,14 @@ import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import type { MockData } from '../ui/preferences/mockStates'
 import type { HostAssetResolver } from '../core'
 import type {
+  DesignerStatus,
   EmbedTheme,
   HostAction,
   HostActionHandler,
   HostPreviewRenderer,
   HostPushTarget,
   HostStates,
+  HostStatusChangeHandler,
   HostTarget,
   HostTargetSelectedHandler,
 } from './types'
@@ -120,6 +122,12 @@ export interface DesignerHost {
    */
   readonly resolveAsset?: HostAssetResolver
   /**
+   * Status transition notifier (issue #133): present only for a host that
+   * supplied `onStatusChange`. Not a push channel — a stable closure fixed at
+   * mount, like `onAction`/`renderPreview`.
+   */
+  readonly onStatusChange?: HostStatusChangeHandler
+  /**
    * Initial designer state. May be async so an adapter can read IndexedDB
    * and the `#d=` share hash; a synchronous return renders in the same tick
    * (and its exceptions propagate to the `mount()` caller — the embedded
@@ -161,6 +169,13 @@ export interface DesignerHost {
    * adapter, exactly like {@link registerPayloadSource}.
    */
   registerRenderSource?(getPngBlob: () => Promise<Blob>): () => void
+  /**
+   * Registers the shell's current-status getter (`MountHandle.getStatus()`,
+   * issue #133): the same "read, don't drive the UI" shape
+   * {@link registerPayloadSource} established, for the status snapshot instead
+   * of the payload text. Supplied by the mount lifecycle, never by an adapter.
+   */
+  registerStatusSource?(getStatus: () => DesignerStatus): () => void
 }
 
 /**

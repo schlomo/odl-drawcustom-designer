@@ -324,6 +324,105 @@ export type HostPreviewRenderer = (
   context: HostPreviewContext,
 ) => Promise<Blob | string>
 
+/**
+ * Read-only snapshot of designer status (issue #133, ADR-018's observability
+ * clause: "state flows out via a read handle plus optional change
+ * notification; status is derived, never authoritative, and carries no
+ * designer internals"). Answers "is the YAML good, what did the user just do,
+ * how much has changed" without exposing elements, YAML text or any other
+ * internal shape.
+ *
+ * Deliberately small — grow it by maintainer ruling, not speculation.
+ * Frozen: a later status is always a new object, never a mutation of one a
+ * host already holds.
+ */
+export interface DesignerStatus {
+  /** Whether the current YAML document parses and validates. */
+  readonly yamlValid: boolean
+  /**
+   * A one-line description of the first validation problem, truncated to its
+   * first `\n`-delimited line if the underlying parser error is not (a raw
+   * YAML syntax error's message can carry a multi-line caret diagram
+   * pointing at the offending column). Present only while
+   * {@link DesignerStatus.yamlValid} is `false` — a valid document carries no
+   * summary rather than an empty or stale one.
+   */
+  readonly yamlErrorSummary?: string
+  /**
+   * Epoch ms, in the **host's** clock domain (`Date.now()` at the moment of
+   * the edit) — never a designer-internal or build-time value — of the last
+   * user-originated change: typing committed to the canvas, a canvas drag, a
+   * property-panel edit, undo/redo. `null` before the user has made any edit
+   * during this mount.
+   *
+   * Never bumped by a host push (`setPayload()`, `setStates()`, …) — a push is
+   * the host acting on the designer, not the user acting on it.
+   */
+  readonly lastEditAt: number | null
+  /**
+   * Monotonic counter, incremented once per committed payload change —
+   * whether it came from the user (typing, a drag, undo/redo) or from a host
+   * `setPayload()` push. A host that only needs "has anything changed since I
+   * last looked" can diff this number instead of diffing YAML strings.
+   *
+   * Granularity, precisely:
+   *
+   * - **One drag or property-panel drag gesture is one revision**, not one
+   *   per pointermove — coalesced the same way the gesture's undo-history
+   *   entry is (`beginEditCoalesce`/`endEditCoalesce`), applied once when the
+   *   gesture ends. A gesture that starts and ends without net change bumps
+   *   nothing.
+   * - **A `setPayload()` push with a structurally equal payload (element-wise)
+   *   is a no-op for the revision** — dedupe before commit, the same
+   *   full-bail pattern the `states`/`actions` channels use for an unchanged
+   *   re-push (issue #110): no revision bump, no reset undo history, no
+   *   cleared selection. Formatting/comment-only YAML differences dedupe too
+   *   (the comparison is over parsed elements, not the YAML text). **Except**
+   *   while a pending, not-yet-committed YAML edit the user was typing before
+   *   this push exists: `setPayload()` is authoritative over an in-flight
+   *   draft regardless of whether the pushed payload turns out to match
+   *   what's already committed, so the draft is **always** discarded, deduped
+   *   or not — and when there was a real draft to discard, the dedupe is
+   *   skipped entirely and the push takes the full apply path instead,
+   *   which **does** bump the revision even though the committed elements
+   *   end up structurally the same as before. This is deliberate, not an
+   *   inconsistency: the push observably changed something (the draft the
+   *   editor was showing is gone, replaced by a fresh sync of the pushed
+   *   payload) — a plain content comparison alone would miss that and leave
+   *   the editor's on-screen text uncorrected.
+   * - Every other committed change (a single keystroke's debounced commit, a
+   *   click-driven property edit, undo, redo, a genuinely different
+   *   `setPayload()` push) bumps exactly once.
+   */
+  readonly payloadRevision: number
+  /** How many elements are currently selected on the canvas. */
+  readonly selectedElementCount: number
+}
+
+/**
+ * Fired on a status transition (issue #133) — a YAML validity flip or a
+ * {@link DesignerStatus.payloadRevision} change — debounced so a burst of
+ * keystrokes or drag updates yields one call, not one per commit. Not fired
+ * for a selection change alone, and not fired for the initial status observed
+ * at mount (read {@link MountHandle.getStatus} for that). Delivery is capped
+ * at 1 second after the first pending transition, however many times the
+ * debounce gets rescheduled in between — something that keeps re-triggering
+ * it without ever settling cannot postpone delivery indefinitely.
+ *
+ * The delivered status is always **live**: read fresh (and flushed, per
+ * {@link MountHandle.getStatus}) at the moment the debounce settles, never the
+ * value captured when the debounce was scheduled — a flip that reverts to the
+ * last-notified truth before the debounce settles delivers no call at all
+ * (there is nothing new to report), and a flip that settles on a different
+ * truth delivers exactly that, never an intermediate one from partway through
+ * the window. A host that reacts to this callback and calls
+ * {@link MountHandle.getStatus} inside it always sees the identical value.
+ *
+ * A stable closure fixed at mount, like `onAction`: ADR-018 pushes data,
+ * never functions, so there is no update channel for it.
+ */
+export type HostStatusChangeHandler = (status: DesignerStatus) => void
+
 export interface MountOptions {
   /** Initial drawcustom YAML payload (list of draw elements). */
   payload?: string
@@ -409,6 +508,16 @@ export interface MountOptions {
    * comes back can answer differently without a remount.
    */
   resolveAsset?: HostAssetResolver
+  /**
+   * Called on a designer status transition (issue #133) — see
+   * {@link HostStatusChangeHandler}. Optional: a host that only wants status
+   * on demand reads {@link MountHandle.getStatus} instead and never supplies
+   * this.
+   *
+   * A stable closure fixed at mount — there is no update channel for it
+   * (ADR-018: data is pushed, functions are not).
+   */
+  onStatusChange?: HostStatusChangeHandler
 }
 
 export interface MountHandle {
@@ -531,6 +640,26 @@ export interface MountHandle {
    *   other method on this handle.
    */
   getPngBlob(): Promise<Blob>
+  /**
+   * The designer's current status (issue #133, ADR-018's observability
+   * clause) — a small, frozen, derived snapshot; never authoritative, and it
+   * carries no designer internals (no elements, no YAML text).
+   *
+   * **Flushes a pending debounced YAML edit first**, exactly like
+   * {@link getPayload} does — the two must never disagree about whether there
+   * is unsaved, uncommitted text: a call made moments after typing already
+   * reflects the typed edit in `payloadRevision`/`lastEditAt`, not the state
+   * as of 80ms ago. Calling `getStatus()` before `getPayload()` or vice versa
+   * flushes the same way either order.
+   *
+   * Always answers synchronously, including in the brief pre-registration
+   * window right after `mount()`/`mountStandaloneApp()` returns — before that
+   * registration has run, reports a default status (`yamlValid: true`, no
+   * edits yet, revision `0`, nothing selected), the same "safe default before
+   * the shell exists" shape {@link getPayload}'s bootstrap fallback uses.
+   * Throws `MountHandle used after destroy()` like every other method here.
+   */
+  getStatus(): DesignerStatus
 }
 
 /**

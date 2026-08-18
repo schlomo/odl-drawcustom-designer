@@ -19,7 +19,7 @@ import { copyTextToClipboard } from './lib/export-download'
 import { requestLoadDemoConfirm, shouldConfirmLoadDemo } from './lib/load-demo'
 import { toolbarGroupRow, toolbarGroupsRow } from './lib/export-action-feedback'
 import { getMissingAssetMessages } from './lib/missing-asset-messages'
-import type { StatusMessage } from './lib/status-messages'
+import { summarizeStatusMessages, type StatusMessage } from './lib/status-messages'
 import {
   DISPLAY_PREVIEW_YAML_BLOCKED_REASON,
   useDisplayPreview,
@@ -35,6 +35,7 @@ import { HostActionButtons } from './components/HostActionButtons'
 import { TextButton } from './components/TextButton'
 import { shell } from './styles/shell'
 import { hostSuppliedTheme, type DesignerHost } from '../embed/host'
+import type { DesignerStatus } from '../embed/types'
 import { serializeYamlPayload, type DrawElement } from '../core'
 import type { AddElementResult } from './hooks/useProjectState'
 import {
@@ -55,6 +56,37 @@ import {
 } from '../core'
 import { logoUrl } from '../assets/bundled-urls'
 import { toolIconPath } from './lib/mdi-tool-icons'
+
+/**
+ * Debounce window for `onStatusChange` notifications (issue #133): long
+ * enough that a burst of keystrokes (each committed on the YAML editor's own
+ * 80ms sync debounce) or a canvas drag's per-frame updates coalesce into one
+ * call, short enough that a host's "edited N seconds ago" indicator still
+ * feels immediate.
+ */
+const STATUS_CHANGE_DEBOUNCE_MS = 300
+
+/**
+ * Ceiling on how long a pending `onStatusChange` transition may be postponed
+ * (issue #133 review round 3, MINOR N8): each qualifying re-render resets the
+ * {@link STATUS_CHANGE_DEBOUNCE_MS} countdown, so a value that keeps
+ * re-triggering the notify effect without ever settling — a selection
+ * toggling on some other timer, say — could otherwise push delivery out
+ * indefinitely. This caps total wait to this many ms after the *first*
+ * pending transition, however many times it gets rescheduled in between.
+ */
+const MAX_STATUS_NOTIFY_DELAY_MS = 1000
+
+/**
+ * `yamlErrorSummary` documents itself as one line (issue #133 MINOR 4), but a
+ * raw YAML parse error's message can carry a multi-line caret diagram (e.g.
+ * `"Implicit keys need to be on a single line at line 1, column 3:\n\n- type
+ * text\n  ^\n"`) — truncate to the first line so the doc promise holds.
+ */
+function firstLineOf(text: string): string {
+  const newlineIndex = text.indexOf('\n')
+  return newlineIndex === -1 ? text : text.slice(0, newlineIndex)
+}
 
 interface AppProps {
   bootstrap: AppBootstrap
@@ -103,14 +135,18 @@ export function App({ bootstrap, host }: AppProps) {
   //   would, so a host read never lags text the user already typed;
   // - discard: a host payload push overrules a draft typed before it, so the
   //   push applier drops that draft instead of letting a later flush commit it
-  //   back over the pushed payload.
+  //   back over the pushed payload. Returns whether a draft actually existed
+  //   (issue #133 review round 4, MAJOR N11) — the push applier uses that to
+  //   decide whether a dedupe would leave stale text on screen.
   const yamlFlushPendingRef = useRef<(() => void) | null>(null)
-  const yamlDiscardPendingRef = useRef<(() => void) | null>(null)
+  const yamlDiscardPendingRef = useRef<(() => boolean) | null>(null)
   const {
     sessionName,
     service,
     elements,
     getElementsSnapshot,
+    getEditStatus,
+    editStatusVersion,
     previewElements,
     selectedIndices,
     selectedIndex,
@@ -230,6 +266,182 @@ export function App({ bootstrap, host }: AppProps) {
     }
     return host.registerRenderSource(getCurrentDesignPngBlob)
   }, [host, getCurrentDesignPngBlob])
+
+  // The designer's derived status snapshot (issue #133, ADR-018's
+  // observability clause): "is the YAML good, what did the user just do, how
+  // much has changed" — never designer internals. Combines YAML validity
+  // (`yamlBlocked`/`yamlStatusMessages`, lifted from `YamlPanel`) with the
+  // edit-tracking half `useProjectState` maintains (`getEditStatus`) and the
+  // current selection. Frozen: a later status is always a new object, never a
+  // mutation of one a host already holds.
+  //
+  // Deliberately does NOT flush a pending debounced YAML edit — see
+  // `getDesignerStatus` below for the flushing wrapper and why the two must
+  // stay separate (issue #133 review, MAJOR 3).
+  const buildDesignerStatus = useCallback((): DesignerStatus => {
+    const { lastEditAt, payloadRevision } = getEditStatus()
+    const base = {
+      yamlValid: !yamlBlocked,
+      lastEditAt,
+      payloadRevision,
+      selectedElementCount: selectedIndices.length,
+    }
+    if (!yamlBlocked) {
+      return Object.freeze(base)
+    }
+    const summary = summarizeStatusMessages(yamlStatusMessages) ?? 'YAML document is invalid'
+    return Object.freeze({ ...base, yamlErrorSummary: firstLineOf(summary) })
+  }, [getEditStatus, selectedIndices.length, yamlBlocked, yamlStatusMessages])
+
+  // Host-facing read (issue #133 review, MAJOR 3): flushes a pending
+  // debounced YAML edit first, exactly like `readCurrentPayload` does for
+  // `getPayload()` — two handle reads must never disagree about whether
+  // there is unsaved, uncommitted text. This is what `registerStatusSource`
+  // registers and what a settled `onStatusChange` debounce delivers below.
+  //
+  // The internal notify effect's own per-render bookkeeping intentionally
+  // calls the non-flushing `buildDesignerStatus` instead: it runs on every
+  // render that could plausibly matter (including a mid-keystroke one, since
+  // `yamlBlocked`/`yamlStatusMessages` update on every keystroke, well before
+  // the YAML editor's own 80ms elements-sync debounce fires) — flushing there
+  // would force-commit every keystroke immediately, defeating that debounce.
+  const getDesignerStatus = useCallback((): DesignerStatus => {
+    yamlFlushPendingRef.current?.()
+    return buildDesignerStatus()
+  }, [buildDesignerStatus])
+
+  // Read channel (issue #133): the same commit-time (`useLayoutEffect`)
+  // registration as `readCurrentPayload`/`getCurrentDesignPngBlob` above —
+  // `MountHandle.getStatus()` must never answer from a stale registration.
+  useLayoutEffect(() => {
+    if (!host.registerStatusSource) {
+      return
+    }
+    return host.registerStatusSource(getDesignerStatus)
+  }, [host, getDesignerStatus])
+
+  // Latest-`getDesignerStatus` mirror (issue #133 review, BLOCKER 2): the
+  // debounce timer below is scheduled during one render but fires as an
+  // unrelated macrotask, by which time several more renders — and possibly
+  // several more transitions, including one that reverts the very one that
+  // scheduled it — may have happened. Reading through this ref instead of the
+  // closed-over function from the scheduling render is what keeps the
+  // delivered snapshot live rather than stale. A layout effect with no
+  // dependency array updates it after every commit, well before any 300ms
+  // timer could possibly fire.
+  const getDesignerStatusRef = useRef(getDesignerStatus)
+  useLayoutEffect(() => {
+    getDesignerStatusRef.current = getDesignerStatus
+  })
+
+  // Change notification (issue #133): fires only on a *transition* — a YAML
+  // validity flip or a payload-revision change — never for a selection change
+  // alone, and debounced so a burst of keystrokes or drag updates yields one
+  // call, not one per commit. A passive effect, not a layout one: this
+  // schedules a notification rather than registering a read/push channel a
+  // host could race the commit window on.
+  const lastNotifiedStatusRef = useRef<{ yamlValid: boolean; payloadRevision: number } | null>(
+    null,
+  )
+  const statusChangeTimerRef = useRef<number | null>(null)
+  // When the *current* pending transition first became pending (issue #133
+  // review round 3, MINOR N8), or `null` when nothing is pending. Read only
+  // to compute the max-wait clamp below; cleared whenever a delivery fires or
+  // a flip-flop cancels the pending window entirely.
+  const pendingSinceRef = useRef<number | null>(null)
+  const clearStatusChangeTimer = useCallback(() => {
+    if (statusChangeTimerRef.current != null) {
+      window.clearTimeout(statusChangeTimerRef.current)
+      statusChangeTimerRef.current = null
+    }
+  }, [])
+  useEffect(() => {
+    if (!host.onStatusChange) {
+      return
+    }
+    const status = buildDesignerStatus()
+    const transitionKey = { yamlValid: status.yamlValid, payloadRevision: status.payloadRevision }
+    const last = lastNotifiedStatusRef.current
+    if (last == null) {
+      // Baseline for this mount: getStatus() already answers this value
+      // synchronously, and onStatusChange documents itself as firing on a
+      // transition, not on first observation.
+      lastNotifiedStatusRef.current = transitionKey
+      return
+    }
+    if (
+      last.yamlValid === transitionKey.yamlValid &&
+      last.payloadRevision === transitionKey.payloadRevision
+    ) {
+      // Either nothing changed since the last delivered/baseline status, or a
+      // flip-flop inside the debounce window landed back on it (issue #133
+      // review, BLOCKER 2) — cancel whatever is still pending rather than let
+      // it later deliver a now-stale snapshot `getStatus()` would no longer
+      // agree with. This is also what keeps the equality path from leaking a
+      // timer: the previous version returned here without touching one.
+      clearStatusChangeTimer()
+      pendingSinceRef.current = null
+      return
+    }
+    clearStatusChangeTimer()
+    // Issue #133 review round 3 (MINOR N8): a re-run that keeps finding a
+    // still-different transition (a selection toggling on some unrelated
+    // timer while a validity flip is pending, say) would otherwise reset the
+    // full debounce every time and could postpone delivery indefinitely.
+    // `pendingSinceRef` anchors the ceiling to the *first* pending moment,
+    // and every reschedule spends down the remaining budget instead of
+    // resetting it.
+    const now = Date.now()
+    if (pendingSinceRef.current == null) {
+      pendingSinceRef.current = now
+    }
+    const remainingMaxWait = MAX_STATUS_NOTIFY_DELAY_MS - (now - pendingSinceRef.current)
+    const delay = Math.max(0, Math.min(STATUS_CHANGE_DEBOUNCE_MS, remainingMaxWait))
+    statusChangeTimerRef.current = window.setTimeout(() => {
+      statusChangeTimerRef.current = null
+      pendingSinceRef.current = null
+      // Read live through the ref, not the scheduling render's closed-over
+      // function (issue #133 review, BLOCKER 2) — flushes on read (MAJOR 3),
+      // so a host's `onStatusChange` sees exactly what `getStatus()` would
+      // answer if called right now, never what was true 300ms ago. Safe by
+      // construction: every keystroke re-runs this effect and reschedules
+      // this same timer (directly, or via `editStatusVersion` below once its
+      // debounced commit lands), and a pending draft always carries its own
+      // live 80ms sync timer underneath — so this delivery can never fire
+      // *during* an in-progress keystroke burst, only after everything has
+      // gone quiet for a full debounce window (or the max-wait ceiling
+      // above forces it). A future change that made this timer fire on some
+      // signal *other* than a settled render would break that invariant
+      // first.
+      const delivered = getDesignerStatusRef.current()
+      lastNotifiedStatusRef.current = {
+        yamlValid: delivered.yamlValid,
+        payloadRevision: delivered.payloadRevision,
+      }
+      host.onStatusChange?.(delivered)
+    }, delay)
+    // `editStatusVersion` is a deliberate extra dependency (issue #133
+    // review rounds 2 and 3, BLOCKER 1 / MAJOR N5): `buildDesignerStatus`
+    // reads `payloadRevision`/`lastEditAt` through refs (`getEditStatus`),
+    // which change on every committed edit without necessarily changing any
+    // of `buildDesignerStatus`'s own listed dependencies
+    // (`yamlBlocked`/`selectedIndices`/`yamlStatusMessages`) at the moment
+    // the edit actually commits. Round 2 depended on `elements` instead, but
+    // `endEditCoalesce` bumps the revision at the end of a coalesced gesture
+    // without ever calling `setElements` (every intermediate move already
+    // applied itself to `elements` while coalescing), so that bump was
+    // invisible to this effect too. `editStatusVersion` is bumped by the
+    // *same* function (`bumpEditStatus`) that bumps the refs this reads, in
+    // every one of its three call sites (`commitElements`,
+    // `endEditCoalesce`, `restoreSnapshot`) — one authoritative signal, no
+    // other path to diverge from it.
+  }, [host, buildDesignerStatus, editStatusVersion, clearStatusChangeTimer])
+
+  // Unmount-only cleanup for the debounce timer above — `clearStatusChangeTimer`
+  // has a stable identity, so this effect runs once (mount) and cleans up
+  // once (unmount); the notify effect above cancels/reschedules the same
+  // timer inline on every relevant re-run, so this is not that cleanup.
+  useEffect(() => clearStatusChangeTimer, [clearStatusChangeTimer])
 
   /**
    * The surface a host render must be produced at: the oriented logical canvas

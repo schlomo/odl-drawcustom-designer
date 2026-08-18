@@ -73,6 +73,9 @@ const handle = mount(document.getElementById('designer'), {
     // optional: 'font' | 'image' by the name the payload uses — see below
     return yourBackend.assetBytes(kind, name)
   },
+  onStatusChange(status) {
+    // optional: a YAML validity flip or a payload revision change — see below
+  },
 })
 
 handle.setStates(states)     // replace the state map
@@ -81,6 +84,7 @@ handle.setActions(actions)   // replace your action buttons
 handle.setPayload(yamlString)// replace the payload (throws on bad YAML)
 handle.getPayload()          // read the current payload YAML — see below
 handle.getPngBlob()          // read the designer's own PNG export — see below
+handle.getStatus()           // read the current status snapshot — see below
 handle.setTheme('light')     // switch the container-scoped theme
 handle.destroy()             // unmount and empty the container
 ```
@@ -122,6 +126,52 @@ const handle = mount(el, {
 - Throws `MountHandle used after destroy()` like every other method here — that failure is synchronous, only the render itself is a `Promise`.
 
 [`demo/host.js`](../demo/host.js) is the reference use: its fake `renderPreview` has no backend of its own, so it calls `handle.getPngBlob()` and stamps a small info strip on top ([`demo/preview-render.js`](../demo/preview-render.js)) — see the `renderPreview` section below for why this replaced an earlier from-scratch rasterizer.
+
+### `getStatus()` / `onStatusChange` ([issue #133](https://github.com/schlomo/odl-drawcustom-designer/issues/133))
+
+A maintainer question crystallized the gap: "How can I see the state of the designer via API? Is the YAML good or bad? What is the user doing (last action with timestamp)?" ADR-018's seam grammar had data flowing in (pushes) and intent flowing out (`onAction`/`onTargetSelected`), but no plain observability channel — a host had no way to know the YAML was broken without scraping the disabled state of its own Save button, the same DOM-scraping anti-pattern [`getPayload()`](#getpayload-issue-104) exists to replace.
+
+`handle.getStatus()` returns a small, frozen, derived snapshot:
+
+```ts
+interface DesignerStatus {
+  yamlValid: boolean
+  yamlErrorSummary?: string       // present only while yamlValid is false
+  lastEditAt: number | null       // epoch ms, host clock domain; null before any edit
+  payloadRevision: number         // monotonic, +1 per committed payload change
+  selectedElementCount: number
+}
+```
+
+```js
+const handle = mount(el, {
+  onStatusChange(status) {
+    saveButton.disabled = !status.yamlValid
+    lastEditedLabel.textContent = status.lastEditAt
+      ? `Edited ${Math.round((Date.now() - status.lastEditAt) / 1000)}s ago`
+      : 'No edits yet'
+  },
+})
+
+// Answers synchronously at any time, including right after mount():
+console.log(handle.getStatus())
+```
+
+- **Deliberately small.** Five fields, no elements, no YAML text — a host that needs the payload alongside a status change reads [`getPayload()`](#getpayload-issue-104), the same call an action makes. Grows by maintainer ruling, not speculation.
+- **`getStatus()` flushes a pending debounced YAML edit first**, exactly like [`getPayload()`](#getpayload-issue-104) — the two must never disagree about whether there is unsaved, uncommitted text. A call made moments after typing already reflects the typed edit in `payloadRevision`/`lastEditAt`, not the state as of 80ms ago, and it does not matter which of the two you call first.
+- **`yamlValid`/`yamlErrorSummary`** track the same validity the YAML editor blocks mutation on ([issue #35](https://github.com/schlomo/odl-drawcustom-designer/issues/35)) — a host panel can disable its own Send button on invalid YAML without reimplementing the designer's own parse/schema check. `yamlErrorSummary` is a one-line description of the first problem — truncated to its first line if the underlying parser error is not (a raw YAML syntax error can produce a multi-line message with a caret diagram pointing at the offending column) — and it disappears (not blanks to `undefined`-but-present) the moment the document is valid again.
+- **`lastEditAt`** is epoch ms in the **host's** clock domain (`Date.now()`, not a build-time or designer-internal value) of the last **user-originated** change — typing committed to the canvas, a canvas drag, a property-panel edit, undo/redo. A host `setPayload()`/`setStates()` push never bumps it: a push is the host acting on the designer, not the user acting on it. `null` until the user has made an edit this mount.
+- **`payloadRevision`** is a monotonic counter that bumps once per committed payload change, from *either* source — the user or a host `setPayload()` push. A host that only needs "has anything changed since I last checked" diffs this number instead of diffing YAML strings. Granularity:
+  - **One drag or property-panel drag gesture is one revision**, not one per pointermove — coalesced the same way the gesture's undo-history entry is, applied once when the gesture ends. A gesture that starts and ends without net change bumps nothing.
+  - **A `setPayload()` push with a structurally equal payload (element-wise) is a no-op for the revision** — dedupe before commit, the same pattern the `states`/`actions` channels use for an unchanged re-push ([issue #110](https://github.com/schlomo/odl-drawcustom-designer/issues/110)). The comparison is over parsed elements, not YAML text, so a re-push that only reformats whitespace or changes a comment also dedupes. **Except** while a pending, not-yet-committed YAML edit the user was typing exists: `setPayload()` is authoritative over an in-flight draft regardless of whether the pushed payload turns out to match what's already committed, so the draft is **always** discarded, deduped or not — and when there was a real draft to discard, the dedupe is skipped entirely and the push takes the full apply path, which **does** bump the revision even though the committed elements end up structurally the same as before. This is deliberate: the push observably changed something (the draft the editor was showing is gone, replaced by a fresh sync of the pushed payload) — a plain content comparison alone would miss that and leave the editor's on-screen text uncorrected, contradicting `getPayload()`/`getStatus()` in the same breath.
+  - Every other committed change (a keystroke's debounced commit, a property edit, undo, redo, a genuinely different `setPayload()` push) bumps exactly once.
+- **`selectedElementCount`** is exactly `selectedIndices.length` at read time — how many elements are selected on the canvas right now.
+- **`onStatusChange` fires on a transition only** — a `yamlValid` flip or a `payloadRevision` change — never for a selection change alone (clicking around the canvas without editing generates no notification), and it is **debounced** (300ms, capped at 1000ms total from the first pending transition — see below) so a burst of keystrokes, host pushes, or a canvas drag's per-frame updates coalesce into one call rather than one per commit. It does not fire for the designer's initial status on mount — `getStatus()` already answers that synchronously, and the callback documents itself as reporting a *change*.
+- **A pending transition is delivered within 1 second, however often it gets rescheduled.** Each qualifying re-render resets the 300ms debounce countdown; something that keeps re-triggering it without ever settling (a selection toggling on an unrelated timer while a validity flip is pending, say) could otherwise postpone delivery indefinitely. A 1000ms ceiling, anchored to the *first* pending moment, forces delivery regardless.
+- **The delivered status is always live**, read fresh (and flushed) at the moment the debounce settles, never the value captured when the debounce was scheduled. A flip that reverts to the last-notified truth before the debounce settles (break the YAML, then fix it, within 300ms) delivers no call at all — there is nothing new to report — rather than a stale "invalid" snapshot the live document no longer agrees with. A flip that settles on a different truth delivers exactly that live truth. Calling `getStatus()` from inside `onStatusChange` always agrees with what was just delivered.
+- **A stable closure fixed at mount**, like `onAction`/`renderPreview` — there is no `setOnStatusChange()`; ADR-018 pushes data, functions are not pushed.
+- **Before the shell's status source has registered** (the brief pre-registration window right after `mount()`/`mountStandaloneApp()` returns), `getStatus()` reports a safe default: `yamlValid: true` (a synchronous host's invalid `payload` YAML already throws out of `mount()` itself, so this is always accurate), no edits yet, revision `0`, nothing selected — the same "safe default before the shell exists" shape `getPayload()`'s bootstrap fallback uses for text.
+- Throws `MountHandle used after destroy()` like every other method here.
 
 ### Version
 

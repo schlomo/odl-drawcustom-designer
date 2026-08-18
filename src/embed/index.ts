@@ -17,6 +17,7 @@ export { mount } from './mount'
 export { APP_VERSION as version } from '../core'
 export type {
   AssetKind,
+  DesignerStatus,
   EmbedTheme,
   HostAction,
   HostActionContext,
@@ -30,6 +31,7 @@ export type {
   HostPreviewServiceOptions,
   HostState,
   HostStates,
+  HostStatusChangeHandler,
   HostTarget,
   HostTargetSelectedHandler,
   MountHandle,
