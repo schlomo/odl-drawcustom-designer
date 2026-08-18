@@ -136,13 +136,19 @@ test('removing the selected display keeps its config and marks the selection sta
   await expect(page.getByRole('button', { name: 'Resolution' })).toContainText(/400\s*×\s*300/)
   await expect(page.getByRole('combobox', { name: 'Color mode' })).toHaveValue('bw')
   await expect(page.getByRole('button', { name: 'Unlock display config' })).toBeVisible()
-  await expect(page.getByRole('status', { name: 'Display no longer available' })).toBeVisible()
+  // The stale hint is a `role="status"` live region (`StatusHint`), which
+  // takes its accessible name from aria-label/aria-labelledby only — never
+  // from content (issue #150) — so it is located by its live-region text.
+  // Asserting the recovery instruction is present (not just the title)
+  // proves it reaches an assistive-tech announcement of the region's
+  // content, rather than being swallowed by a title-only aria-label.
+  await expect(page.getByText(/pick another display to switch/i)).toBeVisible()
   expect(await paperSize(page)).toBe('400×300')
 
   // The remaining displays are still one pick away.
   await picker(page).selectOption({ label: 'Kitchen tag (296×128 BWR)' })
   await expect(page.getByRole('button', { name: 'Resolution' })).toContainText(/296\s*×\s*128/)
-  await expect(page.getByRole('status', { name: 'Display no longer available' })).toHaveCount(0)
+  await expect(page.getByText(/pick another display to switch/i)).toHaveCount(0)
 })
 
 test('a display added after mount shows up in the picker without a reload', async ({ page }) => {

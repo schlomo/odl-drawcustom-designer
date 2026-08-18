@@ -160,6 +160,17 @@ function colorMode(): HTMLElement {
 }
 
 /**
+ * The stale-target warning — a `StatusHint` (`role="status"`). That role
+ * takes its accessible name from aria-label/aria-labelledby only (issue
+ * #150), never from content, so it is located by its live-region text
+ * rather than an RTL accessible name.
+ */
+function staleTargetHint(): HTMLElement | null {
+  const text = designer().queryByText(/Display no longer available/i)
+  return text?.closest('[role="status"]') ?? null
+}
+
+/**
  * Which orientation button is active — the way round the adopted display is
  * held. The resolution control names a display by its *pair* of dimensions and
  * is orientation-insensitive by design (issue #139), so the two together are
@@ -523,9 +534,11 @@ describe('host targets (issue #106)', () => {
       'Kitchen tag',
       'Virtual display',
     ])
-    expect(
-      designer().getByRole('status', { name: 'Display no longer available' }),
-    ).toBeInTheDocument()
+    const hint = staleTargetHint()
+    expect(hint).not.toBeNull()
+    // The recovery instruction must reach the live region's content, not
+    // just its (nonexistent) accessible name — issue #150.
+    expect(hint).toHaveTextContent(/pick another display to switch/i)
     // Never silently switched or unlocked. The host is told the id is no
     // longer in effect — it just dropped that display from its own list — but
     // exactly once, and the user keeps seeing which display this is.
@@ -542,7 +555,7 @@ describe('host targets (issue #106)', () => {
     act(() => handle.setTargets([KITCHEN, OFFICE]))
 
     expect(picker().selectedOptions[0]?.textContent).toBe('Office display')
-    expect(designer().queryByRole('status', { name: 'Display no longer available' })).toBeNull()
+    expect(staleTargetHint()).toBeNull()
   })
 
   it('marks the selection stale only while the design is pinned to it', () => {
@@ -556,14 +569,12 @@ describe('host targets (issue #106)', () => {
 
     expect(optionLabels()).toEqual(['Kitchen tag', 'Virtual display'])
     expect(picker()).toHaveValue('')
-    expect(designer().queryByRole('status', { name: 'Display no longer available' })).toBeNull()
+    expect(staleTargetHint()).toBeNull()
 
     // Re-locking returns to the missing display, and says so again.
     fireEvent.click(designer().getByRole('button', { name: 'Lock display config' }))
     expect(picker().selectedOptions[0]?.textContent).toBe('Office display (unavailable)')
-    expect(
-      designer().getByRole('status', { name: 'Display no longer available' }),
-    ).toBeInTheDocument()
+    expect(staleTargetHint()).not.toBeNull()
   })
 
   it('keeps the stale entry pickable-away after the whole list is cleared', () => {

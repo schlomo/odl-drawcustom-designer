@@ -56,18 +56,19 @@ describe('Sidebar color clamp hint', () => {
       },
     ])
 
-    const hint = screen.getByRole('status', {
-      name: /color mode doesn't support all colors used/i,
-    })
-    expect(hint.className).toContain('var(--shell-warning-bg)')
-    expect(hint.textContent).not.toMatch(/yellow|grey|preview|element|#/i)
+    // role="status" takes its accessible name from aria-label/aria-labelledby
+    // only (issue #150) — it never derives one from content, so the hint is
+    // located by its live-region text instead of an RTL accessible name.
+    const hintText = screen.getByText(/color mode doesn't support all colors used/i)
+    const hint = hintText.closest('[role="status"]')
+    expect(hint).not.toBeNull()
+    expect(hint!.className).toContain('var(--shell-warning-bg)')
+    expect(hint!.textContent).not.toMatch(/yellow|grey|preview|element|#/i)
   })
 
   it('hides the warning when colors are printable on the tag', () => {
     renderSidebarWithElements([{ type: 'circle', x: 0, y: 0, radius: 5, fill: 'red' }])
 
-    expect(
-      screen.queryByRole('status', { name: /color mode doesn't support all colors used/i }),
-    ).toBeNull()
+    expect(screen.queryByText(/color mode doesn't support all colors used/i)).toBeNull()
   })
 })
