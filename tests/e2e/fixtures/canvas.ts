@@ -131,6 +131,54 @@ export async function touchDragCanvasPoint(
 }
 
 /**
+ * Low-level multi-touch CDP session for gestures {@link touchDragCanvasPoint}
+ * can't express: introducing or removing individual touch points mid-gesture
+ * (a second finger landing while a drag is in progress, or a real two-finger
+ * pan/pinch). Canvas-space points are converted to client pixels via the
+ * paper's bounding box, same conversion the other helpers here use.
+ *
+ * `run` gets a `dispatch` function taking the *full* current set of active
+ * touch points on every call — matching `Input.dispatchTouchEvent`'s own
+ * model, where Chromium diffs against the previous dispatch by `id` to work
+ * out what's new/moved/gone. Reuse the same `id` across calls for a point
+ * that's continuing; simply add or drop entries to introduce or end touches.
+ */
+export async function withTouchGesture(
+  page: Page,
+  canvasSize: { width: number; height: number },
+  run: (session: {
+    toClient: (point: { x: number; y: number }) => { x: number; y: number }
+    dispatch: (
+      type: 'touchStart' | 'touchMove' | 'touchEnd' | 'touchCancel',
+      points: { x: number; y: number; id: number }[],
+    ) => Promise<void>
+    settle: (ms?: number) => Promise<void>
+  }) => Promise<void>,
+): Promise<void> {
+  const paper = await canvasPaper(page)
+  const box = await paper.boundingBox()
+  if (!box) {
+    throw new Error('[data-canvas-paper] has no bounding box — is the canvas rendered?')
+  }
+
+  const client = await page.context().newCDPSession(page)
+  try {
+    await run({
+      toClient: (point) => toClientPoint(box, point, canvasSize),
+      dispatch: async (type, points) => {
+        await client.send('Input.dispatchTouchEvent', {
+          type,
+          touchPoints: points.map(({ x, y, id }) => ({ x, y, id })),
+        })
+      },
+      settle: (ms = 16) => page.waitForTimeout(ms),
+    })
+  } finally {
+    await client.detach().catch(() => {})
+  }
+}
+
+/**
  * Move the mouse to a canvas-coordinate point without pressing a button —
  * drives the pointermove hover path (cursor affordance) in DesignerCanvas.
  */

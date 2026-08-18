@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -208,6 +209,53 @@ interface MarqueeSession {
   additive: boolean
 }
 
+/**
+ * Issue #155: 2-finger navigation (pan + pinch zoom), the feature half of the
+ * #149-follow-up gesture split — 1-finger is always intent (drag/resize/
+ * marquee), 2-finger is always navigation, on both the paper and the
+ * padding. `ids` is fixed for the session's lifetime: a 3rd finger touching
+ * down is tracked in `activePointersRef` for bookkeeping but never joins the
+ * gesture, and the session ends the moment either original finger lifts (no
+ * retroactive 1-finger drag from whichever finger remains — lift both and
+ * re-touch to start a new gesture).
+ */
+interface TwoFingerSession {
+  ids: readonly [number, number]
+  /** Client-space midpoint of the two touches, updated every move (pan delta). */
+  midpoint: { x: number; y: number }
+  /** Client-space distance between the two touches the last time a pinch zoom step fired (or session start). */
+  referenceDistance: number
+}
+
+/** Ascending explicit zoom levels a pinch steps between — the same four values the toolbar's zoom buttons expose (`canvasZoom.ts`); pinch never introduces a continuous/arbitrary zoom value. */
+const PINCH_ZOOM_STEP_ORDER: readonly CanvasZoomMode[] = ['50', '100', '200']
+
+/** Two touch points must spread (or close) by this ratio, relative to the last step, to fire one zoom step — tuned for one deliberate pinch gesture per step, not per pixel. */
+const PINCH_ZOOM_STEP_RATIO = 1.4
+
+/**
+ * `fit` has no position in {@link PINCH_ZOOM_STEP_ORDER} (its scale is
+ * computed from the viewport, not a fixed level) — mirroring how the
+ * toolbar's own zoom control only ever jumps between the four fixed levels,
+ * a pinch starting in `fit` mode switches straight to the nearest explicit
+ * percent in the pinch's direction, exactly once, rather than trying to
+ * compute a "current step index" for a scale that isn't one of the four.
+ */
+function nextZoomModeForPinch(
+  current: CanvasZoomMode,
+  direction: 'increase' | 'decrease',
+): CanvasZoomMode {
+  if (current === 'fit') {
+    return direction === 'increase' ? '100' : '50'
+  }
+  const index = PINCH_ZOOM_STEP_ORDER.indexOf(current)
+  const nextIndex =
+    direction === 'increase'
+      ? Math.min(index + 1, PINCH_ZOOM_STEP_ORDER.length - 1)
+      : Math.max(index - 1, 0)
+  return PINCH_ZOOM_STEP_ORDER[nextIndex]!
+}
+
 const HANDLE_SIZE = HANDLE_VISUAL_SIZE
 const HANDLE_FILL_INTERACTIVE = '#3b82f6'
 const HANDLE_FILL_DISABLED = '#ef4444'
@@ -309,6 +357,28 @@ export function DesignerCanvas({
   const [marqueeRect, setMarqueeRect] = useState<ElementBounds | null>(null)
   const marqueeRectRef = useRef<ElementBounds | null>(null)
   const marqueeSessionRef = useRef<MarqueeSession | null>(null)
+  /**
+   * Issue #149 follow-up / #155: every currently-down pointer's last known
+   * client position, keyed by `pointerId` — Pointer Events give one event
+   * stream per contact but no "list active touches" API the way `TouchEvent`
+   * does, so this is the app's own multi-pointer registry. Populated on
+   * pointerdown, updated on pointermove, pruned on pointerup/lost-capture.
+   * Drives both "is this the 2nd finger" (defect fix) and the 2-finger pan/
+   * zoom gesture (#155).
+   */
+  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map())
+  const twoFingerSessionRef = useRef<TwoFingerSession | null>(null)
+  const twoFingerCaptureTargetRef = useRef<HTMLElement | null>(null)
+  /**
+   * Set the instant a pinch fires a zoom step; consumed by the layout effect
+   * below once the resulting `effectiveScale` has actually painted, to keep
+   * the pinched canvas point under the gesture's midpoint.
+   */
+  const pendingZoomAnchorRef = useRef<{
+    canvasPoint: { x: number; y: number }
+    clientX: number
+    clientY: number
+  } | null>(null)
   const [dragOverlays, setDragOverlays] = useState<DragOverlay[]>([])
   const [canvasSnapGuides, setCanvasSnapGuides] = useState<CanvasSnapEdge[]>([])
   /** Preview stack frozen at drag start so live YAML/property updates do not re-render every layer. */
@@ -396,6 +466,31 @@ export function DesignerCanvas({
   useEffect(() => {
     writeCanvasZoomMode(zoomMode)
   }, [zoomMode])
+
+  // Issue #155: a pinch zoom step calls `setZoomMode`, which changes
+  // `effectiveScale`/`stageSize`/`viewportLayout` asynchronously. This runs
+  // *after* that new layout has actually committed to the DOM (useLayoutEffect,
+  // pre-paint) and nudges the scroll position so the canvas point that was
+  // under the gesture's midpoint before the step is still under it after —
+  // a `setZoomMode` call with no pending anchor (the toolbar buttons, or the
+  // initial mount) leaves scroll untouched.
+  useLayoutEffect(() => {
+    const anchor = pendingZoomAnchorRef.current
+    if (!anchor) {
+      return
+    }
+    pendingZoomAnchorRef.current = null
+    const container = containerRef.current
+    const paper = container?.querySelector<HTMLElement>('[data-canvas-paper]')
+    if (!container || !paper) {
+      return
+    }
+    const rect = paper.getBoundingClientRect()
+    const anchoredClientX = rect.left + (anchor.canvasPoint.x / renderContext.width) * rect.width
+    const anchoredClientY = rect.top + (anchor.canvasPoint.y / renderContext.height) * rect.height
+    container.scrollLeft += anchoredClientX - anchor.clientX
+    container.scrollTop += anchoredClientY - anchor.clientY
+  }, [effectiveScale, renderContext.height, renderContext.width, viewportLayout])
 
   const fontAssetKeys = useStableAssetKeys(elements, collectFontKeysFromElements)
 
@@ -761,8 +856,131 @@ export function DesignerCanvas({
     [elements, onBeginEditCoalesce, onDragActiveChange],
   )
 
+  const finishTwoFingerSession = useCallback(() => {
+    const session = twoFingerSessionRef.current
+    twoFingerSessionRef.current = null
+    if (!session) {
+      return
+    }
+    const target = twoFingerCaptureTargetRef.current
+    twoFingerCaptureTargetRef.current = null
+    for (const id of session.ids) {
+      if (target?.hasPointerCapture(id)) {
+        target.releasePointerCapture(id)
+      }
+    }
+  }, [])
+
+  /**
+   * Issue #155: the exact instant `activePointersRef` reaches two entries,
+   * start navigation — canceling (never blending with) any in-flight
+   * 1-finger gesture first, which is also the defect fix (a 2nd finger must
+   * never perturb an active drag/resize/marquee session). A 3rd+ finger
+   * touching down while a session is already active is a no-op here: it's
+   * still tracked in `activePointersRef`, but the session keeps riding its
+   * original two ids.
+   */
+  const maybeStartTwoFingerSession = useCallback(
+    (target: HTMLElement) => {
+      if (twoFingerSessionRef.current || activePointersRef.current.size !== 2) {
+        return
+      }
+      if (dragSessionRef.current) {
+        finishDrag()
+      }
+      if (marqueeSessionRef.current) {
+        finishMarquee()
+      }
+      const [idA, idB] = [...activePointersRef.current.keys()] as [number, number]
+      const a = activePointersRef.current.get(idA)
+      const b = activePointersRef.current.get(idB)
+      if (!a || !b) {
+        return
+      }
+      target.setPointerCapture(idA)
+      target.setPointerCapture(idB)
+      twoFingerCaptureTargetRef.current = target
+      twoFingerSessionRef.current = {
+        ids: [idA, idB],
+        midpoint: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+        referenceDistance: Math.hypot(b.x - a.x, b.y - a.y),
+      }
+    },
+    [finishDrag, finishMarquee],
+  )
+
+  /**
+   * Issue #155: pan follows the 2-finger midpoint every move; pinch zoom
+   * steps the existing discrete `zoomMode` (never a continuous value — see
+   * {@link PINCH_ZOOM_STEP_ORDER}) when the two touches' distance has
+   * spread or closed by {@link PINCH_ZOOM_STEP_RATIO} since the last step,
+   * anchored via `pendingZoomAnchorRef` (consumed by the layout effect
+   * above) so the canvas point under the gesture midpoint doesn't jump.
+   */
+  const updateTwoFingerGesture = useCallback(
+    (session: TwoFingerSession) => {
+      const container = containerRef.current
+      const a = activePointersRef.current.get(session.ids[0])
+      const b = activePointersRef.current.get(session.ids[1])
+      if (!container || !a || !b) {
+        return
+      }
+      const midpoint = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+      const distance = Math.hypot(b.x - a.x, b.y - a.y)
+
+      const dx = midpoint.x - session.midpoint.x
+      const dy = midpoint.y - session.midpoint.y
+      if (dx !== 0 || dy !== 0) {
+        container.scrollLeft -= dx
+        container.scrollTop -= dy
+      }
+
+      const ratio = distance / session.referenceDistance
+      let nextReferenceDistance = session.referenceDistance
+      if (ratio >= PINCH_ZOOM_STEP_RATIO || ratio <= 1 / PINCH_ZOOM_STEP_RATIO) {
+        const nextMode = nextZoomModeForPinch(
+          zoomMode,
+          ratio >= PINCH_ZOOM_STEP_RATIO ? 'increase' : 'decrease',
+        )
+        if (nextMode !== zoomMode) {
+          const anchorCanvasPoint = mapClientToCanvas(midpoint.x, midpoint.y, true)
+          if (anchorCanvasPoint) {
+            pendingZoomAnchorRef.current = {
+              canvasPoint: anchorCanvasPoint,
+              clientX: midpoint.x,
+              clientY: midpoint.y,
+            }
+          }
+          setZoomMode(nextMode)
+        }
+        nextReferenceDistance = distance
+      }
+
+      twoFingerSessionRef.current = {
+        ids: session.ids,
+        midpoint,
+        referenceDistance: nextReferenceDistance,
+      }
+    },
+    [mapClientToCanvas, zoomMode],
+  )
+
   const handlePointerMove = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
+      if (activePointersRef.current.has(event.pointerId)) {
+        activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      }
+
+      // Issue #155: a pointer belonging to an active 2-finger nav session is
+      // never an element gesture — short-circuit before any hit-testing,
+      // hover-cursor, or drag/marquee logic below even runs.
+      const twoFinger = twoFingerSessionRef.current
+      if (twoFinger && (event.pointerId === twoFinger.ids[0] || event.pointerId === twoFinger.ids[1])) {
+        event.preventDefault()
+        updateTwoFingerGesture(twoFinger)
+        return
+      }
+
       const dragging = dragSessionRef.current != null
       const marqueing = marqueeSessionRef.current != null
       const point = mapClientToCanvas(event.clientX, event.clientY, dragging || marqueing)
@@ -985,11 +1203,20 @@ export function DesignerCanvas({
       snapGrid,
       updateBulkMoveVisual,
       updateDragVisual,
+      updateTwoFingerGesture,
     ],
   )
 
   const handlePointerUp = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
+      activePointersRef.current.delete(event.pointerId)
+
+      const twoFinger = twoFingerSessionRef.current
+      if (twoFinger && (event.pointerId === twoFinger.ids[0] || event.pointerId === twoFinger.ids[1])) {
+        finishTwoFingerSession()
+        return
+      }
+
       const session = dragSessionRef.current
       if (session && event.pointerId === session.pointerId) {
         releaseCapturedPointer(event.currentTarget, session.pointerId)
@@ -1001,11 +1228,19 @@ export function DesignerCanvas({
         finishMarquee()
       }
     },
-    [finishDrag, finishMarquee, releaseCapturedPointer],
+    [finishDrag, finishMarquee, finishTwoFingerSession, releaseCapturedPointer],
   )
 
   const handleLostPointerCapture = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
+      activePointersRef.current.delete(event.pointerId)
+
+      const twoFinger = twoFingerSessionRef.current
+      if (twoFinger && (event.pointerId === twoFinger.ids[0] || event.pointerId === twoFinger.ids[1])) {
+        finishTwoFingerSession()
+        return
+      }
+
       const session = dragSessionRef.current
       if (session && event.pointerId === session.pointerId) {
         finishDrag()
@@ -1015,7 +1250,7 @@ export function DesignerCanvas({
         finishMarquee()
       }
     },
-    [finishDrag, finishMarquee],
+    [finishDrag, finishMarquee, finishTwoFingerSession],
   )
 
   const buildMoveStarts = useCallback(
@@ -1036,6 +1271,31 @@ export function DesignerCanvas({
     (event: React.PointerEvent<HTMLDivElement>) => {
       if (blocked) {
         return
+      }
+
+      // Issue #149 follow-up / #155: multi-pointer tracking and the whole
+      // 1-finger-is-intent / 2-finger-is-navigation split are a *touch*
+      // concern — scoped to `pointerType === 'touch'` so mouse (and pen)
+      // input, including every existing jsdom test that fires a bare
+      // `PointerEvent`/`fireEvent.pointerDown` with no `pointerType` (which
+      // defaults to `''`, not `'mouse'`, and always `isPrimary: false` per
+      // the DOM spec's init-dict default — nothing like a real single-mouse
+      // pointerdown), is completely unaffected.
+      if (event.pointerType === 'touch') {
+        activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+
+        if (!event.isPrimary) {
+          // Every finger used to fire pointerdown into the hit-testing/
+          // selection logic below, so a second finger landing during a drag
+          // would select and start dragging whatever was underneath it. A
+          // non-primary touch never hit-tests, never selects, and never
+          // starts a drag/resize/marquee session — its only possible effect
+          // is (once there are exactly two active touches) starting
+          // 2-finger navigation (#155), which itself cancels any 1-finger
+          // session already in flight rather than fighting it.
+          maybeStartTwoFingerSession(event.currentTarget)
+          return
+        }
       }
 
       const paperPoint = mapClientToCanvas(event.clientX, event.clientY, false)
@@ -1161,6 +1421,7 @@ export function DesignerCanvas({
       isMultiSelect,
       lineCoords,
       mapClientToCanvas,
+      maybeStartTwoFingerSession,
       onSelectElement,
       onSelectedElementPointerDown,
       selectedEditElement,
@@ -1522,7 +1783,30 @@ export function DesignerCanvas({
           tabIndex={0}
           data-testid="canvas-viewport"
           className="absolute inset-0 overflow-auto bg-[var(--shell-hover)] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--shell-accent)]"
-          style={{ cursor: dragSession ? 'grabbing' : hoverCursor }}
+          style={
+            {
+              cursor: dragSession ? 'grabbing' : hoverCursor,
+              // Issue #149 follow-up (maintainer tablet report, settled
+              // gesture split): 1-finger touch is always element intent
+              // (drag, resize, marquee) on BOTH the paper and this scroll
+              // padding — a paper-only `touch-action: none` left the padding
+              // (the maintainer's primary marquee-start spot, since a
+              // full-canvas element like the showcase demo's debug_grid
+              // leaves no empty paper to start a marquee from) just as
+              // contested as before #149's fix, and dead both ways: the
+              // browser could still claim it for panning, but our own
+              // `preventDefault()` calls usually won that race anyway,
+              // leaving neither a marquee nor a pan. `touch-action` is
+              // evaluated by the browser before any JS runs, so this is the
+              // actual fix, not a belt-and-suspenders addition. All touch
+              // panning/zooming of this viewport is now a dedicated 2-finger
+              // gesture (issue #155) — never a side effect of 1-finger
+              // scrolling. Scoped to this viewport only: it must never leak
+              // into the sidebar/properties panel or the YAML editor, which
+              // keep normal touch scrolling.
+              touchAction: 'none',
+            } satisfies CSSProperties
+          }
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -1557,20 +1841,6 @@ export function DesignerCanvas({
                   height: renderContext.height,
                   transform: paperTransform(effectiveScale),
                   transformOrigin: 'top left',
-                  // Issue #149: a touch starting on the paper (drag, resize
-                  // handle, marquee-select) must never be reinterpreted by the
-                  // browser as panning the scrollable viewport
-                  // (`canvas-viewport`, `overflow-auto`, used to scroll a
-                  // zoomed-in canvas). `touch-action` is evaluated by the
-                  // browser before any JS runs and is NOT overridden by
-                  // calling `preventDefault()` in a pointer handler, so this
-                  // is the actual fix, not a belt-and-suspenders addition.
-                  // Scoped to the paper only (not the whole viewport): the
-                  // surrounding scroll padding must stay pannable by touch,
-                  // and this must never leak into the sidebar/properties
-                  // panel or the YAML editor, which keep normal touch
-                  // scrolling.
-                  touchAction: 'none',
                 } satisfies CSSProperties
               }
             >
