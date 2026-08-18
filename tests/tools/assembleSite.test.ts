@@ -16,6 +16,7 @@ function makeSiteFixture({
   demoIndexHtml = '<!doctype html><html><body><script type="module" src="./host.js"></script></body></html>',
   hostJs = "import { mount } from './odl-drawcustom-designer.js'\nmount(document.body, {})\n",
   withLibEsm = true,
+  withLibDts = true,
   withAppIndex = true,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'assemble-site-'))
@@ -28,6 +29,7 @@ function makeSiteFixture({
   writeFileSync(join(distLibDir, 'index.html'), demoIndexHtml)
   writeFileSync(join(distLibDir, 'host.js'), hostJs)
   if (withLibEsm) writeFileSync(join(distLibDir, 'odl-drawcustom-designer.js'), 'export const mount = () => {}\n')
+  if (withLibDts) writeFileSync(join(distLibDir, 'odl-drawcustom-designer.d.ts'), 'export declare const mount: () => void\n')
   return { distDir, distLibDir }
 }
 
@@ -36,7 +38,7 @@ afterEach(() => {
 })
 
 describe('assembleSite', () => {
-  it('copies the embed demo (host page + library ESM) into dist/embed', () => {
+  it('copies the embed demo (host page + library ESM + its .d.ts) into dist/embed', () => {
     const { distDir, distLibDir } = makeSiteFixture()
 
     assembleSite({ distDir, distLibDir })
@@ -45,6 +47,8 @@ describe('assembleSite', () => {
     expect(readFileSync(join(embedDir, 'index.html'), 'utf8')).toContain('./host.js')
     expect(readFileSync(join(embedDir, 'host.js'), 'utf8')).toContain('./odl-drawcustom-designer.js')
     expect(existsSync(join(embedDir, 'odl-drawcustom-designer.js'))).toBe(true)
+    // The bundled declaration file (issue #122) ships alongside the ESM at /embed/ too.
+    expect(existsSync(join(embedDir, 'odl-drawcustom-designer.d.ts'))).toBe(true)
     // App build stays untouched at the site root.
     expect(readFileSync(join(distDir, 'index.html'), 'utf8')).toContain('app')
   })
@@ -71,6 +75,13 @@ describe('assembleSite', () => {
     const { distDir, distLibDir } = makeSiteFixture({ withLibEsm: false })
 
     expect(() => assembleSite({ distDir, distLibDir })).toThrow(/odl-drawcustom-designer\.js/)
+    expect(existsSync(join(distDir, 'embed'))).toBe(false)
+  })
+
+  it('fails when the bundled declaration file is missing from dist-lib (issue #122 — catches a plugin no-op)', () => {
+    const { distDir, distLibDir } = makeSiteFixture({ withLibDts: false })
+
+    expect(() => assembleSite({ distDir, distLibDir })).toThrow(/odl-drawcustom-designer\.d\.ts/)
     expect(existsSync(join(distDir, 'embed'))).toBe(false)
   })
 

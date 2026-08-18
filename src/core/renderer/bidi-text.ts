@@ -1,6 +1,6 @@
-import bidiFactory from 'bidi-js'
+import { createBidi } from './bidi-module'
 
-const bidi = bidiFactory()
+const bidi = createBidi()
 
 /** Reorder logical text to visual left-to-right order (Unicode Bidirectional Algorithm). */
 export function toVisualText(text: string): string {

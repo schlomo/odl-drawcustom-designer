@@ -61,10 +61,6 @@ describe('dtsDiagnosticsSummary', () => {
     expect(summary).toContain('Second problem')
   })
 
-  it('mentions failing the build, not shipping missing/wrong types', () => {
-    const summary = dtsDiagnosticsSummary([fileLessDiagnostic('x')])
-    expect(summary).toMatch(/fail/i)
-  })
 })
 
 describe('assertNoDtsDiagnostics', () => {
@@ -74,5 +70,12 @@ describe('assertNoDtsDiagnostics', () => {
 
   it('throws with the summary message for a non-empty list', () => {
     expect(() => assertNoDtsDiagnostics([fileLessDiagnostic('Boom')])).toThrow(/Boom/)
+  })
+
+  it('throws exactly the string dtsDiagnosticsSummary produces for the same list (ADR-011: structural, not prose)', () => {
+    const diagnostics = [fileLessDiagnostic('First problem'), fileLessDiagnostic('Second problem')]
+    const summary = dtsDiagnosticsSummary(diagnostics)
+    expect(summary).toBeDefined()
+    expect(() => assertNoDtsDiagnostics(diagnostics)).toThrow(summary)
   })
 })

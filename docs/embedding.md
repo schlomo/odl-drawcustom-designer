@@ -29,13 +29,14 @@ One self-contained ESM file, plus a bundled `odl-drawcustom-designer.d.ts` (issu
 npm run build:lib
 ```
 
-Emits **one self-contained ESM file** — React, styles, and bundled fonts included; the host provides nothing (composition and the deliberate no-code-splitting decision: [`docs/bundle-audit.md`](bundle-audit.md)):
+Emits **one self-contained ESM file** — React, styles, and bundled fonts included; the host provides nothing (composition and the deliberate no-code-splitting decision: [`docs/bundle-audit.md`](bundle-audit.md)) — plus its bundled TypeScript declaration file (issue #122, one file, no `@types` package: [`vite.lib.config.ts`](../vite.lib.config.ts)):
 
 ```
 dist-lib/odl-drawcustom-designer.js
+dist-lib/odl-drawcustom-designer.d.ts
 ```
 
-`dist-lib/` also contains the demo host page (copied from `demo/`). Try it:
+`dist-lib/` also contains the demo host page (copied from `demo/`) — `npm run build:site`'s site assembly ([`tools/assembleSite.ts`](../tools/assembleSite.ts)) publishes the `.d.ts` alongside the ESM at `/embed/` too, though the demo page itself is plain JS and doesn't consume it. Try it:
 
 ```bash
 npm run build:site && npm run preview

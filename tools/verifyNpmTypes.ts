@@ -16,17 +16,26 @@ import { stageNpmPackage } from './stageNpmPackage.ts'
  * - a correct one (tools/npmTypesConsumerFixture.ts's `validConsumerSource`)
  *   that MUST type-check cleanly, proving `mount()`/`MountHandle` resolve
  *   and are usable;
- * - a broken one (`invalidConsumerSource`) that MUST fail to type-check
- *   (a bad option name, a wrong argument type), proving the `.d.ts` actually
- *   constrains callers rather than degrading to `any`.
+ * - a broken one (`invalidConsumerSource`) that MUST fail with SPECIFICALLY
+ *   TS2353 (bad option name) and TS2345 (wrong argument type) — not just
+ *   "some error" — proving the `.d.ts` actually constrains callers rather
+ *   than degrading to `any`.
  *
- * Runs on laptop or CI identically (AGENTS.md): `node tools/verifyNpmTypes.ts`
- * from the repo root, no env vars required. It rebuilds the library itself
- * (`npm run build:lib`) so a stale `dist-lib/` can never produce a false
- * pass, then stages an npm package the same way `tools/autoRelease.ts` does
- * for a real release (reusing the same tested `stageNpmPackage`/
+ * Runs on laptop or CI identically (AGENTS.md): `npm run verify:types` (or
+ * `node tools/verifyNpmTypes.ts` directly) from the repo root, no env vars
+ * required. Wired into CI's `checks` job (`.github/workflows/pages.yml`) on
+ * every PR.
+ *
+ * It rebuilds the library itself so a stale artifact can never produce a
+ * false pass, then stages an npm package the same way `tools/autoRelease.ts`
+ * does for a real release (reusing the same tested `stageNpmPackage`/
  * `buildThirdPartyMarkdown` functions — this is not a parallel test-only
- * staging path).
+ * staging path). **Side effect note (issue #122 review finding):** the build
+ * is directed at its own scratch `--outDir` (a temp directory), NOT the real
+ * `dist-lib/` — running this concurrently with something else that reads
+ * `dist-lib/` (a local Playwright e2e run, another `build:lib` invocation) is
+ * safe, and no `APP_VERSION`-stamped build ever overwrites what a developer
+ * or another process has sitting in `dist-lib/`.
  */
 
 const TEST_VERSION = '0.0.1'
@@ -35,21 +44,41 @@ function run(command: string, args: string[], cwd: string): string {
   return execFileSync(command, args, { cwd, encoding: 'utf8' })
 }
 
+/** Runs `tsc -p .` in `cwd`, capturing output regardless of success. Never throws. */
+function runTsc(tscBin: string, cwd: string): { ok: boolean; output: string } {
+  try {
+    const output = execFileSync(tscBin, ['-p', '.'], { cwd, encoding: 'utf8' })
+    return { ok: true, output }
+  } catch (error) {
+    const output =
+      error && typeof error === 'object' && 'stdout' in error
+        ? String((error as { stdout?: unknown }).stdout ?? '')
+        : String(error)
+    return { ok: false, output }
+  }
+}
+
 function main(): void {
   const repoRoot = process.cwd()
-
-  console.log('1/5 Building the library (npm run build:lib)...')
-  execFileSync('npm', ['run', 'build:lib'], {
-    stdio: 'inherit',
-    cwd: repoRoot,
-    env: { ...process.env, APP_VERSION: TEST_VERSION },
-  })
-
-  const distLibJsPath = join(repoRoot, 'dist-lib', 'odl-drawcustom-designer.js')
-  const distLibDtsPath = join(repoRoot, 'dist-lib', 'odl-drawcustom-designer.d.ts')
-
   const workDir = mkdtempSync(join(tmpdir(), 'verify-npm-types-'))
+
   try {
+    // Scratch outDir (not the real dist-lib/) — see the file header's side-effect note.
+    const distLibDir = join(workDir, 'dist-lib')
+    console.log(`1/5 Building the library into a scratch outDir (${distLibDir})...`)
+    execFileSync(
+      'npx',
+      ['vite', 'build', '--config', 'vite.lib.config.ts', '--outDir', distLibDir, '--emptyOutDir'],
+      {
+        stdio: 'inherit',
+        cwd: repoRoot,
+        env: { ...process.env, APP_VERSION: TEST_VERSION },
+      },
+    )
+
+    const distLibJsPath = join(distLibDir, 'odl-drawcustom-designer.js')
+    const distLibDtsPath = join(distLibDir, 'odl-drawcustom-designer.d.ts')
+
     const stagingDir = join(workDir, 'dist-npm')
     console.log(`2/5 Staging the npm package into ${stagingDir}...`)
     stageNpmPackage({
@@ -129,23 +158,36 @@ function main(): void {
     const tscBin = join(repoRoot, 'node_modules', '.bin', 'tsc')
 
     console.log('\n--- tsc valid/app.ts (expected: PASS) ---')
-    execFileSync(tscBin, ['-p', '.'], { cwd: validDir, stdio: 'inherit' })
+    const validResult = runTsc(tscBin, validDir)
+    console.log(validResult.output || '(no output)')
+    if (!validResult.ok) {
+      throw new Error('valid/app.ts failed to type-check but was expected to pass — see tsc output above.')
+    }
     console.log('PASSED as expected: valid/app.ts type-checks cleanly.\n')
 
-    console.log('--- tsc invalid/app.ts (expected: FAIL) ---')
-    let invalidFailedAsExpected = false
-    try {
-      execFileSync(tscBin, ['-p', '.'], { cwd: invalidDir, stdio: 'inherit' })
-    } catch {
-      invalidFailedAsExpected = true
-    }
-    if (!invalidFailedAsExpected) {
+    console.log('--- tsc invalid/app.ts (expected: FAIL with TS2353 and TS2345) ---')
+    const invalidResult = runTsc(tscBin, invalidDir)
+    console.log(invalidResult.output || '(no output)')
+    if (invalidResult.ok) {
       throw new Error(
         'invalid/app.ts type-checked cleanly but was expected to fail — the .d.ts is not constraining callers ' +
           '(a bad option name and a wrong argument type both went unnoticed).',
       )
     }
-    console.log('FAILED as expected: invalid/app.ts does not type-check.\n')
+    // Not just "some error" — the exact two errors this fixture is designed
+    // to trigger, so a future change that makes the fixture fail for an
+    // unrelated reason (a typo, a missing import) can't slip through as a
+    // false "FAILED as expected".
+    const hasBadOptionNameError = invalidResult.output.includes('TS2353')
+    const hasWrongArgumentTypeError = invalidResult.output.includes('TS2345')
+    if (!hasBadOptionNameError || !hasWrongArgumentTypeError) {
+      throw new Error(
+        `invalid/app.ts failed, but not with the expected error codes (bad option name: TS2353 ` +
+          `${hasBadOptionNameError ? 'found' : 'MISSING'}; wrong argument type: TS2345 ` +
+          `${hasWrongArgumentTypeError ? 'found' : 'MISSING'}) — see tsc output above.`,
+      )
+    }
+    console.log('FAILED as expected: invalid/app.ts does not type-check (TS2353 + TS2345 both present).\n')
 
     console.log('All scratch-consumer checks passed: mount()/MountHandle are correctly typed and enforced.')
   } finally {

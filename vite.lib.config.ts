@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import dts from 'vite-plugin-dts'
 import { buildDefines } from './tools/buildDefines.ts'
 import { demoHostAssets } from './tools/demoHostAssets.ts'
+import { assertSoundDtsArtifacts } from './tools/dtsArtifactChecks.ts'
 import { assertNoDtsDiagnostics } from './tools/dtsDiagnostics.ts'
 
 /**
@@ -28,13 +29,28 @@ import { assertNoDtsDiagnostics } from './tools/dtsDiagnostics.ts'
  * chained after `build:lib` in package.json (see the PR body for the full
  * comparison).
  *
- * `include` is narrowed to `src/embed` + `src/core` (plus the two ambient
- * `.d.ts` shims those files need — `vite-env.d.ts` for `import.meta.env`,
- * `bidi-js.d.ts` for the untyped `bidi-js` import) rather than the whole
- * `src` tree tsconfig.app.json declares: the embed entry only ever needs
- * types reachable from `mount`/`MountOptions`/`MountHandle`, and pulling in
- * `src/ui` here would type-check unrelated React code as a side effect of a
- * config meant to describe the published surface.
+ * **What `include` actually controls (corrected 2026-08-18, review finding
+ * MINOR 6 — the original comment here was wrong):** `include` is narrowed to
+ * `src/embed` + `src/core` + `vite-env.d.ts` (for `import.meta.env`), but
+ * this does NOT stop `src/ui` from being type-checked. `mount.tsx` imports
+ * the whole React shell (`../ui/App`), so the plugin's TypeScript program
+ * still resolves and type-checks every file reachable through that import —
+ * `include` only decides which files are *root/entry* files (and therefore
+ * which ambient `.d.ts` shims join the program at all; dropping
+ * `vite-env.d.ts` here would make `import.meta.env` unresolvable in
+ * `src/core/buildInfo.ts`).
+ *
+ * The practical consequence: **declaration-emit-only diagnostics
+ * (`getDeclarationDiagnostics()` — TS4094, TS2742, TS4023, …) anywhere in the
+ * reachable graph, including `src/ui`, gate `build:lib`**, even though
+ * `npm test`/`npm run lint`/`npm run build` (all `noEmit: true`) never run
+ * declaration emission and stay silent on the exact same code. This is how a
+ * real, pre-existing bug in `src/ui/editor/yamlTemplatePreview.ts` (an
+ * anonymous class with a private member as an inferred return type) surfaced
+ * only once this plugin started emitting real declarations — see that file's
+ * `showTemplatePreview()` fix. Whether `AGENTS.md`'s pre-finish gate command
+ * should grow `&& npm run build:lib` to catch this class of bug earlier is a
+ * maintainer policy call (see the PR body), not something this file decides.
  *
  * `afterDiagnostic` fails the build LOUDLY (AGENTS.md, "fail early and
  * loudly") on any TypeScript diagnostic the declaration build's own program
@@ -42,6 +58,29 @@ import { assertNoDtsDiagnostics } from './tools/dtsDiagnostics.ts'
  * console but still exit 0, which would ship a package with a missing or
  * wrong `.d.ts` and no build failure to notice it by (tools/dtsDiagnostics.ts,
  * tested in tests/tools/dtsDiagnostics.test.ts).
+ *
+ * `afterBuild` is a second, complementary gate (issue #122 review finding
+ * MINOR 4): a clean compile can still emit a `.d.ts` that is empty, missing
+ * the public API, leaking an ambient `declare module`/`declare global` (see
+ * MAJOR 1 below), or importing a type from an external package this npm
+ * package declares no dependency on. tools/dtsArtifactChecks.ts inspects the
+ * actual bytes written to `dist-lib/` and throws on any of those.
+ *
+ * DO NOT REMOVE either `afterDiagnostic` or `afterBuild` below — they are
+ * this build's only defense against silently shipping a broken or missing
+ * `.d.ts` (`vite build` exits 0 either way without them). Neither is
+ * exercised by Vitest (this config is never loaded under Vitest), so nothing
+ * else in the test suite would catch a regression here.
+ *
+ * **Ambient module note (MAJOR 1, fixed 2026-08-18):** `bundleTypes`
+ * preserves any ambient module augmentation reachable from the program and
+ * appends it verbatim to the rolled-up file — this repo used to carry
+ * `src/bidi-js.d.ts` (`declare module 'bidi-js'`) for the untyped `bidi-js`
+ * import, and it leaked straight into the published `.d.ts`. Fixed by
+ * eliminating the ambient module at its source: `src/core/renderer/bidi-module.ts`
+ * does the untyped import once with a single localized cast, so nothing here
+ * ever needs an ambient shim again. `afterBuild`'s "no declare module/global"
+ * check above is the regression guard.
  */
 export default defineConfig({
   plugins: [
@@ -50,15 +89,12 @@ export default defineConfig({
     demoHostAssets(),
     dts({
       tsconfigPath: 'tsconfig.app.json',
-      include: [
-        'src/embed/**/*.ts',
-        'src/embed/**/*.tsx',
-        'src/core/**/*.ts',
-        'src/vite-env.d.ts',
-        'src/bidi-js.d.ts',
-      ],
+      include: ['src/embed/**/*.ts', 'src/embed/**/*.tsx', 'src/core/**/*.ts', 'src/vite-env.d.ts'],
       bundleTypes: true,
+      // DO NOT REMOVE — release gate (see the file-level comment above).
       afterDiagnostic: assertNoDtsDiagnostics,
+      // DO NOT REMOVE — release gate (see the file-level comment above).
+      afterBuild: assertSoundDtsArtifacts,
     }),
   ],
   define: {

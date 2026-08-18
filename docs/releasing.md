@@ -136,6 +136,28 @@ recovery](#partial-failure-recovery) further below. A failed run is retried clea
 [`workflow_dispatch`](#manual-retry-workflow_dispatch) once the underlying
 problem is fixed.
 
+**`build:lib` can fail on code `npm test`/`npm run lint`/`npm run build`
+consider clean (issue #122 review finding).** Those three all run TypeScript
+with `noEmit: true` — they never invoke declaration emission, so they never
+see `getDeclarationDiagnostics()` (TS4094 "anonymous class type may not be
+private/protected", TS2742, TS4023, …). `build:lib`'s declaration step
+(`vite.lib.config.ts`'s `dts()` plugin) does emit declarations for real, and
+`tools/dtsDiagnostics.ts`'s `afterDiagnostic` gate fails the build on any
+diagnostic it finds — including ones in `src/ui`, since `mount.tsx` pulls the
+whole React shell into the same TypeScript program even though the bundled
+`.d.ts` only publishes the embed surface (see `vite.lib.config.ts`'s
+file-level comment for the full mechanics). This class of bug is therefore
+invisible to `npm test && npm run lint && npm run build` and only surfaces on
+`npm run build:lib` — a real instance shipped in
+[`src/ui/editor/yamlTemplatePreview.ts`](../src/ui/editor/yamlTemplatePreview.ts)
+during issue #122's own development. **Open maintainer policy call:** whether
+[`AGENTS.md`](../AGENTS.md)'s pre-finish gate line should grow
+`&& npm run build:lib` to catch this earlier than release time — CI's
+`checks` job now runs `npm run verify:types` (which itself runs
+`build:lib`) on every PR either way, so the gap is a "how early do local
+development and `AGENTS.md`'s documented gate catch it" question, not a
+"does anything catch it before release" one.
+
 ## Future: AI-generated release notes
 
 GitHub's auto-generated notes (`--generate-notes`) are the deliberate v1
@@ -158,7 +180,21 @@ in a different notes step later without restructuring the workflow itself.
   generation failing (a type error anywhere reachable from the embed entry)
   fails `build:lib` itself (`tools/dtsDiagnostics.ts` wires
   `assertNoDtsDiagnostics` into the plugin's `afterDiagnostic` hook) — there
-  is no missing-types package to accidentally ship.
+  is no missing-types package to accidentally ship. A second gate
+  (`tools/dtsArtifactChecks.ts`, the same plugin's `afterBuild` hook) inspects
+  the actual emitted bytes for problems a clean compile alone wouldn't catch
+  — see below.
+
+  **Known limitation — `@microsoft/api-extractor`'s bundled TypeScript
+  version:** the bundling step runs its own pinned TypeScript (5.9.3 at the
+  time of writing) rather than this repo's own compiler (`~6.0.2`), and logs
+  a one-line warning about the mismatch on every `build:lib` run. This is
+  cosmetic in the case that matters: `tools/dtsArtifactChecks.ts`'s
+  no-external-imports check independently catches the one dangerous
+  consequence a compiler-version skew inside API Extractor could produce (a
+  type it can't safely inline emitted as an `import` instead — the "zod"
+  scenario in a PR #154 review), so no further action is needed here beyond
+  this note; nothing about the skew is silently unsafe.
 - `odl-drawcustom-designer.js.sha256` / `odl-drawcustom-designer.d.ts.sha256`
   — sha256 checksums of the two files above (`tools/releaseChecksum.ts`),
   verifiable with `shasum -a 256 -c <file>.sha256` (issue #103; `-a 256`
@@ -263,6 +299,24 @@ only invokes `tools/autoRelease.ts`:
   TypeScript diagnostics but exits 0 on its own, so this throws instead,
   failing `build:lib` (and therefore the whole release) on any type error
   reachable from the embed entry.
+- **`tools/dtsArtifactChecks.ts`** — the companion gate wired into the same
+  plugin's `afterBuild` hook: inspects the actual bytes written to
+  `dist-lib/odl-drawcustom-designer.d.ts` and fails the build if it's empty,
+  missing the `mount()` declaration, leaks an ambient `declare
+  module`/`declare global` (issue #122's bidi-js leak, see
+  [`src/core/renderer/bidi-module.ts`](../src/core/renderer/bidi-module.ts)),
+  or imports a type from a package this npm package declares no dependency
+  on — all things a clean TypeScript compile alone would not catch.
+- **`tools/verifyNpmTypes.ts`** (`npm run verify:types`) — the scratch-consumer
+  acceptance check: builds the library, stages and `npm pack`s the npm
+  package for real, installs the tarball into a throwaway project, and
+  `tsc --noEmit`s a fixture that correctly uses `mount()`/`MountHandle`
+  (must pass) alongside one with a bad option name and a wrong argument type
+  (must fail) — `tools/npmTypesConsumerFixture.ts` builds both fixture
+  sources. Runs in CI's `checks` job (`.github/workflows/pages.yml`) on every
+  PR, and rebuilds `dist-lib/` itself as a side effect (`APP_VERSION=0.0.1`),
+  so avoid running it concurrently with something else that reads that
+  directory (e.g. a local Playwright e2e run against `dist-lib/`).
 - **`tools/thirdPartyNotices.ts`** — generates `THIRD_PARTY.md` (see
   [Artifact contents](#artifact-contents) above).
 - **`tools/releaseChecksum.ts`** — the `.sha256` checksum files (one each for
@@ -451,6 +505,7 @@ import {
 
 const repoRoot = process.cwd();
 const distLibJsPath = join(repoRoot, 'dist-lib', 'odl-drawcustom-designer.js');
+const distLibDtsPath = join(repoRoot, 'dist-lib', 'odl-drawcustom-designer.d.ts');
 const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
 const packageLock = JSON.parse(readFileSync(join(repoRoot, 'package-lock.json'), 'utf8'));
 const resolvedPaths = resolveTransitiveRuntimeDependencyPaths(packageLock, bundledDependencyNames(pkg));
@@ -459,6 +514,7 @@ stageNpmPackage({
   version: 'X.Y.Z',
   repoRoot,
   distLibJsPath,
+  distLibDtsPath,
   stagingDir: join(repoRoot, 'dist-npm'),
   thirdPartyMarkdown,
 });
@@ -471,8 +527,9 @@ No `--provenance` here — provenance attestation only works from a supported
 CI provider (GitHub Actions/GitLab CI), not a local `npm publish`; this
 manual path authenticates the ordinary way (`npm login`, 2FA as usual), not
 via Trusted Publishing. (Verified locally with `npm publish --dry-run` — the
-tarball contains exactly the ESM, `package.json`, `README.md`, `LICENSE`, `NOTICE`,
-`THIRD_PARTY.md`.) In practice, letting the next scheduled/`workflow_dispatch`
+tarball contains exactly the ESM, its bundled `.d.ts`, `package.json`,
+`README.md`, `LICENSE`, `NOTICE`, `THIRD_PARTY.md`.) In practice, letting the
+next scheduled/`workflow_dispatch`
 run recover it automatically is simpler and is the tested path — this
 manual fallback exists only for an urgent one-off.
 
