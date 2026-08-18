@@ -674,3 +674,257 @@ describe('MountOptions.onStatusChange', () => {
     expect(() => handle.getStatus()).toThrow('MountHandle used after destroy()')
   })
 })
+
+/**
+ * Round 3 of adversarial review on this PR (findings against pushed SHA
+ * `90283e4`, the round-2 fix commit): the round-2 fixes for BLOCKER 1/2
+ * introduced two new defects of their own, plus a debounce max-wait gap.
+ */
+describe('review round 3 (issue #133)', () => {
+  it('MAJOR N5 (property panel), full-pipeline integration coverage — a coalesced gesture bump is observable end-to-end', async () => {
+    // Full-DOM coverage, not the isolated proof (see the canvas-drag
+    // describe block below for why: ending this gesture also flips
+    // `propertyEditing` to `false`, which is one of `YamlPanel`'s own
+    // sync-effect dependencies — the same "legitimate round-trip on gesture
+    // end" mechanism that makes the canvas-drag version of this test
+    // non-provably-red too). The confound-free proof lives at the hook level
+    // (`tests/ui/hooks/use-project-state-status.test.ts`). This test still
+    // earns its keep as full-pipeline coverage that a real property edit
+    // correctly produces exactly one notification.
+    const onStatusChange = vi.fn()
+    const handle = mountDesigner({ payload: PAYLOAD, onStatusChange })
+    await waitForMounted()
+
+    // Select the element so its property panel renders.
+    const row = designer().getAllByTestId('element-list-row')[0]!
+    act(() => {
+      fireEvent.click(row)
+    })
+    const before = handle.getStatus()
+
+    vi.useFakeTimers()
+    // The `value` property renders as a `<textarea>` (multiline-string
+    // shape) wired directly to `onBeginEdit`/`onEndEdit` via focus/blur.
+    const valueField = designer().getByLabelText('value') as HTMLTextAreaElement
+    act(() => {
+      fireEvent.focus(valueField)
+    })
+    act(() => {
+      fireEvent.change(valueField, { target: { value: 'Edited via property panel' } })
+    })
+    // Still mid-gesture: no bump yet, and definitely no notification.
+    expect(handle.getStatus().payloadRevision).toBe(before.payloadRevision)
+    act(() => {
+      fireEvent.blur(valueField)
+    })
+
+    // The bump itself is synchronous (no debounce for a property edit), so
+    // `getStatus()` already reflects it without advancing any timers.
+    const afterBlur = handle.getStatus()
+    expect(afterBlur.payloadRevision).toBe(before.payloadRevision + 1)
+    expect(afterBlur.lastEditAt).not.toBeNull()
+
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+
+    expect(onStatusChange).toHaveBeenCalledTimes(1)
+    const reported = onStatusChange.mock.calls[0]![0] as DesignerStatus
+    expect(reported.payloadRevision).toBe(before.payloadRevision + 1)
+  })
+
+  it('MAJOR N9 — a deduped setPayload() still discards a pending draft', async () => {
+    // setPayload()'s core guarantee: afterwards, the payload is exactly what
+    // was pushed. A push identical to the *committed* payload (not to an
+    // in-flight draft) must not let that draft survive and commit later.
+    const handle = mountDesigner({ payload: PAYLOAD })
+    await waitForMounted()
+
+    vi.useFakeTimers()
+    const view = findMountedView()
+    const doc = view.state.doc.toString()
+    const valueFrom = doc.indexOf('value: Hello')
+    // A valid edit whose 80ms debounce is deliberately left pending.
+    dispatchUserEdit(view, {
+      from: valueFrom,
+      to: valueFrom + 'value: Hello'.length,
+      insert: 'value: Edited',
+    })
+
+    // Identical to the currently *committed* payload — the MINOR 6 dedupe
+    // path (the draft, not yet committed, is irrelevant to that comparison).
+    act(() => handle.setPayload(PAYLOAD))
+
+    // Let the draft's own debounce elapse, if it were still alive.
+    act(() => {
+      vi.advanceTimersByTime(200)
+    })
+
+    let payload!: string
+    act(() => {
+      payload = handle.getPayload()
+    })
+    expect(payload).toContain('value: Hello')
+    expect(payload).not.toContain('value: Edited')
+  })
+
+  it('MINOR N8 — delivers within the max-wait ceiling despite repeated rescheduling from selection churn', async () => {
+    const onStatusChange = vi.fn()
+    mountDesigner({ payload: PAYLOAD, onStatusChange })
+    await waitForMounted()
+
+    vi.useFakeTimers()
+    const view = findMountedView()
+    const doc = view.state.doc.toString()
+    const colonIndex = doc.indexOf(':')
+    dispatchUserEdit(view, { from: colonIndex, to: colonIndex + 1, insert: '' })
+
+    // Toggle the selection every 100ms via a shift-click (additive) on the
+    // same row, which adds/removes it from the selection through
+    // `ElementList`'s own click handler — not gated by `yamlBlocked` the way
+    // `DesignerCanvas`'s Escape-to-deselect keyboard shortcut is, so this
+    // genuinely toggles `selectedIndices.length` between 0 and 1 for all 12
+    // iterations even with the document broken. Each toggle re-triggers the
+    // notify effect (via `selectedIndices.length`) but is not itself a
+    // validity or revision transition, so an uncapped debounce would keep
+    // resetting its own countdown forever. 12 toggles span 1200ms, well past
+    // the 1000ms ceiling anchored to the first pending transition.
+    const row = designer().getAllByTestId('element-list-row')[0]!
+    for (let i = 0; i < 12; i += 1) {
+      act(() => {
+        fireEvent.click(row, { shiftKey: true })
+      })
+      act(() => {
+        vi.advanceTimersByTime(100)
+      })
+    }
+
+    expect(onStatusChange).toHaveBeenCalledTimes(1)
+    const reported = onStatusChange.mock.calls[0]![0] as DesignerStatus
+    expect(reported.yamlValid).toBe(false)
+  })
+})
+
+/**
+ * MAJOR N5, end-to-end through a real canvas drag (issue #133 review round
+ * 3) — the gesture `beginEditCoalesce`/`endEditCoalesce` were built for.
+ *
+ * Full-DOM integration coverage, not the isolated proof: investigating this
+ * finding found that ending a drag also flips `DesignerCanvas`'s
+ * `canvasDragging` prop to `false`, which is exactly the trigger for
+ * `YamlPanel`'s own "sync once at drag end" (the *legitimate*
+ * elements→editor round-trip issue #124/ADR-009 documents) — that sync
+ * re-serializes the moved element, which recomputes `yamlStatusMessages`,
+ * which happens to re-run the notify effect too. So this scenario is not
+ * provably red without the round-3 fix (a real drag always ends with a real
+ * YAML round-trip); the precise, confound-free proof that `editStatusVersion`
+ * is the fix — not incidental churn — lives at the hook level instead
+ * (`tests/ui/hooks/use-project-state-status.test.ts`, "editStatusVersion
+ * bumps at endEditCoalesce even though elements does not change reference at
+ * that exact call"). This test still earns its keep as full-pipeline
+ * coverage that a real drag correctly produces exactly one notification.
+ * Reuses the pointer-capture/geometry stub pattern from
+ * `tests/ui/components/designer-canvas-drag-hit-targets.test.tsx`.
+ */
+describe('MAJOR N5 (canvas drag, full-pipeline integration coverage) — issue #133 review round 3', () => {
+  const CANVAS_RECT = {
+    x: 0,
+    y: 0,
+    left: 0,
+    top: 0,
+    right: 384,
+    bottom: 184,
+    width: 384,
+    height: 184,
+    toJSON: () => '',
+  } as DOMRect
+  const ZERO_RECT = {
+    x: 0,
+    y: 0,
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: 0,
+    height: 0,
+    toJSON: () => '',
+  } as DOMRect
+
+  // Default canvas resolution (`DEFAULT_RESOLUTION`, `src/ui/data/resolution-picks.ts`)
+  // is 384×184 — matches `CANVAS_RECT` above so client px map 1:1 to canvas px.
+  const RECT_PAYLOAD = [
+    '- type: rectangle',
+    '  x_start: 10',
+    '  y_start: 10',
+    '  x_end: 60',
+    '  y_end: 40',
+    '  fill: black',
+    '',
+  ].join('\n')
+
+  beforeEach(() => {
+    Element.prototype.setPointerCapture = function setPointerCapture() {}
+    Element.prototype.releasePointerCapture = function releasePointerCapture() {}
+    Element.prototype.hasPointerCapture = function hasPointerCapture() {
+      return true
+    }
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element,
+    ) {
+      const isCanvasSurface =
+        this.hasAttribute('data-canvas-paper') || this.getAttribute('data-testid') === 'canvas-viewport'
+      return isCanvasSurface ? CANVAS_RECT : ZERO_RECT
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('bumps the revision exactly once at drag end and produces exactly one notification', async () => {
+    const onStatusChange = vi.fn()
+    const handle = mountDesigner({ payload: RECT_PAYLOAD, onStatusChange })
+    await waitForMounted()
+
+    const before = handle.getStatus()
+    vi.useFakeTimers()
+
+    const viewport = designer().getByTestId('canvas-viewport')
+    // Grab the rectangle at (30, 20) — well inside (10,10)-(60,40).
+    act(() => {
+      fireEvent.pointerDown(viewport, { pointerId: 1, clientX: 30, clientY: 20, button: 0 })
+    })
+    for (let step = 1; step <= 5; step += 1) {
+      act(() => {
+        fireEvent.pointerMove(viewport, {
+          pointerId: 1,
+          clientX: 30 + step * 2,
+          clientY: 20 + step,
+        })
+      })
+    }
+    // Still mid-drag — every pointermove commits for live feedback, but
+    // `commitElements` defers the bump while coalescing.
+    expect(handle.getStatus().payloadRevision).toBe(before.payloadRevision)
+    expect(onStatusChange).not.toHaveBeenCalled()
+
+    act(() => {
+      fireEvent.pointerUp(viewport, { pointerId: 1, clientX: 40, clientY: 25 })
+    })
+
+    // `endEditCoalesce` bumps synchronously with no `setElements` call of its
+    // own — `getStatus()` (a pull) already reflects it regardless of whether
+    // the notify effect noticed.
+    const afterDrag = handle.getStatus()
+    expect(afterDrag.payloadRevision).toBe(before.payloadRevision + 1)
+    expect(afterDrag.lastEditAt).not.toBeNull()
+
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+
+    expect(onStatusChange).toHaveBeenCalledTimes(1)
+    const reported = onStatusChange.mock.calls[0]![0] as DesignerStatus
+    expect(reported.payloadRevision).toBe(before.payloadRevision + 1)
+  })
+})

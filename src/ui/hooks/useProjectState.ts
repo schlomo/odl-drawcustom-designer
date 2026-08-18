@@ -303,15 +303,35 @@ export function useProjectState(
   // synchronously (the same "pull, don't push" shape `getElementsSnapshot`
   // uses), and a state flip here would just be a render nothing consumes.
   //
-  // Reactivity for `App`'s `onStatusChange` notifier lives in `elements`
-  // itself, not in these refs (issue #133 review, BLOCKER 1): every call that
-  // actually bumps them below also gives `elements` a new array reference via
-  // `setElements`, and `App` depends on `elements` for exactly this reason —
-  // a ref changing alone triggers no re-render and would leave a host
-  // subscribed to `onStatusChange` never notified of a revision-only change.
+  // `editStatusVersion` is the one authoritative reactivity signal for these
+  // refs (issue #133 review round 2 tried leaning on `elements` instead, and
+  // review round 3 found the gap: `endEditCoalesce` bumps the refs on a
+  // gesture's end without ever calling `setElements` — a coalesced drag or
+  // property edit produced a real revision bump `App`'s notify effect could
+  // not see, so it rode along on incidental churn again, the exact class
+  // round 2 was fixing). `bumpEditStatus` below is the **only** place that
+  // increments these refs, and it always bumps this counter in the same
+  // call — one bump site, one signal, no other path can silently diverge.
   const payloadRevisionRef = useRef(0)
   const lastEditAtRef = useRef<number | null>(null)
   const applyingHostPayloadRef = useRef(false)
+  const [editStatusVersion, setEditStatusVersion] = useState(0)
+  /**
+   * The one and only place `payloadRevisionRef`/`lastEditAtRef` change (issue
+   * #133 review round 3) — `commitElements`, `endEditCoalesce` and
+   * `restoreSnapshot` all funnel through this instead of touching the refs
+   * directly, so `editStatusVersion` can never bump without them, or vice
+   * versa. `isUserEdit` is `false` only for a host `setPayload()` push
+   * (`applyPayload` guards it via `applyingHostPayloadRef`); every other
+   * caller passes `true`.
+   */
+  const bumpEditStatus = useCallback((isUserEdit: boolean) => {
+    payloadRevisionRef.current += 1
+    if (isUserEdit) {
+      lastEditAtRef.current = Date.now()
+    }
+    setEditStatusVersion((version) => version + 1)
+  }, [])
   // The `elements` reference at the start of the coalesced gesture currently
   // open (issue #133 MINOR 5), or `null` outside one. `commitElements` skips
   // its own revision/edit bump while `historyRef.current!.isCoalescing()` is
@@ -399,11 +419,8 @@ export function useProjectState(
     // Every commit is a payload revision, whoever made it; only a commit
     // *not* wrapped by `applyingHostPayloadRef` (i.e. not a host
     // `setPayload()` push) counts as a user edit.
-    payloadRevisionRef.current += 1
-    if (!applyingHostPayloadRef.current) {
-      lastEditAtRef.current = Date.now()
-    }
-  }, [])
+    bumpEditStatus(!applyingHostPayloadRef.current)
+  }, [bumpEditStatus])
 
   const commitCanvas = useCallback((value: CanvasConfig | ((current: CanvasConfig) => CanvasConfig)) => {
     const next = typeof value === 'function' ? value(canvasRef.current) : value
@@ -505,16 +522,14 @@ export function useProjectState(
       elementsRef.current = nextElements
       setElements(nextElements)
       // Issue #133: undo/redo bypasses `commitElements`, but it is still a
-      // user-originated change (the user pressed undo/redo), so it bumps both
-      // fields directly rather than only the revision.
-      payloadRevisionRef.current += 1
-      lastEditAtRef.current = Date.now()
+      // user-originated change (the user pressed undo/redo).
+      bumpEditStatus(true)
       const nextSelection = clampSelectedIndices(snapshot.selectedIndices, snapshot.elements.length)
       selectedIndicesRef.current = nextSelection
       setSelectedIndices(nextSelection)
       setSelectionSource('ui')
     },
-    [],
+    [bumpEditStatus],
   )
 
   const dispatchHistory = useCallback(
@@ -555,11 +570,19 @@ export function useProjectState(
       coalesceStartElementsRef.current !== null &&
       elementsRef.current !== coalesceStartElementsRef.current
     ) {
-      payloadRevisionRef.current += 1
-      lastEditAtRef.current = Date.now()
+      // Issue #133 review round 3 (MAJOR N5): this bump has no `setElements`
+      // call of its own to ride along on — `commitElements` already applied
+      // every intermediate move to `elements` while coalescing was active, so
+      // by now `elements` is already settled and won't change again. Without
+      // `bumpEditStatus`'s own `editStatusVersion` counter, this revision
+      // bump would be invisible to anything that only reacts to `elements`
+      // changing (exactly the gap round 2's `elements`-dependency fix left
+      // open: a gesture bump landing here rode on incidental churn instead of
+      // ever being genuinely observable).
+      bumpEditStatus(true)
     }
     coalesceStartElementsRef.current = null
-  }, [captureSnapshot, syncHistoryUi])
+  }, [captureSnapshot, syncHistoryUi, bumpEditStatus])
 
   const undo = useCallback(() => {
     const restored = historyRef.current!.undo(captureSnapshot())
@@ -845,20 +868,33 @@ export function useProjectState(
       // settles, so this channel can never re-enter itself.
       applyTargets: pushHostTargets,
       applyPayload: (nextElements) => {
-        // Issue #133 MINOR 6: dedupe before touching anything, the same
-        // full-bail pattern `applyStates` uses (issue #110) — a host that
-        // re-sends the identical payload (an unconditional heartbeat push, a
-        // reconnect resync) must cost nothing: no revision bump, no discarded
-        // draft, no reset undo history, no cleared selection.
-        if (elementsSequenceEqual(elementsRef.current, nextElements)) {
-          return
-        }
         // The parent replaced the payload wholesale — undo history from the
         // previous payload no longer applies, and neither does a YAML edit the
         // user typed before the push: invalidate that draft *first*, in this
         // same synchronous path, so the commit below cannot be undone later by
         // its debounce flush (issue #104 review).
+        //
+        // Issue #133 review round 3 (MAJOR N9): this must run **before** the
+        // dedupe check below, unconditionally — a push is authoritative over
+        // any in-flight draft regardless of whether it changes anything. The
+        // previous ordering returned out of the dedupe branch before ever
+        // reaching this call, so a host re-pushing the payload the user was
+        // mid-typing an *different* edit into (identical to what's already
+        // committed, not to the draft) silently no-opped, the draft's own
+        // 80ms debounce fired later undisturbed, and `getPayload()` reported
+        // the user's typed text instead of the payload just pushed —
+        // breaking `setPayload()`'s core guarantee ("afterwards, the payload
+        // is exactly what I pushed") specifically in the deduped path.
         yamlDiscardPendingRef?.current?.()
+
+        // Issue #133 MINOR 6: dedupe before committing anything else, the
+        // same full-bail pattern `applyStates` uses (issue #110) — a host
+        // that re-sends the identical payload (an unconditional heartbeat
+        // push, a reconnect resync) costs nothing beyond the discard above:
+        // no revision bump, no reset undo history, no cleared selection.
+        if (elementsSequenceEqual(elementsRef.current, nextElements)) {
+          return
+        }
         resetEditHistory()
         // Issue #133: a host push is not "the user doing something" — guard
         // `commitElements`'s `lastEditAt` bump for the duration of this one
@@ -1855,6 +1891,15 @@ export function useProjectState(
     setElements: setElementsWithHistory,
     getElementsSnapshot,
     getEditStatus,
+    /**
+     * The one authoritative reactivity signal for `getEditStatus()`'s values
+     * (issue #133 review round 3, MAJOR N5) — bumped by `bumpEditStatus`
+     * every time `payloadRevision`/`lastEditAt` change, and only then. `App`
+     * depends on this (not `elements`) to know when to re-check whether an
+     * `onStatusChange` notification is due; the number itself carries no
+     * meaning beyond "changed since last render".
+     */
+    editStatusVersion,
     previewElements,
     selectedIndices,
     selectedIndex,

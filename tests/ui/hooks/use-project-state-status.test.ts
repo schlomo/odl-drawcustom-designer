@@ -142,4 +142,41 @@ describe('useProjectState edit-status tracking (issue #133)', () => {
     expect(afterRedo.payloadRevision).toBe(3)
     expect(result.current.elements[0]?.value).toBe('Changed')
   })
+
+  it('editStatusVersion bumps at endEditCoalesce even though elements does not change reference at that exact call (issue #133 review round 3, MAJOR N5)', () => {
+    // The precise, confound-free proof: every intermediate `pointermove`
+    // already applied itself to `elements` while coalescing was open, so
+    // `endEditCoalesce` itself does not touch `elements` at all — it only
+    // bumps `payloadRevisionRef`/`lastEditAtRef`. A reactivity signal that
+    // only changes when `elements` changes (issue #133 review round 2's
+    // fix) provably cannot see this transition, because `elements` is
+    // asserted unchanged across the exact call under test. (At the full-DOM
+    // level this is not provable in isolation — ending any real gesture also
+    // flips a React state `YamlPanel`'s own sync effect depends on,
+    // triggering a legitimate elements→editor round-trip of its own that
+    // happens to rescue the notification too; see
+    // `tests/embed/get-status.test.tsx`'s two "MAJOR N5" integration tests
+    // for that full-pipeline coverage and their comments for why they are
+    // not themselves red/green evidence.)
+    const { result } = renderHook(() => useProjectState(bootstrapWithText(), STANDALONE_HOST))
+
+    act(() => {
+      result.current.beginEditCoalesce()
+    })
+    act(() => {
+      result.current.updateElementsBatch(new Map([[0, { type: 'text', value: 'Hello', x: 99, y: 10 }]]))
+    })
+
+    const elementsAfterMove = result.current.elements
+    const versionAfterMove = result.current.editStatusVersion
+    expect(result.current.getEditStatus().payloadRevision).toBe(0)
+
+    act(() => {
+      result.current.endEditCoalesce()
+    })
+
+    expect(result.current.elements).toBe(elementsAfterMove)
+    expect(result.current.editStatusVersion).not.toBe(versionAfterMove)
+    expect(result.current.getEditStatus().payloadRevision).toBe(1)
+  })
 })

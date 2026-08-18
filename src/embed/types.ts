@@ -372,11 +372,16 @@ export interface DesignerStatus {
    *   entry is (`beginEditCoalesce`/`endEditCoalesce`), applied once when the
    *   gesture ends. A gesture that starts and ends without net change bumps
    *   nothing.
-   * - **A `setPayload()` push that is byte-identical to the current payload
-   *   is a no-op** — dedupe before commit, the same full-bail pattern the
-   *   `states`/`actions` channels use for an unchanged re-push (issue #110):
-   *   no revision bump, no discarded draft, no reset undo history, no cleared
-   *   selection.
+   * - **A `setPayload()` push with a structurally equal payload (element-wise)
+   *   is a no-op for the revision** — dedupe before commit, the same
+   *   full-bail pattern the `states`/`actions` channels use for an unchanged
+   *   re-push (issue #110): no revision bump, no reset undo history, no
+   *   cleared selection. Formatting/comment-only YAML differences dedupe too
+   *   (the comparison is over parsed elements, not the YAML text). The one
+   *   exception: a pending, not-yet-committed YAML edit the user was typing
+   *   before this push is **always** discarded, deduped or not — `setPayload()`
+   *   is authoritative over an in-flight draft regardless of whether the
+   *   pushed payload turns out to match what's already committed.
    * - Every other committed change (a single keystroke's debounced commit, a
    *   click-driven property edit, undo, redo, a genuinely different
    *   `setPayload()` push) bumps exactly once.
@@ -391,7 +396,10 @@ export interface DesignerStatus {
  * {@link DesignerStatus.payloadRevision} change — debounced so a burst of
  * keystrokes or drag updates yields one call, not one per commit. Not fired
  * for a selection change alone, and not fired for the initial status observed
- * at mount (read {@link MountHandle.getStatus} for that).
+ * at mount (read {@link MountHandle.getStatus} for that). Delivery is capped
+ * at 1 second after the first pending transition, however many times the
+ * debounce gets rescheduled in between — something that keeps re-triggering
+ * it without ever settling cannot postpone delivery indefinitely.
  *
  * The delivered status is always **live**: read fresh (and flushed, per
  * {@link MountHandle.getStatus}) at the moment the debounce settles, never the
