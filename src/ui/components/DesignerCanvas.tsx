@@ -1064,6 +1064,81 @@ export function DesignerCanvas({
   )
 
   /**
+   * Issue #149 follow-up (round 6, maintainer real-hardware report):
+   * registers every touch pointer, and evaluates a 2-finger session start,
+   * in the CAPTURE phase directly on the container — before React's own
+   * bubble-phase `onPointerDown` (`handlePointerDown` below) even runs, and
+   * before any future descendant handler could `stopPropagation()` a
+   * second finger's pointerdown away from ever reaching this component.
+   * Not a duplicate of `handlePointerDown`'s own registration: that one
+   * still runs too and still owns every 1-finger decision (hit-testing,
+   * selection, drag/resize/marquee start) — calling this twice for the
+   * same pointer is idempotent (`Map.set` on the same key;
+   * `maybeStartTwoFingerSession`'s own `twoFingerSessionRef.current` guard
+   * makes a repeat call a no-op). Nothing here runs for mouse/pen.
+   */
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) {
+      return
+    }
+    const handleCapturePointerDown = (event: PointerEvent) => {
+      if (event.pointerType !== 'touch') {
+        return
+      }
+      activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      if (!event.isPrimary) {
+        maybeStartTwoFingerSession(container)
+      }
+    }
+    container.addEventListener('pointerdown', handleCapturePointerDown, { capture: true })
+    return () => {
+      container.removeEventListener('pointerdown', handleCapturePointerDown, { capture: true })
+    }
+  }, [maybeStartTwoFingerSession])
+
+  /**
+   * Issue #149 follow-up (round 6, maintainer real-hardware report): the
+   * `touch-action: none` below is a CSS *pan*-blocking signal — on some
+   * mobile browser engines it does not also block the browser's own
+   * native pinch-to-zoom-the-page gesture, which several engines instead
+   * gate on the viewport meta tag (`index.html` deliberately carries no
+   * `user-scalable=no`/`maximum-scale` — maintainer ruling: page pinch-zoom
+   * stays available as an accessibility affordance everywhere OUTSIDE the
+   * canvas, e.g. the sidebar/panels/YAML editor). A native gesture
+   * recognizer that claims a 2nd touch for its own page-zoom can starve it
+   * from ever reaching pointer-event registration, which matches the
+   * reported hardware failure (a "2-finger pan" mostly behaving like an
+   * uninterrupted 1-finger drag/marquee, and a pinch that also drags along
+   * whatever element the first finger landed on) despite CDP-emulated
+   * tests passing — CDP's synthetic touch input does not appear to route
+   * through this native competition at all (an emulation gap, not a false
+   * negative in the specs below). A non-passive native `touchstart`/
+   * `touchmove` listener scoped to this container, calling
+   * `preventDefault()` whenever more than one touch is active, blocks that
+   * native gesture at the source without touching `index.html` or any
+   * other part of the page — scoped exactly to the canvas viewport, same
+   * as `touch-action: none`.
+   */
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) {
+      return
+    }
+    const preventNativeMultiTouchGesture = (event: TouchEvent) => {
+      if (event.touches.length > 1) {
+        event.preventDefault()
+      }
+    }
+    container.addEventListener('touchstart', preventNativeMultiTouchGesture, { passive: false })
+    container.addEventListener('touchmove', preventNativeMultiTouchGesture, { passive: false })
+    return () => {
+      container.removeEventListener('touchstart', preventNativeMultiTouchGesture)
+      container.removeEventListener('touchmove', preventNativeMultiTouchGesture)
+    }
+  }, [])
+
+  /**
    * Issue #155: pan follows the 2-finger midpoint every move; pinch zoom
    * steps the existing discrete `zoomMode` (never a continuous value — see
    * {@link PINCH_ZOOM_STEP_ORDER}) when the two touches' distance has
@@ -1534,15 +1609,13 @@ export function DesignerCanvas({
 
       if (topHit) {
         const wasSelected = selectedIndices.includes(topHit.index)
-        if (additive) {
+
+        // Shift-touching an already-selected element removes it — no drag
+        // starts, so ordering relative to a coalesce snapshot never matters
+        // here; keep this the original early return.
+        if (additive && wasSelected) {
           onSelectElement(topHit.index, { additive: true })
-          if (wasSelected) {
-            return
-          }
-        } else if (!wasSelected) {
-          onSelectElement(topHit.index)
-        } else {
-          onSelectedElementPointerDown?.(topHit.index)
+          return
         }
 
         const moveIndices =
@@ -1557,6 +1630,17 @@ export function DesignerCanvas({
         const draggableStarts = buildMoveStarts(moveIndices).filter((start) =>
           isElementDraggable(start.startElement),
         )
+        // Issue #149 follow-up (round 6, maintainer real-hardware report):
+        // begin the drag session — and, via `onBeginEditCoalesce`, the
+        // snapshot a cancel restores from — BEFORE the selection change
+        // below, not after. `selectedIndicesRef` updates synchronously
+        // inside `onSelectElement`, so capturing the coalesce snapshot
+        // *after* calling it (the original order) meant a drag started by
+        // touching a previously-unselected element captured a snapshot that
+        // *already* had that element selected — cancelling then correctly
+        // reverted position but left the element selected. Measured on real
+        // hardware: a pinch-zoom starting with one finger on an unselected
+        // element "always" ended with that element selected.
         if (draggableStarts.length > 0) {
           event.preventDefault()
           event.currentTarget.setPointerCapture(event.pointerId)
@@ -1568,6 +1652,14 @@ export function DesignerCanvas({
             startCanvas: interactionPoint,
             starts: draggableStarts,
           })
+        }
+
+        if (additive) {
+          onSelectElement(topHit.index, { additive: true })
+        } else if (!wasSelected) {
+          onSelectElement(topHit.index)
+        } else {
+          onSelectedElementPointerDown?.(topHit.index)
         }
         return
       }

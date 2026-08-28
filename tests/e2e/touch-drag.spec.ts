@@ -975,3 +975,219 @@ test.describe('second finger true-cancel (review finding M1/M2)', () => {
     await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled()
   })
 })
+
+test.describe('hardware-pattern multi-touch (round 6, maintainer real-device report)', () => {
+  test.use({ hasTouch: true })
+
+  /**
+   * Maintainer real-tablet failures (PR #153, round 6): "2-finger pan
+   * doesn't work reliably... mostly some element was moving around", "pan
+   * on the background mostly started a marquee select", "pinch zoom...
+   * always end[s] up selecting also one element". All 17 specs above
+   * passed against the code these reports were filed against (ae1f1f7) —
+   * they all introduce the second finger by re-listing the first finger's
+   * *current* point alongside the new one in a single
+   * `Input.dispatchTouchEvent` call (`dispatch('touchStart', [{...p1, id:1},
+   * {...p2, id:2}])`). The specs below instead dispatch the second finger
+   * as its own call that never re-lists the first — verified by direct
+   * experiment to still register correctly as a second touch (CDP tracks
+   * touches by `id` independently of what's re-listed), but a closer match
+   * to two independent hardware contact events.
+   */
+
+  test('(a) finger 1 drags element A, finger 2 (separate dispatch) lands on element B: cancel + pan, nothing selected but A, nothing moves', async ({
+    page,
+  }) => {
+    await forceZoom100(page)
+    await page.goto(touchMultiTouchSharePath())
+    await expect(page.getByTestId('element-list-row')).toHaveCount(2)
+    await canvasPaper(page)
+
+    const yamlBefore = await yamlContent(page).textContent()
+    const before = await viewportScroll(page)
+
+    await withTouchGesture(page, TOUCH_DRAG_CANVAS, async ({ toClient, dispatch, settle }) => {
+      const aStart = toClient({ x: TOUCH_DRAG_RECT_A.centerX, y: TOUCH_DRAG_RECT_A.centerY })
+      const aMid = toClient({
+        x: TOUCH_DRAG_RECT_A.centerX + 40,
+        y: TOUCH_DRAG_RECT_A.centerY + 30,
+      })
+      const bTouch = toClient({ x: TOUCH_DRAG_RECT_B.centerX, y: TOUCH_DRAG_RECT_B.centerY })
+
+      await dispatch('touchStart', [{ ...aStart, id: 1 }])
+      await settle()
+      await dispatch('touchMove', [{ ...aMid, id: 1 }])
+      await settle()
+      await expect(page.getByTestId('property-panel-selection')).toContainText('#1')
+
+      // Finger 2's own touchStart, WITHOUT re-listing finger 1.
+      await dispatch('touchStart', [{ ...bTouch, id: 2 }])
+      await settle()
+
+      await dispatch('touchMove', [
+        { x: aMid.x, y: aMid.y - 60, id: 1 },
+        { x: bTouch.x, y: bTouch.y - 60, id: 2 },
+      ])
+      await settle()
+      await dispatch('touchEnd', [])
+    })
+
+    await expect(page.getByTestId('property-panel-selection')).toContainText('#1')
+    const yamlAfter = await yamlContent(page).textContent()
+    expect(yamlAfter).toBe(yamlBefore)
+    const after = await viewportScroll(page)
+    expect(after.scrollTop).toBeGreaterThan(before.scrollTop + 20)
+  })
+
+  test('(b) finger 1 starts a marquee on the background, finger 2 (separate dispatch) lands on an element: marquee cancel + pan, no selection', async ({
+    page,
+  }) => {
+    await forceZoom100(page)
+    await page.goto(touchDragSharePath())
+    await expect(page.getByTestId('element-list-row')).toHaveCount(1)
+    await canvasPaper(page)
+    await clickCanvasPoint(page, { x: 180, y: 5 }, TOUCH_DRAG_CANVAS)
+    await expect(page.getByTestId('property-panel-selection')).toHaveCount(0)
+
+    const before = await viewportScroll(page)
+
+    await withTouchGesture(page, TOUCH_DRAG_CANVAS, async ({ toClient, dispatch, settle }) => {
+      // Finger 1 on empty background, dragged toward (but not onto) the
+      // rectangle — enough to have a live marquee rect before finger 2 lands.
+      const start = toClient({ x: 200, y: 160 })
+      const mid = toClient({ x: 150, y: 100 })
+      await dispatch('touchStart', [{ ...start, id: 1 }])
+      await settle()
+      await dispatch('touchMove', [{ ...mid, id: 1 }])
+      await settle()
+
+      // Finger 2 lands directly ON the rectangle — its own separate dispatch.
+      const onElement = toClient({ x: TOUCH_DRAG_RECT.centerX, y: TOUCH_DRAG_RECT.centerY })
+      await dispatch('touchStart', [{ ...onElement, id: 2 }])
+      await settle()
+
+      // No selection from either the (cancelled) marquee or finger 2 landing
+      // on the element.
+      await expect(page.getByTestId('property-panel-selection')).toHaveCount(0)
+
+      // Multiple smaller steps (matching every other pan spec in this file)
+      // rather than one big jump — comfortably clears the scrollTop
+      // assertion below with margin.
+      for (let i = 1; i <= 5; i++) {
+        const dy = (-100 * i) / 5
+        await dispatch('touchMove', [
+          { x: mid.x, y: mid.y + dy, id: 1 },
+          { x: onElement.x, y: onElement.y + dy, id: 2 },
+        ])
+        await settle()
+      }
+      await dispatch('touchEnd', [])
+    })
+
+    await expect(page.getByTestId('property-panel-selection')).toHaveCount(0)
+    const after = await viewportScroll(page)
+    expect(after.scrollTop).toBeGreaterThan(before.scrollTop + 20)
+  })
+
+  test('(c) both fingers land on elements near-simultaneously (minimal gap, separate dispatches): pan, nothing selected, nothing moves', async ({
+    page,
+  }) => {
+    await forceZoom100(page)
+    await page.goto(touchMultiTouchSharePath())
+    await expect(page.getByTestId('element-list-row')).toHaveCount(2)
+    await canvasPaper(page)
+    // Explicit deselect — this fixture's share-hash import lands with
+    // rectangle A already selected (matching every other fixture's
+    // auto-select-on-load quirk in this suite), which would make a
+    // still-selected-A outcome after the gesture indistinguishable from "A
+    // was never touched" instead of "A's own touch was correctly a no-op
+    // selection change, restored to its already-selected starting state".
+    await clickCanvasPoint(page, { x: 180, y: 5 }, TOUCH_DRAG_CANVAS)
+    await expect(page.getByTestId('property-panel-selection')).toHaveCount(0)
+
+    const yamlBefore = await yamlContent(page).textContent()
+    const before = await viewportScroll(page)
+
+    await withTouchGesture(page, TOUCH_DRAG_CANVAS, async ({ toClient, dispatch, settle }) => {
+      const aTouch = toClient({ x: TOUCH_DRAG_RECT_A.centerX, y: TOUCH_DRAG_RECT_A.centerY })
+      const bTouch = toClient({ x: TOUCH_DRAG_RECT_B.centerX, y: TOUCH_DRAG_RECT_B.centerY })
+
+      // Finger 1 down, then finger 2 down almost immediately after (minimal
+      // gap, no intervening move) — both land directly on an element, each
+      // its own separate dispatch.
+      await dispatch('touchStart', [{ ...aTouch, id: 1 }])
+      await settle(5)
+      await dispatch('touchStart', [{ ...bTouch, id: 2 }])
+      await settle()
+
+      await dispatch('touchMove', [
+        { x: aTouch.x, y: aTouch.y - 60, id: 1 },
+        { x: bTouch.x, y: bTouch.y - 60, id: 2 },
+      ])
+      await settle()
+      await dispatch('touchEnd', [])
+    })
+
+    await expect(page.getByTestId('property-panel-selection')).toHaveCount(0)
+    const yamlAfter = await yamlContent(page).textContent()
+    expect(yamlAfter).toBe(yamlBefore)
+    const after = await viewportScroll(page)
+    expect(after.scrollTop).toBeGreaterThan(before.scrollTop + 20)
+  })
+
+  test('(d) pinch with one finger starting on a previously-unselected element: zoom, no selection change, element untouched', async ({
+    page,
+  }) => {
+    await forceZoom100(page)
+    await page.goto(touchDragSharePath())
+    await expect(page.getByTestId('element-list-row')).toHaveCount(1)
+    await canvasPaper(page)
+    await clickCanvasPoint(page, { x: 180, y: 5 }, TOUCH_DRAG_CANVAS)
+    await expect(page.getByTestId('property-panel-selection')).toHaveCount(0)
+
+    const yamlBefore = await yamlContent(page).textContent()
+    await expect(page.getByRole('button', { name: '100%' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    await withTouchGesture(page, TOUCH_DRAG_CANVAS, async ({ toClient, dispatch, settle }) => {
+      // Finger 1 lands directly on the (currently unselected) rectangle.
+      const onElement = toClient({ x: TOUCH_DRAG_RECT.centerX, y: TOUCH_DRAG_RECT.centerY })
+      // Finger 2 lands on empty canvas, close enough to pinch outward from.
+      const empty = toClient({ x: 200, y: 80 })
+
+      await dispatch('touchStart', [{ ...onElement, id: 1 }])
+      await settle()
+      // Finger 2's own touchStart, WITHOUT re-listing finger 1.
+      await dispatch('touchStart', [{ ...empty, id: 2 }])
+      await settle()
+
+      // Pinch OUT: move both apart. Initial distance ~120 client px (80 to
+      // 200 canvas-space at forced 100% zoom); growing by ±50 each side
+      // (final ~220) comfortably clears PINCH_ZOOM_STEP_RATIO (1.4x — see
+      // its doc comment) in one step, unlike a smaller motion that stays
+      // under threshold and never actually triggers a zoom change.
+      for (let i = 1; i <= 5; i++) {
+        await dispatch('touchMove', [
+          { x: onElement.x - i * 10, y: onElement.y, id: 1 },
+          { x: empty.x + i * 10, y: empty.y, id: 2 },
+        ])
+        await settle()
+      }
+      await dispatch('touchEnd', [])
+    })
+
+    // Zoomed (navigation happened)...
+    await expect(page.getByRole('button', { name: '200%' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    // ...but the element the first finger landed on was never selected or
+    // moved — this is the maintainer's exact report: "I always end up
+    // selecting also one element together with the pinch-zoom".
+    await expect(page.getByTestId('property-panel-selection')).toHaveCount(0)
+    const yamlAfter = await yamlContent(page).textContent()
+    expect(yamlAfter).toBe(yamlBefore)
+  })
+})
