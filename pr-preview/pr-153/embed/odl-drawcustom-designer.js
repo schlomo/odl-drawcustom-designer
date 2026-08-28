@@ -8018,7 +8018,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "fix/149-touch-drag", ae = "ae1f1f7", oe = "08c1476", k = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "fix/149-touch-drag", ae = "4a619fc", oe = "dd20dca", k = "0.0.0-dev";
 function A(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -47267,7 +47267,30 @@ function Y4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 			},
 			referenceDistance: Math.hypot(i.x - r.x, i.y - r.y)
 		});
-	}, [wt, Ct]), jt = (0, v.useCallback)((e) => {
+	}, [wt, Ct]);
+	(0, v.useEffect)(() => {
+		let e = de.current;
+		if (!e) return;
+		let t = (t) => {
+			t.pointerType === "touch" && (Ue.current.set(t.pointerId, {
+				x: t.clientX,
+				y: t.clientY
+			}), t.isPrimary || At(e));
+		};
+		return e.addEventListener("pointerdown", t, { capture: !0 }), () => {
+			e.removeEventListener("pointerdown", t, { capture: !0 });
+		};
+	}, [At]), (0, v.useEffect)(() => {
+		let e = de.current;
+		if (!e) return;
+		let t = (e) => {
+			e.touches.length > 1 && e.preventDefault();
+		};
+		return e.addEventListener("touchstart", t, { passive: !1 }), e.addEventListener("touchmove", t, { passive: !1 }), () => {
+			e.removeEventListener("touchstart", t), e.removeEventListener("touchmove", t);
+		};
+	}, []);
+	let jt = (0, v.useCallback)((e) => {
 		let t = de.current, n = Ue.current.get(e.ids[0]), r = Ue.current.get(e.ids[1]);
 		if (!t || !n || !r) return;
 		let i = {
@@ -47466,9 +47489,10 @@ function Y4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 		}
 		if (o) {
 			let t = r.includes(o.index);
-			if (s) {
-				if (d(o.index, { additive: !0 }), t) return;
-			} else t ? D?.(o.index) : d(o.index);
+			if (s && t) {
+				d(o.index, { additive: !0 });
+				return;
+			}
 			let n = o && r.includes(o.index) && r.length > 1 ? r : s ? [.../* @__PURE__ */ new Set([...r, o.index])].sort((e, t) => e - t) : t ? r : [o.index], i = Ft(n).filter((e) => sG(e.startElement));
 			i.length > 0 && (e.preventDefault(), e.currentTarget.setPointerCapture(e.pointerId), j.current = e.currentTarget, Ot({
 				kind: "move",
@@ -47476,7 +47500,7 @@ function Y4t({ elements: e, editElements: t, renderContext: n, selectedIndices: 
 				pointerId: e.pointerId,
 				startCanvas: a,
 				starts: i
-			}));
+			})), s ? d(o.index, { additive: !0 }) : t ? D?.(o.index) : d(o.index);
 			return;
 		}
 		s || d(null), l();
