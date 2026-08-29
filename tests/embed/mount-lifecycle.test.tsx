@@ -250,12 +250,13 @@ describe('mount lifecycle (ADR-017)', () => {
       expect(designer().getByTestId('element-list-row')).toHaveTextContent('First')
     })
 
-    // The push lands directly on generation 1's already-registered target —
-    // the same lock UX the pre-registration test above asserts through.
+    // The push lands directly on generation 1's already-registered target,
+    // synchronously within act() — asserted directly, not through waitFor
+    // (AGENTS.md: a poll-instead-of-assert wrapper is how the #115 push-race
+    // bug hid across two PRs; the same lock UX the pre-registration test
+    // above asserts through the same way).
     act(() => handle.setTargets([KITCHEN_296X128_BWR]))
-    await waitFor(() => {
-      expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
-    })
+    expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
 
     // A re-bootstrap discards generation 1's App entirely for a fresh one.
     act(() => triggerReload())

@@ -43,6 +43,12 @@ That is a drift class, not just duplication:
 `mountDesigner(container, host)` ([`src/embed/mount.tsx`](../../src/embed/mount.tsx)) is the single
 lifecycle: DOM/render-target setup, the React root, bootstrap (sync or async,
 including host-driven re-bootstraps) and the pre-registration push queue.
+A re-bootstrap discards the running App and its live `HostPushTarget`
+registration entirely; the lifecycle replays each channel's most recent push
+into the fresh App's registration so nothing a host already pushed is lost —
+except `payload`, where the new bootstrap is the authority and always wins
+([issue #118](https://github.com/schlomo/odl-drawcustom-designer/issues/118),
+`docs/embedding.md` § "Pushes across a re-bootstrap").
 Everything that was a mode conditional is now policy declared by a
 **`DesignerHost`** adapter ([`src/embed/host.ts`](../../src/embed/host.ts)):
 
@@ -131,6 +137,24 @@ shell (`useProjectState`); the adapter supplies only the writers.
   lost. Registering at commit time drains the pre-registration queue
   synchronously, so **the first frame a host can observe already reflects
   everything it pushed** (pinned in `tests/embed/mount-lifecycle.test.tsx`).
+- **A push already applied survives a re-bootstrap too, except `payload`**
+  ([issue #118](https://github.com/schlomo/odl-drawcustom-designer/issues/118)).
+  The pre-registration queue above only covers a push made *before* the very
+  first registration; a push applied straight to an already-live
+  `HostPushTarget` (the ordinary case once the shell has mounted once) lives
+  only in that App's React state, and a re-bootstrap (`generation` bump)
+  discards that whole App for a fresh one whose registration never itself saw
+  it. The lifecycle now replays each channel's last-applied push into every
+  registration whose `generation` differs from the one last replayed —
+  `states`/`actions`/`targets` (host context) replay across the re-bootstrap;
+  `payload` (document content) does not, since `applyBootstrap` clears it the
+  moment a new bootstrap takes over — the new document is always the payload
+  authority. Gating on `generation` rather than "has this registered before"
+  matters: `registerPushTarget` also re-runs *within* the same generation
+  (`setTheme()` gives `bridge` a new `host` identity; StrictMode
+  double-invokes every effect once in dev) — replaying there would stomp
+  whatever the live App did since the last replay (pinned in
+  `tests/embed/rebootstrap-push-replay.test.tsx`).
 - Document-level theme stays **adapter** code (`applyStoredDocumentTheme` in
   [`src/embed/standalone.tsx`](../../src/embed/standalone.tsx), plus `useThemePreference`'s
   `applyToDocument`): the shared mount internals still never touch
