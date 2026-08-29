@@ -274,8 +274,6 @@ export function useProjectState(
   const [assetRevision, setAssetRevision] = useState(0)
   const [snapGrid, setSnapGrid] = useState<SnapGridPrefs>(() => readSnapGridPrefs())
   const [showHiddenHints, setShowHiddenHints] = useState(() => readShowHiddenHintsPrefs().enabled)
-  const mockStatesRef = useRef(mockStates)
-  const mockAttributesRef = useRef(mockAttributes)
   // Is a host feeding states right now (issue #107)? Read inside `loadDemo`,
   // which must load the demo *payload only* under a host-fed adapter — never a
   // render dependency, so the Load Demo callback keeps its identity.
@@ -398,14 +396,6 @@ export function useProjectState(
     canRedo: editHistory.canRedo,
     undoDepth: editHistory.undoDepth,
   }))
-
-  useEffect(() => {
-    mockStatesRef.current = mockStates
-  }, [mockStates])
-
-  useEffect(() => {
-    mockAttributesRef.current = mockAttributes
-  }, [mockAttributes])
 
   const commitElements = useCallback((value: DrawElement[] | ((current: DrawElement[]) => DrawElement[])) => {
     const current = elementsRef.current
