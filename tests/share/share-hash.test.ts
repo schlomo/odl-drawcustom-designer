@@ -115,6 +115,23 @@ describe('share hash encode/decode', () => {
     const encoded = encodeShareHash({ ...payload, v: 2 as 1 })
     expect(decodeShareHash(encoded)).toBeNull()
   })
+
+  // ADR-005 stability contract: share links already in the wild must keep
+  // decoding. This fixture was produced with `pako@2.1.0` deflate (pre pako@3
+  // upgrade) — captured once, never regenerated — so it stands in for a real
+  // hash a user bookmarked before a pako major bump. It must decode under
+  // whatever pako version this repo currently ships.
+  it('decodes a hash produced by the old pako@2.1.0 compressor (ADR-005)', () => {
+    const oldPakoEncodedHash =
+      'eJwtjDEOgCAQBL9itqbAlk_4AGNxgYsQ4UiQYEH8u1dYzs5mJgbcaiBUGA5bDktOcsHAkwy64SaeFHrUl7UGkdMZ-w-tduqpCpwCec-iBo0DXgPOXHTQwn68H13mIDs'
+
+    expect(decodeShareHash(oldPakoEncodedHash)).toEqual({
+      v: 1,
+      name: 'Old link',
+      canvas: { width: 100, height: 100, rotation: 0, accent: 'red' },
+      elements: [],
+    })
+  })
 })
 
 describe('buildShareUrl', () => {

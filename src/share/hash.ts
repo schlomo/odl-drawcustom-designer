@@ -111,7 +111,7 @@ export function decodeShareHash(encoded: string): SharePayload | null {
   }
 
   try {
-    const json = inflate(bytes, { to: 'string' })
+    const json = inflate(bytes, { toText: true })
     return parseSharePayload(JSON.parse(json))
   } catch {
     return null
