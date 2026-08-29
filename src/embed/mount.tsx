@@ -199,9 +199,22 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
   // the pre-registration window. A re-bootstrap (`generation` bump) discards
   // that whole App and mounts a fresh one, whose `registerPushTarget` call
   // registers a brand new target that never itself saw the push. Replaying
-  // these slots into every registration after the first (below) closes that
-  // gap: the fresh App ends up wherever the host last left the designer, the
-  // same guarantee `pendingPushes` gives the very first registration.
+  // these slots on the first registration of a *new* generation (below)
+  // closes that gap for `states`/`actions`/`targets` — host context that
+  // outlives any one document. `payload` is document content, not host
+  // context: a bootstrap is the payload authority, so `applyBootstrap` below
+  // clears this slot the moment a new bootstrap takes over, and an earlier
+  // payload push is never replayed over it.
+  //
+  // Gated on `generation`, not "has this ever registered before" (adversarial
+  // review of #159, critical finding): `registerPushTarget` re-runs whenever
+  // `useProjectState`'s registration layout effect's deps change — not only
+  // on a re-bootstrap, but within the *same* generation too, e.g. `setTheme()`
+  // reassigning `bridge` (below) changes the `host` prop identity, and
+  // StrictMode double-invokes every effect once in dev. Replaying into a
+  // still-live App for the same generation would stomp whatever the user did
+  // since the last replay — `replayedGeneration` makes the replay run at most
+  // once per generation, exactly when the generation actually changed.
   type PushChannel = 'states' | 'payload' | 'actions' | 'targets'
   const lastPushes: Record<PushChannel, ((target: HostPushTarget) => void) | null> = {
     states: null,
@@ -209,7 +222,11 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
     actions: null,
     targets: null,
   }
-  let hasRegisteredPushTarget = false
+  // The generation the replay above last ran for. 0 is a sentinel meaning
+  // "never" — generations themselves start at 1 (see `generation` below) —
+  // so the very first registration ever (fully covered by draining
+  // `pendingPushes`) is distinguishable from a genuine re-bootstrap.
+  let replayedGeneration = 0
 
   const push = (channel: PushChannel, apply: (target: HostPushTarget) => void) => {
     lastPushes[channel] = apply
@@ -260,16 +277,22 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
       for (const apply of pendingPushes.splice(0)) {
         apply(target)
       }
-      // Only for a *re*-registration (issue #118) — the first one is already
-      // fully covered by draining `pendingPushes` above, and replaying here
-      // too would re-apply the same pushes a second time into the same
-      // target.
-      if (hasRegisteredPushTarget) {
+      // Replay at most once per generation (issue #118, see `lastPushes`
+      // above): only when this registration belongs to a generation the
+      // replay hasn't already run for, and never on the very first
+      // registration ever (`replayedGeneration === 0`) — that one is fully
+      // covered by draining `pendingPushes` above, and replaying here too
+      // would re-apply the same pushes a second time into the same target.
+      // A same-generation re-registration (StrictMode's dev double-invoke,
+      // or a `host` identity change from `setTheme()`) intentionally
+      // replays nothing — the live App may have moved on since the last
+      // replay, and re-asserting stale channel values would stomp it.
+      if (replayedGeneration !== 0 && generation !== replayedGeneration) {
         for (const apply of Object.values(lastPushes)) {
           apply?.(target)
         }
       }
-      hasRegisteredPushTarget = true
+      replayedGeneration = generation
       return () => {
         if (pushTarget === target) {
           pushTarget = null
@@ -325,6 +348,15 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
   }
 
   const applyBootstrap = (next: AppBootstrap) => {
+    // A bootstrap supersedes earlier payload pushes; host context survives
+    // (issue #118 high finding): `payload` is document content, and this new
+    // bootstrap — not whatever the host last pushed to a now-superseded
+    // generation — is the payload authority for the generation about to
+    // render. Clearing here means `registerPushTarget`'s replay (above) never
+    // re-applies a stale payload over it. `states`/`actions`/`targets` are
+    // host context, not document content, and are deliberately left alone —
+    // they replay across the re-bootstrap.
+    lastPushes.payload = null
     bootstrap = next
     generation += 1
     renderApp()

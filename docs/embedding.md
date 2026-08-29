@@ -624,6 +624,16 @@ The standalone GitHub Pages app is a **host adapter over the same mount lifecycl
 
 Standalone behavior is unaffected by embedding: page-DOM rendering (no shadow root), document-level theme, IndexedDB session/mocks/variables autosave, `#d=` share-hash bootstrap and same-tab re-bootstrap, share link and theme toggle in the chrome. Pushes on a standalone handle behave exactly as they do in an embed — one lifecycle, one push path.
 
+#### Pushes across a re-bootstrap ([issue #118](https://github.com/schlomo/odl-drawcustom-designer/issues/118))
+
+A re-bootstrap (standalone same-tab `#d=` navigation; embedded hosts never re-bootstrap today) discards the running App entirely and mounts a fresh one from the new bootstrap. What a host pushed before that moment is not simply forgotten:
+
+- **`setStates()`, `setActions()`, `setTargets()` replay into the fresh App.** These are host context, not document content, so the designer keeps reflecting whatever the host last pushed on each of these channels across the re-bootstrap — the same "eventually applied" guarantee a push gets on first mount, extended past a re-bootstrap.
+- **`setPayload()` does not replay — the new bootstrap always wins.** `payload` is document content, and a bootstrap is the payload authority: a payload pushed under the discarded generation is superseded the moment the new bootstrap resolves, the same way a fresh document replaces whatever was open before. Push `setPayload()` again after the re-bootstrap if the new document still needs it.
+- **Replay order across channels is fixed** (`states`, then `payload`, then `actions`, then `targets`), independent of the order the host originally pushed them in.
+- **A push made *within* the same generation replays nothing** — e.g. calling `setTheme()` does not re-assert `states`/`actions`/`targets`, so it can never overwrite a user's own in-designer choice (a manual display unlock, an in-progress edit) with a stale push. Replay only ever happens when a re-bootstrap has actually discarded the previous App.
+- **Single-target re-lock asymmetry is inherent, not a bug to fix**: if the user unlocks the display picker after a `setTargets()` push and then a real re-bootstrap occurs, the fresh App re-adopts and re-locks to the replayed target — discarding the App discards the in-progress "unlocked" choice along with everything else that lived only in that App's state.
+
 ### Host adapters
 
 Everything that would otherwise be an `embedded` conditional in the React shell is policy on the `DesignerHost` adapter ([`src/embed/host.ts`](../src/embed/host.ts)):
