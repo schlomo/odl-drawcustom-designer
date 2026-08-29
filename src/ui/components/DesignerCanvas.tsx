@@ -258,6 +258,14 @@ const PINCH_ZOOM_STEP_ORDER: readonly ('50' | '100' | '200')[] = ['50', '100', '
  */
 const PINCH_ZOOM_STEP_RATIO = 1.4
 
+/**
+ * Issue #149 follow-up (round 7): a two-finger session ending and a new one
+ * starting within this many milliseconds is treated as the SAME physical
+ * pinch continuing through a digitizer-level touch respawn (see
+ * `pinchContinuityRef`'s doc comment), not two separate gestures.
+ */
+const PINCH_CONTINUITY_WINDOW_MS = 300
+
 function explicitZoomScale(mode: '50' | '100' | '200'): number {
   return mode === '50' ? 0.5 : mode === '100' ? 1 : 2
 }
@@ -412,6 +420,25 @@ export function DesignerCanvas({
   const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map())
   const twoFingerSessionRef = useRef<TwoFingerSession | null>(null)
   const twoFingerCaptureTargetRef = useRef<HTMLElement | null>(null)
+  /**
+   * Issue #149 follow-up (round 7, maintainer hardware diagnosis via the
+   * touchdebug overlay): on some digitizers, a sustained pinch is not one
+   * continuous 2-finger contact — the hardware kills and respawns a touch
+   * mid-gesture (observed: an "up" for one id immediately followed by a
+   * "down" for a fresh id, fingers never lifted). Each respawn ends the old
+   * `TwoFingerSession` and `maybeStartTwoFingerSession` would otherwise take
+   * a fresh `referenceDistance` at the *current* spread — so the pinch's
+   * accumulated spread since the gesture truly began is lost and the
+   * 1.4x step ratio (`PINCH_ZOOM_STEP_RATIO`) never re-triggers ("zoom
+   * worked twice then stopped"). Stashed by `finishTwoFingerSession`
+   * whenever a session actually ends; consumed by `maybeStartTwoFingerSession`
+   * if a new session starts within `PINCH_CONTINUITY_WINDOW_MS` (inheriting
+   * the OLD referenceDistance instead of measuring a fresh one), cleared on
+   * inherit, on going stale past the window, and on any 1-finger session
+   * start (`beginDragSession`/`beginMarqueeSession`) — a genuine new
+   * 1-finger gesture is not a pinch respawn.
+   */
+  const pinchContinuityRef = useRef<{ endedAt: number; referenceDistance: number } | null>(null)
   /**
    * Set the instant a pinch fires a zoom step; consumed by the layout effect
    * below once the resulting `effectiveScale` has actually painted, to keep
@@ -983,6 +1010,8 @@ export function DesignerCanvas({
       additive: boolean,
       previousSelection: readonly number[],
     ) => {
+      // A genuine new 1-finger gesture is not a pinch respawn (round 7).
+      pinchContinuityRef.current = null
       target.setPointerCapture(pointerId)
       pointerCaptureTargetRef.current = target
       marqueeSessionRef.current = {
@@ -998,6 +1027,8 @@ export function DesignerCanvas({
 
   const beginDragSession = useCallback(
     (session: DragSession) => {
+      // A genuine new 1-finger gesture is not a pinch respawn (round 7).
+      pinchContinuityRef.current = null
       onBeginEditCoalesce?.()
       setFrozenElements(elements)
       dragSessionRef.current = session
@@ -1012,6 +1043,13 @@ export function DesignerCanvas({
     twoFingerSessionRef.current = null
     if (!session) {
       return
+    }
+    // Issue #149 follow-up (round 7): stash in case this end is a
+    // digitizer-level touch respawn mid-pinch, not a real gesture end — see
+    // `pinchContinuityRef`'s doc comment.
+    pinchContinuityRef.current = {
+      endedAt: performance.now(),
+      referenceDistance: session.referenceDistance,
     }
     const target = twoFingerCaptureTargetRef.current
     twoFingerCaptureTargetRef.current = null
@@ -1054,10 +1092,26 @@ export function DesignerCanvas({
       target.setPointerCapture(idA)
       target.setPointerCapture(idB)
       twoFingerCaptureTargetRef.current = target
+
+      // Issue #149 follow-up (round 7): a digitizer-level touch respawn
+      // (previous 2-finger session just ended, a new one starting within
+      // PINCH_CONTINUITY_WINDOW_MS) inherits the OLD referenceDistance
+      // instead of measuring a fresh one at the current spread — otherwise
+      // the pinch's accumulated spread since the gesture truly began is
+      // lost every time the hardware respawns a touch mid-gesture. Cleared
+      // unconditionally below: a stash consumed here, or one that's gone
+      // stale, is equally irrelevant to this (now current) session.
+      const stash = pinchContinuityRef.current
+      const inheritedReferenceDistance =
+        stash && performance.now() - stash.endedAt < PINCH_CONTINUITY_WINDOW_MS
+          ? stash.referenceDistance
+          : null
+      pinchContinuityRef.current = null
+
       twoFingerSessionRef.current = {
         ids: [idA, idB],
         midpoint: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
-        referenceDistance: Math.hypot(b.x - a.x, b.y - a.y),
+        referenceDistance: inheritedReferenceDistance ?? Math.hypot(b.x - a.x, b.y - a.y),
       }
     },
     [finishDrag, finishMarquee],

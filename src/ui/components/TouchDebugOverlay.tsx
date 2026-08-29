@@ -1,20 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
- * TEMPORARY diagnostic overlay for issue #153: a 2-finger gesture failure on
- * a Galaxy Tab S8+ (Chrome/Android) that Chrome DevTools Protocol touch
- * emulation cannot reproduce. Shows the live pointer/touch event stream so
- * the maintainer can FREEZE the log right after a failed gesture and send a
- * screenshot — see the PR's "Touch diagnostics (temporary)" section for the
- * exact workflow.
+ * Permanent gated diagnostic overlay (maintainer ruling, issue #153):
+ * originally built to chase a 2-finger gesture failure on a Galaxy Tab S8+
+ * (Chrome/Android) that Chrome DevTools Protocol touch emulation could not
+ * reproduce. Shows the live pointer/touch event stream so anyone reproducing
+ * a device-specific touch report can FREEZE the log right after a failed
+ * gesture and share a screenshot — see README's touch debugging note.
  *
  * Standalone-only, opt-in via `?touchdebug=1` (read once by the mount helper
  * in `mountTouchDebugOverlay.tsx`, not reactive). Pure window-level
  * instrumentation — no state plumbed into DesignerCanvas, no listeners at
  * all when the query param is absent.
- *
- * REMOVE THIS FILE (or the maintainer explicitly rules "keep") before #153
- * merges — do not let it become permanent product surface.
  */
 
 const MAX_ENTRIES = 25

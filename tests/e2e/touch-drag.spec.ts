@@ -1191,3 +1191,90 @@ test.describe('hardware-pattern multi-touch (round 6, maintainer real-device rep
     expect(yamlAfter).toBe(yamlBefore)
   })
 })
+
+test.describe('pinch continuity across a digitizer touch respawn (round 7)', () => {
+  test.use({ hasTouch: true })
+
+  /**
+   * Maintainer hardware diagnosis via the touchdebug overlay (Galaxy Tab
+   * S8+): a sustained pinch is not always one continuous 2-finger contact —
+   * the digitizer can kill and respawn a touch mid-gesture (an "up" for one
+   * id immediately followed by a "down" for a fresh id, fingers never
+   * lifted). Each respawn used to end the `TwoFingerSession` and take a
+   * fresh `referenceDistance` at the current spread, discarding the pinch's
+   * accumulated spread since the gesture truly began — "zoom worked twice
+   * then stopped".
+   *
+   * The math: start at distance D0=100 (canvas-space half-widths 50 each
+   * side of x=200), spread to D1=120 (ratio 1.2 — under
+   * PINCH_ZOOM_STEP_RATIO's 1.4, no step yet), respawn one finger at that
+   * same spread, then continue to D2=146. Measured from the ORIGINAL D0
+   * (bridged), 146/100=1.46 crosses 1.4 and steps; measured fresh from the
+   * respawn's own D1, 146/120=1.22 never crosses it. That difference is
+   * exactly what distinguishes "bridged" from "not bridged".
+   */
+  test('a touch respawn mid-pinch (same finger, new id, <300ms) does not reset the accumulated pinch spread', async ({
+    page,
+  }) => {
+    await forceZoom100(page)
+    await page.goto(touchDragSharePath())
+    await expect(page.getByTestId('element-list-row')).toHaveCount(1)
+    await canvasPaper(page)
+    await clickCanvasPoint(page, { x: 180, y: 5 }, TOUCH_DRAG_CANVAS)
+    await expect(page.getByTestId('property-panel-selection')).toHaveCount(0)
+
+    await expect(page.getByRole('button', { name: '100%' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    await withTouchGesture(page, TOUCH_DRAG_CANVAS, async ({ toClient, dispatch, settle }) => {
+      const centerX = 200
+      const y = 100
+      const p1D0 = toClient({ x: centerX - 50, y })
+      const p2D0 = toClient({ x: centerX + 50, y })
+
+      await dispatch('touchStart', [{ ...p1D0, id: 1 }])
+      await settle()
+      await dispatch('touchStart', [{ ...p1D0, id: 1 }, { ...p2D0, id: 2 }])
+      await settle()
+
+      // Spread to D1 (ratio 1.2 — under threshold, no zoom step yet).
+      const p1D1 = toClient({ x: centerX - 60, y })
+      const p2D1 = toClient({ x: centerX + 60, y })
+      await dispatch('touchMove', [{ ...p1D1, id: 1 }, { ...p2D1, id: 2 }])
+      await settle()
+      await expect(page.getByRole('button', { name: '100%' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      )
+
+      // Digitizer respawn: finger 2's touch ends (its own separate dispatch,
+      // per m5 — touchEnd's points are the ones ENDING) at its current
+      // position, and a fresh id lands at that same spot within
+      // PINCH_CONTINUITY_WINDOW_MS, finger never having lifted.
+      await dispatch('touchEnd', [{ ...p2D1, id: 2 }])
+      await settle(10)
+      await dispatch('touchStart', [{ ...p1D1, id: 1 }, { ...p2D1, id: 3 }])
+      await settle()
+
+      // Continue spreading (finger 1 and the respawned finger) to D2 —
+      // crosses the threshold only when measured from the ORIGINAL D0.
+      const p1D2 = toClient({ x: centerX - 73, y })
+      const p2D2 = toClient({ x: centerX + 73, y })
+      for (let i = 1; i <= 5; i++) {
+        await dispatch('touchMove', [
+          { x: p1D1.x + ((p1D2.x - p1D1.x) * i) / 5, y: p1D1.y, id: 1 },
+          { x: p2D1.x + ((p2D2.x - p2D1.x) * i) / 5, y: p2D1.y, id: 3 },
+        ])
+        await settle()
+      }
+      await dispatch('touchEnd', [])
+    })
+
+    await expect(page.getByRole('button', { name: '200%' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+})

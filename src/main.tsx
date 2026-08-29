@@ -4,6 +4,6 @@ import './index.css'
 
 mountStandaloneApp(document.getElementById('root')!)
 
-// TEMPORARY (issue #153 hardware diagnosis): no-op unless the URL carries
-// `?touchdebug=1` — see TouchDebugOverlay.tsx for removal note.
+// Permanent gated diagnostic (maintainer ruling, issue #153): no-op unless
+// the URL carries `?touchdebug=1` — see TouchDebugOverlay.tsx.
 mountTouchDebugOverlayIfRequested()

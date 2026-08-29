@@ -2,13 +2,11 @@ import { createRoot } from 'react-dom/client'
 import { TouchDebugOverlay } from '../components/TouchDebugOverlay'
 
 /**
- * TEMPORARY (issue #153 hardware diagnosis). Gate + mount in one call: reads
- * `?touchdebug=1` once, and only then creates a detached React root outside
- * the app tree. No-op (no listeners, no DOM) when the param is absent — call
- * unconditionally from the standalone entry point (`src/main.tsx`).
- *
- * REMOVE (with TouchDebugOverlay.tsx and its call site in main.tsx) once
- * #153 is resolved, or once the maintainer explicitly rules "keep".
+ * Permanent gated diagnostic (maintainer ruling, issue #153). Gate + mount in
+ * one call: reads `?touchdebug=1` once, and only then creates a detached
+ * React root outside the app tree. No-op (no listeners, no DOM) when the
+ * param is absent — call unconditionally from the standalone entry point
+ * (`src/main.tsx`).
  */
 const QUERY_PARAM = 'touchdebug'
 
