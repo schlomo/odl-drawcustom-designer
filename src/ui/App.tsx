@@ -213,6 +213,7 @@ export function App({ bootstrap, host }: AppProps) {
     canRedo,
     beginEditCoalesce,
     endEditCoalesce,
+    cancelEditCoalesce,
   } = useProjectState(bootstrap, host, { yamlDiscardPendingRef })
 
   const elementsRef = useRef(elements)
@@ -895,6 +896,7 @@ export function App({ bootstrap, host }: AppProps) {
               onSelectedElementPointerDown={handleSelectedElementPointerDown}
               onBeginEditCoalesce={beginEditCoalesce}
               onEndEditCoalesce={endEditCoalesce}
+              onCancelEditCoalesce={cancelEditCoalesce}
               canUndo={canUndo}
               canRedo={canRedo}
               onUndo={undo}
