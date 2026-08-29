@@ -8018,7 +8018,7 @@ function te(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var ne = /* @__PURE__ */ new Set(["dev", "test"]), re = "fix/118-rebootstrap-push", ie = "c9fb129", ae = "1e6136d", A = "0.0.0-dev";
+var ne = /* @__PURE__ */ new Set(["dev", "test"]), re = "fix/118-rebootstrap-push", ie = "eae9b5c", ae = "4ed07f8", A = "0.0.0-dev";
 function j(e, t = 12) {
 	if (ne.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -77672,7 +77672,7 @@ function Zun(e, t) {
 		payload: null,
 		actions: null,
 		targets: null
-	}, u = !1, d = (e, t) => {
+	}, u = 0, d = (e, t) => {
 		if (l[e] = t, s) {
 			t(s);
 			return;
@@ -77683,8 +77683,8 @@ function Zun(e, t) {
 		registerPushTarget(e) {
 			s = e;
 			for (let t of c.splice(0)) t(e);
-			if (u) for (let t of Object.values(l)) t?.(e);
-			return u = !0, () => {
+			if (u !== 0 && x !== u) for (let t of Object.values(l)) t?.(e);
+			return u = x, () => {
 				s === e && (s = null);
 			};
 		},
@@ -77711,7 +77711,7 @@ function Zun(e, t) {
 			host: g
 		}, x) }));
 	}, T = (e) => {
-		b = e, x += 1, w();
+		l.payload = null, b = e, x += 1, w();
 	}, E = (e) => {
 		let t = S += 1;
 		if (!(e instanceof Promise)) {
