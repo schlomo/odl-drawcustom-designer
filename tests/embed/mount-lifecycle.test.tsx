@@ -219,4 +219,56 @@ describe('mount lifecycle (ADR-017)', () => {
 
     expect(designer().getByTestId('element-list-row')).toHaveTextContent('Newest')
   })
+
+  it('replays a push already applied to a discarded App after a re-bootstrap (issue #118)', async () => {
+    // Edge flagged during the #115 investigation (PR #117), deliberately not
+    // chased there: a host push queued AND drained into a push target whose
+    // App is subsequently discarded by a re-bootstrap (`generation` bump)
+    // must not be lost — the fresh App re-registers a brand new target that
+    // never itself received the push, so mount.tsx has to replay it.
+    const resolvers: Array<(bootstrap: AppBootstrap) => void> = []
+    let triggerReload = () => {}
+    const handle = mountInto(
+      stubHost({
+        loadBootstrap: () =>
+          new Promise<AppBootstrap>((resolve) => {
+            resolvers.push(resolve)
+          }),
+        subscribeBootstrapChanges: (reload) => {
+          triggerReload = reload
+          return () => {}
+        },
+      }),
+    )
+
+    // Generation 1 mounts and registers a live push target.
+    await act(async () => {
+      resolvers[0]!(bootstrapWith('First'))
+      await Promise.resolve()
+    })
+    await waitFor(() => {
+      expect(designer().getByTestId('element-list-row')).toHaveTextContent('First')
+    })
+
+    // The push lands directly on generation 1's already-registered target —
+    // the same lock UX the pre-registration test above asserts through.
+    act(() => handle.setTargets([KITCHEN_296X128_BWR]))
+    await waitFor(() => {
+      expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+    })
+
+    // A re-bootstrap discards generation 1's App entirely for a fresh one.
+    act(() => triggerReload())
+    await act(async () => {
+      resolvers[1]!(bootstrapWith('Second'))
+      await Promise.resolve()
+    })
+    await waitFor(() => {
+      expect(designer().getByTestId('element-list-row')).toHaveTextContent('Second')
+    })
+
+    // Generation 2's fresh push target never itself saw the setTargets() push
+    // — it must still reflect it, replayed by the mount lifecycle.
+    expect(designer().getByRole('button', { name: 'Unlock display config' })).toBeInTheDocument()
+  })
 })

@@ -192,7 +192,27 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
   let pushTarget: HostPushTarget | null = null
   const pendingPushes: Array<(target: HostPushTarget) => void> = []
 
-  const push = (apply: (target: HostPushTarget) => void) => {
+  // Whatever the host most recently pushed on each channel (issue #118): a
+  // push applied straight to a live `pushTarget` (the common case once the
+  // shell has mounted once) lands only in that App instance's React state —
+  // `pendingPushes` above is already empty by then, since it exists only for
+  // the pre-registration window. A re-bootstrap (`generation` bump) discards
+  // that whole App and mounts a fresh one, whose `registerPushTarget` call
+  // registers a brand new target that never itself saw the push. Replaying
+  // these slots into every registration after the first (below) closes that
+  // gap: the fresh App ends up wherever the host last left the designer, the
+  // same guarantee `pendingPushes` gives the very first registration.
+  type PushChannel = 'states' | 'payload' | 'actions' | 'targets'
+  const lastPushes: Record<PushChannel, ((target: HostPushTarget) => void) | null> = {
+    states: null,
+    payload: null,
+    actions: null,
+    targets: null,
+  }
+  let hasRegisteredPushTarget = false
+
+  const push = (channel: PushChannel, apply: (target: HostPushTarget) => void) => {
+    lastPushes[channel] = apply
     if (pushTarget) {
       apply(pushTarget)
       return
@@ -240,6 +260,16 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
       for (const apply of pendingPushes.splice(0)) {
         apply(target)
       }
+      // Only for a *re*-registration (issue #118) — the first one is already
+      // fully covered by draining `pendingPushes` above, and replaying here
+      // too would re-apply the same pushes a second time into the same
+      // target.
+      if (hasRegisteredPushTarget) {
+        for (const apply of Object.values(lastPushes)) {
+          apply?.(target)
+        }
+      }
+      hasRegisteredPushTarget = true
       return () => {
         if (pushTarget === target) {
           pushTarget = null
@@ -364,7 +394,7 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
       // last-applied reference, or the identical re-push a ticking host makes
       // gets deduped as "unchanged" and the channel stays wedged.
       assertHostStates(states)
-      push((target) => target.applyStates(states))
+      push('states', (target) => target.applyStates(states))
     },
     setPayload(payload) {
       assertMounted()
@@ -372,7 +402,7 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
       if (!pushTarget) {
         pendingPayloadElements = elements
       }
-      push((target) => target.applyPayload(elements))
+      push('payload', (target) => target.applyPayload(elements))
     },
     setActions(actions) {
       assertMounted()
@@ -383,7 +413,7 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
       // push instead of painting permanently inert buttons.
       const normalized = normalizeHostActions(actions)
       assertActionsAreHandled(normalized, host.onAction, 'setActions()')
-      push((target) => target.applyActions(normalized))
+      push('actions', (target) => target.applyActions(normalized))
     },
     setTargets(targets) {
       assertMounted()
@@ -392,7 +422,7 @@ export function mountDesigner(container: HTMLElement, host: DesignerHost): Mount
       // handler requirement here — `onTargetSelected` is optional, and a
       // selection still reaches the host through `onAction`'s context.
       const normalized = normalizeHostTargets(targets)
-      push((pushTarget) => pushTarget.applyTargets(normalized))
+      push('targets', (pushTarget) => pushTarget.applyTargets(normalized))
     },
     setTheme(nextTheme) {
       assertMounted()
