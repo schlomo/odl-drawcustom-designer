@@ -83,17 +83,17 @@ function currentClockState() {
 
 // Measured panel palette (issue #68): the red hex is deliberately NOT the
 // canonical #ff0000 — the designer preview must visibly adopt it.
-const CAPABILITIES_296X128_BWR = {
-  pixel_width: 296,
-  pixel_height: 128,
-  rotation_degrees: 0,
-  render_width: 296,
-  render_height: 128,
-  color_scheme: 0x01,
-  accent_color: 'red',
-  available_colors: ['black', 'white', 'red'],
-  color_map: { black: '#000000', white: '#ffffff', red: '#c53929' },
-  palette_measured: true,
+const DISPLAY_SPEC_296X128_BWR = {
+  pixelWidth: 296,
+  pixelHeight: 128,
+  rotationDegrees: 0,
+  renderWidth: 296,
+  renderHeight: 128,
+  colorScheme: 0x01,
+  accentColor: 'red',
+  availableColors: ['black', 'white', 'red'],
+  colorMap: { black: '#000000', white: '#ffffff', red: '#c53929' },
+  paletteMeasured: true,
 }
 
 // Display targets (issue #106, ADR-018): the displays this fake host "knows
@@ -102,38 +102,38 @@ const CAPABILITIES_296X128_BWR = {
 // context and never interprets them. Picking one resizes and re-palettes the
 // canvas; a host with exactly one display pushes a one-element list, which the
 // designer adopts and locks without a pick.
-const CAPABILITIES_400X300_BW = {
-  render_width: 400,
-  render_height: 300,
-  color_scheme: 0x00,
-  available_colors: ['black', 'white'],
+const DISPLAY_SPEC_400X300_BW = {
+  renderWidth: 400,
+  renderHeight: 300,
+  colorScheme: 0x00,
+  availableColors: ['black', 'white'],
 }
 
-const CAPABILITIES_800X480_BWRY = {
-  render_width: 800,
-  render_height: 480,
-  color_scheme: 0x03,
-  available_colors: ['black', 'white', 'red', 'yellow'],
+const DISPLAY_SPEC_800X480_BWRY = {
+  renderWidth: 800,
+  renderHeight: 480,
+  colorScheme: 0x03,
+  availableColors: ['black', 'white', 'red', 'yellow'],
 }
 
-const CAPABILITIES_800X480_BWRY_PORTRAIT = {
-  render_width: 480,
-  render_height: 800,
-  rotation_degrees: 90,
-  color_scheme: 0x03,
-  available_colors: ['black', 'white', 'red', 'yellow'],
+const DISPLAY_SPEC_800X480_BWRY_PORTRAIT = {
+  renderWidth: 480,
+  renderHeight: 800,
+  rotationDegrees: 90,
+  colorScheme: 0x03,
+  availableColors: ['black', 'white', 'red', 'yellow'],
 }
 
-const CAPABILITIES_152X152_BW = {
-  pixel_width: 152,
-  pixel_height: 152,
-  color_scheme: 0x00,
+const DISPLAY_SPEC_152X152_BW = {
+  pixelWidth: 152,
+  pixelHeight: 152,
+  colorScheme: 0x00,
 }
 
 const KITCHEN_TARGET = {
   id: 'display.kitchen',
   label: 'Kitchen tag (296×128 BWR)',
-  capabilities: CAPABILITIES_296X128_BWR,
+  display: DISPLAY_SPEC_296X128_BWR,
 }
 
 // The displays this host discovers one at a time — the "Add a display"
@@ -142,9 +142,9 @@ const KITCHEN_TARGET = {
 // to be two separate buttons — "Push display list" jumping straight to
 // three, and a garage-only "Add a display" — into one repeatable control).
 const ADD_DISPLAY_QUEUE = [
-  { id: 'display.office', label: 'Office display (400×300 BW)', capabilities: CAPABILITIES_400X300_BW },
-  { id: 'display.hallway', label: 'Hallway 7.5" (800×480 BWRY, portrait)', capabilities: CAPABILITIES_800X480_BWRY_PORTRAIT },
-  { id: 'display.garage', label: 'Garage tag (152×152 BW)', capabilities: CAPABILITIES_152X152_BW },
+  { id: 'display.office', label: 'Office display (400×300 BW)', display: DISPLAY_SPEC_400X300_BW },
+  { id: 'display.hallway', label: 'Hallway 7.5" (800×480 BWRY, portrait)', display: DISPLAY_SPEC_800X480_BWRY_PORTRAIT },
+  { id: 'display.garage', label: 'Garage tag (152×152 BW)', display: DISPLAY_SPEC_152X152_BW },
 ]
 
 // The full inventory a multi-display host offers on its very first paint
@@ -341,7 +341,7 @@ const handle = mount(document.getElementById('designer'), {
   async renderPreview(payload, context) {
     previewLog.textContent =
       `renderPreview: ${payload.length} bytes` +
-      ` · dither=${context.service.dither}` +
+      ` · dither=${context.render.dither}` +
       ` · display=${context.targetId ?? '(virtual)'}` +
       ` · canvas=${context.display.width}x${context.display.height}@${context.display.rotation}°`
     await delay(PREVIEW_RENDER_DELAY_MS)
@@ -359,9 +359,11 @@ const handle = mount(document.getElementById('designer'), {
   resolveAsset,
   actions: buildActions(displayOnline),
   onAction(id, payload, context) {
-    // The designer reports only which button fired, the current payload and
-    // the opaque id of the display it is pinned to; everything below is
-    // host-side meaning.
+    // The designer reports which button fired, the current payload, the
+    // opaque id of the display it is pinned to, and — since issue #105's
+    // WYSIWYG-send slice — the same live `display`/`render` a
+    // `renderPreview` request would carry at this exact instant; everything
+    // below is host-side meaning.
     if (id === 'save') {
       // What `onSaveRequest` used to be (issue #121): a host action like any
       // other, with the payload the designer would hand `getPayload()`.
@@ -370,7 +372,10 @@ const handle = mount(document.getElementById('designer'), {
     }
     if (id === 'send') {
       const to = context.targetId ?? 'the virtual display (no target selected)'
-      actionLog.textContent = `Sent ${payload.length} bytes to ${to}:\n${payload}`
+      const canvas = `${context.display.width}x${context.display.height}@${context.display.rotation}°`
+      actionLog.textContent =
+        `Sent ${payload.length} bytes to ${to}` +
+        ` · canvas=${canvas} · dither=${context.render.dither}:\n${payload}`
       return
     }
     if (id === 'validate') {
