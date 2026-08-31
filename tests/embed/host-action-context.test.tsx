@@ -283,7 +283,7 @@ describe('host action context carries live display/render state (issue #105 WYSI
         {
           id: 'display.probe',
           label: 'Probe panel',
-          display: { render_width: 800, render_height: 480, rotation_degrees: 90 },
+          display: { renderWidth: 800, renderHeight: 480, rotationDegrees: 90 },
         },
       ])
       fireEvent.click(actionButton('Send to display'))

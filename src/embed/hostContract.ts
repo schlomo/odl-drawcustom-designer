@@ -298,9 +298,9 @@ function isPositiveSize(value: number | undefined): value is number {
 }
 
 /**
- * Pick the tag color mode from palette color names (color_map keys or
- * available_colors). The names select the palette structure; the measured
- * hex values in `color_map` re-color it via `paletteOverrides` (issue #68).
+ * Pick the tag color mode from palette color names (colorMap keys or
+ * availableColors). The names select the palette structure; the measured
+ * hex values in `colorMap` re-color it via `paletteOverrides` (issue #68).
  */
 function paletteNamesToColorMode(names: readonly string[]): TagColorMode | null {
   const normalized = new Set(names.map((name) => name.trim().toLowerCase()))
@@ -338,17 +338,17 @@ function accentColorToColorMode(accent: string | undefined): TagColorMode | null
 }
 
 function resolveColorMode(display: HostDisplaySpec): TagColorMode | null {
-  const { color_scheme } = display
-  if (typeof color_scheme === 'number' && color_scheme >= 0x00 && color_scheme <= 0x04) {
-    return colourSchemeToColorMode(color_scheme)
+  const { colorScheme } = display
+  if (typeof colorScheme === 'number' && colorScheme >= 0x00 && colorScheme <= 0x04) {
+    return colourSchemeToColorMode(colorScheme)
   }
-  if (display.color_map && Object.keys(display.color_map).length > 0) {
-    return paletteNamesToColorMode(Object.keys(display.color_map))
+  if (display.colorMap && Object.keys(display.colorMap).length > 0) {
+    return paletteNamesToColorMode(Object.keys(display.colorMap))
   }
-  if (display.available_colors && display.available_colors.length > 0) {
-    return paletteNamesToColorMode(display.available_colors)
+  if (display.availableColors && display.availableColors.length > 0) {
+    return paletteNamesToColorMode(display.availableColors)
   }
-  return accentColorToColorMode(display.accent_color)
+  return accentColorToColorMode(display.accentColor)
 }
 
 /**
@@ -361,15 +361,15 @@ function resolveColorMode(display: HostDisplaySpec): TagColorMode | null {
  * must produce the same canvas whatever preceded it. Merging onto the current
  * config would leak the previous display's facts into a target that never
  * declared them — its rotation (296×128 arriving as 128×296), or worse its
- * measured `color_map`, which paints one panel's red on another's tag (ADR-007
+ * measured `colorMap`, which paints one panel's red on another's tag (ADR-007
  * parity).
  *
  * `previewDitherMode` is the one thing carried over, because it is not a
  * property of any display: it is a designer-only preview setting the user owns,
  * exactly as the display-config lock treats it.
  *
- * **Host contract (issue #139 review):** `rotation_degrees` MUST describe the
- * orientation `render_width`/`render_height` are expressed in — the *effective*
+ * **Host contract (issue #139 review):** `rotationDegrees` MUST describe the
+ * orientation `renderWidth`/`renderHeight` are expressed in — the *effective*
  * orientation of the drawing surface, not a base rotation still to be applied
  * to it. The result of this mapping is one indivisible oriented surface (two
  * dimensions plus the rotation they are in), and everything downstream turns
@@ -382,17 +382,17 @@ export function displaySpecToCanvas(
   previewDitherMode: PreviewDitherMode,
 ): CanvasConfig {
   const base: CanvasConfig = { ...DEFAULT_DISPLAY_CONFIG, previewDitherMode }
-  const rotation = normalizeRotation(display.rotation_degrees) ?? base.rotation
+  const rotation = normalizeRotation(display.rotationDegrees) ?? base.rotation
 
   let width = base.width
   let height = base.height
-  if (isPositiveSize(display.render_width) && isPositiveSize(display.render_height)) {
-    width = Math.round(display.render_width)
-    height = Math.round(display.render_height)
-  } else if (isPositiveSize(display.pixel_width) && isPositiveSize(display.pixel_height)) {
+  if (isPositiveSize(display.renderWidth) && isPositiveSize(display.renderHeight)) {
+    width = Math.round(display.renderWidth)
+    height = Math.round(display.renderHeight)
+  } else if (isPositiveSize(display.pixelWidth) && isPositiveSize(display.pixelHeight)) {
     const swap = rotation === 90 || rotation === 270
-    width = Math.round(swap ? display.pixel_height : display.pixel_width)
-    height = Math.round(swap ? display.pixel_width : display.pixel_height)
+    width = Math.round(swap ? display.pixelHeight : display.pixelWidth)
+    height = Math.round(swap ? display.pixelWidth : display.pixelHeight)
   }
 
   return {
@@ -402,7 +402,7 @@ export function displaySpecToCanvas(
     rotation,
     colorMode: resolveColorMode(display) ?? base.colorMode,
     // Measured panel hexes re-color the active palette (issue #68). `accent`
-    // resolves through the same map, so accent_color participates implicitly.
-    paletteOverrides: normalizePaletteOverrides(display.color_map) ?? base.paletteOverrides,
+    // resolves through the same map, so accentColor participates implicitly.
+    paletteOverrides: normalizePaletteOverrides(display.colorMap) ?? base.paletteOverrides,
   }
 }

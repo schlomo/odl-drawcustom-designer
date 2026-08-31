@@ -239,7 +239,24 @@ Mechanical rename, no behavior change beyond the fixes in the same release. Appl
 | `context.service` on `onAction`/`renderPreview` | `context.render` |
 | `capabilities` on a pushed `HostTarget` | `display` |
 
-**One word, two shapes — deliberately.** After the rename, `display` names both ends of one pipeline for the same panel: on a pushed `HostTarget` it is the host's *declaration* (`HostDisplaySpec` — `pixel_*`/`render_*`, rotation, palette), and on `onAction`/`renderPreview`'s context it is what the designer *resolved* that to (`HostDisplayGeometry` — `width`, `height`, `rotation`). Declared in, resolved out; a host pushes the first and reads the second.
+**One word, two shapes — deliberately.** After the rename, `display` names both ends of one pipeline for the same panel: on a pushed `HostTarget` it is the host's *declaration* (`HostDisplaySpec` — `pixelWidth`/`renderWidth`/…, rotation, palette), and on `onAction`/`renderPreview`'s context it is what the designer *resolved* that to (`HostDisplayGeometry` — `width`, `height`, `rotation`). Declared in, resolved out; a host pushes the first and reads the second.
+
+**Follow-up, same 3.0.0 release** (maintainer ruling 2026-08-31): `HostDisplaySpec`'s own fields were snake_case, the one published interface not camelCase, on the stated grounds that they mirrored the JSON shape the OpenDisplay HA integration's PR100 exploration emitted. That exploration was never live and turned out not to work well — inspiration, not authority — so the rationale no longer holds, and with a major bump already in flight there is no reason for one published interface to read differently from the rest. Same mechanical search-and-replace:
+
+| 2.x field (`HostDisplaySpec`) | 3.0.0 field |
+|-----|-----|
+| `pixel_width` | `pixelWidth` |
+| `pixel_height` | `pixelHeight` |
+| `rotation_degrees` | `rotationDegrees` |
+| `render_width` | `renderWidth` |
+| `render_height` | `renderHeight` |
+| `color_scheme` | `colorScheme` |
+| `accent_color` | `accentColor` |
+| `available_colors` | `availableColors` |
+| `color_map` | `colorMap` |
+| `palette_measured` | `paletteMeasured` |
+
+A host's own attribute names (an HA integration's entity attributes, say) are unaffected — only the keys `HostDisplaySpec` itself declares moved; a host-side adapter maps its own shape onto these keys the same way it always mapped onto the type.
 
 ### `states`
 
@@ -292,7 +309,7 @@ const targets = [
   {
     id: 'display.kitchen',              // opaque, host-defined; echoed back untouched
     label: 'Kitchen tag (296×128 BWR)', // picker entry text
-    display: { render_width: 296, render_height: 128, color_scheme: 0x01 },
+    display: { renderWidth: 296, renderHeight: 128, colorScheme: 0x01 },
   },
   { id: 'display.office', label: 'Office display', display: { /* … */ } },
 ]
@@ -320,7 +337,7 @@ handle.setTargets([...targets, discoveredDisplay])   // appears in the picker, n
 - **Mirroring holds for every push, not just the first.** Because a mount option *is* an initial push, both halves of the rule apply to a later `setTargets()` while the user has made no choice: pushing a different single display **re-pins** to it (and reports it), and narrowing a multi-display list down to one adopts and locks that one. Widening back to several leaves the design where it is — it is now a choice, and a choice moves nothing by itself.
 - **Auto-adoption stops the moment the user chooses.** Once the user has picked a display, picked "Virtual display", or worked the lock, nothing but another pick moves the canvas — so a host may re-push its inventory on a timer, and a list that happens to narrow to one display never drags the user back onto hardware they deliberately left. Picking a display your last push no longer offers is *not* a choice — there is nothing to adopt, so it changes nothing at all and leaves mirroring live.
 - **Selecting a display adopts its declared spec and locks** the display config, reusing the [display config lock](#display-config-lock-issue-70) UX: the lock icon appears, the resolution / color-mode controls follow it, and re-locking restores the **selected display's** values.
-- **A display resolves from the designer's canonical defaults, not from the canvas in front of the user.** Adopting a display *is* that display, so the same target always produces the same canvas, whatever was adopted before it. What a display does not declare comes from the defaults (no rotation, canonical palette) — never from the display previously in effect, whose rotation would stand a 296×128 panel on end and whose measured `color_map` would paint one panel's red on another's tag ([ADR-007](adr/ADR-007-hybrid-rendering.md) parity). The designer-only preview dither mode is the one thing that survives an adoption, exactly as it survives the lock: it belongs to no display.
+- **A display resolves from the designer's canonical defaults, not from the canvas in front of the user.** Adopting a display *is* that display, so the same target always produces the same canvas, whatever was adopted before it. What a display does not declare comes from the defaults (no rotation, canonical palette) — never from the display previously in effect, whose rotation would stand a 296×128 panel on end and whose measured `colorMap` would paint one panel's red on another's tag ([ADR-007](adr/ADR-007-hybrid-rendering.md) parity). The designer-only preview dither mode is the one thing that survives an adoption, exactly as it survives the lock: it belongs to no display.
 - **Re-pushing the selected display's spec re-applies it.** If a `setTargets()` push carries a *different* `display` spec for the display the design is currently pinned to, the host has re-defined that display, so the canvas follows it and stays locked. Unlocked, the user owns the canvas: the new values are stored, and re-locking applies them. A push that only *relabels* the display moves nothing. **Rotation is the one field this re-apply does not always follow** (see the lock's scope below): if the user changed rotation since the display was adopted, that rotation survives; only a rotation left untouched since then adopts what the display now declares. Adopting the display again always resets this — the freshly adopted rotation is the new baseline.
 - **"Virtual display" is the picker's name for unlocked.** Picking it is identical to clicking the lock open: the controls become editable and the design is no longer pinned to real hardware. The selection is *remembered* while unlocked — re-locking (or picking the display again) returns to it — so the picker reads "Virtual display" whenever the config is unlocked, and the display again once it is not.
 - **Re-pushable, and diffed.** Push the *whole* list again whenever your inventory changes; the designer compares it structurally and does nothing at all when it is unchanged. Pushed targets are copied and frozen on the way in (like [`actions`](#actions--onaction-issue-108), unlike [`states`](#states)), so mutate-and-repush works.
@@ -335,33 +352,33 @@ handle.setTargets([...targets, discoveredDisplay])   // appears in the picker, n
 
 The host's own declaration of the panel. Every field is optional; anything a display does not declare comes from the designer's canonical defaults.
 
-**The keys are snake_case on purpose** — this is the one published interface that is not camelCase. They mirror, verbatim, the JSON a host already has on the wire: the OpenDisplay HA integration's `designer/capabilities.py` publishes exactly these names as image-entity attributes and its panel wrapper passes them straight through, so a host-side adapter needs no translation layer.
+camelCase, like every other published field — the designer owns this contract, and a host adapts its own data to it, not the other way round (maintainer ruling 2026-08-31: the earlier snake_case spelling mirrored an HA integration exploration that was never live; with a major bump there is no reason for one published interface to read differently from the rest).
 
 ```js
 {
-  pixel_width: 296, pixel_height: 128,   // physical panel, before rotation
-  rotation_degrees: 0,                    // quarter turns only
-  render_width: 296, render_height: 128,  // drawing surface (preferred)
-  color_scheme: 0x01,                     // Basic Standard 0x00 BW … 0x04 six
-  accent_color: 'red',
-  available_colors: ['black', 'white', 'red'],
-  color_map: { black: '#000000', white: '#ffffff', red: '#c53929' },
-  palette_measured: true,
+  pixelWidth: 296, pixelHeight: 128,   // physical panel, before rotation
+  rotationDegrees: 0,                   // quarter turns only
+  renderWidth: 296, renderHeight: 128,  // drawing surface (preferred)
+  colorScheme: 0x01,                    // Basic Standard 0x00 BW … 0x04 six
+  accentColor: 'red',
+  availableColors: ['black', 'white', 'red'],
+  colorMap: { black: '#000000', white: '#ffffff', red: '#c53929' },
+  paletteMeasured: true,
 }
 ```
 
 Mapping onto the canvas ([`src/embed/hostContract.ts`](../src/embed/hostContract.ts)):
 
-- **Size** — `render_width`/`render_height` when both present, else `pixel_width`/`pixel_height` swapped for 90°/270° rotations. Either way the result is the **logical drawing surface**: the canvas the payload is authored against, which the designer then presents upright (see [Rotation](#rotation-issue-139)).
-- **Rotation** — `rotation_degrees` normalized into {0, 90, 180, 270}; other angles fall back to upright. It states the orientation of that surface; it is never applied as a transform to the design.
+- **Size** — `renderWidth`/`renderHeight` when both present, else `pixelWidth`/`pixelHeight` swapped for 90°/270° rotations. Either way the result is the **logical drawing surface**: the canvas the payload is authored against, which the designer then presents upright (see [Rotation](#rotation-issue-139)).
+- **Rotation** — `rotationDegrees` normalized into {0, 90, 180, 270}; other angles fall back to upright. It states the orientation of that surface; it is never applied as a transform to the design.
 
-> **Contract: `rotation_degrees` describes the orientation `render_*` is expressed in.**
-> The two are adopted as **one indivisible pair** — a display's two dimensions plus which way round they go — and every later re-orientation (the user turning the canvas, a re-lock, a re-push) turns that pair as a unit. So `rotation_degrees` must be the **effective** orientation the render dimensions are already in, not a base rotation still to be applied to them. A host that pairs a base rotation with effective-swapped dimensions is out of contract: the designer cannot detect the mismatch, and the surface reads the wrong way round as soon as the user re-orients it. When you send `pixel_*` instead, send the **physical** panel dimensions — the designer swaps them for a quarter turn itself.
+> **Contract: `rotationDegrees` describes the orientation `render*` is expressed in.**
+> The two are adopted as **one indivisible pair** — a display's two dimensions plus which way round they go — and every later re-orientation (the user turning the canvas, a re-lock, a re-push) turns that pair as a unit. So `rotationDegrees` must be the **effective** orientation the render dimensions are already in, not a base rotation still to be applied to them. A host that pairs a base rotation with effective-swapped dimensions is out of contract: the designer cannot detect the mismatch, and the surface reads the wrong way round as soon as the user re-orients it. When you send `pixel*` instead, send the **physical** panel dimensions — the designer swaps them for a quarter turn itself.
 
-- **Palette structure** — `color_scheme` (Basic Standard value) wins; else inferred from `color_map` keys / `available_colors` names; else `accent_color`.
-- **Palette hexes** — the measured hex values in `color_map` re-color the active palette: preview canvas, PNG export, halftone dither tiles and the layer-list color swatches all paint the adopted hexes (one palette source of truth). Recognized names: `black`, `white`, `red`, `yellow`, `blue`, `green`; invalid hexes and unknown names are ignored. Half tones (`half_red`, `gray`, …) are re-derived as the same blends of the measured primaries. The `accent` keyword resolves through the same map, so `accent_color` participates automatically. A display with no `color_map` renders the canonical palette, and standalone rendering is unchanged.
+- **Palette structure** — `colorScheme` (Basic Standard value) wins; else inferred from `colorMap` keys / `availableColors` names; else `accentColor`.
+- **Palette hexes** — the measured hex values in `colorMap` re-color the active palette: preview canvas, PNG export, halftone dither tiles and the layer-list color swatches all paint the adopted hexes (one palette source of truth). Recognized names: `black`, `white`, `red`, `yellow`, `blue`, `green`; invalid hexes and unknown names are ignored. Half tones (`half_red`, `gray`, …) are re-derived as the same blends of the measured primaries. The `accent` keyword resolves through the same map, so `accentColor` participates automatically. A display with no `colorMap` renders the canonical palette, and standalone rendering is unchanged.
 
-Junk field values are ignored rather than rejected — a non-quarter rotation or a zero size falls back to the defaults instead of refusing a display the host says exists. Known gaps: `palette_measured` is informational only (the hexes apply whether or not it is set), and fractional rotations are not representable. YAML export semantics are untouched — the payload always carries color *names*, never display hexes.
+Junk field values are ignored rather than rejected — a non-quarter rotation or a zero size falls back to the defaults instead of refusing a display the host says exists. Known gaps: `paletteMeasured` is informational only (the hexes apply whether or not it is set), and fractional rotations are not representable. YAML export semantics are untouched — the payload always carries color *names*, never display hexes.
 
 #### Rotation ([issue #139](https://github.com/schlomo/odl-drawcustom-designer/issues/139))
 
@@ -375,9 +392,9 @@ panels and only the per-device `rotate` differs (0 and 270).
 
 Consequences for hosts:
 
-- `render_width`/`render_height` (or the swapped `pixel_*` fallback) are the
-  surface the payload is authored against — exactly what upstream's
-  `capabilities.py` computes.
+- `renderWidth`/`renderHeight` (or the swapped `pixel*` fallback) are the
+  surface the payload is authored against — the designer's own resolution of
+  whatever the host declared.
 - The **orientation control** in the designer chooses the orientation of that
   surface: a quarter turn swaps its W/H. It never turns the editing surface,
   the elements, or the exported image. It is also the **only** control that

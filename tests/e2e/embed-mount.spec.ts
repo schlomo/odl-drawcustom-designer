@@ -43,9 +43,9 @@ test('mounts self-contained: the pushed display drives the canvas, host states d
   await expect(page.getByLabel('Copy share link')).toHaveCount(0)
 })
 
-test('measured color_map hexes re-color the preview palette (issue #68)', async ({ page }) => {
+test('measured colorMap hexes re-color the preview palette (issue #68)', async ({ page }) => {
   // The demo payload draws a rectangle with `outline: red`; the demo host
-  // pushes a measured color_map with red = #c53929. Computed paint evidence:
+  // pushes a measured colorMap with red = #c53929. Computed paint evidence:
   // the rendered SVG rect must stroke in the measured hex, not canonical red.
   const strokes = await page
     .locator('#designer svg rect[stroke]')

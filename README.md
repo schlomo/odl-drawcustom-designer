@@ -31,7 +31,7 @@ const handle = mount(document.getElementById('designer'), {
   targets: [{
     id: 'display.kitchen',
     label: 'Kitchen tag',
-    display: { pixel_width: 296, pixel_height: 128, color_scheme: 0x01 },
+    display: { pixelWidth: 296, pixelHeight: 128, colorScheme: 0x01 },
   }],
   // Your buttons in the designer's toolbar — the only save/send channel there
   // is: the designer never persists or transmits anything itself.

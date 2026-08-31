@@ -9,12 +9,12 @@ export const NO_HOST_TARGETS: readonly HostTarget[] = Object.freeze([])
  * field set is what makes the push-diff below exact and cheap.
  */
 const NUMBER_FIELDS = [
-  'pixel_width',
-  'pixel_height',
-  'rotation_degrees',
-  'render_width',
-  'render_height',
-  'color_scheme',
+  'pixelWidth',
+  'pixelHeight',
+  'rotationDegrees',
+  'renderWidth',
+  'renderHeight',
+  'colorScheme',
 ] as const
 
 function fail(message: string): never {
@@ -49,25 +49,25 @@ function copyDisplaySpec(value: unknown, where: string): HostDisplaySpec {
       copy[field] = source[field]
     }
   }
-  if (source.accent_color !== undefined) {
-    copy.accent_color = source.accent_color
+  if (source.accentColor !== undefined) {
+    copy.accentColor = source.accentColor
   }
-  if (source.palette_measured !== undefined) {
-    copy.palette_measured = source.palette_measured
+  if (source.paletteMeasured !== undefined) {
+    copy.paletteMeasured = source.paletteMeasured
   }
-  if (source.available_colors !== undefined) {
+  if (source.availableColors !== undefined) {
     // Checked, not spread blind: `[...value]` on a non-iterable throws a bare
     // "is not iterable" that names neither this module nor the offending
     // target, so the host cannot tell which push it came from.
-    if (!Array.isArray(source.available_colors)) {
+    if (!Array.isArray(source.availableColors)) {
       fail(
-        `${where} needs available_colors as an array (got ${JSON.stringify(source.available_colors)})`,
+        `${where} needs availableColors as an array (got ${JSON.stringify(source.availableColors)})`,
       )
     }
-    copy.available_colors = Object.freeze([...source.available_colors]) as string[]
+    copy.availableColors = Object.freeze([...source.availableColors]) as string[]
   }
-  if (source.color_map !== undefined) {
-    copy.color_map = Object.freeze({ ...source.color_map })
+  if (source.colorMap !== undefined) {
+    copy.colorMap = Object.freeze({ ...source.colorMap })
   }
   return Object.freeze(copy)
 }
@@ -151,10 +151,10 @@ export function displaySpecEqual(a: HostDisplaySpec, b: HostDisplaySpec): boolea
   return (
     a === b ||
     (NUMBER_FIELDS.every((field) => a[field] === b[field]) &&
-      a.accent_color === b.accent_color &&
-      a.palette_measured === b.palette_measured &&
-      arrayEqual(a.available_colors, b.available_colors) &&
-      colorMapEqual(a.color_map, b.color_map))
+      a.accentColor === b.accentColor &&
+      a.paletteMeasured === b.paletteMeasured &&
+      arrayEqual(a.availableColors, b.availableColors) &&
+      colorMapEqual(a.colorMap, b.colorMap))
   )
 }
 
