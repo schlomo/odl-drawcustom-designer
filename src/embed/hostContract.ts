@@ -337,22 +337,22 @@ function accentColorToColorMode(accent: string | undefined): TagColorMode | null
   }
 }
 
-function resolveColorMode(capabilities: HostDisplaySpec): TagColorMode | null {
-  const { color_scheme } = capabilities
+function resolveColorMode(display: HostDisplaySpec): TagColorMode | null {
+  const { color_scheme } = display
   if (typeof color_scheme === 'number' && color_scheme >= 0x00 && color_scheme <= 0x04) {
     return colourSchemeToColorMode(color_scheme)
   }
-  if (capabilities.color_map && Object.keys(capabilities.color_map).length > 0) {
-    return paletteNamesToColorMode(Object.keys(capabilities.color_map))
+  if (display.color_map && Object.keys(display.color_map).length > 0) {
+    return paletteNamesToColorMode(Object.keys(display.color_map))
   }
-  if (capabilities.available_colors && capabilities.available_colors.length > 0) {
-    return paletteNamesToColorMode(capabilities.available_colors)
+  if (display.available_colors && display.available_colors.length > 0) {
+    return paletteNamesToColorMode(display.available_colors)
   }
-  return accentColorToColorMode(capabilities.accent_color)
+  return accentColorToColorMode(display.accent_color)
 }
 
 /**
- * Map a display target's capabilities onto the canvas config — the designer's
+ * Map a display target's display spec onto the canvas config — the designer's
  * one display mapping (issue #106; the `capabilities` push channel it used to
  * share this with is gone, issue #121).
  *
@@ -377,22 +377,22 @@ function resolveColorMode(capabilities: HostDisplaySpec): TagColorMode | null {
  * dimensions is out of contract: the designer cannot detect the mismatch, and
  * the surface will read the wrong way round when the user re-orients it.
  */
-export function capabilitiesToCanvas(
-  capabilities: HostDisplaySpec,
+export function displaySpecToCanvas(
+  display: HostDisplaySpec,
   previewDitherMode: PreviewDitherMode,
 ): CanvasConfig {
   const base: CanvasConfig = { ...DEFAULT_DISPLAY_CONFIG, previewDitherMode }
-  const rotation = normalizeRotation(capabilities.rotation_degrees) ?? base.rotation
+  const rotation = normalizeRotation(display.rotation_degrees) ?? base.rotation
 
   let width = base.width
   let height = base.height
-  if (isPositiveSize(capabilities.render_width) && isPositiveSize(capabilities.render_height)) {
-    width = Math.round(capabilities.render_width)
-    height = Math.round(capabilities.render_height)
-  } else if (isPositiveSize(capabilities.pixel_width) && isPositiveSize(capabilities.pixel_height)) {
+  if (isPositiveSize(display.render_width) && isPositiveSize(display.render_height)) {
+    width = Math.round(display.render_width)
+    height = Math.round(display.render_height)
+  } else if (isPositiveSize(display.pixel_width) && isPositiveSize(display.pixel_height)) {
     const swap = rotation === 90 || rotation === 270
-    width = Math.round(swap ? capabilities.pixel_height : capabilities.pixel_width)
-    height = Math.round(swap ? capabilities.pixel_width : capabilities.pixel_height)
+    width = Math.round(swap ? display.pixel_height : display.pixel_width)
+    height = Math.round(swap ? display.pixel_width : display.pixel_height)
   }
 
   return {
@@ -400,9 +400,9 @@ export function capabilitiesToCanvas(
     width,
     height,
     rotation,
-    colorMode: resolveColorMode(capabilities) ?? base.colorMode,
+    colorMode: resolveColorMode(display) ?? base.colorMode,
     // Measured panel hexes re-color the active palette (issue #68). `accent`
     // resolves through the same map, so accent_color participates implicitly.
-    paletteOverrides: normalizePaletteOverrides(capabilities.color_map) ?? base.paletteOverrides,
+    paletteOverrides: normalizePaletteOverrides(display.color_map) ?? base.paletteOverrides,
   }
 }

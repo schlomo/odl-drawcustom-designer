@@ -4,7 +4,7 @@ import type { HostDisplaySpec, HostTarget } from './types'
 export const NO_HOST_TARGETS: readonly HostTarget[] = Object.freeze([])
 
 /**
- * The capability fields a pushed target retains — the documented
+ * The display-spec fields a pushed target retains — the documented
  * {@link HostDisplaySpec} surface, nothing else. Keeping the copy to a known
  * field set is what makes the push-diff below exact and cheap.
  */
@@ -32,13 +32,13 @@ function requireText(value: unknown, field: string, where: string): string {
 /**
  * Frozen copy of a target's display spec ({@link HostDisplaySpec}).
  *
- * Field *values* are not validated here on purpose: `capabilitiesToCanvas`
+ * Field *values* are not validated here on purpose: `displaySpecToCanvas`
  * already tolerates junk (a non-quarter rotation falls back to the canonical
  * one, a zero size is ignored) rather than refusing a display the host says
  * exists. A second, stricter contract for the same payload shape would mean
  * two answers to "what is a valid display?".
  */
-function copyCapabilities(value: unknown, where: string): HostDisplaySpec {
+function copyDisplaySpec(value: unknown, where: string): HostDisplaySpec {
   if (value == null || typeof value !== 'object' || Array.isArray(value)) {
     fail(`${where} needs a display object (got ${JSON.stringify(value)})`)
   }
@@ -109,7 +109,7 @@ export function normalizeHostTargets(targets: readonly HostTarget[]): readonly H
     return Object.freeze({
       id,
       label: requireText(target.label, 'label', where),
-      display: copyCapabilities(target.display, where),
+      display: copyDisplaySpec(target.display, where),
     })
   })
 
@@ -142,12 +142,12 @@ function colorMapEqual(
 }
 
 /**
- * Structural equality over the normalized (known-field) capability copy.
+ * Structural equality over the normalized (known-field) display-spec copy.
  *
  * Also the test for "the host re-defined the display the design is pinned to":
  * every push carries freshly built objects, so identity says nothing.
  */
-export function hostCapabilitiesEqual(a: HostDisplaySpec, b: HostDisplaySpec): boolean {
+export function displaySpecEqual(a: HostDisplaySpec, b: HostDisplaySpec): boolean {
   return (
     a === b ||
     (NUMBER_FIELDS.every((field) => a[field] === b[field]) &&
@@ -176,7 +176,7 @@ export function hostTargetsEqual(a: readonly HostTarget[], b: readonly HostTarge
     return (
       target.id === other.id &&
       target.label === other.label &&
-      hostCapabilitiesEqual(target.display, other.display)
+      displaySpecEqual(target.display, other.display)
     )
   })
 }

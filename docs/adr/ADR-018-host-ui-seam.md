@@ -171,14 +171,15 @@ data contract — no new lifecycle, no new adapter shape:
     it, so re-locking returns to the selected target. What the picker reads is
     therefore always the display the design is pinned to right now.
   - **One mapping, two bases** (maintainer ruling 2026-08-16). The channels
-    share `capabilitiesToCanvas` but resolve it against different bases, and
-    that difference is the whole of what "anonymous display" versus "named
-    display" means:
+    shared one mapping helper — named `capabilitiesToCanvas` at the time,
+    renamed `displaySpecToCanvas` at 3.0.0 (see the rename ruling above) —
+    but resolved it against different bases, and that difference was the
+    whole of what "anonymous display" versus "named display" meant:
 
-    | channel | base | rationale |
+    | channel (1.x, removed at 2.0 except `targets`) | base | rationale |
     |---------|------|-----------|
-    | `capabilities` push | the **current canvas** (`capabilitiesToCanvas`) | a partial push re-asserts *some* facts about the display already in effect — `{ rotation_degrees: 90 }` re-declares its orientation |
-    | `targets` pick | the **designer defaults** (`targetCapabilitiesToCanvas`) | picking names a *different* display; the same target must yield the same canvas whatever preceded it, and inheriting the previous display's rotation or measured `color_map` corrupts ADR-007 parity |
+    | `capabilities` push | the **current canvas** (via what is now `displaySpecToCanvas`) | a partial push re-asserts *some* facts about the display already in effect — `{ rotation_degrees: 90 }` re-declares its orientation |
+    | `targets` pick | the **designer defaults** (via the separate `targetCapabilitiesToCanvas` helper, since folded into the single `displaySpecToCanvas`) | picking names a *different* display; the same target must yield the same canvas whatever preceded it, and inheriting the previous display's rotation or measured `color_map` corrupts ADR-007 parity |
 
     The preview dither mode is designer-only and survives both, as it survives
     the lock.
