@@ -1920,6 +1920,17 @@ export function useProjectState(
   // flush of any pending YAML-editor debounce.
   const getElementsSnapshot = useCallback(() => elementsRef.current, [])
 
+  // Same "read a ref, not a render dependency" shape, for `canvas` (issue
+  // #105 review): `commitCanvas` updates `canvasRef.current` before the React
+  // state setter, so a caller inside the same synchronous dispatch as a
+  // `setRotation`/`setCanvasSize` call — an `onAction` handler fired in the
+  // same batched event as an orientation change, say — reads the value that
+  // change just committed, not a closure over the canvas as of the last
+  // render. `handleHostAction`'s `display`/`service` context (issue #105)
+  // is built from this, not from a `useMemo`/`useCallback` dependency on
+  // `canvas`, for exactly that reason.
+  const getCanvasSnapshot = useCallback(() => canvasRef.current, [])
+
   // Synchronous accessor onto the edit-tracking refs above (issue #133) — the
   // same "read a ref, not a render dependency" shape as `getElementsSnapshot`,
   // since `getStatus()` must answer with the value at the instant it is
@@ -1940,6 +1951,7 @@ export function useProjectState(
     elements,
     setElements: setElementsWithHistory,
     getElementsSnapshot,
+    getCanvasSnapshot,
     getEditStatus,
     /**
      * The one authoritative reactivity signal for `getEditStatus()`'s values

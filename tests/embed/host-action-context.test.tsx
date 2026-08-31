@@ -219,12 +219,50 @@ describe('host action context carries live display/service state (issue #105 WYS
     const first = actionContextOf(onAction.mock.calls[0])
     const second = actionContextOf(onAction.mock.calls[1])
 
+    // Guard against the freeze assertions below passing vacuously: an absent
+    // `display`/`service` (the pre-#105 context shape) would make
+    // `Object.isFrozen` trivially `true` (it reports `true` for `undefined`
+    // by spec) and the mutation attempt below would throw for the unrelated
+    // reason of writing a property onto `undefined` — neither would actually
+    // exercise this test's claim. Assert the real, current values first.
+    expect(first.display).toEqual({
+      width: DEFAULT_SURFACE.width,
+      height: DEFAULT_SURFACE.height,
+      rotation: 0,
+    })
+    expect(first.service).toEqual({ dither: 0 })
+
     expect(Object.isFrozen(first)).toBe(true)
+    expect(Object.isFrozen(first.display)).toBe(true)
     expect(Object.isFrozen(first.service)).toBe(true)
     expect(first).not.toBe(second)
     expect(() => {
-      // @ts-expect-error deliberate mutation attempt of a frozen snapshot
+      // @ts-expect-error deliberate mutation attempt of a frozen, readonly snapshot
       first.service.dither = 2
     }).toThrow()
+  })
+
+  it('reports the rotation a same-tick setRotation call just committed, not a stale render closure', () => {
+    // Field evidence (#105 review): a `useCallback`/`useMemo` closing over
+    // `canvas` still holds the *previous* render's geometry for any
+    // `onAction` fired in the same synchronous dispatch as a
+    // `setRotation`/`setCanvasSize` call — batching both DOM events inside
+    // one `act()` reproduces that without ever letting React re-render
+    // between them, the same class of stale-closure bug `elementsRef`/
+    // `getElementsSnapshot` fixed for `getPayload()` (issue #104).
+    const onAction = vi.fn()
+    mountRaw({ payload: PAYLOAD, actions: [SEND], onAction })
+
+    act(() => {
+      fireEvent.click(designer().getByRole('button', { name: '90°' }))
+      fireEvent.click(actionButton('Send to display'))
+    })
+
+    expect(onAction).toHaveBeenCalledTimes(1)
+    expect(actionContextOf(onAction.mock.calls[0]).display).toEqual({
+      width: DEFAULT_SURFACE.height,
+      height: DEFAULT_SURFACE.width,
+      rotation: 90,
+    })
   })
 })
