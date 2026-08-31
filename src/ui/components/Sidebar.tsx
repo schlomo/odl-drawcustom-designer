@@ -330,7 +330,21 @@ export function Sidebar({
             ruling 2026-08-16): rotation is a user choice — portrait mounting
             of the same physical display — so it stays editable while locked,
             unlike every other control in this section. */}
-        <span className={`mt-2 block text-xs ${shell.muted}`}>Orientation</span>
+        <div className="mt-2 flex items-baseline justify-between gap-2">
+          <span className={`text-xs ${shell.muted}`}>Orientation</span>
+          {/* Tiny, persistent hint (maintainer ruling: must fit beside the
+              heading, not add a stacked line) — canvas always draws upright
+              here, so 0/180 and 90/270 look alike; it is what changes when
+              the design is sent to the display. Longer explanation lives in
+              `title` only; do not claim any preview shows the final render
+              here — that is unverified (see docs/embedding.md Rotation). */}
+          <span
+            className={`whitespace-nowrap text-[9px] ${shell.muted}`}
+            title="Canvas always draws upright — 0°/180° and 90°/270° look the same here. Orientation describes how the panel is mounted and is applied when the design is sent to the display."
+          >
+            Always upright
+          </span>
+        </div>
         <div className="mt-1 flex gap-1" role="group" aria-label="Orientation">
           {ROTATION_OPTIONS.map((value) => (
             <button

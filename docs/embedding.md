@@ -390,7 +390,11 @@ creates the Pillow canvas *already swapped*, draws every element upright in
 it, and rotates only the finished bitmap, once, at the very end. Percentage
 coordinates resolve against that same logical surface. A payload is therefore
 orientation-independent — the same 384×184 payload goes to two same-resolution
-panels and only the per-device `rotate` differs (0 and 270).
+panels and only the per-device `rotate` differs (0 and 270). One consequence
+for the sidebar: because the designer always presents the surface upright,
+0°/180° and 90°/270° render identically there — the orientation control
+states how the panel is mounted, applied when the design is sent to the
+display.
 
 Consequences for hosts:
 
