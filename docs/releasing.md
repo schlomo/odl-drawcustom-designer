@@ -126,9 +126,29 @@ placeholder like `APP_VERSION`'s `0.0.0-dev`. The header
 (`src/ui/App.tsx`) reads an empty `APP_SITE_VERSION` as "show branch + SHA
 instead" — today's behavior, unchanged.
 
-**PR previews are unaffected** — the `preview` job never sets
-`SITE_VERSION`, so every PR preview keeps showing `PR #n · Branch: <b>` +
-short SHA, exactly as before.
+**PR previews are unaffected by `SITE_VERSION`** — the `preview` job
+never sets it, so no PR preview ever shows a version label.
+
+**PR preview header shape** (maintainer ruling 2026-08-31, on PR #173's own
+preview): the PR number and the full branch name are rendered as VISIBLE
+TEXT — `PR #173 · feat/site-release-version · abc1234` — not hidden behind
+a hover tooltip. Earlier this label ran `formatGitBranchLabel`'s fixed
+12-character leaf truncation (meant for the narrow-width fallback, not the
+everyday case), which showed an unreadable stub like `site-releas...` with
+the PR number visible only on hover. The hover tooltip (`PR #173 · Branch:
+feat/site-release-version`) is unchanged - that phrasing is what the
+maintainer liked - but the literal word "Branch:" is dropped from the
+visible text as redundant once "PR #n" and the name sit side by side.
+
+The branch name is the one flexible segment: it and its containing link
+carry `min-w-0` + Tailwind's `truncate`, and are never `shrink-0`, so a
+long branch name (e.g. `chore/deps-bump-npm-version-updates-group`)
+degrades via CSS ellipsis - continuously, down to effectively nothing at
+the narrowest widths - instead of ever widening the header row (AGENTS.md's
+horizontal-scrollbar bug class; ADR-016 single-row responsive layout). "PR
+#n" itself stays fixed-width/non-breaking. The full, untruncated branch
+name always reaches the DOM and the tooltip regardless of how it renders
+visually - see `tests/ui/components/app-header-pr-preview-long-branch.test.tsx`.
 
 ## Release procedure: automated (primary, issue #93)
 

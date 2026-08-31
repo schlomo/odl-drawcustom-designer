@@ -2,11 +2,15 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// PR-preview build metadata must stay unchanged: no version label, ever —
-// only branch + SHA (+ "PR #n" in the tooltip). Mock a real (non-dev/test)
-// PR number and branch, distinct from Vitest's own 'test' placeholders, so
-// this test cannot pass merely because Vitest's defaults happen to look
-// unlabeled (same rationale as app-header-revision-tooltip.test.tsx).
+// PR-preview build metadata must stay unchanged in kind (no version label,
+// ever) but the PR number and branch name must now be RENDERED TEXT, not
+// tooltip-only (maintainer ruling 2026-08-31 on the PR #173 preview: the
+// old label ran formatGitBranchLabel's fixed 12-char leaf truncation,
+// which showed an unreadable "site-releas…" stub with the PR number
+// visible only on hover). Mock a real (non-dev/test) PR number and branch,
+// distinct from Vitest's own 'test' placeholders, so this test cannot pass
+// merely because Vitest's defaults happen to look unlabeled (same
+// rationale as app-header-revision-tooltip.test.tsx).
 const { PR_NUMBER, PR_BRANCH } = vi.hoisted(() => ({
   PR_NUMBER: 42,
   PR_BRANCH: 'feat/some-branch',
@@ -25,7 +29,7 @@ vi.mock('../../../src/core', async (importOriginal) => {
 import { App } from '../../../src/ui/App'
 import { buildAppBootstrap } from '../../../src/ui/bootstrap/appBootstrap'
 import { createStandaloneHost } from '../../../src/embed/standaloneHost'
-import { formatGitBranchLabel, githubBranchUrl } from '../../../src/core'
+import { githubBranchUrl } from '../../../src/core'
 
 const STANDALONE_HOST = createStandaloneHost()
 
@@ -77,7 +81,7 @@ describe('App header build metadata (PR preview build)', () => {
     stubMatchMedia()
   })
 
-  it('shows the branch link titled with the PR number, and no version label', async () => {
+  it('renders the PR number and the full branch name as visible text (not tooltip-only), and no version label', async () => {
     render(<App bootstrap={bootstrapForApp()} host={STANDALONE_HOST} />)
 
     await waitFor(() => {
@@ -86,9 +90,21 @@ describe('App header build metadata (PR preview build)', () => {
 
     const meta = screen.getByTestId('header-meta-row')
 
+    // The PR number is its own visible text node, not buried in a title
+    // attribute — getByText only matches rendered text content.
+    expect(within(meta).getByText(`PR #${PR_NUMBER}`)).toBeInTheDocument()
+
+    // The full, untruncated branch name is visible text too — this is the
+    // exact regression the old formatGitBranchLabel(12-char leaf) label
+    // caused ("site-releas…" instead of the real branch).
+    expect(within(meta).getByText(PR_BRANCH)).toBeInTheDocument()
+
+    // "PR #n" and the branch name are FLAT siblings (a plain span plus
+    // the branch link) — not one nested inside the other — so the link's
+    // own text content is just the branch name.
     const branchLink = within(meta).getByTitle(`PR #${PR_NUMBER} · Branch: ${PR_BRANCH}`)
     expect(branchLink).toHaveAttribute('href', githubBranchUrl(PR_BRANCH, PR_NUMBER))
-    expect(branchLink).toHaveTextContent(formatGitBranchLabel(PR_BRANCH))
+    expect(branchLink).toHaveTextContent(PR_BRANCH)
 
     // No "v<version>"-shaped link anywhere in the meta row.
     const links = within(meta).getAllByRole('link')
