@@ -8058,7 +8058,7 @@ function re(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var ie = /* @__PURE__ */ new Set(["dev", "test"]), ae = "feat/105-action-context", oe = "50d5c7b", se = "24d5b42", O = "0.0.0-dev";
+var ie = /* @__PURE__ */ new Set(["dev", "test"]), ae = "feat/105-action-context", oe = "6fa95d4", se = "d1efeaf", O = "0.0.0-dev";
 function k(e, t = 12) {
 	if (ie.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -76382,6 +76382,7 @@ function Qsn(e, t, { yamlDiscardPendingRef: n } = {}) {
 			});
 		}, [R, Ie]),
 		getElementsSnapshot: (0, v.useCallback)(() => F.current, []),
+		getCanvasSnapshot: (0, v.useCallback)(() => I.current, []),
 		getEditStatus: (0, v.useCallback)(() => ({
 			lastEditAt: M.current,
 			payloadRevision: j.current
@@ -76572,27 +76573,27 @@ function lcn(e) {
 	return t === -1 ? e : e.slice(0, t);
 }
 function ucn({ bootstrap: e, host: t }) {
-	let n = (0, v.useRef)(null), r = (0, v.useRef)(null), i = mK(r), a = Z9(t), o = tcn({ applyToDocument: a == null }), { mode: s, cycleMode: c } = o, l = a ?? o.resolvedTheme, { couplingEnabled: u } = Q7(), [d, f] = (0, v.useState)(null), [p, m] = (0, v.useState)(null), [h, g] = (0, v.useState)([]), [_, y] = (0, v.useState)(!1), [b, x] = (0, v.useState)(!1), [E, ee] = (0, v.useState)(!1), D = ncn(E), [te, ne] = (0, v.useState)(null), { flashSuccess: re, flashError: ie, getFeedback: O, getFeedbackMessage: fe } = jK(), A = (0, v.useRef)(null), j = (0, v.useRef)(null), { sessionName: M, service: pe, elements: N, getElementsSnapshot: me, getEditStatus: he, editStatusVersion: P, previewElements: F, selectedIndices: I, selectedIndex: L, selectionSource: ge, selectedElements: _e, selectElement: ve, applyYamlSelection: ye, canvas: be, renderContext: xe, setColorMode: Se, setCanvasSize: Ce, setRotation: we, displayLock: Te, toggleDisplayLock: Ee, hostTargets: De, selectedTargetId: Oe, selectedTargetLabel: R, selectDisplayTarget: ke, activeTargetId: Ae, hostActions: je, setElements: z, mockContext: Me, previewMockContext: Ne, hostStateCatalog: Pe, setMockState: B, addMockEntity: Fe, removeMockEntity: Ie, setMockAttribute: Le, renameMockAttribute: Re, removeMockAttribute: ze, variables: Be, setVariable: Ve, addVariable: He, renameVariable: V, removeVariable: H, extraEntityIds: Ue, assetRevision: U, uploadAsset: We, clearAsset: Ge, updateElement: Ke, updateElementsBatch: qe, updateElementProperty: Je, updateSelectedProperty: Ye, deleteSelectedElements: Xe, addElement: Ze, clearElements: Qe, loadDemo: $e, nudgeSelectedElements: et, selectAllInRect: tt, bringSelectionToFront: nt, sendSelectionToBack: rt, moveSelectionLayer: it, alignSelection: at, reorderElement: ot, reorderSelection: st, snapGrid: ct, toggleSnapGrid: lt, showHiddenHints: ut, toggleShowHiddenHints: dt, togglePreviewDither: ft, undo: pt, redo: mt, canUndo: ht, canRedo: gt, beginEditCoalesce: _t, endEditCoalesce: vt, cancelEditCoalesce: yt } = Qsn(e, t, { yamlDiscardPendingRef: j }), bt = (0, v.useRef)(N);
+	let n = (0, v.useRef)(null), r = (0, v.useRef)(null), i = mK(r), a = Z9(t), o = tcn({ applyToDocument: a == null }), { mode: s, cycleMode: c } = o, l = a ?? o.resolvedTheme, { couplingEnabled: u } = Q7(), [d, f] = (0, v.useState)(null), [p, m] = (0, v.useState)(null), [h, g] = (0, v.useState)([]), [_, y] = (0, v.useState)(!1), [b, x] = (0, v.useState)(!1), [E, ee] = (0, v.useState)(!1), D = ncn(E), [te, ne] = (0, v.useState)(null), { flashSuccess: re, flashError: ie, getFeedback: O, getFeedbackMessage: fe } = jK(), A = (0, v.useRef)(null), j = (0, v.useRef)(null), { sessionName: M, service: pe, elements: N, getElementsSnapshot: me, getCanvasSnapshot: he, getEditStatus: P, editStatusVersion: F, previewElements: I, selectedIndices: L, selectedIndex: ge, selectionSource: _e, selectedElements: ve, selectElement: ye, applyYamlSelection: be, canvas: xe, renderContext: Se, setColorMode: Ce, setCanvasSize: we, setRotation: Te, displayLock: Ee, toggleDisplayLock: De, hostTargets: Oe, selectedTargetId: R, selectedTargetLabel: ke, selectDisplayTarget: Ae, activeTargetId: je, hostActions: z, setElements: Me, mockContext: Ne, previewMockContext: Pe, hostStateCatalog: B, setMockState: Fe, addMockEntity: Ie, removeMockEntity: Le, setMockAttribute: Re, renameMockAttribute: ze, removeMockAttribute: Be, variables: Ve, setVariable: He, addVariable: V, renameVariable: H, removeVariable: Ue, extraEntityIds: U, assetRevision: We, uploadAsset: Ge, clearAsset: Ke, updateElement: qe, updateElementsBatch: Je, updateElementProperty: Ye, updateSelectedProperty: Xe, deleteSelectedElements: Ze, addElement: Qe, clearElements: $e, loadDemo: et, nudgeSelectedElements: tt, selectAllInRect: nt, bringSelectionToFront: rt, sendSelectionToBack: it, moveSelectionLayer: at, alignSelection: ot, reorderElement: st, reorderSelection: ct, snapGrid: lt, toggleSnapGrid: ut, showHiddenHints: dt, toggleShowHiddenHints: ft, togglePreviewDither: pt, undo: mt, redo: ht, canUndo: gt, canRedo: _t, beginEditCoalesce: vt, endEditCoalesce: yt, cancelEditCoalesce: bt } = Qsn(e, t, { yamlDiscardPendingRef: j }), xt = (0, v.useRef)(N);
 	(0, v.useEffect)(() => {
-		bt.current = N;
+		xt.current = N;
 	}, [N]);
-	let xt = (0, v.useCallback)(() => (A.current?.(), ui(me())), [me]);
+	let St = (0, v.useCallback)(() => (A.current?.(), ui(me())), [me]);
 	(0, v.useLayoutEffect)(() => {
-		if (t.registerPayloadSource) return t.registerPayloadSource(xt);
-	}, [t, xt]);
-	let St = (0, v.useRef)(null), Ct = (0, v.useCallback)(() => {
-		let e = St.current;
+		if (t.registerPayloadSource) return t.registerPayloadSource(St);
+	}, [t, St]);
+	let Ct = (0, v.useRef)(null), wt = (0, v.useCallback)(() => {
+		let e = Ct.current;
 		return e ? e() : Promise.reject(/* @__PURE__ */ Error("The designer canvas is not ready yet"));
 	}, []);
 	(0, v.useLayoutEffect)(() => {
-		if (t.registerRenderSource) return t.registerRenderSource(Ct);
-	}, [t, Ct]);
-	let wt = (0, v.useCallback)(() => {
-		let { lastEditAt: e, payloadRevision: t } = he(), n = {
+		if (t.registerRenderSource) return t.registerRenderSource(wt);
+	}, [t, wt]);
+	let Tt = (0, v.useCallback)(() => {
+		let { lastEditAt: e, payloadRevision: t } = P(), n = {
 			yamlValid: !E,
 			lastEditAt: e,
 			payloadRevision: t,
-			selectedElementCount: I.length
+			selectedElementCount: L.length
 		};
 		if (!E) return Object.freeze(n);
 		let r = U$t(h) ?? "YAML document is invalid";
@@ -76601,104 +76602,108 @@ function ucn({ bootstrap: e, host: t }) {
 			yamlErrorSummary: lcn(r)
 		});
 	}, [
-		he,
-		I.length,
+		P,
+		L.length,
 		E,
 		h
-	]), Tt = (0, v.useCallback)(() => (A.current?.(), wt()), [wt]);
+	]), Et = (0, v.useCallback)(() => (A.current?.(), Tt()), [Tt]);
 	(0, v.useLayoutEffect)(() => {
-		if (t.registerStatusSource) return t.registerStatusSource(Tt);
-	}, [t, Tt]);
-	let Et = (0, v.useRef)(Tt);
+		if (t.registerStatusSource) return t.registerStatusSource(Et);
+	}, [t, Et]);
+	let Dt = (0, v.useRef)(Et);
 	(0, v.useLayoutEffect)(() => {
-		Et.current = Tt;
+		Dt.current = Et;
 	});
-	let Dt = (0, v.useRef)(null), Ot = (0, v.useRef)(null), kt = (0, v.useRef)(null), At = (0, v.useCallback)(() => {
-		Ot.current != null && (window.clearTimeout(Ot.current), Ot.current = null);
+	let Ot = (0, v.useRef)(null), kt = (0, v.useRef)(null), At = (0, v.useRef)(null), jt = (0, v.useCallback)(() => {
+		kt.current != null && (window.clearTimeout(kt.current), kt.current = null);
 	}, []);
 	(0, v.useEffect)(() => {
 		if (!t.onStatusChange) return;
-		let e = wt(), n = {
+		let e = Tt(), n = {
 			yamlValid: e.yamlValid,
 			payloadRevision: e.payloadRevision
-		}, r = Dt.current;
+		}, r = Ot.current;
 		if (r == null) {
-			Dt.current = n;
+			Ot.current = n;
 			return;
 		}
 		if (r.yamlValid === n.yamlValid && r.payloadRevision === n.payloadRevision) {
-			At(), kt.current = null;
+			jt(), At.current = null;
 			return;
 		}
-		At();
+		jt();
 		let i = Date.now();
-		kt.current ??= i;
-		let a = ccn - (i - kt.current), o = Math.max(0, Math.min(scn, a));
-		Ot.current = window.setTimeout(() => {
-			Ot.current = null, kt.current = null;
-			let e = Et.current();
-			Dt.current = {
+		At.current ??= i;
+		let a = ccn - (i - At.current), o = Math.max(0, Math.min(scn, a));
+		kt.current = window.setTimeout(() => {
+			kt.current = null, At.current = null;
+			let e = Dt.current();
+			Ot.current = {
 				yamlValid: e.yamlValid,
 				payloadRevision: e.payloadRevision
 			}, t.onStatusChange?.(e);
 		}, o);
 	}, [
 		t,
-		wt,
-		P,
-		At
-	]), (0, v.useEffect)(() => At, [At]);
-	let jt = (0, v.useMemo)(() => Object.freeze({
-		width: be.width,
-		height: be.height,
-		rotation: be.rotation
+		Tt,
+		F,
+		jt
+	]), (0, v.useEffect)(() => jt, [jt]);
+	let Mt = (0, v.useMemo)(() => Object.freeze({
+		width: xe.width,
+		height: xe.height,
+		rotation: xe.rotation
 	}), [
-		be.height,
-		be.rotation,
-		be.width
-	]), Mt = l0t({
+		xe.height,
+		xe.rotation,
+		xe.width
+	]), Nt = l0t({
 		renderPreview: t.renderPreview,
-		readPayload: xt,
-		ditherMode: be.previewDitherMode,
-		display: jt,
-		targetId: Ae ?? void 0,
+		readPayload: St,
+		ditherMode: xe.previewDitherMode,
+		display: Mt,
+		targetId: je ?? void 0,
 		blockedReason: E ? s0t : null,
 		payloadRevision: N
-	}), Nt = E || Mt.active;
+	}), Pt = E || Nt.active;
 	(0, v.useEffect)(() => {
 		e.importSource === "hash" && wQt();
 	}, [e.importSource]);
-	let Pt = (0, v.useMemo)(() => J0t(N), [U, N]), Ft = (0, v.useMemo)(() => e.importSource === "hash" ? Uon(N) : [], [e.importSource, N]), It = (0, v.useCallback)((e) => {
-		let t = Ze(e);
+	let Ft = (0, v.useMemo)(() => J0t(N), [We, N]), It = (0, v.useMemo)(() => e.importSource === "hash" ? Uon(N) : [], [e.importSource, N]), Lt = (0, v.useCallback)((e) => {
+		let t = Qe(e);
 		return t.ok || ne({
 			severity: "info",
 			title: "Cannot add element",
 			summary: t.message
 		}), t;
-	}, [Ze]);
+	}, [Qe]);
 	(0, v.useEffect)(() => {
 		if (te == null) return;
 		let e = window.setTimeout(() => ne(null), 4e3);
 		return () => window.clearTimeout(e);
 	}, [te]);
-	let Lt = (0, v.useCallback)(() => {
-		Von(N.length) && !Hon() || $e();
-	}, [N.length, $e]), Rt = (0, v.useCallback)((e) => {
-		t.onAction?.(e, xt(), Object.freeze({
-			targetId: Ae ?? void 0,
-			display: jt,
-			service: Object.freeze({ dither: be.previewDitherMode })
+	let Rt = (0, v.useCallback)(() => {
+		Von(N.length) && !Hon() || et();
+	}, [N.length, et]), zt = (0, v.useCallback)((e) => {
+		let n = he();
+		t.onAction?.(e, St(), Object.freeze({
+			targetId: je ?? void 0,
+			display: Object.freeze({
+				width: n.width,
+				height: n.height,
+				rotation: n.rotation
+			}),
+			service: Object.freeze({ dither: n.previewDitherMode })
 		}));
 	}, [
-		Ae,
-		be.previewDitherMode,
+		je,
+		he,
 		t,
-		jt,
-		xt
-	]), zt = (0, v.useCallback)(async () => {
+		St
+	]), Bt = (0, v.useCallback)(async () => {
 		let e = await fK(TQt(CQt(xQt({
 			name: M,
-			canvas: be,
+			canvas: xe,
 			service: pe,
 			elements: N
 		})), {
@@ -76707,71 +76712,71 @@ function ucn({ bootstrap: e, host: t }) {
 		}));
 		e.ok ? re("share-link") : ie("share-link", e.reason);
 	}, [
-		be,
+		xe,
 		N,
 		ie,
 		re,
 		pe,
 		M
-	]), Bt = (0, v.useCallback)((e) => {
-		let t = bt.current, n = I.map((n) => uJ(t, e, n)).filter((e) => e != null);
-		if (z(e), n.length > 0) {
-			n.length === I.length && n.every((e, t) => e === I[t]) || ye(n);
+	]), Vt = (0, v.useCallback)((e) => {
+		let t = xt.current, n = L.map((n) => uJ(t, e, n)).filter((e) => e != null);
+		if (Me(e), n.length > 0) {
+			n.length === L.length && n.every((e, t) => e === L[t]) || be(n);
 			return;
 		}
-		let r = uJ(t, e, L);
+		let r = uJ(t, e, ge);
 		if (r != null) {
-			r !== L && ve(r, { source: "yaml" });
+			r !== ge && ye(r, { source: "yaml" });
 			return;
 		}
-		L != null && e.length === t.length && L < e.length && e[L]?.type === t[L]?.type || ve(null, { source: "yaml" });
+		ge != null && e.length === t.length && ge < e.length && e[ge]?.type === t[ge]?.type || ye(null, { source: "yaml" });
 	}, [
-		ye,
+		be,
+		ge,
 		L,
-		I,
-		ve,
-		z
-	]), Vt = (0, v.useCallback)(() => {
-		Xe();
-	}, [Xe]), Ht = (0, v.useCallback)((e, t) => {
-		I.length !== 0 && et(e, t);
-	}, [et, I.length]), Ut = (0, v.useCallback)(() => {
-		_t(), x(!0);
-	}, [_t]), Wt = (0, v.useCallback)(() => {
-		vt(), x(!1);
-	}, [vt]), Gt = (0, v.useCallback)((e, t) => {
-		if (I.length === 1) {
-			Je(I[0], e, t);
+		ye,
+		Me
+	]), Ht = (0, v.useCallback)(() => {
+		Ze();
+	}, [Ze]), Ut = (0, v.useCallback)((e, t) => {
+		L.length !== 0 && tt(e, t);
+	}, [tt, L.length]), Wt = (0, v.useCallback)(() => {
+		vt(), x(!0);
+	}, [vt]), Gt = (0, v.useCallback)(() => {
+		yt(), x(!1);
+	}, [yt]), Kt = (0, v.useCallback)((e, t) => {
+		if (L.length === 1) {
+			Ye(L[0], e, t);
 			return;
 		}
-		I.length > 1 && Ye(e, t);
+		L.length > 1 && Xe(e, t);
 	}, [
-		I,
-		Je,
-		Ye
-	]), Kt = (0, v.useCallback)((e) => We(e.name, "font", e), [We]), qt = (0, v.useCallback)((e, t) => We(e, "image", t), [We]), Jt = (0, v.useCallback)((e, t, n) => {
-		let r = n ?? (I.includes(e) && I.length > 1 ? I : [e]);
+		L,
+		Ye,
+		Xe
+	]), qt = (0, v.useCallback)((e) => Ge(e.name, "font", e), [Ge]), Jt = (0, v.useCallback)((e, t) => Ge(e, "image", t), [Ge]), Yt = (0, v.useCallback)((e, t, n) => {
+		let r = n ?? (L.includes(e) && L.length > 1 ? L : [e]);
 		if (r.length > 1) {
-			st(r, t);
+			ct(r, t);
 			return;
 		}
-		ot(e, t);
+		st(e, t);
 	}, [
-		ot,
 		st,
-		I
-	]), Yt = (0, v.useCallback)((e) => {
+		ct,
+		L
+	]), Xt = (0, v.useCallback)((e) => {
 		u && f({
 			entityId: e,
 			token: `sim:${e}:${Date.now()}`
 		});
-	}, [u]), Xt = (0, v.useCallback)((e) => {
+	}, [u]), Zt = (0, v.useCallback)((e) => {
 		u && m({
 			elementIndex: e,
 			token: `canvas:${e}:${Date.now()}`
 		});
 	}, [u]);
-	return p && p.elementIndex !== L && m(null), /* @__PURE__ */ (0, K.jsxs)("div", {
+	return p && p.elementIndex !== ge && m(null), /* @__PURE__ */ (0, K.jsxs)("div", {
 		className: t.fill === "viewport" ? q.app : q.appEmbedded,
 		children: [
 			/* @__PURE__ */ (0, K.jsxs)("header", {
@@ -76858,8 +76863,8 @@ function ucn({ bootstrap: e, host: t }) {
 								"aria-label": "Session",
 								children: /* @__PURE__ */ (0, K.jsx)(X9, {
 									variant: "destructive",
-									onClick: Qe,
-									disabled: Nt,
+									onClick: $e,
+									disabled: Pt,
 									children: "Clear all"
 								})
 							}),
@@ -76868,19 +76873,19 @@ function ucn({ bootstrap: e, host: t }) {
 								role: "group",
 								"aria-label": "Demo",
 								children: /* @__PURE__ */ (0, K.jsx)(X9, {
-									onClick: Lt,
-									disabled: Nt,
+									onClick: Rt,
+									disabled: Pt,
 									children: "Load Demo"
 								})
 							}),
-							je.length > 0 ? /* @__PURE__ */ (0, K.jsx)("div", {
+							z.length > 0 ? /* @__PURE__ */ (0, K.jsx)("div", {
 								className: kK,
 								role: "group",
 								"aria-label": "Actions",
 								children: /* @__PURE__ */ (0, K.jsx)(ocn, {
-									actions: je,
+									actions: z,
 									designerDisabledReason: E ? "Fix the YAML errors before running this action" : null,
-									onAction: Rt
+									onAction: zt
 								})
 							}) : null,
 							t.shareLink ? /* @__PURE__ */ (0, K.jsx)("div", {
@@ -76894,7 +76899,7 @@ function ucn({ bootstrap: e, host: t }) {
 									iconPath: J1t("share"),
 									tooltip: "Copy share link",
 									label: "Copy share link",
-									onClick: () => void zt()
+									onClick: () => void Bt()
 								})
 							}) : null,
 							a == null ? /* @__PURE__ */ (0, K.jsx)("div", {
@@ -76912,44 +76917,44 @@ function ucn({ bootstrap: e, host: t }) {
 				]
 			}),
 			te == null ? null : /* @__PURE__ */ (0, K.jsx)(qG, { message: te }),
-			Ft.map((e, t) => /* @__PURE__ */ (0, K.jsx)(qG, { message: e }, `hash-import-${e.title}-${t}`)),
+			It.map((e, t) => /* @__PURE__ */ (0, K.jsx)(qG, { message: e }, `hash-import-${e.title}-${t}`)),
 			/* @__PURE__ */ (0, K.jsxs)("div", {
 				className: "flex min-h-0 flex-1",
 				children: [
 					/* @__PURE__ */ (0, K.jsx)(p4t, {
 						elements: N,
-						previewElements: F,
-						selectedIndices: I,
-						canvas: be,
-						mockContext: Me,
-						hostStateCatalog: Pe,
-						assetRevision: U,
-						onSelectElement: ve,
-						onCanvasSizeChange: Ce,
-						onColorModeChange: Se,
-						onRotationChange: we,
-						displayLock: Te,
-						onToggleDisplayLock: Ee,
-						targets: De,
-						selectedTargetId: Oe,
-						selectedTargetLabel: R,
-						onSelectDisplayTarget: ke,
-						onSetMockState: B,
-						onAddMockEntity: Fe,
-						onRemoveMockEntity: Ie,
-						onSetMockAttribute: Le,
-						onRenameMockAttribute: Re,
-						onRemoveMockAttribute: ze,
-						variables: Be,
-						onSetVariable: Ve,
-						onAddVariable: He,
-						onRenameVariable: V,
-						onRemoveVariable: H,
-						onUploadAsset: We,
-						onClearAsset: Ge,
-						onReorderElement: Jt,
-						onFocusSimulatorEntity: Yt,
-						yamlBlocked: Nt
+						previewElements: I,
+						selectedIndices: L,
+						canvas: xe,
+						mockContext: Ne,
+						hostStateCatalog: B,
+						assetRevision: We,
+						onSelectElement: ye,
+						onCanvasSizeChange: we,
+						onColorModeChange: Ce,
+						onRotationChange: Te,
+						displayLock: Ee,
+						onToggleDisplayLock: De,
+						targets: Oe,
+						selectedTargetId: R,
+						selectedTargetLabel: ke,
+						onSelectDisplayTarget: Ae,
+						onSetMockState: Fe,
+						onAddMockEntity: Ie,
+						onRemoveMockEntity: Le,
+						onSetMockAttribute: Re,
+						onRenameMockAttribute: ze,
+						onRemoveMockAttribute: Be,
+						variables: Ve,
+						onSetVariable: He,
+						onAddVariable: V,
+						onRenameVariable: H,
+						onRemoveVariable: Ue,
+						onUploadAsset: Ge,
+						onClearAsset: Ke,
+						onReorderElement: Yt,
+						onFocusSimulatorEntity: Xt,
+						yamlBlocked: Pt
 					}),
 					/* @__PURE__ */ (0, K.jsxs)("div", {
 						ref: n,
@@ -76957,52 +76962,52 @@ function ucn({ bootstrap: e, host: t }) {
 						children: [
 							/* @__PURE__ */ (0, K.jsx)(C0t, {
 								elements: N,
-								onAddElement: It,
-								blocked: Nt
+								onAddElement: Lt,
+								blocked: Pt
 							}),
 							/* @__PURE__ */ (0, K.jsx)("div", {
 								ref: r,
 								"data-canvas-allocation": !0,
 								className: "flex min-h-0 min-w-0 flex-1 flex-col",
 								children: /* @__PURE__ */ (0, K.jsx)(m0t, {
-									elements: F,
+									elements: I,
 									editElements: N,
-									renderContext: xe,
-									selectedIndices: I,
-									assetRevision: U,
+									renderContext: Se,
+									selectedIndices: L,
+									assetRevision: We,
 									sessionName: M,
 									allocationSize: i,
-									snapGrid: ct,
-									showHiddenHints: ut,
-									onToggleShowHiddenHints: dt,
+									snapGrid: lt,
+									showHiddenHints: dt,
+									onToggleShowHiddenHints: ft,
 									extraStatusMessages: h,
-									onSelectElement: ve,
-									onSelectAllInRect: tt,
-									onAlignSelection: at,
-									onUpdateElement: Ke,
-									onUpdateElementsBatch: qe,
-									onBringSelectionToFront: nt,
-									onSendSelectionToBack: rt,
-									onMoveSelectionLayer: it,
+									onSelectElement: ye,
+									onSelectAllInRect: nt,
+									onAlignSelection: ot,
+									onUpdateElement: qe,
+									onUpdateElementsBatch: Je,
+									onBringSelectionToFront: rt,
+									onSendSelectionToBack: it,
+									onMoveSelectionLayer: at,
 									elementCount: N.length,
-									onDeleteSelected: Vt,
-									onNudgeSelected: Ht,
-									onToggleSnap: lt,
-									previewDitherMode: be.previewDitherMode,
-									onTogglePreviewDither: ft,
+									onDeleteSelected: Ht,
+									onNudgeSelected: Ut,
+									onToggleSnap: ut,
+									previewDitherMode: xe.previewDitherMode,
+									onTogglePreviewDither: pt,
 									onDragActiveChange: y,
-									onSelectedElementPointerDown: Xt,
-									onBeginEditCoalesce: _t,
-									onEndEditCoalesce: vt,
-									onCancelEditCoalesce: yt,
-									canUndo: ht,
-									canRedo: gt,
-									onUndo: pt,
-									onRedo: mt,
-									blocked: Nt,
+									onSelectedElementPointerDown: Zt,
+									onBeginEditCoalesce: vt,
+									onEndEditCoalesce: yt,
+									onCancelEditCoalesce: bt,
+									canUndo: gt,
+									canRedo: _t,
+									onUndo: mt,
+									onRedo: ht,
+									blocked: Pt,
 									blockedVisible: D,
-									displayPreview: Mt,
-									pngBlobSourceRef: St
+									displayPreview: Nt,
+									pngBlobSourceRef: Ct
 								})
 							}),
 							/* @__PURE__ */ (0, K.jsx)(zon, {
@@ -77010,41 +77015,41 @@ function ucn({ bootstrap: e, host: t }) {
 								containerRef: n,
 								elements: N,
 								sessionName: M,
-								extraEntityIds: Ue,
-								mockContext: Ne,
-								hostStatesFed: Pe != null,
-								onElementsChange: Bt,
-								onSelectElement: ve,
+								extraEntityIds: U,
+								mockContext: Pe,
+								hostStatesFed: B != null,
+								onElementsChange: Vt,
+								onSelectElement: ye,
 								onStatusMessagesChange: g,
 								onYamlBlockedChange: ee,
-								selectedIndex: L,
-								selectionSource: ge,
+								selectedIndex: ge,
+								selectionSource: _e,
 								entityScrollRequest: d,
 								elementScrollRequest: p,
 								canvasDragging: _,
 								propertyEditing: b,
 								flushPendingRef: A,
 								discardPendingRef: j,
-								readOnly: Mt.active
+								readOnly: Nt.active
 							})
 						]
 					}),
 					/* @__PURE__ */ (0, K.jsx)(h2t, {
-						elements: _e,
-						indices: I,
+						elements: ve,
+						indices: L,
 						elementCount: N.length,
-						fontKeys: Pt,
-						onPropertyChange: Gt,
-						onUploadFont: Kt,
-						onUploadImageForUrl: qt,
-						onBeginPropertyEdit: Ut,
-						onEndPropertyEdit: Wt,
-						onDelete: Vt,
-						onBringToFront: nt,
-						onSendToBack: rt,
-						onMoveUp: () => it("up"),
-						onMoveDown: () => it("down"),
-						blocked: Nt,
+						fontKeys: Ft,
+						onPropertyChange: Kt,
+						onUploadFont: qt,
+						onUploadImageForUrl: Jt,
+						onBeginPropertyEdit: Wt,
+						onEndPropertyEdit: Gt,
+						onDelete: Ht,
+						onBringToFront: rt,
+						onSendToBack: it,
+						onMoveUp: () => at("up"),
+						onMoveDown: () => at("down"),
+						blocked: Pt,
 						blockedVisible: D
 					})
 				]
