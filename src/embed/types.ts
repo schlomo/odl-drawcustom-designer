@@ -83,7 +83,7 @@ export interface HostActionContext {
    * the user switched to the virtual display. Always the same value the last
    * {@link MountOptions.onTargetSelected} call reported.
    */
-  targetId?: string
+  readonly targetId?: string
   /**
    * The logical drawing surface the payload is authored against, at the
    * instant the action fired — the exact same {@link HostPreviewDisplayGeometry}
@@ -93,7 +93,7 @@ export interface HostActionContext {
    * it changes what a preview request asks for — there is no separate,
    * possibly-stale copy for actions to fall back on.
    */
-  display: HostPreviewDisplayGeometry
+  readonly display: HostPreviewDisplayGeometry
   /**
    * The service options in effect at the instant the action fired — the same
    * {@link HostPreviewServiceOptions} shape {@link HostPreviewContext}
@@ -106,7 +106,7 @@ export interface HostActionContext {
    * preview off or unused. `dither` is the only field this slice carries; the
    * full service-options set (background, ttl, …) is the rest of issue #105.
    */
-  service: HostPreviewServiceOptions
+  readonly service: HostPreviewServiceOptions
 }
 
 /**
@@ -265,7 +265,7 @@ export interface HostPreviewServiceOptions {
    * with an unchanged image and the designer shows a preview that contradicts
    * its own dither setting.
    */
-  dither: 0 | 1 | 2
+  readonly dither: 0 | 1 | 2
 }
 
 /**
@@ -280,10 +280,10 @@ export interface HostPreviewServiceOptions {
  * transform to apply to the returned image.
  */
 export interface HostPreviewDisplayGeometry {
-  width: number
-  height: number
+  readonly width: number
+  readonly height: number
   /** The orientation `width`/`height` are already expressed in. */
-  rotation: 0 | 90 | 180 | 270
+  readonly rotation: 0 | 90 | 180 | 270
 }
 
 /**

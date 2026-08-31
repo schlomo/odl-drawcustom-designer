@@ -145,6 +145,7 @@ export function App({ bootstrap, host }: AppProps) {
     service,
     elements,
     getElementsSnapshot,
+    getCanvasSnapshot,
     getEditStatus,
     editStatusVersion,
     previewElements,
@@ -446,13 +447,20 @@ export function App({ bootstrap, host }: AppProps) {
 
   /**
    * The surface a host render must be produced at: the oriented logical canvas
-   * the payload's coordinates live in (issue #139). Memoized because the hook
-   * takes it as an effect dependency — a fresh object per render would
-   * re-request the preview forever. Also what `onAction`'s context reports as
-   * `display` (issue #105, WYSIWYG-send slice) — the same object, so a host
-   * can never observe the two channels disagree. Frozen so a host holding
-   * onto it (from either channel) cannot mutate the shared reference out from
-   * under the other.
+   * the payload's coordinates live in (issue #139). Memoized because the
+   * `useDisplayPreview` hook takes it as an effect dependency — a fresh object
+   * per render would re-request the preview forever. Frozen so a host holding
+   * onto it cannot mutate it.
+   *
+   * `onAction`'s context builds its own `display` from `getCanvasSnapshot()`
+   * instead of this memo (issue #105 review, staleness fix): a `useCallback`
+   * closing over this value would still hold the *previous* render's object
+   * for any `onAction` fired in the same synchronous dispatch as a
+   * `setRotation`/`setCanvasSize` call — e.g. a host `fireEvent`-style batch
+   * that flips orientation and then clicks Send before React re-renders —
+   * exactly the stale-closure class issue #104 fixed for `getPayload()` via
+   * `elementsRef`/`getElementsSnapshot`. Both end up equal in value once
+   * React has rendered; only the same-tick case can tell them apart.
    */
   const previewDisplayGeometry = useMemo(
     () => Object.freeze({ width: canvas.width, height: canvas.height, rotation: canvas.rotation }),
@@ -541,19 +549,30 @@ export function App({ bootstrap, host }: AppProps) {
   // `onTargetSelected(null)` last reported. Frozen (like `DesignerStatus`):
   // a fresh, read-only snapshot per call, never a mutation of one the host
   // already holds.
+  //
+  // `display`/`service` are read from `getCanvasSnapshot()` — the
+  // `canvasRef`-backed accessor, not a `useMemo`/render-closed-over value —
+  // so a click fired in the same synchronous dispatch as a `setRotation`/
+  // `setCanvasSize` call sees what that call just committed, not this
+  // callback's previous-render closure (issue #105 review, staleness fix).
   const handleHostAction = useCallback(
     (id: string) => {
+      const canvasSnapshot = getCanvasSnapshot()
       host.onAction?.(
         id,
         readCurrentPayload(),
         Object.freeze({
           targetId: activeTargetId ?? undefined,
-          display: previewDisplayGeometry,
-          service: Object.freeze({ dither: canvas.previewDitherMode }),
+          display: Object.freeze({
+            width: canvasSnapshot.width,
+            height: canvasSnapshot.height,
+            rotation: canvasSnapshot.rotation,
+          }),
+          service: Object.freeze({ dither: canvasSnapshot.previewDitherMode }),
         }),
       )
     },
-    [activeTargetId, canvas.previewDitherMode, host, previewDisplayGeometry, readCurrentPayload],
+    [activeTargetId, getCanvasSnapshot, host, readCurrentPayload],
   )
 
   const handleShare = useCallback(async () => {

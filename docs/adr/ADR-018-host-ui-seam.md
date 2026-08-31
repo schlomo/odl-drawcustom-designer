@@ -257,8 +257,9 @@ data contract — no new lifecycle, no new adapter shape:
   *Shipped shape* (issue #108, `docs/embedding.md`):
 
   - The opaque ids travel in a **context object** — `onAction(id, payload,
-    { targetId })` — so the targets seam below is additive rather than a
-    signature change.
+    context)`, originally `{ targetId }` alone — so the targets seam below,
+    and later the WYSIWYG-send slice below it, land additively rather than as
+    a signature change.
   - **WYSIWYG-send slice of issue #105** (maintainer ruling 2026-08-31):
     `context` also carries `display` and `service`, the exact same
     {@link HostPreviewDisplayGeometry}/{@link HostPreviewServiceOptions}
@@ -353,10 +354,11 @@ Every seam above follows one shape, and any future addition must fit it:
 
 - **Data flows in as typed pushed values** (`targets`, `states`, host-side
   `renderPreview`) — the direction `states` and `targets` already run in.
-- **Intent flows out as callbacks carrying payload plus opaque ids**
-  (`onAction(id, payload, { targetId })`, `onTargetSelected(id | null)`) — the
-  designer reports what the user did and hands over the current payload; it
-  never exposes a second, action-specific save channel.
+- **Intent flows out as callbacks carrying payload plus opaque ids and live
+  display/service state** (`onAction(id, payload, { targetId, display,
+  service })`, `onTargetSelected(id | null)`) — the designer reports what the
+  user did and hands over the current payload; it never exposes a second,
+  action-specific save channel.
 - **State flows out via a read handle plus optional change notification;
   status is derived, never authoritative, and carries no designer internals**
   (issue #133, `MountHandle.getStatus()` / `MountOptions.onStatusChange`). This
