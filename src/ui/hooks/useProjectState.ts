@@ -155,13 +155,38 @@ export type CanvasConfig = DisplayConfig
 
 /**
  * The display target the design is pinned to (issue #106): the id echoed back
- * to the host, plus the label and capabilities *as last pushed*. Both copies
+ * to the host, plus the label and display spec *as last pushed*. Both copies
  * outlive the host's list on purpose — a display the host drops keeps its name
  * in the picker and its values under the lock (keep-and-mark-stale), and the
- * stored capabilities are what a later push is compared against to notice the
+ * stored spec is what a later push is compared against to notice the
  * host re-defined this display.
  */
-type SelectedTarget = Pick<HostTarget, 'id' | 'label' | 'capabilities'>
+type SelectedTarget = Pick<HostTarget, 'id' | 'label' | 'display'>
+
+/**
+ * The target the design is actually pinned to — what the host is told
+ * (`onTargetSelected`) and what `onAction`'s context carries.
+ *
+ * An unlocked display config *is* the virtual display, whatever selection the
+ * picker remembers for re-locking; and a selection the host's current list no
+ * longer offers is not an id the host can act on, so the designer never hands
+ * back an id absent from that list (maintainer ruling 2026-08-16). The *label*
+ * stays on screen either way — that is for the user, not the host.
+ *
+ * Pure and module-level so the render-derived value and the ref-backed
+ * snapshot below cannot drift into two different answers.
+ */
+function resolveActiveTargetId(
+  displayLocked: boolean,
+  selectedTarget: SelectedTarget | null,
+  hostTargets: readonly HostTarget[],
+): string | null {
+  return displayLocked &&
+    selectedTarget != null &&
+    findHostTarget(hostTargets, selectedTarget.id) != null
+    ? selectedTarget.id
+    : null
+}
 
 function buildEffectiveMockContext(
   templateEntityIds: readonly string[],
@@ -260,9 +285,9 @@ export function useProjectState(
     host.targets ?? NO_HOST_TARGETS,
   )
   // The display the design is pinned to, remembered with its label and
-  // capabilities so a target the host later removes can still be named in the
+  // display spec so a target the host later removes can still be named in the
   // picker and re-locked onto (keep-and-mark-stale ruling), and so a re-push
-  // carrying new capabilities for it can be recognised as such.
+  // carrying a new spec for it can be recognised as such.
   //
   // Set either by an explicit pick or by a **single-target push** adopting the
   // only display on offer (issue #121) — the adapter has already resolved the
@@ -352,9 +377,16 @@ export function useProjectState(
   const hostDisplayRef = useRef(hostDisplay)
   const displayLockedRef = useRef(displayLocked)
   const selectedTargetRef = useRef(selectedTarget)
+  // The host's current display list, ref-paired with `setHostTargets` for the
+  // same reason `selectedTargetRef` is paired with `setSelectedTarget`: the
+  // active-target snapshot (`getActiveTargetIdSnapshot` below) has to answer
+  // from the list the host pushed *this tick*, not the one the last render
+  // saw, or an action fired in the same dispatch as a `setTargets` push
+  // reports the newly adopted panel's geometry addressed to no target at all.
+  const hostTargetsRef = useRef(hostTargets)
   // Rotation is outside the lock's scope (maintainer ruling 2026-08-16): the
   // user may repoint a locked display's rotation freely (portrait mounting),
-  // so a re-apply of the *same* selected target's capabilities must not clobber
+  // so a re-apply of the *same* selected target's spec must not clobber
   // it. This tracks "has the user touched rotation since the last pick" —
   // cleared on every pick (including re-picking the same id), set on every
   // manual rotation change. A ref, not state: read only inside the push
@@ -438,9 +470,17 @@ export function useProjectState(
     setSelectedTarget(value)
   }, [])
 
+  // Ref-paired setter for the pushed display list, keeping the diff-then-set
+  // shape the push appliers use (an unchanged push must not re-render).
+  const commitHostTargets = useCallback((targets: readonly HostTarget[]) => {
+    const next = hostTargetsEqual(hostTargetsRef.current, targets) ? hostTargetsRef.current : targets
+    hostTargetsRef.current = next
+    setHostTargets(next)
+  }, [])
+
   /**
-   * Pin the design to a display target: adopt its capabilities, lock the
-   * display config onto them, and remember the selection (issue #106).
+   * Pin the design to a display target: adopt its display spec, lock the
+   * display config onto it, and remember the selection (issue #106).
    *
    * Every adoption the *running* designer makes goes through here — the user's
    * pick and a single-target push alike (issue #121) — so both land the same
@@ -462,7 +502,7 @@ export function useProjectState(
       // "since the pick".
       rotationOverriddenSincePickRef.current = false
       const next = capabilitiesToCanvas(
-        target.capabilities,
+        target.display,
         canvasRef.current.previewDitherMode,
       )
       commitCanvas(next)
@@ -473,7 +513,7 @@ export function useProjectState(
       commitSelectedTarget({
         id: target.id,
         label: target.label,
-        capabilities: target.capabilities,
+        display: target.display,
       })
     },
     [commitCanvas, commitSelectedTarget],
@@ -697,7 +737,7 @@ export function useProjectState(
       // Re-pushable by contract (ADR-018): a display the host learns about
       // appears in the picker without a reload. Same diff-before-setState
       // shape as `applyStates`/`applyActions` below.
-      setHostTargets((current) => (hostTargetsEqual(current, targets) ? current : targets))
+      commitHostTargets(targets)
 
       const selected = selectedTargetRef.current
       // A single pushed display is not a choice, it *is* the display (issue
@@ -724,17 +764,17 @@ export function useProjectState(
       if (!selected || !pushed) {
         return
       }
-      const redefined = !hostCapabilitiesEqual(selected.capabilities, pushed.capabilities)
+      const redefined = !hostCapabilitiesEqual(selected.display, pushed.display)
       if (pushed.label === selected.label && !redefined) {
         return
       }
-      // Keep the remembered label and capabilities current while the target
+      // Keep the remembered label and display spec current while the target
       // is still there, so a later removal names it the way the host last did
       // and re-locking uses the values the host last stated.
       commitSelectedTarget({
         id: selected.id,
         label: pushed.label,
-        capabilities: pushed.capabilities,
+        display: pushed.display,
       })
       if (!redefined) {
         return
@@ -751,7 +791,7 @@ export function useProjectState(
       // together, so it is the oriented surface every re-orientation below
       // measures from (issue #139 review — the pair is never split).
       const next = capabilitiesToCanvas(
-        pushed.capabilities,
+        pushed.display,
         canvasRef.current.previewDitherMode,
       )
       hostDisplayRef.current = next
@@ -771,7 +811,7 @@ export function useProjectState(
         )
       }
     },
-    [adoptDisplayTarget, commitCanvas, commitSelectedTarget],
+    [adoptDisplayTarget, commitCanvas, commitHostTargets, commitSelectedTarget],
   )
 
   /**
@@ -845,7 +885,7 @@ export function useProjectState(
   // wide, and much wider under CPU contention — in which a host push already
   // sitting in the mount's pre-registration queue was neither applied nor
   // visible. The host then paints a frame of default, unlocked display config
-  // before the pushed capabilities land. Registering at commit time drains the
+  // before the pushed display spec lands. Registering at commit time drains the
   // queue synchronously, so the first frame the host can observe already
   // reflects everything it pushed.
   useLayoutEffect(() => {
@@ -1167,7 +1207,7 @@ export function useProjectState(
       // the user's mounting choice, so this never checks — let alone flips —
       // the lock, and never touches the target selection. It does mark the
       // rotation as touched since the last pick, so a later re-apply of that
-      // target's capabilities preserves it instead of overwriting it.
+      // target's display spec preserves it instead of overwriting it.
       rotationOverriddenSincePickRef.current = true
       // Choosing an orientation re-orients the logical drawing surface itself
       // (issue #139) — the canvas is always presented upright, so a quarter
@@ -1568,7 +1608,7 @@ export function useProjectState(
    * Display picker choice (issue #106): a target id, or `null` for the
    * virtual display.
    *
-   * Picking a display adopts its capabilities over the **canonical defaults**
+   * Picking a display adopts its display spec over the **canonical defaults**
    * rather than the canvas in front of the user (`capabilitiesToCanvas`):
    * picking a display *is* the display, so the same target must land the same
    * canvas whatever was picked before it. Locking the display config onto it is
@@ -1605,17 +1645,10 @@ export function useProjectState(
     [adoptDisplayTarget, hostTargets],
   )
 
-  // The target the design is actually pinned to — what the host is told, and
-  // what `onAction` carries. An unlocked display config *is* the virtual
-  // display, whatever selection the picker remembers for re-locking; and a
-  // selection the host's current list no longer offers is not an id the host
-  // can act on, so the designer never hands back an id absent from that list
-  // (maintainer ruling 2026-08-16). The *label* stays on screen either way —
-  // that is for the user, not the host.
-  const activeTargetId =
-    displayLocked && selectedTarget != null && findHostTarget(hostTargets, selectedTarget.id) != null
-      ? selectedTarget.id
-      : null
+  // The target the design is pinned to right now, as of the last render — what
+  // the `onTargetSelected` notification below compares against. See
+  // `resolveActiveTargetId` for the rule.
+  const activeTargetId = resolveActiveTargetId(displayLocked, selectedTarget, hostTargets)
   const onTargetSelected = host.onTargetSelected
   const notifiedTargetRef = useRef<string | null>(null)
 
@@ -1926,10 +1959,37 @@ export function useProjectState(
   // `setRotation`/`setCanvasSize` call — an `onAction` handler fired in the
   // same batched event as an orientation change, say — reads the value that
   // change just committed, not a closure over the canvas as of the last
-  // render. `handleHostAction`'s `display`/`service` context (issue #105)
+  // render. `handleHostAction`'s `display`/`render` context (issue #105)
   // is built from this, not from a `useMemo`/`useCallback` dependency on
   // `canvas`, for exactly that reason.
   const getCanvasSnapshot = useCallback(() => canvasRef.current, [])
+
+  // The same shape again for the active target (issue #105 review): every
+  // input to `resolveActiveTargetId` is ref-paired with its state setter
+  // (`displayLockedRef`, `selectedTargetRef`, `hostTargetsRef`, each written
+  // before the corresponding `set*`), so this answers from what the current
+  // synchronous dispatch has already committed.
+  //
+  // Why it must: `handleHostAction` builds `display`/`render` from
+  // `getCanvasSnapshot()`, which *is* ref-live. Reading `targetId` from a
+  // render closure beside them made the context internally inconsistent in
+  // exactly the tick this seam exists to fix — a `setTargets([oneDisplay])`
+  // push adopts and locks that display synchronously (issue #121), so an
+  // action fired in the same dispatch reported the new panel's geometry with
+  // no target id at all.
+  //
+  // Called only from event callbacks, never during render — a ref read during
+  // render would be the React 19 hazard this deliberately avoids; the render
+  // path uses the `activeTargetId` value above instead.
+  const getActiveTargetIdSnapshot = useCallback(
+    () =>
+      resolveActiveTargetId(
+        displayLockedRef.current,
+        selectedTargetRef.current,
+        hostTargetsRef.current,
+      ),
+    [],
+  )
 
   // Synchronous accessor onto the edit-tracking refs above (issue #133) — the
   // same "read a ref, not a render dependency" shape as `getElementsSnapshot`,
@@ -1993,6 +2053,11 @@ export function useProjectState(
     selectDisplayTarget,
     /** The target the design is pinned to right now (null = virtual display). */
     activeTargetId,
+    /**
+     * The same value read live from refs, for event callbacks that must see
+     * what the current dispatch just committed (`onAction`'s context).
+     */
+    getActiveTargetIdSnapshot,
     /** Host-registered action buttons, newest push wins (issue #108). */
     hostActions,
     mockContext,

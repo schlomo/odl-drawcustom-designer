@@ -26,7 +26,7 @@ artifact.
 ## Semver policy
 
 The **public surface that major-versions** is the embed API: `mount()`, the
-`MountOptions`/`MountHandle`/`HostCapabilities`/`HostStates` shapes in
+`MountOptions`/`MountHandle`/`HostDisplaySpec`/`HostStates` shapes in
 [`src/embed/types.ts`](../src/embed/types.ts), and the host data contract
 documented in [`docs/embedding.md`](embedding.md) (states, displays, actions,
 payload/theme behavior). Internal modules (`src/core/`, `src/ui/`,
@@ -35,9 +35,9 @@ versioned surface and can change freely.
 
 - **Major** — a breaking change to the mount API or host data contract (a
   removed/renamed export or field, a changed method signature, a
-  capabilities/states field whose meaning changes).
+  display-spec/states field whose meaning changes).
 - **Minor** — additive, backwards-compatible surface (new optional option,
-  new `HostCapabilities` field, new `MountHandle` method).
+  new `HostDisplaySpec` field, new `MountHandle` method).
 - **Patch** — fixes and internal changes with no embed-surface change.
 - **First release is `v1.0.0`** — no `0.x` pre-release phase; the mount API
   is considered stable from the first tag, and major/minor/patch above

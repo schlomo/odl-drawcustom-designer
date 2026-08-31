@@ -28,7 +28,7 @@ function officeTarget(rotationDegrees = 0): HostTarget {
   return {
     id: 'display.office',
     label: 'Office display',
-    capabilities: {
+    display: {
       pixel_width: 296,
       pixel_height: 128,
       rotation_degrees: rotationDegrees,
@@ -47,7 +47,7 @@ function portraitMountedTarget(): HostTarget {
   return {
     id: 'display.hallway',
     label: 'Hallway display',
-    capabilities: {
+    display: {
       pixel_width: 296,
       pixel_height: 128,
       render_width: 128,
@@ -146,7 +146,7 @@ describe('display lock scope excludes rotation (maintainer ruling 2026-08-16)', 
     expect(result.current.canvas.height).toBe(128)
   })
 
-  it('re-applying the selected target’s capabilities preserves a rotation the user changed since the pick', () => {
+  it('re-applying the selected target’s display spec preserves a rotation the user changed since the pick', () => {
     const { host, getPushTarget } = createTestHost([officeTarget(0)])
     const { result } = renderHook(() => useProjectState(bootstrap(), host))
 
@@ -159,7 +159,7 @@ describe('display lock scope excludes rotation (maintainer ruling 2026-08-16)', 
     // rule); the user's rotation override survives it.
     act(() => {
       getPushTarget().applyTargets([
-        { ...officeTarget(0), capabilities: { pixel_width: 400, pixel_height: 300, rotation_degrees: 0, color_scheme: 0x00 } },
+        { ...officeTarget(0), display: { pixel_width: 400, pixel_height: 300, rotation_degrees: 0, color_scheme: 0x00 } },
       ])
     })
 
@@ -266,12 +266,12 @@ describe('a host-declared surface keeps its dimensions paired with its own rotat
     expect(result.current.displayLock).toBe('locked')
     expect(result.current.canvas).toMatchObject({ width: 296, height: 128, rotation: 0 })
 
-    // …and so does a re-push of that same target's (re-declared) capabilities.
+    // …and so does a re-push of that same target's (re-declared) display spec.
     act(() => {
       getPushTarget().applyTargets([
         {
           ...portraitMountedTarget(),
-          capabilities: { ...portraitMountedTarget().capabilities, color_scheme: 0x00 },
+          display: { ...portraitMountedTarget().display, color_scheme: 0x00 },
         },
       ])
     })

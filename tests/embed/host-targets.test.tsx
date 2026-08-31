@@ -12,7 +12,7 @@ vi.setConfig({ testTimeout: 30_000 })
 
 /**
  * Targets seam (issue #106, ADR-018): the host pushes the displays it knows
- * about — `{ id, label, capabilities }`, the id opaque — and the designer
+ * about — `{ id, label, display }`, the id opaque — and the designer
  * renders a display picker inside its own display-config area, wired to the
  * existing lock UX (issue #70). At 2.0 this is the *only* display channel
  * (issue #121). What an embedding host can observe:
@@ -21,7 +21,7 @@ vi.setConfig({ testTimeout: 30_000 })
  *    entry, and no picker chrome at all when no targets are pushed;
  *  - a one-element push adopted and locked with no pick, and never overriding a
  *    display choice the user already made;
- *  - selecting a target adopts its capabilities and locks the display config;
+ *  - selecting a target adopts its display spec and locks the display config;
  *  - "Virtual display" unlocks; re-locking returns to the selected target;
  *  - `onTargetSelected(id | null)` reporting the selection, and
  *    `onAction(..., { targetId })` carrying the same id;
@@ -64,17 +64,17 @@ const PAYLOAD = ['- type: text', '  value: hello', '  x: 10', '  y: 10', ''].joi
 const KITCHEN: HostTarget = {
   id: 'display.kitchen',
   label: 'Kitchen tag',
-  capabilities: { render_width: 296, render_height: 128, color_scheme: 0x01 },
+  display: { render_width: 296, render_height: 128, color_scheme: 0x01 },
 }
 const OFFICE: HostTarget = {
   id: 'display.office',
   label: 'Office display',
-  capabilities: { render_width: 400, render_height: 300, color_scheme: 0x00 },
+  display: { render_width: 400, render_height: 300, color_scheme: 0x00 },
 }
 const HALLWAY: HostTarget = {
   id: 'display.hallway',
   label: 'Hallway 7.5"',
-  capabilities: { render_width: 800, render_height: 480, color_scheme: 0x03 },
+  display: { render_width: 800, render_height: 480, color_scheme: 0x03 },
 }
 
 /** A rectangle whose `fill: red` paints the layer-row swatch — the palette probe. */
@@ -92,7 +92,7 @@ const RED_RECTANGLE_PAYLOAD = [
 const MEASURED_KITCHEN: HostTarget = {
   id: 'display.kitchen',
   label: 'Kitchen tag',
-  capabilities: {
+  display: {
     render_width: 296,
     render_height: 128,
     color_map: { black: '#000000', white: '#ffffff', red: '#c81020' },
@@ -102,19 +102,19 @@ const MEASURED_KITCHEN: HostTarget = {
 const UNMEASURED_HALLWAY: HostTarget = {
   id: 'display.hallway',
   label: 'Hallway 7.5"',
-  capabilities: { render_width: 800, render_height: 480, color_scheme: 0x01 },
+  display: { render_width: 800, render_height: 480, color_scheme: 0x01 },
 }
 /** Portrait by rotation, sized in physical pixels so the rotation is visible. */
 const ROTATED_OFFICE: HostTarget = {
   id: 'display.office',
   label: 'Office display',
-  capabilities: { pixel_width: 400, pixel_height: 300, rotation_degrees: 90, color_scheme: 0x00 },
+  display: { pixel_width: 400, pixel_height: 300, rotation_degrees: 90, color_scheme: 0x00 },
 }
 /** Declares no rotation — the canonical default (0°) is what it must get. */
 const UPRIGHT_KITCHEN: HostTarget = {
   id: 'display.kitchen',
   label: 'Kitchen tag',
-  capabilities: { pixel_width: 296, pixel_height: 128, color_scheme: 0x01 },
+  display: { pixel_width: 296, pixel_height: 128, color_scheme: 0x01 },
 }
 
 let container: HTMLElement
@@ -235,7 +235,7 @@ describe('host targets (issue #106)', () => {
     expect(colorMode()).toBeEnabled()
   })
 
-  it('selecting a target adopts its capabilities and locks the display config', () => {
+  it('selecting a target adopts its display spec and locks the display config', () => {
     mountDesigner({ payload: PAYLOAD, targets: [KITCHEN, OFFICE] })
 
     selectDisplay('Office display')
@@ -284,7 +284,7 @@ describe('host targets (issue #106)', () => {
     expect(layerSwatchFill()).toBe('red')
   })
 
-  it('re-applies the selected display when the host re-pushes it with new capabilities', () => {
+  it('re-applies the selected display when the host re-pushes it with a new display spec', () => {
     // The host re-defined the display the design is pinned to, so the designer
     // re-asserts it (maintainer ruling 2026-08-16). Stranding the canvas on the
     // old size while the picker shows the new label describes hardware that no
@@ -299,7 +299,7 @@ describe('host targets (issue #106)', () => {
         {
           ...OFFICE,
           label: 'Office display (resized)',
-          capabilities: { render_width: 800, render_height: 480, color_scheme: 0x01 },
+          display: { render_width: 800, render_height: 480, color_scheme: 0x01 },
         },
       ]),
     )
@@ -319,7 +319,7 @@ describe('host targets (issue #106)', () => {
     act(() =>
       handle.setTargets([
         KITCHEN,
-        { ...OFFICE, capabilities: { render_width: 800, render_height: 480, color_scheme: 0x01 } },
+        { ...OFFICE, display: { render_width: 800, render_height: 480, color_scheme: 0x01 } },
       ]),
     )
 
@@ -375,7 +375,7 @@ describe('host targets (issue #106)', () => {
     fireEvent.click(designer().getByRole('button', { name: 'Unlock display config' }))
     fireEvent.click(designer().getByRole('button', { name: 'Lock display config' }))
 
-    // Last-known capabilities come back (existing ruling)…
+    // Last-known display spec comes back (existing ruling)…
     expect(resolution()).toHaveTextContent(/400\s*×\s*300/)
     expect(picker().selectedOptions[0]?.textContent).toBe('Office display (unavailable)')
     // …but the host is never told an id it no longer offers.
@@ -829,7 +829,7 @@ describe('host targets (issue #106)', () => {
     expect(() => handle.setTargets([{ ...KITCHEN, label: '' }])).toThrow(/label/i)
     expect(() =>
       handle.setTargets([{ id: 'a', label: 'A' } as unknown as HostTarget]),
-    ).toThrow(/capabilities/i)
+    ).toThrow(/display/i)
     expect(() =>
       handle.setTargets({ length: 1 } as unknown as readonly HostTarget[]),
     ).toThrow(/array/i)
@@ -842,7 +842,7 @@ describe('host targets (issue #106)', () => {
       handle.setTargets([
         {
           ...KITCHEN,
-          capabilities: { available_colors: 'red' as unknown as string[] },
+          display: { available_colors: 'red' as unknown as string[] },
         },
       ]),
     ).toThrow(/Invalid host targets: .*available_colors/i)
@@ -869,14 +869,14 @@ describe('host targets (issue #106)', () => {
     const mutable: HostTarget = {
       id: '  display.office  ',
       label: '  Office display  ',
-      capabilities: { render_width: 400, render_height: 300, color_scheme: 0x00 },
+      display: { render_width: 400, render_height: 300, color_scheme: 0x00 },
     }
     const onTargetSelected = vi.fn()
     mountDesigner({ payload: PAYLOAD, targets: [mutable], onTargetSelected })
 
     // Mutating the object the host still holds must not reach the designer.
     mutable.label = 'Renamed behind the designer'
-    mutable.capabilities.render_width = 9999
+    mutable.display.render_width = 9999
 
     expect(optionLabels()).toEqual(['Office display', 'Virtual display'])
     selectDisplay('Office display')

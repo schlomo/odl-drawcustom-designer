@@ -225,6 +225,22 @@ A [`scrollHandler`](../src/ui/editor/yamlScrollContainment.ts) contains all edit
 
 Domain-neutral types ([`src/embed/types.ts`](../src/embed/types.ts)): "state", "display", "target", "action". The designer never learns what a host's ids mean, so an HA adapter is a thin pass-through and a non-HA host is a first-class consumer (ADR-018).
 
+### 3.0.0 rename map (breaking)
+
+Maintainer ruling 2026-08-31, [issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105): the published surface still said "service" and still said "capabilities". Both words were wrong, and one of them broke a rule this project writes down for itself — ADR-018's seam grammar says the published vocabulary stays domain-neutral ("target", "display", "state" — never "entity", "hass", "service"), while `HostPreviewServiceOptions` and `context.service` sat in the middle of it. `dither` is a rasterization choice, not a service call, so the type is named for what it configures. And "capabilities" was killed as a *channel* at 2.0 ([issue #121](https://github.com/schlomo/odl-drawcustom-designer/issues/121)) but survived as a type and a field name; the thing it describes is a display, so it is named for that.
+
+Mechanical rename, no behavior change beyond the fixes in the same release. Apply it with a search and replace:
+
+| 2.x | 3.0.0 |
+|-----|-------|
+| type `HostPreviewServiceOptions` | type `HostRenderOptions` |
+| type `HostCapabilities` | type `HostDisplaySpec` |
+| type `HostPreviewDisplayGeometry` | type `HostDisplayGeometry` |
+| `context.service` on `onAction`/`renderPreview` | `context.render` |
+| `capabilities` on a pushed `HostTarget` | `display` |
+
+**One word, two shapes — deliberately.** After the rename, `display` names both ends of one pipeline for the same panel: on a pushed `HostTarget` it is the host's *declaration* (`HostDisplaySpec` — `pixel_*`/`render_*`, rotation, palette), and on `onAction`/`renderPreview`'s context it is what the designer *resolved* that to (`HostDisplayGeometry` — `width`, `height`, `rotation`). Declared in, resolved out; a host pushes the first and reads the second.
+
 ### `states`
 
 State key → state value, or `{ state, attributes, name }`:
@@ -276,9 +292,9 @@ const targets = [
   {
     id: 'display.kitchen',              // opaque, host-defined; echoed back untouched
     label: 'Kitchen tag (296×128 BWR)', // picker entry text
-    capabilities: { render_width: 296, render_height: 128, color_scheme: 0x01 },
+    display: { render_width: 296, render_height: 128, color_scheme: 0x01 },
   },
-  { id: 'display.office', label: 'Office display', capabilities: { /* … */ } },
+  { id: 'display.office', label: 'Office display', display: { /* … */ } },
 ]
 
 const handle = mount(el, {
@@ -287,8 +303,10 @@ const handle = mount(el, {
     // targetId === null: the user switched to the virtual display
     handle.setActions(actions(targetId))   // e.g. disable Send without a display
   },
-  onAction(id, payload, { targetId }) {
-    if (id === 'send') void sendToDisplay(targetId, payload)
+  onAction(id, payload, context) {
+    // The whole context is live at the click: the opaque display id plus the
+    // canvas geometry and render options — see `actions` / `onAction` below.
+    if (id === 'send') void sendToDisplay(context.targetId, payload, context)
   },
 })
 
@@ -301,21 +319,23 @@ handle.setTargets([...targets, discoveredDisplay])   // appears in the picker, n
 - **One display is not a choice — it is *the* display.** A **one-element** `targets` push is adopted and locked straight away, with no pick: a single-display host mounts with `targets: [display]` and the first painted frame is already that display. Anything else (two or more, or none) only says what the user *can* pick and never moves the canvas by itself.
 - **Mirroring holds for every push, not just the first.** Because a mount option *is* an initial push, both halves of the rule apply to a later `setTargets()` while the user has made no choice: pushing a different single display **re-pins** to it (and reports it), and narrowing a multi-display list down to one adopts and locks that one. Widening back to several leaves the design where it is — it is now a choice, and a choice moves nothing by itself.
 - **Auto-adoption stops the moment the user chooses.** Once the user has picked a display, picked "Virtual display", or worked the lock, nothing but another pick moves the canvas — so a host may re-push its inventory on a timer, and a list that happens to narrow to one display never drags the user back onto hardware they deliberately left. Picking a display your last push no longer offers is *not* a choice — there is nothing to adopt, so it changes nothing at all and leaves mirroring live.
-- **Selecting a display adopts its capabilities and locks** the display config, reusing the [display config lock](#display-config-lock-issue-70) UX: the lock icon appears, the resolution / color-mode controls follow it, and re-locking restores the **selected display's** values.
+- **Selecting a display adopts its declared spec and locks** the display config, reusing the [display config lock](#display-config-lock-issue-70) UX: the lock icon appears, the resolution / color-mode controls follow it, and re-locking restores the **selected display's** values.
 - **A display resolves from the designer's canonical defaults, not from the canvas in front of the user.** Adopting a display *is* that display, so the same target always produces the same canvas, whatever was adopted before it. What a display does not declare comes from the defaults (no rotation, canonical palette) — never from the display previously in effect, whose rotation would stand a 296×128 panel on end and whose measured `color_map` would paint one panel's red on another's tag ([ADR-007](adr/ADR-007-hybrid-rendering.md) parity). The designer-only preview dither mode is the one thing that survives an adoption, exactly as it survives the lock: it belongs to no display.
-- **Re-pushing the selected display's capabilities re-applies them.** If a `setTargets()` push carries *different* capabilities for the display the design is currently pinned to, the host has re-defined that display, so the canvas follows it and stays locked. Unlocked, the user owns the canvas: the new values are stored, and re-locking applies them. A push that only *relabels* the display moves nothing. **Rotation is the one field this re-apply does not always follow** (see the lock's scope below): if the user changed rotation since the display was adopted, that rotation survives; only a rotation left untouched since then adopts what the display now declares. Adopting the display again always resets this — the freshly adopted rotation is the new baseline.
+- **Re-pushing the selected display's spec re-applies it.** If a `setTargets()` push carries a *different* `display` spec for the display the design is currently pinned to, the host has re-defined that display, so the canvas follows it and stays locked. Unlocked, the user owns the canvas: the new values are stored, and re-locking applies them. A push that only *relabels* the display moves nothing. **Rotation is the one field this re-apply does not always follow** (see the lock's scope below): if the user changed rotation since the display was adopted, that rotation survives; only a rotation left untouched since then adopts what the display now declares. Adopting the display again always resets this — the freshly adopted rotation is the new baseline.
 - **"Virtual display" is the picker's name for unlocked.** Picking it is identical to clicking the lock open: the controls become editable and the design is no longer pinned to real hardware. The selection is *remembered* while unlocked — re-locking (or picking the display again) returns to it — so the picker reads "Virtual display" whenever the config is unlocked, and the display again once it is not.
 - **Re-pushable, and diffed.** Push the *whole* list again whenever your inventory changes; the designer compares it structurally and does nothing at all when it is unchanged. Pushed targets are copied and frozen on the way in (like [`actions`](#actions--onaction-issue-108), unlike [`states`](#states)), so mutate-and-repush works.
 - **Re-pushing from inside `onTargetSelected` is safe — it does not loop.** Reacting to a selection with `setTargets()` (or `setActions()`) is the intended pattern, and a push made from inside the callback arrives while that notification is still in flight: the designer **defers** it, applies it once the notification returns, and if you make several the **last one wins** (a push replaces the whole list, so the ones it superseded are never applied and never move the canvas on their way past). No recursion, no dropped push. What the designer cannot do is out-argue you: a host that answers every notification with a *different* display keeps being followed, one display per settle — that is your own intent, not a loop the designer creates.
-- **Removing the selected display keeps it** ("keep and mark stale"): the designer holds that display's last-known capabilities and lock state, marks the selection *unavailable* in the picker and says so in a visible hint. It never silently switches to another display and never unlocks — a design in progress does not silently start describing different hardware. Pushing the display back clears the marker; the remaining displays stay one pick away. The marker applies exactly while the missing display is the one in effect: unlocking to the virtual display puts the design on nothing in particular, so the picker just offers what you still have — until it is re-locked (which returns to the missing display's last-known values).
+- **Removing the selected display keeps it** ("keep and mark stale"): the designer holds that display's last-known spec and lock state, marks the selection *unavailable* in the picker and says so in a visible hint. It never silently switches to another display and never unlocks — a design in progress does not silently start describing different hardware. Pushing the display back clears the marker; the remaining displays stay one pick away. The marker applies exactly while the missing display is the one in effect: unlocking to the virtual display puts the design on nothing in particular, so the picker just offers what you still have — until it is re-locked (which returns to the missing display's last-known values).
 - **A stale selection reports no target id.** The designer never hands you back an id that is absent from your own current list: the moment a push drops the selected display, `onTargetSelected(null)` fires once and `onAction`'s `context.targetId` is `undefined` — including after unlocking and re-locking onto it. What stays on screen is the *label*, marked unavailable; that is for the user, so they can see what the design is still shaped for. Pushing the display back reports its id again.
 - **`onTargetSelected` is optional** and fires only on change: a target id, or `null` for the virtual display (including when the user clicks the lock open, and when the selected display leaves your list). An adopted single display reports its id the same way — that is a change like any other. It is the channel to react to a selection — re-pushing `actions` with a `disabledReason: 'No display selected'`, for instance. A host that only needs the id when something happens can skip it and read `onAction`'s `context.targetId`, which carries the same value (`undefined` where this callback reports `null`).
-- **Malformed lists throw** at the push that carries them (missing or duplicate `id`, missing `label`, missing `capabilities`) and leave the designer untouched; a bad list passed to `mount()` throws before the container is touched. `id` and `label` are trimmed, so incidental padding never reaches the picker or the id echoed back.
+- **Malformed lists throw** at the push that carries them (missing or duplicate `id`, missing `label`, missing `display`) and leave the designer untouched; a bad list passed to `mount()` throws before the container is touched. `id` and `label` are trimmed, so incidental padding never reaches the picker or the id echoed back.
 - **No targets, no picker.** A designer that is pushed no targets renders exactly the display-config area the standalone app does. Once a display has been adopted the picker stays — an emptied list leaves the "Virtual display" entry standing, because that control is how the user leaves the display they are on.
 
-#### What a display *is* — `capabilities`
+#### What a display *is* — `display` (`HostDisplaySpec`)
 
-Mirrors the OpenDisplay HA integration's `capabilities.py` payload, so a host-side adapter can pass it through unchanged. Every field is optional; anything a display does not declare comes from the designer's canonical defaults.
+The host's own declaration of the panel. Every field is optional; anything a display does not declare comes from the designer's canonical defaults.
+
+**The keys are snake_case on purpose** — this is the one published interface that is not camelCase. They mirror, verbatim, the JSON a host already has on the wire: the OpenDisplay HA integration's `designer/capabilities.py` publishes exactly these names as image-entity attributes and its panel wrapper passes them straight through, so a host-side adapter needs no translation layer.
 
 ```js
 {
@@ -372,7 +392,7 @@ Consequences for hosts:
   HA's own `rotate`. Do not re-rotate it before sending; HA (and, for
   OpenDisplay, the firmware) applies the panel's rotation itself.
 - `rotate` is **not emitted** in the payload. The send-time value is
-  per-target output metadata and travels through the service options seam
+  per-target output metadata and travels through the render options seam
   ([issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105)),
   never baked into the design: that seam sends the canvas rotation **as-is**
   (or a value the host computes for that target from it), never the canvas
@@ -424,14 +444,14 @@ const handle = mount(el, {
   onAction(id, payload, context) {
     // payload === handle.getPayload() at this instant; context.targetId is the
     // selected display (see `targets` above), undefined when there is none.
-    // context.display/context.service are the live canvas geometry and dither
+    // context.display/context.render are the live canvas geometry and dither
     // mode at this exact click — see below.
     if (id === 'save') void persist(payload)
     if (id === 'send') {
       void sendToDisplay(context.targetId, payload, {
         size: [context.display.width, context.display.height],
         rotation: context.display.rotation,
-        dither: context.service.dither,
+        dither: context.render.dither,
       })
     }
   },
@@ -442,7 +462,7 @@ handle.setActions(actions(false))   // Send is now disabled, with its reason
 handle.setActions([])               // no action buttons at all
 ```
 
-- **`context.display`/`context.service` carry the live canvas and dither mode at that exact click** ([issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105), WYSIWYG-send slice, maintainer ruling 2026-08-31) — the same [`HostPreviewDisplayGeometry`](#renderpreview-issue-109)/[`HostPreviewServiceOptions`](#renderpreview-issue-109) shapes `renderPreview`'s context carries, one type shared between both channels rather than two that happen to agree. Always present, for the same reason `targetId` is not: the designer always knows its own canvas size/rotation and dither setting. Before this, a host had no seam field to read the designer's own dither control from at send time, and reaching for WYSIWYG send meant remembering the last `renderPreview` request's `service.dither` — sticky and invisible, wrong the moment the control changed with the preview off or unused (field evidence from the OpenDisplay HA integration's migration draft, issue #105 comment 2026-08-29). This slice carries `dither` only; the rest of the service-options set (background, ttl, …) is the remainder of issue #105.
+- **`context.display`/`context.render` carry the live canvas and dither mode at that exact click** ([issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105), WYSIWYG-send slice, maintainer ruling 2026-08-31) — the same [`HostDisplayGeometry`](#renderpreview-issue-109)/[`HostRenderOptions`](#renderpreview-issue-109) shapes `renderPreview`'s context carries, one type shared between both channels rather than two that happen to agree. **Both are always present, unlike `targetId`**: the designer always knows its own canvas size/rotation and dither setting, whereas it may genuinely be pinned to no display at all — so a host guards for a missing `targetId` and never for these two. Before this, a host had no seam field to read the designer's own dither control from at send time, and reaching for WYSIWYG send meant remembering the last `renderPreview` request's `render.dither` — sticky and invisible, wrong the moment the control changed with the preview off or unused (field evidence from the OpenDisplay HA integration's migration draft, issue #105 comment 2026-08-29). This slice carries `dither` only; the rest of the option set (background, ttl, …) is the remainder of issue #105.
 - **`onAction` is required** whenever actions are registered. Because it is fixed at mount, a mount without one could never take an action — so a non-empty list at `mount()` *or* at `setActions()` throws instead of painting buttons that look live and do nothing. `setActions([])` stays legal either way.
 - **Re-pushable, and diffed.** Push the *whole* list again on every host state change; the designer compares it structurally and does nothing at all when it is unchanged, so a host may re-push on a timer. Unlike [`states`](#states), the pushed actions are copied on the way in, so mutate-and-repush works too.
 - **Severity is presentation only:** `normal` regular chrome, `caution` orange, `danger` red — in both themes. `caution` is the reference case for an action that reaches beyond the designer (a Send-to-display drives physical hardware). The designer never infers behavior from it: no confirmation dialog, no interception.
@@ -461,14 +481,14 @@ const handle = mount(el, {
   async renderPreview(payload, context) {
     // context.targetId — the display this design is pinned to (undefined: none)
     // context.display   — the canvas to render at: { width, height, rotation }
-    // context.service.dither — the designer's dither control: 0 flat, 2 ordered
+    // context.render.dither  — the designer's dither control: 0 flat, 2 ordered
     const response = await fetch('/api/dry-run', {
       method: 'POST',
       body: JSON.stringify({
         payload,
         target: context.targetId,
         size: [context.display.width, context.display.height],
-        dither: context.service.dither,
+        dither: context.render.dither,
       }),
     })
     if (!response.ok) throw new Error('The display did not answer')  // shown to the user
@@ -484,9 +504,9 @@ const handle = mount(el, {
 - **Entering needs a payload worth rendering.** While the YAML editor is blocked by a parse/schema error the toggle is **disabled and says why** ("Fix the YAML errors to preview") — the same disabled-with-a-reason treatment payload-carrying [actions](#actions--onaction-issue-108) get. Otherwise the render would show the *last valid* payload while the editor shows something else. The converse cannot happen: the editor is read-only in preview mode and `setPayload()` parses or throws, so the document can never go bad while a host render is on screen — no YAML-error overlay ever paints over one.
 - **Your action buttons stay enabled** (deliberate): reviewing the display's own render and then pressing **Send** is the flow this seam exists for. A blocked document still disables them, as always.
 - **The display config and the State Simulator stay editable** — neither is part of the payload. A **display-config change re-requests the render**: `context.display` is the oriented logical canvas the payload's coordinates are authored against (`{ width, height, rotation }`, already swapped for a quarter turn — issue #139), so a resolution pick or a re-orientation asks the host for a render of the new surface. Until that answer lands the image is fit into the canvas box (`object-contain`), so a disagreement letterboxes visibly rather than being stretched to a shape it was not rendered for. Simulator states are the designer's own mock data and never travel — a host resolves templates from its own state.
-- **`context.display` is frozen** ([issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105) review) — for `renderPreview` and for [`onAction`](#actions--onaction-issue-108) alike, since both read the same `HostPreviewDisplayGeometry` shape. Mutating a field on it now throws instead of silently doing nothing: a behavior change from before this fix for a host that happened to mutate the object it was handed.
+- **The context's `display` and `render` objects are frozen** ([issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105) review) — on both channels, `renderPreview` and [`onAction`](#actions--onaction-issue-108) alike, because both declare those fields `readonly` and a published `readonly` has to be backed by the object actually handed out. Mutating a field on either now throws instead of silently doing nothing: a behavior change from before this fix for a host that happened to mutate what it was handed. (`onAction`'s context object is frozen as a whole as well, and is a fresh snapshot per call.)
 - **Copy PNG, Download PNG and zoom keep working — on the host render.** The image occupies the canvas paper, so Fit / 50 / 100 / 200% apply to it unchanged, and the two PNG exports carry the *host's* bytes. They never silently substitute the designer's own rasterization: with no render on screen yet they report "Display preview is still rendering". A download taken in preview mode is named `display-preview-<session>.png`, so it lands beside the designer's own `<session>.png` instead of overwriting it — diffing the two is what this seam is for.
-- **The dither control stays live and re-requests.** It travels in `context.service` and a flip asks for a new render, so the preview always agrees with the designer's own dither setting. `service` is the slice [issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105) formalizes into the full drawcustom service-options seam; it grows there additively, so read the fields you know. `dither` uses the service option's own domain (`0` flat, `1`, `2` ordered halftone) — the designer's control produces `0` or `2` today.
+- **The dither control stays live and re-requests.** It travels in `context.render` and a flip asks for a new render, so the preview always agrees with the designer's own dither setting. `render` is the slice [issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105) formalizes into the full option set; it grows there additively, so read the fields you know. `dither` uses the drawcustom `dither` option's own domain (`0` flat, `1`, `2` ordered halftone) — the designer's control produces `0` or `2` today.
 - **Re-requests are debounced, and answers are matched to their request.** Anything the designer sent can change while the preview shows — a `setPayload()` push, the display config, the selected display, the dither option — and each change re-requests after a short quiet period (250ms), so a burst collapses into one round trip. (Not typing: the design cannot be edited in preview mode at all.) The chip says "Rendering on the display…". A response whose request has already been superseded is **discarded, never painted** — a slow render cannot overwrite a newer one, whichever order they arrive in.
   - **A geometry change (a resolution pick, a re-orientation) clears the image immediately**, before the re-request even fires (maintainer manual-validation finding, PR #143): the old image was rendered for the old shape, so leaving it up would letterbox it into the new canvas box for the ~250ms until the new render lands — a visible double resize (the canvas re-orients, the old image letterboxes, then the new render lands). The paper goes blank and the loading chip appears at once instead.
   - **Dither and payload/target changes keep the previous render on screen underneath** while they re-request — none of them can change the image's dimensions, so there is nothing to letterbox, and swapping in place once the new answer lands avoids flashing the canvas empty for no reason.

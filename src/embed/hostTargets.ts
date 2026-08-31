@@ -1,11 +1,11 @@
-import type { HostCapabilities, HostTarget } from './types'
+import type { HostDisplaySpec, HostTarget } from './types'
 
 /** Shared empty list: a targets-free designer allocates nothing per render. */
 export const NO_HOST_TARGETS: readonly HostTarget[] = Object.freeze([])
 
 /**
  * The capability fields a pushed target retains — the documented
- * {@link HostCapabilities} surface, nothing else. Keeping the copy to a known
+ * {@link HostDisplaySpec} surface, nothing else. Keeping the copy to a known
  * field set is what makes the push-diff below exact and cheap.
  */
 const NUMBER_FIELDS = [
@@ -30,7 +30,7 @@ function requireText(value: unknown, field: string, where: string): string {
 }
 
 /**
- * Frozen copy of a target's capabilities.
+ * Frozen copy of a target's display spec ({@link HostDisplaySpec}).
  *
  * Field *values* are not validated here on purpose: `capabilitiesToCanvas`
  * already tolerates junk (a non-quarter rotation falls back to the canonical
@@ -38,12 +38,12 @@ function requireText(value: unknown, field: string, where: string): string {
  * exists. A second, stricter contract for the same payload shape would mean
  * two answers to "what is a valid display?".
  */
-function copyCapabilities(value: unknown, where: string): HostCapabilities {
+function copyCapabilities(value: unknown, where: string): HostDisplaySpec {
   if (value == null || typeof value !== 'object' || Array.isArray(value)) {
-    fail(`${where} needs a capabilities object (got ${JSON.stringify(value)})`)
+    fail(`${where} needs a display object (got ${JSON.stringify(value)})`)
   }
-  const source = value as HostCapabilities
-  const copy: HostCapabilities = {}
+  const source = value as HostDisplaySpec
+  const copy: HostDisplaySpec = {}
   for (const field of NUMBER_FIELDS) {
     if (source[field] !== undefined) {
       copy[field] = source[field]
@@ -76,7 +76,7 @@ function copyCapabilities(value: unknown, where: string): HostCapabilities {
  * Validate and copy a host-pushed target list (issue #106, ADR-018).
  *
  * Same contract as `normalizeHostActions`: **throws** rather than dropping bad
- * entries — a duplicate id or a target with no capabilities is a host
+ * entries — a duplicate id or a target with no display spec is a host
  * programming error, and a display that silently vanishes from the picker (or
  * one that selects nothing) is the kind of thing that ships. A rejected push
  * leaves the designer exactly as it was.
@@ -109,7 +109,7 @@ export function normalizeHostTargets(targets: readonly HostTarget[]): readonly H
     return Object.freeze({
       id,
       label: requireText(target.label, 'label', where),
-      capabilities: copyCapabilities(target.capabilities, where),
+      display: copyCapabilities(target.display, where),
     })
   })
 
@@ -147,7 +147,7 @@ function colorMapEqual(
  * Also the test for "the host re-defined the display the design is pinned to":
  * every push carries freshly built objects, so identity says nothing.
  */
-export function hostCapabilitiesEqual(a: HostCapabilities, b: HostCapabilities): boolean {
+export function hostCapabilitiesEqual(a: HostDisplaySpec, b: HostDisplaySpec): boolean {
   return (
     a === b ||
     (NUMBER_FIELDS.every((field) => a[field] === b[field]) &&
@@ -176,7 +176,7 @@ export function hostTargetsEqual(a: readonly HostTarget[], b: readonly HostTarge
     return (
       target.id === other.id &&
       target.label === other.label &&
-      hostCapabilitiesEqual(target.capabilities, other.capabilities)
+      hostCapabilitiesEqual(target.display, other.display)
     )
   })
 }

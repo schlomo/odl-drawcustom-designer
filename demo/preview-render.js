@@ -50,7 +50,7 @@ function loadImage(src) {
  *
  * @param {Blob} designPng the designer's own PNG export ({@link
  *   MountHandle.getPngBlob}), already at `context.display`'s exact size
- * @param {{ display: { width: number, height: number, rotation: 0|90|180|270 }, service: { dither: 0|1|2 } }} context
+ * @param {{ display: { width: number, height: number, rotation: 0|90|180|270 }, render: { dither: 0|1|2 } }} context
  * @returns {Promise<Blob>} an `image/png` blob
  */
 export async function stampHostPreview(designPng, context) {
@@ -76,7 +76,7 @@ export async function stampHostPreview(designPng, context) {
   ctx.font = '9px monospace'
   ctx.textBaseline = 'top'
   ctx.fillText(
-    `demo host render — ${width}×${height} @ ${rotation}°, dither ${context.service.dither}`,
+    `demo host render — ${width}×${height} @ ${rotation}°, dither ${context.render.dither}`,
     3,
     height - stripHeight + 1,
   )
