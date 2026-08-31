@@ -8058,7 +8058,7 @@ function te(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var ne = /* @__PURE__ */ new Set(["dev", "test"]), re = "4c54319", ie = "4c54319", A = "0.0.0-dev", j = "3.1.2";
+var ne = /* @__PURE__ */ new Set(["dev", "test"]), re = "544336c", ie = "544336c", A = "0.0.0-dev", j = "3.2.0";
 function M(e) {
 	return ne.has(e) || e.length <= 7 ? e : /^[0-9a-f]+$/i.test(e) ? e.slice(0, 7) : e.length > 12 ? `${e.slice(0, 11)}…` : e;
 }
@@ -50610,9 +50610,16 @@ function H4t({ elements: e, previewElements: t, selectedIndices: n, canvas: r, m
 						className: `mt-1 text-[10px] ${q.muted}`,
 						children: "Preview only — tag export uses palette colors, not full RGB."
 					}) : null,
-					/* @__PURE__ */ (0, K.jsx)("span", {
-						className: `mt-2 block text-xs ${q.muted}`,
-						children: "Orientation"
+					/* @__PURE__ */ (0, K.jsxs)("div", {
+						className: "mt-2 flex items-baseline justify-between gap-2",
+						children: [/* @__PURE__ */ (0, K.jsx)("span", {
+							className: `text-xs ${q.muted}`,
+							children: "Orientation"
+						}), /* @__PURE__ */ (0, K.jsx)("span", {
+							className: `whitespace-nowrap text-[9px] ${q.muted}`,
+							title: "Canvas always draws upright — 0°/180° and 90°/270° look the same here. Orientation describes how the panel is mounted and is applied when the design is sent to the display.",
+							children: "Always upright"
+						})]
 					}),
 					/* @__PURE__ */ (0, K.jsx)("div", {
 						className: "mt-1 flex gap-1",
