@@ -53,6 +53,43 @@ function isScalarQuoteClosed(source: string, range: [number, number, number], qu
   return following === undefined || VALID_FOLLOWING_CHAR.test(following)
 }
 
+/**
+ * Whether every Jinja open delimiter (`{{` or `{%`) in `value` is matched by
+ * its corresponding close (`}}` or `%}`) later in the string (F2, adversarial
+ * verification of #172). This is a delimiter-balance scan, not a Jinja
+ * parser: it does not validate what's between the delimiters, and a close
+ * token that happens to appear inside a string literal between them (e.g.
+ * `{{ 'a}}b' }}`) can pair against the wrong occurrence. It exists only to
+ * catch the truncation shape `isScalarQuoteClosed` cannot: that check looks
+ * at the scalar's OWN quote pair in the source, but a scalar can be
+ * genuinely, syntactically quote-closed — either because the parser
+ * swallowed a trailing `''` escape run while recovering from truncated
+ * input, or because a single undoubled quote legitimately ends the YAML
+ * scalar early — while the PARSED value it produced is still an unfinished
+ * template (`{{ states(` with no `}}`). A value with no open delimiter at
+ * all (including one with no template syntax whatsoever) is vacuously
+ * balanced.
+ */
+function hasBalancedTemplateDelimiters(value: string): boolean {
+  let index = 0
+  while (index < value.length) {
+    const mustacheOpen = value.indexOf('{{', index)
+    const tagOpen = value.indexOf('{%', index)
+    if (mustacheOpen === -1 && tagOpen === -1) {
+      return true
+    }
+    const useTag = tagOpen !== -1 && (mustacheOpen === -1 || tagOpen < mustacheOpen)
+    const openPos = useTag ? tagOpen : mustacheOpen
+    const closeToken = useTag ? '%}' : '}}'
+    const closePos = value.indexOf(closeToken, openPos + 2)
+    if (closePos === -1) {
+      return false
+    }
+    index = closePos + closeToken.length
+  }
+  return true
+}
+
 function computeQuotedScalarRegions(source: string): YamlQuotedScalarRegion[] {
   let doc: ReturnType<typeof parseDocument>
   try {
@@ -77,6 +114,9 @@ function computeQuotedScalarRegions(source: string): YamlQuotedScalarRegion[] {
         return
       }
       if (!isScalarQuoteClosed(source, range, quote)) {
+        return
+      }
+      if (!hasBalancedTemplateDelimiters(node.value)) {
         return
       }
 
@@ -129,6 +169,22 @@ let lastRegions: YamlQuotedScalarRegion[] = []
  * truncate to keep going is deliberately excluded regardless of
  * `doc.errors` (see {@link isScalarQuoteClosed}) rather than trusted
  * because parsing didn't throw.
+ *
+ * `isScalarQuoteClosed` alone is not sufficient (F2, adversarial
+ * verification of #172): a scalar can be genuinely, syntactically
+ * quote-closed while its PARSED value is still an unfinished template —
+ * either because the parser swallowed a trailing `''` escape run while
+ * recovering from truncated input, or because a single undoubled quote
+ * legitimately ends the YAML scalar early on ordinary structural punctuation
+ * (a comma, colon, `#`, whitespace, end of line). A second, independent gate
+ * — {@link hasBalancedTemplateDelimiters} — rejects any such value whose
+ * Jinja open syntax (`{{`/`{%`) has no matching close later in the string.
+ * That gate is a delimiter-count scan, not a Jinja parser: it can be fooled
+ * by a close token that happens to appear inside a string literal between a
+ * real open and its real close (e.g. `{{ 'a}}b' }}`), so a value shaped that
+ * way can still slip through as "balanced" even mid-typing. No such residual
+ * leak is known for the shapes reported against #172; this is a documented
+ * limit of the heuristic, not a claim of full coverage.
  *
  * A scalar whose own source text (start to closing quote) spans multiple
  * physical lines is skipped, matching prior behavior — YAML line-folding can

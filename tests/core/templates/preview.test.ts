@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DrawElement } from '../../../src/core/schema/elements'
 import { applyTemplateContextToPayload, type HaMockContext } from '../../../src/core/templates'
-import { parseYamlPayload } from '../../../src/core/yaml'
+import { findYamlQuotedScalarRegions, parseYamlPayload } from '../../../src/core/yaml'
 
 const temperatureContext: HaMockContext = {
   states: {
@@ -203,5 +203,50 @@ describe('applyTemplateContextToPayload', () => {
     })
 
     expect((preview[0] as Extract<DrawElement, { type: 'text' }>).value).toBe('06.06.2026 23:44')
+  })
+})
+
+// Adversarial verification of #172 (F2): `findYamlQuotedScalarRegions`'s
+// `isScalarQuoteClosed` gate exists to keep a scalar the user is still
+// typing from reaching the evaluator at all — a mid-typed HA-escaped scalar
+// must never surface a region, let alone one whose evaluation throws the raw
+// `TypeError: Cannot read properties of null (reading 'type')`. Root cause:
+// for an unterminated trailing `''`-escape run, the parser consumes the `''`
+// pair and runs out of input with `source[valueEnd - 1]` coincidentally a
+// quote character; for an early-closed lone quote, a single undoubled `'`
+// legitimately closes the YAML scalar and the character right after happens
+// to be one `isScalarQuoteClosed` already allowed (whitespace/`,`/`:`/`#`/
+// end-of-line). Both are still-being-typed, unbalanced Jinja (`{{` without
+// its `}}`) and must be rejected on that basis.
+describe('findYamlQuotedScalarRegions rejects mid-typed HA-escaped scalars (#172 F2)', () => {
+  const leakedShapes: Record<string, string> = {
+    'unterminated trailing \'\'-escape run': `value: '{{ states(''`,
+    'unterminated scalar after a completed \'\'-escaped arg': `value: '{{ states(''sensor.a''`,
+    'unterminated scalar ending in three quotes': `value: '{{ states('''`,
+    'unterminated scalar ending in four quotes': `value: '{{ states(''''`,
+    'lone quote closes early before trailing whitespace': `value: '{{ states(' `,
+    'lone quote closes early before a comma': `value: '{{ states(',`,
+    'lone quote closes early before a colon': `value: '{{ states(':`,
+    'lone quote closes early before a comment': `value: '{{ states('#x`,
+    'lone quote closes early before a newline, mid-document': [
+      '- type: text',
+      "  value: '{{ states('",
+      '  x: 0',
+      '',
+    ].join('\n'),
+  }
+
+  for (const [name, source] of Object.entries(leakedShapes)) {
+    it(`finds zero regions for: ${name}`, () => {
+      expect(findYamlQuotedScalarRegions(source)).toEqual([])
+    })
+  }
+
+  // Guardrail: the unbalanced-delimiter check must not reject a scalar that
+  // has no Jinja delimiters in it at all — YAML's own `''`-doubling for a
+  // literal quote character must keep parsing correctly regardless of
+  // whether templates are involved.
+  it('still resolves a doubled-quote scalar with no template syntax to a literal quote', () => {
+    expect(findYamlQuotedScalarRegions("value: ''''")).toEqual([{ valueEnd: 11, value: "'" }])
   })
 })
