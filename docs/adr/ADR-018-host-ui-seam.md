@@ -242,7 +242,7 @@ data contract — no new lifecycle, no new adapter shape:
     keeps its previous map's identity when no attribute moved, so `mockContext`,
     the evaluated preview and the canvas are untouched.
 - **Actions** — `actions: [{ id, label, icon?, severity?, needsPayload?, disabledReason? }]`
-  + `onAction(id, payload, { targetId })`. The designer renders the button list
+  + `onAction(id, payload, { targetId, display, service })`. The designer renders the button list
   in its own chrome; meaning, auth, and the actual service call are entirely
   host-side. `severity: 'normal' | 'caution' | 'danger'` maps to regular /
   orange / red button chrome (the HA Send-to-display is `caution` — it
@@ -259,6 +259,20 @@ data contract — no new lifecycle, no new adapter shape:
   - The opaque ids travel in a **context object** — `onAction(id, payload,
     { targetId })` — so the targets seam below is additive rather than a
     signature change.
+  - **WYSIWYG-send slice of issue #105** (maintainer ruling 2026-08-31):
+    `context` also carries `display` and `service`, the exact same
+    {@link HostPreviewDisplayGeometry}/{@link HostPreviewServiceOptions}
+    shapes the preview seam below carries — one type, not a fork — with the
+    live values at the instant the action fired. Field evidence from the
+    OpenDisplay migration draft (issue #105 comment, 2026-08-29): before this,
+    an `onAction` handler had no seam field to read the designer's own dither
+    control from, so a host built its Send by remembering the last preview
+    request's `service.dither` — sticky and invisible, and wrong whenever the
+    preview was off or the control changed after the last render. `display`/
+    `service` are **required**, like `targetId` is not: the designer always
+    knows its own canvas and dither mode, so a host never guards for them.
+    This slice carries only `dither`; the rest of the service-options set
+    (background, ttl, …) is the remainder of issue #105.
   - `icon` is **any Material Design Icon name**, resolved exactly as the
     payload's `icon` element resolves it (`mdi:` prefix optional). One icon
     vocabulary, not two: the full MDI set is already bundled deliberately for

@@ -352,7 +352,7 @@ describe('host targets (issue #106)', () => {
 
     expect(onTargetSelected.mock.calls).toEqual([[null]])
     fireEvent.click(designer().getByRole('button', { name: 'Send to display' }))
-    expect(onAction.mock.calls[0]?.[2]).toEqual({ targetId: undefined })
+    expect(onAction.mock.calls[0]?.[2]).toEqual(expect.objectContaining({ targetId: undefined }))
     // The user still sees which display the design is pinned to.
     expect(picker().selectedOptions[0]?.textContent).toBe('Office display (unavailable)')
 
@@ -481,17 +481,17 @@ describe('host targets (issue #106)', () => {
     })
 
     fireEvent.click(designer().getByRole('button', { name: 'Send to display' }))
-    expect(onAction.mock.calls[0]?.[2]).toEqual({ targetId: undefined })
+    expect(onAction.mock.calls[0]?.[2]).toEqual(expect.objectContaining({ targetId: undefined }))
 
     selectDisplay('Kitchen tag')
     fireEvent.click(designer().getByRole('button', { name: 'Send to display' }))
-    expect(onAction.mock.calls[1]?.[2]).toEqual({ targetId: 'display.kitchen' })
+    expect(onAction.mock.calls[1]?.[2]).toEqual(expect.objectContaining({ targetId: 'display.kitchen' }))
 
     // A virtual display is not a target: the host is told there is none,
     // exactly as `onTargetSelected(null)` reported.
     selectDisplay('Virtual display')
     fireEvent.click(designer().getByRole('button', { name: 'Send to display' }))
-    expect(onAction.mock.calls[2]?.[2]).toEqual({ targetId: undefined })
+    expect(onAction.mock.calls[2]?.[2]).toEqual(expect.objectContaining({ targetId: undefined }))
   })
 
   it('adds a display pushed after mount without a reload, keeping the selection', () => {
