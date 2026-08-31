@@ -15,6 +15,15 @@ interface HostActionButtonsProps {
    * the host's statement about its own action is the more specific one.
    */
   designerDisabledReason?: string | null
+  /**
+   * Icon + text when true, icon-only when false — the page header's measured
+   * label collapse (ADR-016). An action registered **without** an `icon` keeps
+   * its text either way: its label is the only identity it has, and a shared
+   * placeholder glyph would make two such buttons indistinguishable. Hosts that
+   * want their buttons to survive a narrow panel should register an `icon`
+   * (docs/embedding.md).
+   */
+  showLabels?: boolean
   onAction: (id: string) => void
 }
 
@@ -49,6 +58,7 @@ const ICON_SURFACES: Record<HostActionSeverity, string> = {
 export function HostActionButtons({
   actions,
   designerDisabledReason,
+  showLabels = true,
   onAction,
 }: HostActionButtonsProps) {
   const reasonIdPrefix = useId()
@@ -68,10 +78,23 @@ export function HostActionButtons({
         const reasonId = disabled ? `${reasonIdPrefix}${action.id}` : undefined
 
         const iconPath = action.icon ? resolveMdiPath(action.icon) : null
+        // Collapsed, the button's own tooltip is the only place its label can
+        // live, so it absorbs the disabled reason too — the wrapper below must
+        // then render no bubble of its own, or the two would stack on top of
+        // each other under the pointer.
+        const collapsedIcon = iconPath != null && !showLabels
+        const iconTooltip =
+          collapsedIcon && disabledReason != null
+            ? `${action.label} — ${disabledReason}`
+            : action.label
+        const wrapperTooltip = collapsedIcon ? undefined : (disabledReason ?? undefined)
         const button: ReactElement = iconPath ? (
           <IconButton
             iconPath={iconPath}
-            label={action.label}
+            label={showLabels ? action.label : undefined}
+            tooltip={iconTooltip}
+            tooltipPlacement="below"
+            tooltipAlign="end"
             surfaceClass={ICON_SURFACES[severity]}
             disabled={disabled}
             aria-describedby={reasonId}
@@ -102,7 +125,7 @@ export function HostActionButtons({
         return (
           <ToolbarTooltip
             key={action.id}
-            label={disabledReason ?? undefined}
+            label={wrapperTooltip}
             placement="below"
           >
             {button}

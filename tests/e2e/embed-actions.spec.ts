@@ -139,7 +139,11 @@ test('a disabled host-action tooltip opens below, inside the designer boundary',
       return null
     }
     const shadowRoot = findShadowRoot(document.body)
-    const tooltipEl = shadowRoot?.querySelector('[role="tooltip"]')
+      // The SHOWN tooltip: every icon-only control now carries a `role="tooltip"`
+      // span (display:none until hovered), so an unqualified query would pick
+      // whichever comes first in the DOM — since the page header collapses to
+      // icon-only buttons (ADR-016), that is a header bubble, not the hovered one.
+    const tooltipEl = shadowRoot?.querySelector('[role="tooltip"][aria-hidden="false"]')
     const designerRoot = shadowRoot?.querySelector('[data-odl-designer-root]')
     if (!tooltipEl || !designerRoot) return null
     const tooltipBox = tooltipEl.getBoundingClientRect()

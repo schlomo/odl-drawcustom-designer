@@ -8,16 +8,21 @@ import {
 import type { AppBootstrap } from './bootstrap/appBootstrap'
 import { DesignerCanvas } from './components/DesignerCanvas'
 import { ElementToolbar } from './components/ElementToolbar'
+import { HeaderActionToolbar } from './components/HeaderActionToolbar'
+import { HeaderMetaRow } from './components/HeaderMetaRow'
 import { PropertyPanel } from './components/PropertyPanel'
 import { Sidebar } from './components/Sidebar'
 import { StatusBanner } from './components/StatusBanner'
-import { ThemeToggle } from './components/ThemeToggle'
 import { YamlPanel } from './components/YamlPanel'
 import { remapSelectedIndex } from './editor/yamlElementsSync'
 import { collectKnownFontKeys } from './lib/known-font-keys'
 import { copyTextToClipboard } from './lib/export-download'
 import { requestLoadDemoConfirm, shouldConfirmLoadDemo } from './lib/load-demo'
-import { toolbarGroupRow, toolbarGroupsRow } from './lib/export-action-feedback'
+import {
+  HEADER_TOOLBAR_ITEM_SELECTOR,
+  headerMetaSlotWidth,
+  headerProbeSlotWidth,
+} from './lib/header-chrome-layout'
 import { getMissingAssetMessages } from './lib/missing-asset-messages'
 import { summarizeStatusMessages, type StatusMessage } from './lib/status-messages'
 import {
@@ -27,37 +32,18 @@ import {
 import { useExportActionFeedback } from './hooks/useExportActionFeedback'
 import { useProjectState } from './hooks/useProjectState'
 import { useElementSize } from './hooks/useElementSize'
+import { useHeaderMetaSegments } from './hooks/useHeaderMetaSegments'
+import { useToolbarLabels } from './hooks/useToolbarLabels'
 import { useThemePreference } from './hooks/useThemePreference'
 import { useYamlBlockedVisibility } from './hooks/useYamlBlockedVisibility'
 import { useYamlSelectionCoupling } from './hooks/useYamlSelectionCoupling'
-import { ExportIconButton } from './components/ExportIconButton'
-import { HostActionButtons } from './components/HostActionButtons'
-import { TextButton } from './components/TextButton'
 import { shell } from './styles/shell'
 import { hostSuppliedTheme, type DesignerHost } from '../embed/host'
 import type { DesignerStatus } from '../embed/types'
 import { serializeYamlPayload, type DrawElement } from '../core'
 import type { AddElementResult } from './hooks/useProjectState'
-import {
-  APP_GITHUB_REPO_URL,
-  APP_GIT_BRANCH,
-  APP_GIT_MERGE_REVISION,
-  APP_GIT_PR_NUMBER,
-  APP_GIT_REVISION,
-  APP_HEADER_LEGAL_HTML,
-  APP_PRIVACY_HEADLINE,
-  APP_PRIVACY_NOTE,
-  APP_SITE_VERSION,
-  APP_TITLE,
-  formatGitBranchLabel,
-  formatGitRevisionLabel,
-  formatRevisionTooltip,
-  githubBranchUrl,
-  githubCommitUrl,
-  githubReleaseUrl,
-} from '../core'
+import { APP_GITHUB_REPO_URL, APP_HEADER_LEGAL_HTML, APP_TITLE } from '../core'
 import { logoUrl } from '../assets/bundled-urls'
-import { toolIconPath } from './lib/mdi-tool-icons'
 
 /**
  * Debounce window for `onStatusChange` notifications (issue #133): long
@@ -603,6 +589,10 @@ export function App({ bootstrap, host }: AppProps) {
     }
   }, [canvas, elements, flashError, flashSuccess, service, sessionName])
 
+  const handleShareClick = useCallback(() => {
+    void handleShare()
+  }, [handleShare])
+
   const handleYamlElementsChange = useCallback(
     (next: typeof elements) => {
       const previous = elementsRef.current
@@ -722,6 +712,46 @@ export function App({ bootstrap, host }: AppProps) {
     [couplingEnabled],
   )
 
+  // ---- Page header chrome (ADR-016 measured label collapse) -------------
+  // The header is `[brand] gap [meta] gap [actions]`. One off-screen probe
+  // holds the meta row at its natural width next to the fully labeled action
+  // row; if that does not fit the slot the brand leaves over, the buttons drop
+  // their labels first, and only then does the meta row start dropping whole
+  // segments against the width the (now collapsed) buttons actually take.
+  const headerRowRef = useRef<HTMLDivElement>(null)
+  const headerBrandRef = useRef<HTMLDivElement>(null)
+  const headerProbeRef = useRef<HTMLDivElement>(null)
+  const { width: headerRowWidth } = useElementSize(headerRowRef)
+  const { width: headerBrandWidth } = useElementSize(headerBrandRef)
+  const { toolbarRef: headerToolbarRef, showLabels: showHeaderLabels } = useToolbarLabels(
+    HEADER_TOOLBAR_ITEM_SELECTOR,
+    {
+      fitWidth: headerProbeSlotWidth(headerRowWidth, headerBrandWidth),
+      measureRef: headerProbeRef,
+    },
+  )
+  const { width: headerToolbarWidth } = useElementSize(headerToolbarRef)
+  const visibleMetaSegments = useHeaderMetaSegments(
+    headerProbeRef,
+    headerMetaSlotWidth(headerRowWidth, headerBrandWidth, headerToolbarWidth),
+  )
+  const headerToolbarProps = {
+    mutationBlocked,
+    yamlBlocked,
+    hostActions,
+    shareLink: host.shareLink === true,
+    showThemeToggle: hostTheme == null,
+    themeMode: mode,
+    resolvedTheme,
+    shareFeedback: getFeedback('share-link'),
+    shareFeedbackMessage: getFeedbackMessage('share-link'),
+    onClearAll: clearElements,
+    onLoadDemo: handleLoadDemo,
+    onShare: handleShareClick,
+    onHostAction: handleHostAction,
+    onCycleTheme: cycleMode,
+  }
+
   // Drop the request as soon as the selection moves on (render-time state
   // adjustment): a stale request must never shadow a later navigation's
   // scroll command, nor re-fire when the selection later returns to its
@@ -732,195 +762,65 @@ export function App({ bootstrap, host }: AppProps) {
 
   return (
     <div className={host.fill === 'viewport' ? shell.app : shell.appEmbedded}>
-      <header className={`${shell.header} flex items-center gap-4`}>
-        <div className="flex shrink-0 items-center gap-2.5">
-          <a
-            href={APP_GITHUB_REPO_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-            aria-label="Open ODL/OEPL Drawcustom Designer on GitHub"
-          >
-            <img
-              src={logoUrl}
-              alt=""
-              className="h-7 w-auto"
-              width={792}
-              height={603}
-            />
-          </a>
-          <h1 className="truncate text-lg font-semibold tracking-tight">{APP_TITLE}</h1>
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5">
-          <div
-            data-testid="header-meta-row"
-            className={`flex w-full min-w-0 items-center justify-center gap-1 text-xs ${shell.muted}`}
-          >
-            <span className="truncate" title={APP_PRIVACY_NOTE}>
-              {APP_PRIVACY_HEADLINE}
-            </span>
-            <span aria-hidden="true" className="shrink-0">
-              {' · '}
-            </span>
+      <header className={shell.header}>
+        <div ref={headerRowRef} className="flex items-center gap-4">
+          <div ref={headerBrandRef} className="flex shrink-0 items-center gap-2.5">
             <a
               href={APP_GITHUB_REPO_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="shrink-0 underline-offset-2 hover:underline"
+              className="shrink-0 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+              aria-label="Open ODL/OEPL Drawcustom Designer on GitHub"
             >
-              GitHub
-            </a>
-            <span aria-hidden="true" className="shrink-0">
-              {' · '}
-            </span>
-            {APP_SITE_VERSION ? (
-              // Production build (APP_SITE_VERSION set only by the
-              // `production` job in pages.yml, ADR/docs/releasing.md#site-
-              // version): the correct release version is the primary
-              // label — branch is always `main` in production and adds
-              // nothing next to it. The SHA link below stays so a build is
-              // still traceable to its exact commit even with a version
-              // label shown.
-              <a
-                href={githubReleaseUrl(APP_SITE_VERSION)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 font-mono underline-offset-2 hover:underline"
-                title={`Release v${APP_SITE_VERSION}`}
-              >
-                {`v${APP_SITE_VERSION}`}
-              </a>
-            ) : APP_GIT_PR_NUMBER > 0 ? (
-              // PR preview build: the PR number and the full branch name
-              // must be visible without hovering (maintainer ruling
-              // 2026-08-31 on the PR #173 preview) — the previous single
-              // truncated label (formatGitBranchLabel's fixed 12-char
-              // leaf truncation) hid both behind a tooltip-only reveal.
-              // The literal word "Branch:" is dropped from the VISIBLE
-              // text (redundant once "PR #n" + the name sit side by
-              // side) but kept in the tooltip, whose phrasing is what
-              // the maintainer liked.
-              //
-              // "PR #n" and the branch link are FLAT siblings of this
-              // row (not one nested inside the other) — deliberately
-              // mirroring the privacy-note span above (`className=
-              // "truncate"`, no `min-w-0`), the one pattern in this row
-              // already proven to shrink to nothing cleanly under a
-              // squeeze with no horizontal overflow. A first attempt
-              // nested the branch inside the PR-number link as its own
-              // flex row; because that inner flex container's own
-              // `overflow` stayed `visible`, its CSS "automatic minimum
-              // size" was its full un-shrunk content rather than 0, so
-              // the browser either refused to shrink it at all (real
-              // page horizontal scroll) or shrank the box past zero
-              // while its shrink-0 child still painted outside it
-              // (overlapping neighbouring segments) — verified visually
-              // in the Browser pane before landing on this flat layout.
-              // `truncate` alone gives a flex item `overflow: hidden`,
-              // which per the flex spec zeroes ITS OWN automatic
-              // minimum size — no extra `min-w-0` needed, same as the
-              // privacy span. "PR #n" stays a separate `shrink-0
-              // whitespace-nowrap` span so it is never the part that
-              // shrinks; only the branch name degrades via CSS ellipsis
-              // (AGENTS.md horizontal-scrollbar bug class; ADR-016
-              // single-row responsive layout).
-              <>
-                <span className="shrink-0 whitespace-nowrap font-mono">{`PR #${APP_GIT_PR_NUMBER}`}</span>
-                <span aria-hidden="true" className="shrink-0">
-                  {' · '}
-                </span>
-                <a
-                  href={githubBranchUrl(APP_GIT_BRANCH, APP_GIT_PR_NUMBER)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="truncate font-mono underline-offset-2 hover:underline"
-                  title={`PR #${APP_GIT_PR_NUMBER} · Branch: ${APP_GIT_BRANCH}`}
-                >
-                  {APP_GIT_BRANCH}
-                </a>
-              </>
-            ) : (
-              // Local dev / CI checks / a local build:site with no PR
-              // context — unchanged short branch label (dev/test/main
-              // are always short; formatGitBranchLabel's truncation is
-              // a non-issue here).
-              <a
-                href={githubBranchUrl(APP_GIT_BRANCH, APP_GIT_PR_NUMBER)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 font-mono underline-offset-2 hover:underline"
-                title={`Branch: ${APP_GIT_BRANCH}`}
-              >
-                {formatGitBranchLabel(APP_GIT_BRANCH)}
-              </a>
-            )}
-            <span aria-hidden="true" className="shrink-0">
-              {' · '}
-            </span>
-            <a
-              href={githubCommitUrl(APP_GIT_REVISION)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 font-mono underline-offset-2 hover:underline"
-              title={formatRevisionTooltip(APP_GIT_REVISION, APP_GIT_MERGE_REVISION)}
-            >
-              {formatGitRevisionLabel(APP_GIT_REVISION)}
-            </a>
-          </div>
-          {APP_HEADER_LEGAL_HTML ? (
-            <div
-              data-testid="header-legal-subline"
-              className={`w-full text-center text-xs ${shell.muted} [&_a]:underline-offset-2 [&_a]:hover:underline`}
-              // Build-time HTML from VITE_HEADER_LEGAL_HTML (trusted deploy config only).
-              dangerouslySetInnerHTML={{ __html: APP_HEADER_LEGAL_HTML }}
-            />
-          ) : null}
-        </div>
-        <div className={`${toolbarGroupsRow} shrink-0`}>
-          <div className={toolbarGroupRow} role="group" aria-label="Session">
-            <TextButton variant="destructive" onClick={clearElements} disabled={mutationBlocked}>
-              Clear all
-            </TextButton>
-          </div>
-          <div className={toolbarGroupRow} role="group" aria-label="Demo">
-            <TextButton onClick={handleLoadDemo} disabled={mutationBlocked}>
-              Load Demo
-            </TextButton>
-          </div>
-          {/* Save and send are host actions (ADR-018, issue #121): the designer
-              has no save channel of its own, so it renders no Save button —
-              a host registers one and owns what it means. */}
-          {hostActions.length > 0 ? (
-            <div className={toolbarGroupRow} role="group" aria-label="Actions">
-              <HostActionButtons
-                actions={hostActions}
-                designerDisabledReason={
-                  yamlBlocked ? 'Fix the YAML errors before running this action' : null
-                }
-                onAction={handleHostAction}
+              <img
+                src={logoUrl}
+                alt=""
+                className="h-7 w-auto"
+                width={792}
+                height={603}
               />
-            </div>
-          ) : null}
-          {/* Share links and the theme toggle are host policy: an embedding
-              parent owns the payload and the page theme (#20, ADR-017). */}
-          {host.shareLink ? (
-            <div className={toolbarGroupRow} role="group" aria-label="Copy share link">
-              <ExportIconButton
-                actionId="share-link"
-                feedback={getFeedback('share-link')}
-                feedbackMessage={getFeedbackMessage('share-link')}
-                iconPath={toolIconPath('share')}
-                tooltip="Copy share link"
-                label="Copy share link"
-                onClick={() => void handleShare()}
+            </a>
+            <h1 className="truncate text-lg font-semibold tracking-tight">{APP_TITLE}</h1>
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5">
+            <HeaderMetaRow visible={visibleMetaSegments} />
+            {APP_HEADER_LEGAL_HTML ? (
+              <div
+                data-testid="header-legal-subline"
+                className={`w-full text-center text-xs ${shell.muted} [&_a]:underline-offset-2 [&_a]:hover:underline`}
+                // Build-time HTML from VITE_HEADER_LEGAL_HTML (trusted deploy config only).
+                dangerouslySetInnerHTML={{ __html: APP_HEADER_LEGAL_HTML }}
               />
+            ) : null}
+          </div>
+          <div ref={headerToolbarRef} data-testid="header-actions" className="shrink-0">
+            <HeaderActionToolbar showLabels={showHeaderLabels} {...headerToolbarProps} />
+          </div>
+          {/*
+            Measurement probe (ADR-016): the meta row at its natural,
+            untruncated width beside the fully labeled action row. Comparing it
+            with the slot left over after the brand block decides whether the
+            buttons may keep their labels — so the buttons give up their text
+            BEFORE any header metadata has to give way (maintainer ruling
+            2026-08-31), and `useHeaderMetaSegments` reads each segment's real
+            cost from the same probe.
+
+            `invisible` (not `display: none`) is required — a display-none
+            subtree has no layout to measure. It is safe here only because the
+            wrapper is `fixed`, zero-height and `overflow-hidden`, so it adds
+            nothing to any scroller (contrast the in-flow hidden boxes of
+            AGENTS.md's horizontal-scrollbar rule); the same wrapper as the YAML
+            header probe.
+          */}
+          <div
+            aria-hidden
+            className="pointer-events-none invisible fixed top-0 -left-[10000px] h-0 overflow-hidden"
+          >
+            <div ref={headerProbeRef} className="flex w-max flex-nowrap items-center gap-4">
+              <HeaderMetaRow visible={visibleMetaSegments} measureOnly />
+              <HeaderActionToolbar showLabels {...headerToolbarProps} measureOnly />
             </div>
-          ) : null}
-          {hostTheme == null ? (
-            <div className={toolbarGroupRow} role="group" aria-label="Appearance">
-              <ThemeToggle mode={mode} resolvedTheme={resolvedTheme} onCycle={cycleMode} />
-            </div>
-          ) : null}
+          </div>
         </div>
       </header>
 

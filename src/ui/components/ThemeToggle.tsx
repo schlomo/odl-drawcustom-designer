@@ -5,10 +5,12 @@ import { IconButton } from './IconButton'
 interface ThemeToggleProps {
   mode: ThemeMode
   resolvedTheme: 'light' | 'dark'
+  /** Icon-only when false — the page header collapses its labels (ADR-016). */
+  showLabel?: boolean
   onCycle: () => void
 }
 
-export function ThemeToggle({ mode, resolvedTheme, onCycle }: ThemeToggleProps) {
+export function ThemeToggle({ mode, resolvedTheme, showLabel = true, onCycle }: ThemeToggleProps) {
   const detail =
     mode === 'system' ? `Using ${resolvedTheme} from system` : `Using ${resolvedTheme} theme`
   const label = `Theme: ${themeModeLabel(mode)}. ${detail}. Click to change.`
@@ -18,8 +20,10 @@ export function ThemeToggle({ mode, resolvedTheme, onCycle }: ThemeToggleProps) 
   return (
     <IconButton
       iconPath={themeIconPath(mode)}
-      label={textLabel}
+      label={showLabel ? textLabel : undefined}
       tooltip={textLabel}
+      tooltipPlacement="below"
+      tooltipAlign="end"
       onClick={onCycle}
       title={label}
       aria-label={label}
