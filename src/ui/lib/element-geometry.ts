@@ -342,13 +342,21 @@ export function translateElement(
         ...spreadAxisDelta('y', element.y, dy, 0, canvas?.height),
       }
     case 'multiline':
+      // `offset_y` is line spacing, not a position (docs/spec/supported_types.md:
+      // "Vertical spacing between lines"), so a move must never touch it. When
+      // `y` is omitted the renderer starts the block at `offset_y`
+      // (src/core/renderer/multiline.ts), so that is the base `y` is
+      // materialized from — which keeps the block under the pointer.
       return {
         ...element,
         ...spreadAxisDelta('x', element.x, dx, undefined, canvas?.width),
-        ...spreadAxisDelta('y', element.y, dy, 0, canvas?.height),
-        ...(isNumericCoordinate(element.offset_y)
-          ? { offset_y: roundCoordinate(element.offset_y + dy) }
-          : {}),
+        ...spreadAxisDelta(
+          'y',
+          element.y,
+          dy,
+          isNumericCoordinate(element.offset_y) ? element.offset_y : 0,
+          canvas?.height,
+        ),
       }
     case 'line':
       return {
