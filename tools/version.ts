@@ -25,3 +25,23 @@ export function resolveAppVersion(source: AppVersionSource = {}): string {
   const version = source.envVersion?.trim()
   return version && version.length > 0 ? version : DEV_APP_VERSION
 }
+
+/**
+ * Resolve the standalone site header's release-version label. Set only by
+ * the `production` job in `.github/workflows/pages.yml`, from
+ * `tools/siteVersion.ts` (which reuses `tools/autoRelease.ts`'s bump
+ * algorithm — see docs/releasing.md#site-version).
+ *
+ * Unlike `resolveAppVersion` above, an unset/blank source degrades to the
+ * **empty string**, never a placeholder: every other build (local dev,
+ * `checks`, PR previews, a local `build:site`) has no `SITE_VERSION` set,
+ * and the header must omit the version entirely rather than show
+ * `0.0.0-dev` or any other stand-in — the whole point is never showing a
+ * label that might be wrong.
+ */
+export function resolveSiteVersion(source: AppVersionSource = {}): string {
+  if (source.vitest) {
+    return ''
+  }
+  return source.envVersion?.trim() ?? ''
+}

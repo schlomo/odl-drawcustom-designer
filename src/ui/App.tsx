@@ -47,12 +47,14 @@ import {
   APP_HEADER_LEGAL_HTML,
   APP_PRIVACY_HEADLINE,
   APP_PRIVACY_NOTE,
+  APP_SITE_VERSION,
   APP_TITLE,
   formatGitBranchLabel,
   formatGitRevisionLabel,
   formatRevisionTooltip,
   githubBranchUrl,
   githubCommitUrl,
+  githubReleaseUrl,
 } from '../core'
 import { logoUrl } from '../assets/bundled-urls'
 import { toolIconPath } from './lib/mdi-tool-icons'
@@ -771,19 +773,40 @@ export function App({ bootstrap, host }: AppProps) {
             <span aria-hidden="true" className="shrink-0">
               {' · '}
             </span>
-            <a
-              href={githubBranchUrl(APP_GIT_BRANCH)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 font-mono underline-offset-2 hover:underline"
-              title={
-                APP_GIT_PR_NUMBER > 0
-                  ? `PR #${APP_GIT_PR_NUMBER} · Branch: ${APP_GIT_BRANCH}`
-                  : `Branch: ${APP_GIT_BRANCH}`
-              }
-            >
-              {formatGitBranchLabel(APP_GIT_BRANCH)}
-            </a>
+            {APP_SITE_VERSION ? (
+              // Production build (APP_SITE_VERSION set only by the
+              // `production` job in pages.yml, ADR/docs/releasing.md#site-
+              // version): the correct release version is the primary
+              // label — branch is always `main` in production and adds
+              // nothing next to it. The SHA link below stays so a build is
+              // still traceable to its exact commit even with a version
+              // label shown.
+              <a
+                href={githubReleaseUrl(APP_SITE_VERSION)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 font-mono underline-offset-2 hover:underline"
+                title={`Release v${APP_SITE_VERSION}`}
+              >
+                {`v${APP_SITE_VERSION}`}
+              </a>
+            ) : (
+              // Every other build (local dev, CI checks, PR previews, a
+              // local build:site) — unchanged branch + SHA display.
+              <a
+                href={githubBranchUrl(APP_GIT_BRANCH, APP_GIT_PR_NUMBER)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 font-mono underline-offset-2 hover:underline"
+                title={
+                  APP_GIT_PR_NUMBER > 0
+                    ? `PR #${APP_GIT_PR_NUMBER} · Branch: ${APP_GIT_BRANCH}`
+                    : `Branch: ${APP_GIT_BRANCH}`
+                }
+              >
+                {formatGitBranchLabel(APP_GIT_BRANCH)}
+              </a>
+            )}
             <span aria-hidden="true" className="shrink-0">
               {' · '}
             </span>

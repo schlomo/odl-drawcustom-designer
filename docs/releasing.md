@@ -60,6 +60,76 @@ dev, the `checks` gate, GH Pages previews) has none set and reports
 `0.0.0-dev` — the one documented silent fallback in this codebase (AGENTS.md,
 "fail loudly" exception), never an error.
 
+## Site version (standalone header)
+
+The deployed standalone site (`https://schlomo.github.io/odl-drawcustom-designer/`)
+shows a release-version label in its header — `v3.0.0`, linked to that
+release's GitHub release page — instead of just a branch and SHA, now that
+real npm releases exist and the OpenDisplay HA integration pins specific
+versions. This is a **separate** label from the library's `APP_VERSION`
+above: `APP_SITE_VERSION` (`src/core/buildInfo.ts`), baked in from a
+`SITE_VERSION` environment variable via `tools/version.ts`'s
+`resolveSiteVersion` + `tools/buildDefines.ts`, following the same
+`vitest:` short-circuit pattern as everything else in this file.
+
+**Why it's *derived*, not read from a tag** — the `production` job in
+[`.github/workflows/pages.yml`](../.github/workflows/pages.yml) and the
+[Auto Release workflow](../.github/workflows/auto-release.yml) both trigger
+on the same push to `main` and run **concurrently**. Auto Release creates
+the new `vX.Y.Z` tag itself (`gh release create`), so at the moment the
+Pages build runs, that tag does not exist yet. `git describe --tags` at
+that point would report the *previous* release — a site confidently
+labelled with the wrong version, which is worse than the old branch+SHA
+label ever was.
+
+The fix: the production site build computes its version with the exact
+same algorithm Auto Release uses to pick the version it's about to
+publish. `tools/siteVersion.ts` exports `deriveSiteVersion`, a pure
+function built on `tools/autoRelease.ts`'s already-unit-tested
+`planRelease` (the single source of truth for the bump algorithm — see
+[Semver policy](#semver-policy) above and `tests/tools/autoRelease.test.ts`
+for the bump rules themselves). Both workflows call
+`readReleaseInputFromGit()` (also in `tools/autoRelease.ts`) to read the
+identical git state (latest `vX.Y.Z` tag reachable from HEAD + full
+messages of every commit since it), so the two workflows can never
+disagree about what "the next version" is, and there is no dependency on
+tag-creation timing and no second deploy once the tag lands.
+
+`pages.yml`'s `production` job runs `node tools/siteVersion.ts` (after
+`npm ci`, before `build:site`) and passes its stdout to the build as
+`SITE_VERSION`:
+
+```yaml
+- name: Determine release version for the site header
+  id: site-version
+  run: echo "version=$(node tools/siteVersion.ts)" >> "$GITHUB_OUTPUT"
+- run: npm run build:site
+  env:
+    SITE_VERSION: ${{ steps.site-version.outputs.version }}
+```
+
+That job's `actions/checkout` also needs `fetch-depth: 0` — the default
+shallow checkout has no tags, and `tools/siteVersion.ts` needs every
+`vX.Y.Z` tag reachable from HEAD (same requirement `auto-release.yml`
+already documents on its own checkout step).
+
+**Degrade, never guess.** `deriveSiteVersion` returns `undefined` — printed
+as empty stdout — whenever no `vX.Y.Z` tag is reachable from HEAD at all.
+That's ambiguous: it could mean a genuinely unreleased repo (which is
+exactly what `planRelease`'s `first-release` mode assumes, correctly, for
+the release script itself), but in a **site** build it far more likely
+means a shallow clone, a fork with no tags, or a local `npm run
+build:site` — and this repo already has releases, so guessing `v1.0.0`
+there would be actively wrong. `resolveSiteVersion` mirrors that: an
+unset/blank `SITE_VERSION` degrades to the **empty string**, never a
+placeholder like `APP_VERSION`'s `0.0.0-dev`. The header
+(`src/ui/App.tsx`) reads an empty `APP_SITE_VERSION` as "show branch + SHA
+instead" — today's behavior, unchanged.
+
+**PR previews are unaffected** — the `preview` job never sets
+`SITE_VERSION`, so every PR preview keeps showing `PR #n · Branch: <b>` +
+short SHA, exactly as before.
+
 ## Release procedure: automated (primary, issue #93)
 
 **main = release.** Main is always stable — every merge is gated by the
