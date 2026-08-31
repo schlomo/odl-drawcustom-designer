@@ -73,7 +73,8 @@ export interface HostAction {
 }
 
 /**
- * Third argument of `onAction` — the opaque ids that accompany the payload.
+ * Third argument of `onAction` — the opaque ids and live display/service
+ * state that accompany the payload.
  */
 export interface HostActionContext {
   /**
@@ -83,6 +84,29 @@ export interface HostActionContext {
    * {@link MountOptions.onTargetSelected} call reported.
    */
   targetId?: string
+  /**
+   * The logical drawing surface the payload is authored against, at the
+   * instant the action fired — the exact same {@link HostPreviewDisplayGeometry}
+   * shape {@link HostPreviewContext} carries, and equal to it in the same
+   * instant (issue #105, WYSIWYG-send slice). Always present: a canvas
+   * re-orientation or resolution pick changes what an action sends exactly as
+   * it changes what a preview request asks for — there is no separate,
+   * possibly-stale copy for actions to fall back on.
+   */
+  display: HostPreviewDisplayGeometry
+  /**
+   * The service options in effect at the instant the action fired — the same
+   * {@link HostPreviewServiceOptions} shape {@link HostPreviewContext}
+   * carries, so a host reads one shape for both channels rather than two that
+   * happen to agree. Always present, for the same reason `display` is
+   * (issue #105): before this, an `onAction` handler had nowhere to read the
+   * designer's own dither control from, so a host reaching for WYSIWYG send
+   * had no choice but to remember the last preview request's `service` —
+   * sticky and invisible, and wrong the moment the control changes with the
+   * preview off or unused. `dither` is the only field this slice carries; the
+   * full service-options set (background, ttl, …) is the rest of issue #105.
+   */
+  service: HostPreviewServiceOptions
 }
 
 /**

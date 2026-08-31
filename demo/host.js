@@ -359,9 +359,11 @@ const handle = mount(document.getElementById('designer'), {
   resolveAsset,
   actions: buildActions(displayOnline),
   onAction(id, payload, context) {
-    // The designer reports only which button fired, the current payload and
-    // the opaque id of the display it is pinned to; everything below is
-    // host-side meaning.
+    // The designer reports which button fired, the current payload, the
+    // opaque id of the display it is pinned to, and — since issue #105's
+    // WYSIWYG-send slice — the same live `display`/`service` a
+    // `renderPreview` request would carry at this exact instant; everything
+    // below is host-side meaning.
     if (id === 'save') {
       // What `onSaveRequest` used to be (issue #121): a host action like any
       // other, with the payload the designer would hand `getPayload()`.
@@ -370,7 +372,10 @@ const handle = mount(document.getElementById('designer'), {
     }
     if (id === 'send') {
       const to = context.targetId ?? 'the virtual display (no target selected)'
-      actionLog.textContent = `Sent ${payload.length} bytes to ${to}:\n${payload}`
+      const canvas = `${context.display.width}x${context.display.height}@${context.display.rotation}°`
+      actionLog.textContent =
+        `Sent ${payload.length} bytes to ${to}` +
+        ` · canvas=${canvas} · dither=${context.service.dither}:\n${payload}`
       return
     }
     if (id === 'validate') {

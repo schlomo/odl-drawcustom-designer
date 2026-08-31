@@ -424,8 +424,16 @@ const handle = mount(el, {
   onAction(id, payload, context) {
     // payload === handle.getPayload() at this instant; context.targetId is the
     // selected display (see `targets` above), undefined when there is none.
+    // context.display/context.service are the live canvas geometry and dither
+    // mode at this exact click — see below.
     if (id === 'save') void persist(payload)
-    if (id === 'send') void sendToDisplay(context.targetId, payload)
+    if (id === 'send') {
+      void sendToDisplay(context.targetId, payload, {
+        size: [context.display.width, context.display.height],
+        rotation: context.display.rotation,
+        dither: context.service.dither,
+      })
+    }
   },
 })
 
@@ -434,6 +442,7 @@ handle.setActions(actions(false))   // Send is now disabled, with its reason
 handle.setActions([])               // no action buttons at all
 ```
 
+- **`context.display`/`context.service` carry the live canvas and dither mode at that exact click** ([issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105), WYSIWYG-send slice, maintainer ruling 2026-08-31) — the same [`HostPreviewDisplayGeometry`](#renderpreview-issue-109)/[`HostPreviewServiceOptions`](#renderpreview-issue-109) shapes `renderPreview`'s context carries, one type shared between both channels rather than two that happen to agree. Always present, for the same reason `targetId` is not: the designer always knows its own canvas size/rotation and dither setting. Before this, a host had no seam field to read the designer's own dither control from at send time, and reaching for WYSIWYG send meant remembering the last `renderPreview` request's `service.dither` — sticky and invisible, wrong the moment the control changed with the preview off or unused (field evidence from the OpenDisplay HA integration's migration draft, issue #105 comment 2026-08-29). This slice carries `dither` only; the rest of the service-options set (background, ttl, …) is the remainder of issue #105.
 - **`onAction` is required** whenever actions are registered. Because it is fixed at mount, a mount without one could never take an action — so a non-empty list at `mount()` *or* at `setActions()` throws instead of painting buttons that look live and do nothing. `setActions([])` stays legal either way.
 - **Re-pushable, and diffed.** Push the *whole* list again on every host state change; the designer compares it structurally and does nothing at all when it is unchanged, so a host may re-push on a timer. Unlike [`states`](#states), the pushed actions are copied on the way in, so mutate-and-repush works too.
 - **Severity is presentation only:** `normal` regular chrome, `caution` orange, `danger` red — in both themes. `caution` is the reference case for an action that reaches beyond the designer (a Send-to-display drives physical hardware). The designer never infers behavior from it: no confirmation dialog, no interception.

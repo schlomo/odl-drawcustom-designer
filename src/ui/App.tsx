@@ -448,10 +448,14 @@ export function App({ bootstrap, host }: AppProps) {
    * The surface a host render must be produced at: the oriented logical canvas
    * the payload's coordinates live in (issue #139). Memoized because the hook
    * takes it as an effect dependency — a fresh object per render would
-   * re-request the preview forever.
+   * re-request the preview forever. Also what `onAction`'s context reports as
+   * `display` (issue #105, WYSIWYG-send slice) — the same object, so a host
+   * can never observe the two channels disagree. Frozen so a host holding
+   * onto it (from either channel) cannot mutate the shared reference out from
+   * under the other.
    */
   const previewDisplayGeometry = useMemo(
-    () => ({ width: canvas.width, height: canvas.height, rotation: canvas.rotation }),
+    () => Object.freeze({ width: canvas.width, height: canvas.height, rotation: canvas.rotation }),
     [canvas.height, canvas.rotation, canvas.width],
   )
   // Host-rendered display preview (issue #109, ADR-018 preview seam). It reads
@@ -527,15 +531,29 @@ export function App({ bootstrap, host }: AppProps) {
   }, [elements.length, loadDemo])
 
   // Host-registered action clicked (issue #108): the designer reports the id,
-  // the current payload and the opaque id of the display the design is pinned
-  // to (issue #106) — nothing else; meaning, auth and the actual call are
-  // host-side (ADR-018). `targetId` is absent while no target is selected,
-  // which is the same thing `onTargetSelected(null)` last reported.
+  // the current payload, the opaque id of the display the design is pinned to
+  // (issue #106), and — since issue #105's WYSIWYG-send slice — the same live
+  // `display`/`service` a `renderPreview` request would carry at this exact
+  // instant, so a host's Send ships exactly what the canvas shows rather than
+  // a value remembered from the last preview render (maintainer ruling
+  // 2026-08-31: sticky-from-last-preview is unacceptable). `targetId` is
+  // absent while no target is selected, which is the same thing
+  // `onTargetSelected(null)` last reported. Frozen (like `DesignerStatus`):
+  // a fresh, read-only snapshot per call, never a mutation of one the host
+  // already holds.
   const handleHostAction = useCallback(
     (id: string) => {
-      host.onAction?.(id, readCurrentPayload(), { targetId: activeTargetId ?? undefined })
+      host.onAction?.(
+        id,
+        readCurrentPayload(),
+        Object.freeze({
+          targetId: activeTargetId ?? undefined,
+          display: previewDisplayGeometry,
+          service: Object.freeze({ dither: canvas.previewDitherMode }),
+        }),
+      )
     },
-    [activeTargetId, host, readCurrentPayload],
+    [activeTargetId, canvas.previewDitherMode, host, previewDisplayGeometry, readCurrentPayload],
   )
 
   const handleShare = useCallback(async () => {
