@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DrawElement } from '../../../src/core/schema/elements'
 import { applyTemplateContextToPayload, type HaMockContext } from '../../../src/core/templates'
+import { parseYamlPayload } from '../../../src/core/yaml'
 
 const temperatureContext: HaMockContext = {
   states: {
@@ -153,6 +154,49 @@ describe('applyTemplateContextToPayload', () => {
       },
     ]
 
+    const preview = applyTemplateContextToPayload(payload, {
+      states: {},
+      now: new Date(2026, 5, 6, 23, 44, 0),
+    })
+
+    expect((preview[0] as Extract<DrawElement, { type: 'text' }>).value).toBe('06.06.2026 23:44')
+  })
+
+  // Issue #168: pins the canvas evaluator against the maintainer's exact HA
+  // payload, parsed through the real YAML parser first (as the canvas path
+  // does via `elements` state) rather than hand-built JS objects. The canvas
+  // render path was already correct here — it operates on the PARSED scalar
+  // value, so YAML's `''` single-quote escaping was already resolved before
+  // `applyTemplateContextToPayload` ever sees the string. Only the editor's
+  // raw-text inline preview (see `tests/ui/editor/template-preview.test.ts`)
+  // read unparsed text and broke on this escaping style.
+  it('evaluates HA-style single-quoted, \'\'-escaped scalars parsed from YAML (issue #168)', () => {
+    const source = [
+      '- type: text',
+      "  value: '{{ states(''sensor.jewish_calendar_date'') }}'",
+      '  x: 0',
+      '  y: 0',
+      '',
+    ].join('\n')
+
+    const payload = parseYamlPayload(source)
+    const preview = applyTemplateContextToPayload(payload, {
+      states: { 'sensor.jewish_calendar_date': '15 Elul 5786' },
+    })
+
+    expect((preview[0] as Extract<DrawElement, { type: 'text' }>).value).toBe('15 Elul 5786')
+  })
+
+  it('evaluates now().strftime from an HA-style \'\'-escaped scalar parsed from YAML (issue #168)', () => {
+    const source = [
+      '- type: text',
+      "  value: '{{ now().strftime(''%d.%m.%Y %H:%M'') }}'",
+      '  x: 0',
+      '  y: 0',
+      '',
+    ].join('\n')
+
+    const payload = parseYamlPayload(source)
     const preview = applyTemplateContextToPayload(payload, {
       states: {},
       now: new Date(2026, 5, 6, 23, 44, 0),

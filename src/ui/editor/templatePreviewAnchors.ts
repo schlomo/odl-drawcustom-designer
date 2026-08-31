@@ -1,5 +1,6 @@
 import {
   evaluateTemplate,
+  findYamlQuotedScalarRegions,
   hasTemplateSyntax,
   TemplateEvaluationError,
   type HaMockContext,
@@ -14,9 +15,6 @@ export interface TemplatePreviewAnchor {
   /** Full text for hover when the inline label is truncated. */
   tooltip?: string
 }
-
-const DOUBLE_QUOTED = /"(?:[^"\\]|\\.)*"/g
-const SINGLE_QUOTED = /'(?:[^'\\]|\\.)*'/g
 
 export const TEMPLATE_PREVIEW_MAX_LENGTH = 48
 export const TEMPLATE_ERROR_INLINE_MAX_LENGTH = 72
@@ -87,29 +85,26 @@ function evaluateTemplatePreview(template: string, context: HaMockContext): Temp
   }
 }
 
+/**
+ * Quoted-scalar template anchors, sourced from the PARSED YAML value (via
+ * `findYamlQuotedScalarRegions`) rather than raw editor text — this is what
+ * makes HA-style `''`-escaped single-quoted scalars evaluate correctly
+ * (issue #168). See that function's doc comment for the full rationale.
+ */
 function collectQuotedTemplateAnchors(
   doc: string,
-  pattern: RegExp,
   context: HaMockContext,
   out: TemplatePreviewAnchor[],
 ): void {
-  pattern.lastIndex = 0
-  for (const match of doc.matchAll(pattern)) {
-    const quoted = match[0]
-    const start = match.index
-    if (start === undefined) {
+  for (const region of findYamlQuotedScalarRegions(doc)) {
+    if (!hasTemplateSyntax(region.value)) {
       continue
     }
 
-    const inner = quoted.slice(1, -1)
-    if (!hasTemplateSyntax(inner) || inner.includes('\n')) {
-      continue
-    }
-
-    const result = evaluateTemplatePreview(inner, context)
+    const result = evaluateTemplatePreview(region.value, context)
 
     out.push({
-      pos: start + quoted.length,
+      pos: region.pos,
       preview: result.preview,
       tooltip: result.tooltip,
     })
@@ -147,8 +142,7 @@ export function findTemplatePreviewAnchors(
   context: HaMockContext,
 ): TemplatePreviewAnchor[] {
   const anchors: TemplatePreviewAnchor[] = []
-  collectQuotedTemplateAnchors(doc, DOUBLE_QUOTED, context, anchors)
-  collectQuotedTemplateAnchors(doc, SINGLE_QUOTED, context, anchors)
+  collectQuotedTemplateAnchors(doc, context, anchors)
   collectBlockScalarTemplateAnchors(doc, context, anchors)
   anchors.sort((a, b) => a.pos - b.pos)
   return anchors

@@ -96,6 +96,55 @@ note: "{{ states('sensor.b')
     expect(anchors[0]?.preview).toMatch(/^\[error\] Unable to call/)
     expect(anchors[0]?.tooltip).toContain('Unable to call `tates`')
   })
+
+  // Issue #168: HA's automation editor emits single-quoted YAML scalars with
+  // doubled `''` escaping for an embedded literal quote — valid YAML, and the
+  // exact style real payloads pasted from HA use. The previous regex-based
+  // extractor read raw editor text and didn't understand YAML's `''` escape at
+  // all, so it sliced a garbled, unbalanced fragment and blew up evaluating it.
+  it('evaluates HA-style single-quoted scalars with doubled \'\' escaping (issue #168)', () => {
+    const doc = `value: '{{ states(''sensor.jewish_calendar_date'') }}'`
+    const anchors = findTemplatePreviewAnchors(doc, {
+      states: { 'sensor.jewish_calendar_date': '15 Elul 5786' },
+    })
+
+    expect(anchors).toHaveLength(1)
+    expect(anchors[0]?.preview).toBe('15 Elul 5786')
+    expect(anchors[0]?.pos).toBe(doc.length)
+  })
+
+  it('evaluates now().strftime inside an HA-style \'\'-escaped single-quoted scalar (issue #168)', () => {
+    const doc = `value: '{{ now().strftime(''%d.%m.%Y %H:%M'') }}'`
+    const anchors = findTemplatePreviewAnchors(doc, {
+      states: {},
+      now: new Date(2026, 7, 31, 9, 5),
+    })
+
+    expect(anchors).toHaveLength(1)
+    expect(anchors[0]?.preview).toBe('31.08.2026 09:05')
+  })
+
+  it('agrees with the double-quoted equivalent for the same HA payload (issue #168)', () => {
+    const singleQuoted = `value: '{{ states(''sensor.jewish_calendar_date'') }}'`
+    const doubleQuoted = `value: "{{ states('sensor.jewish_calendar_date') }}"`
+    const context = { states: { 'sensor.jewish_calendar_date': '15 Elul 5786' } }
+
+    expect(findTemplatePreviewAnchors(singleQuoted, context)[0]?.preview).toBe(
+      findTemplatePreviewAnchors(doubleQuoted, context)[0]?.preview,
+    )
+  })
+
+  it('still finds a plain double-quoted template alongside an HA-escaped one (issue #168)', () => {
+    const doc =
+      "value: '{{ states(''sensor.jewish_calendar_date'') }}' color: \"{{ states('sensor.b') }}\""
+    const anchors = findTemplatePreviewAnchors(doc, {
+      states: { 'sensor.jewish_calendar_date': 'A', 'sensor.b': 'B' },
+    })
+
+    expect(anchors).toHaveLength(2)
+    expect(anchors[0]?.preview).toBe('A')
+    expect(anchors[1]?.preview).toBe('B')
+  })
 })
 
 describe('template preview decorations', () => {
