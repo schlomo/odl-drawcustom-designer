@@ -790,19 +790,66 @@ export function App({ bootstrap, host }: AppProps) {
               >
                 {`v${APP_SITE_VERSION}`}
               </a>
+            ) : APP_GIT_PR_NUMBER > 0 ? (
+              // PR preview build: the PR number and the full branch name
+              // must be visible without hovering (maintainer ruling
+              // 2026-08-31 on the PR #173 preview) — the previous single
+              // truncated label (formatGitBranchLabel's fixed 12-char
+              // leaf truncation) hid both behind a tooltip-only reveal.
+              // The literal word "Branch:" is dropped from the VISIBLE
+              // text (redundant once "PR #n" + the name sit side by
+              // side) but kept in the tooltip, whose phrasing is what
+              // the maintainer liked.
+              //
+              // "PR #n" and the branch link are FLAT siblings of this
+              // row (not one nested inside the other) — deliberately
+              // mirroring the privacy-note span above (`className=
+              // "truncate"`, no `min-w-0`), the one pattern in this row
+              // already proven to shrink to nothing cleanly under a
+              // squeeze with no horizontal overflow. A first attempt
+              // nested the branch inside the PR-number link as its own
+              // flex row; because that inner flex container's own
+              // `overflow` stayed `visible`, its CSS "automatic minimum
+              // size" was its full un-shrunk content rather than 0, so
+              // the browser either refused to shrink it at all (real
+              // page horizontal scroll) or shrank the box past zero
+              // while its shrink-0 child still painted outside it
+              // (overlapping neighbouring segments) — verified visually
+              // in the Browser pane before landing on this flat layout.
+              // `truncate` alone gives a flex item `overflow: hidden`,
+              // which per the flex spec zeroes ITS OWN automatic
+              // minimum size — no extra `min-w-0` needed, same as the
+              // privacy span. "PR #n" stays a separate `shrink-0
+              // whitespace-nowrap` span so it is never the part that
+              // shrinks; only the branch name degrades via CSS ellipsis
+              // (AGENTS.md horizontal-scrollbar bug class; ADR-016
+              // single-row responsive layout).
+              <>
+                <span className="shrink-0 whitespace-nowrap font-mono">{`PR #${APP_GIT_PR_NUMBER}`}</span>
+                <span aria-hidden="true" className="shrink-0">
+                  {' · '}
+                </span>
+                <a
+                  href={githubBranchUrl(APP_GIT_BRANCH, APP_GIT_PR_NUMBER)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="truncate font-mono underline-offset-2 hover:underline"
+                  title={`PR #${APP_GIT_PR_NUMBER} · Branch: ${APP_GIT_BRANCH}`}
+                >
+                  {APP_GIT_BRANCH}
+                </a>
+              </>
             ) : (
-              // Every other build (local dev, CI checks, PR previews, a
-              // local build:site) — unchanged branch + SHA display.
+              // Local dev / CI checks / a local build:site with no PR
+              // context — unchanged short branch label (dev/test/main
+              // are always short; formatGitBranchLabel's truncation is
+              // a non-issue here).
               <a
                 href={githubBranchUrl(APP_GIT_BRANCH, APP_GIT_PR_NUMBER)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="shrink-0 font-mono underline-offset-2 hover:underline"
-                title={
-                  APP_GIT_PR_NUMBER > 0
-                    ? `PR #${APP_GIT_PR_NUMBER} · Branch: ${APP_GIT_BRANCH}`
-                    : `Branch: ${APP_GIT_BRANCH}`
-                }
+                title={`Branch: ${APP_GIT_BRANCH}`}
               >
                 {formatGitBranchLabel(APP_GIT_BRANCH)}
               </a>
