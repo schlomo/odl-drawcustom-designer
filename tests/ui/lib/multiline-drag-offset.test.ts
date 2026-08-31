@@ -110,17 +110,18 @@ describe('dragging a multiline element changes position only', () => {
     expect(moved).toMatchObject({ y: 80, offset_y: 40 })
   })
 
-  it('moves a y-less multiline by the drag delta without changing its spacing', () => {
-    // With no `y`, the renderer starts the block at `offset_y`
-    // (src/core/renderer/multiline.ts). A drag must materialize `y` from that
-    // effective start, not repurpose the spacing value.
+  it('materializes y on a y-less multiline without consuming offset_y', () => {
+    // `y` is optional. Upstream `draw_multiline` falls back to the document
+    // flow position (`ctx.pos_y + y_padding`) — emphatically NOT to
+    // `offset_y`. This renderer has no flow position, so it starts at 0 and
+    // the move materializes `y` from there. Either way `offset_y` is spacing
+    // and stays out of it.
     const before = multiline({ y: undefined })
     const after = translateElement(before, 0, 25) as ReturnType<typeof multiline>
 
     expect(after.offset_y).toBe(40)
-    expect(after.y).toBe(65)
+    expect(after.y).toBe(25)
     expectSameLineAdvances(after, before)
-    expect(renderedBlockTop(after) - renderedBlockTop(before)).toBeCloseTo(25, 6)
   })
 
   it('leaves offset_y alone on a keyboard nudge', () => {

@@ -38,7 +38,7 @@ Audit of draw element parity: [OpenDisplay Language (WIP)](https://opendisplay.o
 |------|------------------|----------------|--------|----------|-------------|--------------|
 | `debug_grid` | spacing, line_color, dashed, … | same | ✅ | ✅ | ✅ | ➕ `visible` |
 | `text` | value, x, y, size, font, color, … | same | ✅ | ✅ | ✅ | |
-| `multiline` | value, delimiter, x, offset_y, … | same | ✅ | ✅ | ✅ | ⚠️ `parse_colors` in schema, not in OEPL multiline table |
+| `multiline` | value, delimiter, x, offset_y, … | same | ✅ | ✅ | ✅ | ⚠️ `parse_colors` in schema, not in OEPL multiline table · ⚠️ `spacing` accepted but ignored · ⚠️ `y`-absent start differs — see [multiline line advance](#multiline-line-advance-offset_y) |
 | `line` | x_start, x_end, y_*, fill, width, … | same | ✅ | ✅ | ✅ | |
 | `rectangle` | x_*, y_*, fill, outline, radius, corners | same | ✅ | ✅ | ✅ | |
 | `rectangle_pattern` | x/y repeat grid fields | same | ✅ | ✅ | ✅ | |
@@ -54,6 +54,38 @@ Audit of draw element parity: [OpenDisplay Language (WIP)](https://opendisplay.o
 | `progress_bar` | bounds, progress, direction, colors, font | same | ✅ | ✅ | ✅ | |
 
 All 16 draw type **names** match ODL and OEPL.
+
+### Multiline line advance (`offset_y`)
+
+Verified against the authoritative renderer, `odl_renderer/elements/text.py`,
+`draw_multiline`:
+
+```python
+offset_y = int(coerce_number(element["offset_y"]))
+...
+for line in lines:
+    draw.text((x, current_y), str(line), ...)
+    current_y += offset_y
+```
+
+- **`offset_y` is the per-line advance**, absolute pixels, and is required
+  (`requires=["x", "value", "delimiter", "offset_y"]`). The designer renderer
+  matches this ([issue #169](https://github.com/schlomo/odl-drawcustom-designer/issues/169)).
+- **`spacing` is not a `multiline` field.** `draw_multiline` never reads it;
+  it belongs to `draw_text` (`element.get("spacing", 5)`). The designer keeps
+  it in the `multiline` schema so existing payloads still load, and ignores it
+  in the renderer exactly as upstream does. It is not offered in the property
+  UI for `multiline`.
+- **`y`-absent start still differs.** Upstream falls back to the document flow
+  position, `ctx.pos_y + y_padding` (`y_padding` default `10`), and also
+  accepts a legacy `start_y`. The designer renderer has no flow-position
+  concept and starts such a block at `0`. Neither `start_y` nor `y_padding` is
+  supported on `multiline`. Open gap — a `multiline` with no `y` renders at a
+  different height than on the device.
+- **Per-line anchor still differs.** Upstream draws each line with
+  `anchor=element.get("anchor", "lm")` on the plain path (and hard-codes `lt`
+  on the `parse_colors` path); the designer uses ink-bound `lt` throughout.
+  Open gap, same class as the text glyph differences in ADR-007.
 
 ## Intentional deltas (keep)
 
