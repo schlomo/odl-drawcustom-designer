@@ -73,7 +73,7 @@ const SHARED_PROPERTY_SPECS: Record<string, PropertySpecMeta> = {
   parse_colors: { description: 'Enable [color]markup[/color] in text', default: false },
   truncate: { description: 'Truncate with ellipsis when text exceeds max_width', default: false },
   delimiter: { description: 'Character that splits text into lines' },
-  offset_y: { description: 'Vertical spacing between lines' },
+  offset_y: { description: 'Vertical advance per line (absolute pixels)' },
   x_start: { description: 'Left or start X position' },
   x_end: { description: 'Right or end X position' },
   y_start: { description: 'Top or start Y position' },
@@ -135,7 +135,10 @@ const TYPE_PROPERTY_SPECS: Partial<
   multiline: {
     value: { description: 'Text with delimiter-separated lines' },
     size: { description: 'Font size', default: 20 },
-    spacing: { description: 'Additional line spacing', default: 0 },
+    // No `spacing` override: upstream `draw_multiline` never reads it, so
+    // describing it as line spacing here sends users to a field no renderer
+    // honors. `offset_y` is this element's line spacing — see
+    // docs/spec/odl-gap-report.md.
   },
   line: {
     fill: { description: 'Line color', default: 'black' },

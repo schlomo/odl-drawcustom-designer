@@ -5,9 +5,9 @@ import { effectiveBool, effectiveFontSize, effectiveNumber, effectiveString } fr
 import { DEFAULT_FONT_KEY, fontUnavailableMessage, getFont } from './fonts'
 import { stripColorMarkup } from './parse-colors'
 import { buildColoredMultilineDrawLines } from './text-color-lines'
-import { layoutMultilineBlock } from './text-layout'
+import { getFontMetrics, layoutMultilineBlock } from './text-layout'
 import { positionTextBlockAtAnchor } from './text-ink-bounds'
-import { estimateMultilineBounds } from './text-metrics'
+import { estimateMultilineBounds, LINE_HEIGHT_RATIO } from './text-metrics'
 import type { RenderContext, RenderResult } from './types'
 import { isVisible } from './visibility'
 
@@ -23,7 +23,6 @@ export function renderMultiline(
 
   const fontKey = effectiveString(element, 'font', DEFAULT_FONT_KEY)
   const fontSize = effectiveFontSize(element, 'size', 20)
-  const lineSpacing = effectiveNumber(element, 'spacing', 0)
   const defaultColor = effectiveString(element, 'color', 'black')
   const parseColors = effectiveBool(element, 'parse_colors')
   const lineTexts = element.value.split(element.delimiter)
@@ -41,6 +40,22 @@ export function renderMultiline(
     }
   }
 
+  // Issue #169. Upstream `draw_multiline` (odl_renderer/elements/text.py)
+  // advances `current_y += offset_y` after every line, so `offset_y` is the
+  // per-line advance in absolute pixels. It never reads `spacing` at all —
+  // that belongs to `draw_text`. This renderer had the two inverted.
+  //
+  // Our layout helpers take spacing ADDED to the font's natural line height
+  // (`lineStep = metrics.lineHeight + lineSpacing`, text-ink-bounds.ts), so
+  // convert the absolute advance into the additive form they expect. The
+  // block height then works out to `lineHeight + (n - 1) * offset_y`, which
+  // is exactly the span upstream paints.
+  const lineAdvance = effectiveNumber(element, 'offset_y', 0)
+  const naturalLineHeight = font
+    ? getFontMetrics(font, fontSize).lineHeight
+    : fontSize * LINE_HEIGHT_RATIO
+  const lineSpacing = lineAdvance - naturalLineHeight
+
   const layout = font
     ? layoutMultilineBlock(font, layoutLineTexts, fontSize, lineSpacing)
     : null
@@ -48,8 +63,12 @@ export function renderMultiline(
     layout ?? estimateMultilineBounds(layoutLineTexts, fontSize, lineSpacing, fontKey)
 
   const x = resolveX(element.x, ctx)
-  const offsetY = effectiveNumber(element, 'offset_y', 0)
-  const y = element.y != null ? resolveY(element.y, ctx) : offsetY
+  // Upstream falls back to the document flow position (`ctx.pos_y +
+  // y_padding`) when `y` is absent; this renderer has no flow-position
+  // concept, so it starts at the top. Tracked as a separate parity gap in
+  // docs/spec/odl-gap-report.md — `offset_y` is emphatically NOT the start,
+  // which is what this used to assume.
+  const y = element.y != null ? resolveY(element.y, ctx) : 0
 
   const positioned =
     layout != null && font != null
@@ -74,7 +93,7 @@ export function renderMultiline(
           text,
           visualText: toVisualText(text),
           x: x + 2,
-          y: y + fontSize + index * (fontSize + lineSpacing),
+          y: y + fontSize + index * lineAdvance,
           width: estimateMultilineBounds([text], fontSize, 0, fontKey).width,
           direction: getDominantTextDirection(text),
         }))
@@ -94,7 +113,6 @@ export function renderMultiline(
     parseColors,
     fontSize,
     ...(element.font != null ? { font: element.font } : {}),
-    ...(lineSpacing > 0 ? { lineSpacing } : {}),
   }
 
   return { layer: 'canvas', primitive }

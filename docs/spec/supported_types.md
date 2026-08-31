@@ -333,7 +333,9 @@ Anchor Behavior with Multiline Colored Text:
 
 - Anchors apply to the entire text block (all lines together)
 - For example, anchor: "mm" centers the entire block at the specified coordinates
-- Line spacing is controlled by the spacing parameter
+- Line spacing is controlled by the spacing parameter — this is a `text`
+  element split on `\n`, not the `multiline` type below, whose line spacing is
+  `offset_y`
 - Each line respects the align parameter (left, center, right)
 
 ### Multiline Text
@@ -357,13 +359,29 @@ Splits text into multiple lines based on a delimiter.
 | `value`     | Text with delimiters           | Yes      | -                         | String                                      |
 | `delimiter` | Character to split text        | Yes      | -                         | Single character                            |
 | `x`         | X position                     | Yes      | -                         | Pixels or percentage                        |
-| `offset_y`  | Vertical spacing between lines | Yes      | -                         | Pixels                                      |
+| `offset_y`  | Vertical advance per line      | Yes      | -                         | Pixels — the **absolute** step from one line to the next, not an addition to the font's line height |
 | `y`         | Starting Y position            | No       | Last position + y_padding | Pixels or percentage                        |
 | `size`      | Font size                      | No       | `20`                      | Pixels                                      |
 | `font`      | Font file name                 | No       | `ppb.ttf`                 | Available fonts: `ppb.ttf`, `rbm.ttf`       |
 | `color`     | Text color                     | No       | `black`                   | `white`, `black`, `accent`, `red`, `yellow` |
-| `spacing`   | Additional line spacing        | No       | `0`                       | Pixels                                      |
 | `visible`   | Show this element              | No       | `true`                    | `true`, `false`                             |
+
+`offset_y` is the field that controls line spacing on a `multiline` element.
+It is the per-line advance applied after each line is drawn:
+
+```python
+# odl_renderer/elements/text.py — draw_multiline
+for line in lines:
+    draw.text((x, current_y), str(line), ...)
+    current_y += offset_y
+```
+
+There is **no `spacing` field on `multiline`**. `spacing` belongs to `text`,
+where it sets the gap between the lines Pillow produces for `\n`-wrapped
+content (`draw_text`, default `5`). `draw_multiline` never reads it, so
+setting `spacing` on a `multiline` element has no effect — change `offset_y`
+instead. The designer still accepts the key on `multiline` so that existing
+payloads keep loading, and ignores it exactly as the renderer does.
 
 
 ### Inline Color Markup

@@ -18,7 +18,10 @@ const SPEC_DEFAULTS: Array<{
   { label: 'debug_grid dashed', element: { type: 'debug_grid' }, property: 'dashed', expected: true },
   { label: 'text size', element: { type: 'text', value: 'Hi', x: 0 }, property: 'size', expected: 20 },
   { label: 'text y_padding', element: { type: 'text', value: 'Hi', x: 0 }, property: 'y_padding', expected: 10 },
-  { label: 'multiline spacing', element: { type: 'multiline', value: 'a|b', delimiter: '|', x: 0, offset_y: 10 }, property: 'spacing', expected: 0 },
+  // `multiline` deliberately has no `spacing` default: upstream
+  // `draw_multiline` never reads the field, so the designer must not advertise
+  // one. `offset_y` carries this element's line spacing and is required.
+  { label: 'multiline size', element: { type: 'multiline', value: 'a|b', delimiter: '|', x: 0, offset_y: 10 }, property: 'size', expected: 20 },
   { label: 'line y_padding', element: { type: 'line', x_start: 0, x_end: 10 }, property: 'y_padding', expected: 0 },
   { label: 'line dash_length', element: { type: 'line', x_start: 0, x_end: 10 }, property: 'dash_length', expected: 5 },
   { label: 'rectangle fill', element: { type: 'rectangle', x_start: 0, x_end: 10, y_start: 0, y_end: 10 }, property: 'fill', expected: null },

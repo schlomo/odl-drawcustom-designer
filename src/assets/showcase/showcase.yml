@@ -29,7 +29,13 @@
     /content and color mode preview. Supports ordering, layering, alignment, color mode, templating ...
   delimiter: /
   x: 40
-  offset_y: 122
+  # Line advance in absolute pixels (docs/spec/supported_types.md). 19 is the
+  # rbm.ttf line height at size 16 — a tight paragraph, which is how this has
+  # always looked in the designer. The old 122 was damage from the drag bug
+  # that added each drag's dy to offset_y; it was invisible here because the
+  # canvas ignored offset_y (issue #169), but on a real device it spread these
+  # four lines across the entire panel.
+  offset_y: 19
   y: 70
   size: 16
   font: rbm.ttf
