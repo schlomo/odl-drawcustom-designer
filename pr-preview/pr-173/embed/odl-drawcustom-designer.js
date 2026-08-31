@@ -8058,7 +8058,7 @@ function te(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var ne = /* @__PURE__ */ new Set(["dev", "test"]), re = "feat/site-release-version", ie = "9c76142", ae = "51fd3cf", A = "0.0.0-dev";
+var ne = /* @__PURE__ */ new Set(["dev", "test"]), re = "feat/site-release-version", ie = "482cdee", ae = "0056f55", A = "0.0.0-dev";
 function j(e) {
 	return ne.has(e) || e.length <= 7 ? e : /^[0-9a-f]+$/i.test(e) ? e.slice(0, 7) : e.length > 12 ? `${e.slice(0, 11)}…` : e;
 }
