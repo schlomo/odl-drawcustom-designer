@@ -199,7 +199,7 @@ test('a very long host label never widens the sidebar', async ({ page }) => {
   // simply cannot reach). Native `<select>` truncation of the option text is
   // fine; a widened panel is not.
   // A relabel of the display already adopted (`display.kitchen`), so this is
-  // purely the layout question: same id, same capabilities, absurd label.
+  // purely the layout question: same id, same display spec, absurd label.
   // Pushing a *different* id would re-pin the design to another display
   // (issue #121 mirroring) and make this a test of two things at once.
   await page.evaluate(() => {
@@ -211,7 +211,7 @@ test('a very long host label never widens the sidebar', async ({ page }) => {
       {
         id: 'display.kitchen',
         label: `Kitchen tag on the second shelf next to the coffee machine ${'and more '.repeat(30)}`,
-        capabilities: {
+        display: {
           pixel_width: 296,
           pixel_height: 128,
           rotation_degrees: 0,

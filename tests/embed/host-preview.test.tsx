@@ -71,12 +71,12 @@ const DEFAULT_SURFACE = { width: 384, height: 184 }
 const KITCHEN: HostTarget = {
   id: 'display.kitchen',
   label: 'Kitchen tag',
-  capabilities: { pixel_width: 296, pixel_height: 128, color_scheme: 0x01 },
+  display: { pixel_width: 296, pixel_height: 128, color_scheme: 0x01 },
 }
 const HALLWAY: HostTarget = {
   id: 'display.hallway',
   label: 'Hallway 7.5"',
-  capabilities: { pixel_width: 296, pixel_height: 128, color_scheme: 0x01 },
+  display: { pixel_width: 296, pixel_height: 128, color_scheme: 0x01 },
 }
 
 /** A resolvable/rejectable promise, so a test owns when a render answers. */
@@ -295,7 +295,7 @@ describe('display preview provider (issue #109)', () => {
     expect(renderPreview).toHaveBeenCalledTimes(1)
     const [payload, context] = renderPreview.mock.calls[0] as unknown as [string, HostPreviewContext]
     expect(payload).toBe(handle.getPayload())
-    expect(context.service.dither).toBe(0)
+    expect(context.render.dither).toBe(0)
     expect(context.targetId).toBeUndefined()
     // It takes over the canvas paper itself, so it rides the same zoom system
     // the designer's own preview does.
@@ -360,7 +360,7 @@ describe('display preview provider (issue #109)', () => {
     const dithered = pngBlob('dithered')
     const renderPreview = vi.fn(
       async (_payload: string, context: HostPreviewContext) =>
-        context.service.dither === 2 ? dithered : flat,
+        context.render.dither === 2 ? dithered : flat,
     )
     mountRaw({ payload: PAYLOAD, renderPreview })
 
@@ -372,7 +372,7 @@ describe('display preview provider (issue #109)', () => {
     await waitFor(() => expect(previewBlob()).toBe(dithered))
     expect(renderPreview).toHaveBeenCalledTimes(2)
     const [, second] = renderPreview.mock.calls[1] as unknown as [string, HostPreviewContext]
-    expect(second.service.dither).toBe(2)
+    expect(second.render.dither).toBe(2)
   })
 
   it('discards a stale response a newer request already superseded', async () => {
@@ -471,6 +471,35 @@ describe('display preview provider (issue #109)', () => {
       expect(previewImage()).toHaveAttribute('width', String(DEFAULT_SURFACE.height)),
     )
     expect(previewImage()).toHaveAttribute('height', String(DEFAULT_SURFACE.width))
+  })
+
+  it('hands the provider a frozen context — the geometry and the render options alike', async () => {
+    const renderPreview = vi.fn(async () => pngBlob('host-render'))
+    mountRaw({ payload: PAYLOAD, renderPreview })
+
+    fireEvent.click(previewToggle())
+    await waitFor(() => expect(renderPreview).toHaveBeenCalledTimes(1))
+    const context = contextOf(renderPreview.mock.calls[0])
+
+    // Non-vacuity guard, as in `tests/embed/host-action-context.test.tsx`:
+    // `Object.isFrozen(undefined)` is `true` by spec and writing a property
+    // onto `undefined` throws for an unrelated reason, so an absent field
+    // would satisfy both assertions below without exercising anything.
+    // Assert the real, current values first.
+    expect(context.display).toEqual({
+      width: DEFAULT_SURFACE.width,
+      height: DEFAULT_SURFACE.height,
+      rotation: 0,
+    })
+    expect(context.render).toEqual({ dither: 0 })
+
+    expect(Object.isFrozen(context.display)).toBe(true)
+    expect(Object.isFrozen(context.render)).toBe(true)
+    expect(() => {
+      // @ts-expect-error deliberate mutation attempt of a frozen, readonly snapshot
+      context.render.dither = 2
+    }).toThrow()
+    expect(context.render.dither).toBe(0)
   })
 
   it('re-requests the render when the host pushes a new payload', async () => {

@@ -90,7 +90,7 @@ function shareHash(value: string): string {
 const STANDALONE_DISPLAY = {
   id: 'display.kitchen',
   label: 'Kitchen tag',
-  capabilities: {
+  display: {
     pixel_width: 296,
     pixel_height: 128,
     rotation_degrees: 0,

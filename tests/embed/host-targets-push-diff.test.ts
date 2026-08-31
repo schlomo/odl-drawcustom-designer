@@ -12,7 +12,7 @@ import type { HostPushTarget, HostTarget } from '../../src/embed/types'
  * timer. The designer therefore diffs — an unchanged re-push must cost nothing
  * (no setState, no re-render, no new list identity for downstream
  * memoization) — while any real change, including one buried in a target's
- * capabilities, must land. Same contract `setStates` (issue #110) and
+ * display spec, must land. Same contract `setStates` (issue #110) and
  * `setActions` (issue #108) hold.
  *
  * Exercised directly against the hook with a stub `DesignerHost` whose
@@ -25,7 +25,7 @@ function officeTarget(): HostTarget {
   return {
     id: 'display.office',
     label: 'Office display',
-    capabilities: {
+    display: {
       render_width: 400,
       render_height: 300,
       color_scheme: 0x00,
@@ -103,7 +103,7 @@ describe('host targets push diff (issue #106)', () => {
     expect(result.current.hostTargets).toBe(targetsBefore)
   })
 
-  it('lands a change buried in a target’s capabilities', () => {
+  it('lands a change buried in a target’s display spec', () => {
     // Capabilities are half of what a target *is*, so a diff blind to them
     // would hand back the old values the next time the display is picked —
     // and, while it is the *selected* display, leave the canvas on a size the
@@ -114,15 +114,15 @@ describe('host targets push diff (issue #106)', () => {
     const { result } = renderHook(() => useProjectState(bootstrap(), host))
 
     const rotated = officeTarget()
-    rotated.capabilities = { ...rotated.capabilities, rotation_degrees: 90 }
+    rotated.display = { ...rotated.display, rotation_degrees: 90 }
     act(() => {
       getPushTarget().applyTargets([rotated])
     })
     expect(result.current.hostTargets).toEqual([rotated])
 
     const remeasured = officeTarget()
-    remeasured.capabilities = {
-      ...remeasured.capabilities,
+    remeasured.display = {
+      ...remeasured.display,
       color_map: { black: '#111111', white: '#ffffff' },
     }
     act(() => {

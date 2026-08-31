@@ -40,6 +40,41 @@ coexisting display channels, their last-write-wins precedence, the anonymous
 "Host display" entry, the two mapping bases — is **historical record, not
 current behavior**; the live contract is [`docs/embedding.md`](../embedding.md).
 
+Amended 2026-08-31, **3.0.0 rename** (maintainer ruling, from the issue #105
+review): the published surface is renamed, breaking, in the same cut as the
+WYSIWYG-send fixes — `HostPreviewServiceOptions` → `HostRenderOptions`,
+`HostCapabilities` → `HostDisplaySpec`, `HostPreviewDisplayGeometry` →
+`HostDisplayGeometry`, the context field `service` → `render`, and
+`HostTarget.capabilities` → `HostTarget.display`. The map for consumers lives
+in [`docs/embedding.md`](../embedding.md#300-rename-map-breaking).
+
+Two reasons, both of them this ADR's own doing. First, the seam grammar's
+domain-neutral rule below names "service" as a word that must not appear on the
+published surface — and this ADR shipped `HostPreviewServiceOptions` and
+`context.service` while stating that rule, so the surface violated the document
+that defined it. `dither` configures rasterization, not a service call, hence
+"render". Second, "capabilities" was removed as a *channel* at 2.0 (issue #121)
+but survived as a type name and a `HostTarget` field; what the type describes is
+a display, so it is named for what it is.
+
+Consequence, accepted rather than worked around: **one word, two shapes.**
+`HostTarget.display` is a `HostDisplaySpec` (the host's declaration of the
+panel — `pixel_*`/`render_*`, rotation, palette) while `context.display` is a
+`HostDisplayGeometry` (the surface the designer resolved that to —
+`width`/`height`/`rotation`). Declared in, resolved out: two ends of one
+pipeline for the same panel, in the two directions the seam grammar already
+separates (typed data pushed in, intent reported out). No real npm consumers
+exist at the time of this ruling (published 2.6.3's downloads are this repo's
+own CI plus one integration's vendored copy), so the names are chosen for the
+interface rather than for migration — the same forward-only basis as the
+2026-08-16 rulings.
+
+`HostDisplaySpec`'s **snake_case fields are deliberate, not drift** (verified
+2026-08-31): they mirror verbatim the JSON the OpenDisplay HA integration
+already publishes from `designer/capabilities.py` as image-entity attributes,
+which its panel wrapper passes straight through. A camelCase spelling would buy
+a translation layer in every host that already has this shape on the wire.
+
 Amended 2026-08-18 (issue #133): a third seam-grammar clause — **state flows
 out via a read handle plus optional change notification; status is derived,
 never authoritative, and carries no designer internals** — for
@@ -96,9 +131,10 @@ Four gaps surfaced concretely from PR #100:
 Four additive seams on the existing [`DesignerHost`](../../src/embed/host.ts)
 data contract — no new lifecycle, no new adapter shape:
 
-- **Targets** — the host pushes `targets: [{ id, label, capabilities }]`
-  (`id` opaque); the designer renders a display picker inside its own
-  display-config area. Selecting a target locks to its capabilities, using
+- **Targets** — the host pushes `targets: [{ id, label, display }]`
+  (`id` opaque; `display` was `capabilities` until 3.0.0, see the rename
+  ruling below); the designer renders a display picker inside its own
+  display-config area. Selecting a target locks to its declared spec, using
   the existing lock UX unchanged — unlocking still means "virtual display,"
   it does not forget the selection. The target id round-trips opaquely
   through callbacks (`onAction` carries it); the designer never learns what
@@ -242,7 +278,7 @@ data contract — no new lifecycle, no new adapter shape:
     keeps its previous map's identity when no attribute moved, so `mockContext`,
     the evaluated preview and the canvas are untouched.
 - **Actions** — `actions: [{ id, label, icon?, severity?, needsPayload?, disabledReason? }]`
-  + `onAction(id, payload, { targetId, display, service })`. The designer renders the button list
+  + `onAction(id, payload, { targetId, display, render })`. The designer renders the button list
   in its own chrome; meaning, auth, and the actual service call are entirely
   host-side. `severity: 'normal' | 'caution' | 'danger'` maps to regular /
   orange / red button chrome (the HA Send-to-display is `caution` — it
@@ -261,19 +297,32 @@ data contract — no new lifecycle, no new adapter shape:
     and later the WYSIWYG-send slice below it, land additively rather than as
     a signature change.
   - **WYSIWYG-send slice of issue #105** (maintainer ruling 2026-08-31):
-    `context` also carries `display` and `service`, the exact same
-    {@link HostPreviewDisplayGeometry}/{@link HostPreviewServiceOptions}
-    shapes the preview seam below carries — one type, not a fork — with the
-    live values at the instant the action fired. Field evidence from the
-    OpenDisplay migration draft (issue #105 comment, 2026-08-29): before this,
-    an `onAction` handler had no seam field to read the designer's own dither
-    control from, so a host built its Send by remembering the last preview
-    request's `service.dither` — sticky and invisible, and wrong whenever the
-    preview was off or the control changed after the last render. `display`/
-    `service` are **required**, like `targetId` is not: the designer always
-    knows its own canvas and dither mode, so a host never guards for them.
-    This slice carries only `dither`; the rest of the service-options set
-    (background, ttl, …) is the remainder of issue #105.
+    `context` also carries `display` and `render`, the exact same
+    `HostDisplayGeometry`/`HostRenderOptions` shapes the preview seam below
+    carries — one type, not a fork — with the live values at the instant the
+    action fired. Field evidence from the OpenDisplay migration draft
+    (issue #105 comment, 2026-08-29): before this, an `onAction` handler had
+    no seam field to read the designer's own dither control from, so a host
+    built its Send by remembering the last preview request's `render.dither`
+    — sticky and invisible, and wrong whenever the preview was off or the
+    control changed after the last render. `display`/`render` are
+    **required**, *unlike* `targetId`: the designer always knows its own
+    canvas and dither mode, whereas it may genuinely be pinned to no display,
+    so a host guards for a missing `targetId` and never for these two. This
+    slice carries only `dither`; the rest of the option set (background, ttl,
+    …) is the remainder of issue #105.
+  - **Both objects are frozen, on both channels** (issue #105 review round 2):
+    the fields are declared `readonly`, so what is handed out is actually
+    read-only rather than merely typed that way. The action context is frozen
+    as a whole and is a fresh snapshot per call.
+  - **The whole context is read live, field by field** (issue #105 review
+    round 2). `targetId`, `display` and `render` are each read through a
+    ref-backed accessor at the instant the action fires, never from a render
+    closure — otherwise the context can be internally inconsistent in exactly
+    the tick this slice exists to fix: a one-element `setTargets` push adopts
+    and locks that display synchronously, and an action fired in the same
+    dispatch reported the new panel's geometry addressed to no target at
+    all.
   - `icon` is **any Material Design Icon name**, resolved exactly as the
     payload's `icon` element resolves it (`mdi:` prefix optional). One icon
     vocabulary, not two: the full MDI set is already bundled deliberately for
@@ -299,16 +348,16 @@ data contract — no new lifecycle, no new adapter shape:
   *Shipped shape* (issue #109, `docs/embedding.md`):
 
   - **The ids travel in a context object**, like the actions seam:
-    `renderPreview(payload, { targetId, display, service })` — so the
-    service-options seam ([issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105))
-    lands additively rather than as a signature change. `service` is that
-    slice, minimal today (`dither`, in the drawcustom service option's own
+    `renderPreview(payload, { targetId, display, render })` — so the
+    render-options seam ([issue #105](https://github.com/schlomo/odl-drawcustom-designer/issues/105))
+    lands additively rather than as a signature change. `render` is that
+    slice, minimal today (`dither`, in the drawcustom `dither` option's own
     `0 | 1 | 2` domain) and **required**, not optional: the designer always
     knows its own dither mode, so a host never guards for it.
   - **The canvas travels with the payload.** `display` is the oriented logical
     surface the payload's coordinates are authored against
     (`{ width, height, rotation }`, issue #139) — required for the same reason
-    `service` is, since a payload without its coordinate space is not enough to
+    `render` is, since a payload without its coordinate space is not enough to
     render. A resolution pick or a re-orientation re-requests, so the image on
     screen is always a render of the canvas the design is being drawn on.
   - **A mode, not an overlay** (maintainer ruling 2026-08-16). The ADR text
@@ -355,8 +404,8 @@ Every seam above follows one shape, and any future addition must fit it:
 - **Data flows in as typed pushed values** (`targets`, `states`, host-side
   `renderPreview`) — the direction `states` and `targets` already run in.
 - **Intent flows out as callbacks carrying payload plus opaque ids and live
-  display/service state** (`onAction(id, payload, { targetId, display,
-  service })`, `onTargetSelected(id | null)`) — the designer reports what the
+  display/render state** (`onAction(id, payload, { targetId, display,
+  render })`, `onTargetSelected(id | null)`) — the designer reports what the
   user did and hands over the current payload; it never exposes a second,
   action-specific save channel.
 - **State flows out via a read handle plus optional change notification;
@@ -399,11 +448,13 @@ Every seam above follows one shape, and any future addition must fit it:
 - **Read and push channels register together, at commit.** No window may
   exist where a push is already visible but a handle read (e.g.
   `getPayload()`) still answers from stale bootstrap.
-- **Vocabulary stays domain-neutral.** "Target", "display", "state" —
-  never "entity", "hass", "service". The designer must stay meaningful to a
-  non-HA host. The 2026-08-16 forward-only ruling dissolves the earlier
-  grandfather clause: legacy "entity"-named published types
-  ([`HostEntityState`](../../src/embed/types.ts)) are renamed at 2.0.
+- **Vocabulary stays domain-neutral.** "Target", "display", "state",
+  "render" — never "entity", "hass", "service". The designer must stay
+  meaningful to a non-HA host. The 2026-08-16 forward-only ruling dissolves
+  the earlier grandfather clause: legacy "entity"-named published types
+  ([`HostEntityState`](../../src/embed/types.ts)) are renamed at 2.0. The
+  rule applies to this ADR's own additions too, which it did not until 3.0.0
+  — see the rename amendment in Status.
 
 **Litmus test for any addition to this seam:** a non-HA host must be able to
 implement it meaningfully, *and* the UI it drives must be testable in Vitest

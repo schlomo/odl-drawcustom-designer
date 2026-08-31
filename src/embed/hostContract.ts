@@ -2,7 +2,7 @@ import { colourSchemeToColorMode, normalizePaletteOverrides, type TagColorMode }
 import type { CanvasConfig, CanvasRotation } from '../ui/hooks/useProjectState'
 import { DEFAULT_DISPLAY_CONFIG, type PreviewDitherMode } from '../ui/preferences/displayConfig'
 import type { MockData, MockEntityAttributes } from '../ui/preferences/mockStates'
-import type { HostCapabilities, HostState, HostStates } from './types'
+import type { HostDisplaySpec, HostState, HostStates } from './types'
 
 /**
  * Friendly names the host supplied, by state key (issue #107) — the labels the
@@ -337,7 +337,7 @@ function accentColorToColorMode(accent: string | undefined): TagColorMode | null
   }
 }
 
-function resolveColorMode(capabilities: HostCapabilities): TagColorMode | null {
+function resolveColorMode(capabilities: HostDisplaySpec): TagColorMode | null {
   const { color_scheme } = capabilities
   if (typeof color_scheme === 'number' && color_scheme >= 0x00 && color_scheme <= 0x04) {
     return colourSchemeToColorMode(color_scheme)
@@ -378,7 +378,7 @@ function resolveColorMode(capabilities: HostCapabilities): TagColorMode | null {
  * the surface will read the wrong way round when the user re-orients it.
  */
 export function capabilitiesToCanvas(
-  capabilities: HostCapabilities,
+  capabilities: HostDisplaySpec,
   previewDitherMode: PreviewDitherMode,
 ): CanvasConfig {
   const base: CanvasConfig = { ...DEFAULT_DISPLAY_CONFIG, previewDitherMode }

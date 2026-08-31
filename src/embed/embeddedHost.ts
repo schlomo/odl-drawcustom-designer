@@ -22,7 +22,7 @@ function buildEmbedBootstrap(
   // A copy of the canonical defaults, never the shared object itself: the
   // bootstrap's canvas becomes live, mutable-by-setState designer state.
   const canvas = adopted
-    ? capabilitiesToCanvas(adopted.capabilities, DEFAULT_DISPLAY_CONFIG.previewDitherMode)
+    ? capabilitiesToCanvas(adopted.display, DEFAULT_DISPLAY_CONFIG.previewDitherMode)
     : { ...DEFAULT_DISPLAY_CONFIG }
   return {
     sessionName: 'Untitled',

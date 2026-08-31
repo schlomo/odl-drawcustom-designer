@@ -146,6 +146,7 @@ export function App({ bootstrap, host }: AppProps) {
     elements,
     getElementsSnapshot,
     getCanvasSnapshot,
+    getActiveTargetIdSnapshot,
     getEditStatus,
     editStatusVersion,
     previewElements,
@@ -541,7 +542,7 @@ export function App({ bootstrap, host }: AppProps) {
   // Host-registered action clicked (issue #108): the designer reports the id,
   // the current payload, the opaque id of the display the design is pinned to
   // (issue #106), and — since issue #105's WYSIWYG-send slice — the same live
-  // `display`/`service` a `renderPreview` request would carry at this exact
+  // `display`/`render` a `renderPreview` request would carry at this exact
   // instant, so a host's Send ships exactly what the canvas shows rather than
   // a value remembered from the last preview render (maintainer ruling
   // 2026-08-31: sticky-from-last-preview is unacceptable). `targetId` is
@@ -550,11 +551,17 @@ export function App({ bootstrap, host }: AppProps) {
   // a fresh, read-only snapshot per call, never a mutation of one the host
   // already holds.
   //
-  // `display`/`service` are read from `getCanvasSnapshot()` — the
-  // `canvasRef`-backed accessor, not a `useMemo`/render-closed-over value —
-  // so a click fired in the same synchronous dispatch as a `setRotation`/
-  // `setCanvasSize` call sees what that call just committed, not this
-  // callback's previous-render closure (issue #105 review, staleness fix).
+  // Every field is read through a ref-backed snapshot accessor —
+  // `getCanvasSnapshot()` for the geometry and the render options,
+  // `getActiveTargetIdSnapshot()` for the id — never from this callback's
+  // render closure, so a click fired in the same synchronous dispatch as a
+  // `setRotation`/`setCanvasSize` call or a `setTargets()` push sees what that
+  // call just committed (issue #105 review, staleness fix). The whole context
+  // has to be live together: reading `targetId` from the closure while the
+  // geometry beside it was ref-live made the context internally inconsistent
+  // in exactly that tick — a one-element `setTargets` push adopts and locks
+  // that display synchronously (issue #121), and the action then reported the
+  // new panel's geometry addressed to no target at all.
   const handleHostAction = useCallback(
     (id: string) => {
       const canvasSnapshot = getCanvasSnapshot()
@@ -562,17 +569,17 @@ export function App({ bootstrap, host }: AppProps) {
         id,
         readCurrentPayload(),
         Object.freeze({
-          targetId: activeTargetId ?? undefined,
+          targetId: getActiveTargetIdSnapshot() ?? undefined,
           display: Object.freeze({
             width: canvasSnapshot.width,
             height: canvasSnapshot.height,
             rotation: canvasSnapshot.rotation,
           }),
-          service: Object.freeze({ dither: canvasSnapshot.previewDitherMode }),
+          render: Object.freeze({ dither: canvasSnapshot.previewDitherMode }),
         }),
       )
     },
-    [activeTargetId, getCanvasSnapshot, host, readCurrentPayload],
+    [getActiveTargetIdSnapshot, getCanvasSnapshot, host, readCurrentPayload],
   )
 
   const handleShare = useCallback(async () => {

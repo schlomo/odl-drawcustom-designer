@@ -5,7 +5,7 @@ import {
   DISPLAY_PREVIEW_DEBOUNCE_MS,
   useDisplayPreview,
 } from '../../../src/ui/hooks/useDisplayPreview'
-import type { HostPreviewDisplayGeometry } from '../../../src/embed/types'
+import type { HostDisplayGeometry } from '../../../src/embed/types'
 
 /**
  * Maintainer manual-validation finding on PR #143 (video evidence): a
@@ -69,7 +69,7 @@ describe('useDisplayPreview — geometry change clears the stale image immediate
       .mockReturnValueOnce(second.promise)
 
     const { result, rerender } = renderHook(
-      ({ display }: { display: HostPreviewDisplayGeometry }) =>
+      ({ display }: { display: HostDisplayGeometry }) =>
         useDisplayPreview({
           renderPreview,
           readPayload: () => 'payload',
@@ -112,7 +112,7 @@ describe('useDisplayPreview — geometry change clears the stale image immediate
       .fn()
       .mockResolvedValueOnce(flat)
       .mockReturnValueOnce(dithered.promise)
-    const display: HostPreviewDisplayGeometry = { width: 296, height: 128, rotation: 0 }
+    const display: HostDisplayGeometry = { width: 296, height: 128, rotation: 0 }
 
     const { result, rerender } = renderHook(
       ({ ditherMode }: { ditherMode: 0 | 2 }) =>

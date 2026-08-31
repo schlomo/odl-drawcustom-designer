@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DitherMode } from '../../core'
-import type { HostPreviewDisplayGeometry, HostPreviewRenderer } from '../../embed/types'
+import type { HostDisplayGeometry, HostPreviewRenderer } from '../../embed/types'
 
 /**
  * A burst of changes collapses into one host render request (issue #109): a
@@ -79,7 +79,7 @@ interface DisplayPreviewOptions {
    * Must be a **stable object** (the caller memoizes it): it is an effect
    * dependency, so a fresh identity per render would re-request forever.
    */
-  display: HostPreviewDisplayGeometry
+  display: HostDisplayGeometry
   /** The display the design is pinned to, as `onAction` reports it. */
   targetId?: string
   /**
@@ -234,7 +234,13 @@ export function useDisplayPreview({
           renderPreview(readPayloadRef.current(), {
             targetId,
             display,
-            service: { dither: ditherMode },
+            // Frozen, like `display` (which arrives frozen from `App`) and
+            // like the whole `HostActionContext`: the type declares these
+            // fields `readonly`, so the object handed out has to actually be
+            // read-only rather than merely typed that way — a host that
+            // mutates it gets a `TypeError`, not a silent no-op on a value
+            // the designer would ignore anyway.
+            render: Object.freeze({ dither: ditherMode }),
           }),
         )
       } catch (thrown) {

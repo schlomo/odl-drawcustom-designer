@@ -48,7 +48,7 @@ function stubMatchMedia() {
 const KITCHEN_296X128_BWR = {
   id: 'display.kitchen',
   label: 'Kitchen tag',
-  capabilities: {
+  display: {
     pixel_width: 296,
     pixel_height: 128,
     rotation_degrees: 0,
@@ -59,7 +59,7 @@ const KITCHEN_296X128_BWR = {
 const OFFICE_400X300_BW = {
   id: 'display.office',
   label: 'Office display',
-  capabilities: { render_width: 400, render_height: 300, color_scheme: 0x00 },
+  display: { render_width: 400, render_height: 300, color_scheme: 0x00 },
 }
 
 let container: HTMLElement
