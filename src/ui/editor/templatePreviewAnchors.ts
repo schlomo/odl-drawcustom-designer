@@ -104,7 +104,7 @@ function collectQuotedTemplateAnchors(
     const result = evaluateTemplatePreview(region.value, context)
 
     out.push({
-      pos: region.pos,
+      pos: region.valueEnd,
       preview: result.preview,
       tooltip: result.tooltip,
     })
