@@ -130,6 +130,11 @@ jobs:
       VITE_HEADER_LEGAL_HTML: ${{ vars.VITE_HEADER_LEGAL_HTML || '' }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Full history + tags: tools/siteVersion.ts needs every vX.Y.Z tag
+          # reachable from HEAD (same requirement as auto-release.yml's
+          # checkout) to derive the site header's release version below.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
@@ -139,9 +144,25 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+
+      # The version the standalone site header shows (docs/releasing.md
+      # #site-version): derived with the SAME bump algorithm
+      # auto-release.yml uses to pick the next release, NOT read from a
+      # tag — Pages and Auto Release both trigger on this push and run
+      # concurrently, so the new tag doesn't exist yet while this builds,
+      # and `git describe --tags` would report the PREVIOUS release.
+      # Empty output (e.g. a fork build with no reachable tags) is handled
+      # by the app itself: the header falls back to branch + SHA, never a
+      # guessed version.
+      - name: Determine release version for the site header
+        id: site-version
+        run: echo "version=$(node tools/siteVersion.ts)" >> "$GITHUB_OUTPUT"
+
       # build:site = app build (dist/) + library build (dist-lib/) + embed
       # demo assembly into dist/embed/ (tools/assembleSite.ts, issue #69).
       - run: npm run build:site
+        env:
+          SITE_VERSION: ${{ steps.site-version.outputs.version }}
 
       - name: Upload dist artifact
         uses: actions/upload-artifact@v7

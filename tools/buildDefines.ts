@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process'
 import { resolveGitBranch, resolveGitPrNumber, resolveGitRevision } from './gitRevision.ts'
-import { resolveAppVersion } from './version.ts'
+import { resolveAppVersion, resolveSiteVersion } from './version.ts'
 
 /**
  * Build-time `define` entries shared by the app build (vite.config.ts) and
@@ -82,6 +82,20 @@ function appVersion(): string {
   return resolveAppVersion({ vitest: isVitest, envVersion: process.env.APP_VERSION })
 }
 
+/**
+ * The standalone site header's release-version label (distinct from
+ * `appVersion()`/`APP_VERSION` above, which is the *library's* runtime
+ * version and always falls back to `0.0.0-dev`). Only the `production` job
+ * in `.github/workflows/pages.yml` sets `SITE_VERSION`, computed by
+ * `tools/siteVersion.ts` — see docs/releasing.md#site-version. Every other
+ * build (local dev, CI `checks`, PR previews, a local `build:site`) has
+ * none set and resolves to the empty string, which the header reads as
+ * "omit the version, show branch + SHA instead".
+ */
+function siteVersion(): string {
+  return resolveSiteVersion({ vitest: isVitest, envVersion: process.env.SITE_VERSION })
+}
+
 export function buildDefines(): Record<string, string> {
   return {
     'import.meta.env.VITE_GIT_BRANCH': JSON.stringify(gitBranch()),
@@ -89,5 +103,6 @@ export function buildDefines(): Record<string, string> {
     'import.meta.env.VITE_GIT_MERGE_REVISION': JSON.stringify(gitMergeRevision()),
     'import.meta.env.VITE_GIT_PR_NUMBER': JSON.stringify(String(gitPrNumber())),
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion()),
+    'import.meta.env.VITE_SITE_VERSION': JSON.stringify(siteVersion()),
   }
 }

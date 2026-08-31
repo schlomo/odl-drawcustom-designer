@@ -257,7 +257,17 @@ function publishToNpm(stagingDir: string, tag: string): void {
   console.log(`Published ${tag} to npm.`)
 }
 
-if (import.meta.main) {
+/**
+ * Read the git plumbing `planRelease` (and `tools/siteVersion.ts`'s
+ * `deriveSiteVersion`) need: the latest `vX.Y.Z` tag reachable from HEAD (if
+ * any) and the full messages of every commit since it. Shared by this
+ * script's own CLI entry point below and `tools/siteVersion.ts`'s, so the
+ * production site build derives its version from the exact same git state
+ * auto-release does — never a second, possibly-drifted query. Not
+ * unit-tested (git/gh plumbing, same as the rest of this `import.meta.main`
+ * block) — exercised for real by the workflows.
+ */
+export function readReleaseInputFromGit(): PlanReleaseInput {
   const git = (args: string[]): string => execFileSync('git', args, { encoding: 'utf8' })
 
   const tagList = git(gitTagListArgs())
@@ -269,6 +279,12 @@ if (import.meta.main) {
   const commitMessagesSinceTag = latestTag
     ? parseCommitMessages(git(['log', `${latestTag}..HEAD`, '--format=%B%x00']))
     : []
+
+  return { latestTag, commitMessagesSinceTag }
+}
+
+if (import.meta.main) {
+  const { latestTag, commitMessagesSinceTag } = readReleaseInputFromGit()
 
   const plan = planRelease({ latestTag, commitMessagesSinceTag })
 

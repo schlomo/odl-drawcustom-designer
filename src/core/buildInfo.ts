@@ -46,6 +46,21 @@ export const APP_HEADER_LEGAL_HTML =
 export const APP_VERSION =
   (import.meta.env.VITE_APP_VERSION ?? '0.0.0-dev').trim() || '0.0.0-dev'
 
+/**
+ * Production release-version label for the standalone site header — DISTINCT
+ * from `APP_VERSION` above (the library's runtime version, always
+ * `0.0.0-dev` outside a release build). Baked in at build time from
+ * `SITE_VERSION`, set only by the `production` job in
+ * `.github/workflows/pages.yml` via `tools/siteVersion.ts` (which reuses
+ * `tools/autoRelease.ts`'s bump algorithm — docs/releasing.md#site-version).
+ *
+ * The empty string — every other build (local dev, CI `checks`, PR
+ * previews, a local `build:site`) — is the deliberate "cannot safely show
+ * a version" signal: the header falls back to branch + SHA rather than
+ * guess. Never defaults to a placeholder like `APP_VERSION` does.
+ */
+export const APP_SITE_VERSION = (import.meta.env.VITE_SITE_VERSION ?? '').trim()
+
 /** Compact branch label for the header (leaf segment, truncated when long). */
 export function formatGitBranchLabel(branch: string, maxLen = 12): string {
   if (DEV_LABELS.has(branch) || branch.length <= maxLen) {
@@ -104,4 +119,10 @@ export function githubCommitUrl(revision = APP_GIT_REVISION): string {
     return `${repoBase}/commits/main`
   }
   return `${repoBase}/commit/${revision}`
+}
+
+/** Link to a release's GitHub release page (`version` is a plain `X.Y.Z`, no leading `v`). */
+export function githubReleaseUrl(version = APP_SITE_VERSION): string {
+  const repoBase = APP_GITHUB_REPO_URL.replace(/\/$/, '')
+  return `${repoBase}/releases/tag/v${version}`
 }

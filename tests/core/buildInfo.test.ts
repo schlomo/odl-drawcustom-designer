@@ -5,12 +5,14 @@ import {
   APP_GIT_PR_NUMBER,
   APP_GIT_REVISION,
   APP_HEADER_LEGAL_HTML,
+  APP_SITE_VERSION,
   APP_VERSION,
   formatGitBranchLabel,
   formatGitRevisionLabel,
   formatRevisionTooltip,
   githubBranchUrl,
   githubCommitUrl,
+  githubReleaseUrl,
 } from '../../src/core/buildInfo'
 
 describe('APP_GIT_REVISION', () => {
@@ -34,6 +36,15 @@ describe('APP_GIT_MERGE_REVISION', () => {
 describe('APP_VERSION', () => {
   it('is injected by Vitest as test (issue #23 runtime version reporting)', () => {
     expect(APP_VERSION).toBe('test')
+  })
+})
+
+describe('APP_SITE_VERSION', () => {
+  // Proves the Vitest short-circuit (AGENTS.md, "Build-time defines"): the
+  // production-only SITE_VERSION env var must never leak into the Vitest
+  // runtime, the same way GITHUB_REF_NAME once did for the branch label.
+  it('is empty when VITEST short-circuits SITE_VERSION (never a placeholder)', () => {
+    expect(APP_SITE_VERSION).toBe('')
   })
 })
 
@@ -148,6 +159,20 @@ describe('githubCommitUrl', () => {
   it('links to main history for Vitest revision', () => {
     expect(githubCommitUrl('test')).toBe(
       'https://github.com/schlomo/odl-drawcustom-designer/commits/main',
+    )
+  })
+})
+
+describe('githubReleaseUrl', () => {
+  it('links to the vX.Y.Z release page for a given version', () => {
+    expect(githubReleaseUrl('3.0.0')).toBe(
+      'https://github.com/schlomo/odl-drawcustom-designer/releases/tag/v3.0.0',
+    )
+  })
+
+  it('defaults to the injected build site version', () => {
+    expect(githubReleaseUrl()).toBe(
+      `https://github.com/schlomo/odl-drawcustom-designer/releases/tag/v${APP_SITE_VERSION}`,
     )
   })
 })
