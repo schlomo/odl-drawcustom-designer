@@ -166,6 +166,159 @@ note: "{{ states('sensor.b')
     const anchors = findTemplatePreviewAnchors(doc, { states: {} })
     expect(anchors).toHaveLength(0)
   })
+
+  // F2 (adversarial verification of #172): isScalarQuoteClosed's own checks
+  // pass for these mid-typing shapes even though the scalar isn't a real,
+  // finished template — either an escape run (`''`) happens to leave a `'`
+  // right at valueEnd-1, or a lone quote closes the scalar early and the
+  // next character is one VALID_FOLLOWING_CHAR allows. Before the fix each
+  // of these surfaced an anchor whose preview contained the raw
+  // `TypeError: Cannot read properties of null (reading 'type')` text.
+  it('shows no anchor for an unterminated trailing \'\'-escape run (F2a)', () => {
+    const doc = `value: '{{ states(''`
+    const anchors = findTemplatePreviewAnchors(doc, { states: {} })
+    expect(anchors).toHaveLength(0)
+  })
+
+  it('shows no anchor for an unterminated scalar after a completed \'\'-escaped arg (F2b)', () => {
+    const doc = `value: '{{ states(''sensor.a''`
+    const anchors = findTemplatePreviewAnchors(doc, { states: {} })
+    expect(anchors).toHaveLength(0)
+  })
+
+  it('shows no anchor for an unterminated scalar ending in three quotes (F2c)', () => {
+    const doc = `value: '{{ states('''`
+    const anchors = findTemplatePreviewAnchors(doc, { states: {} })
+    expect(anchors).toHaveLength(0)
+  })
+
+  it('shows no anchor for an unterminated scalar ending in four quotes (F2d)', () => {
+    const doc = `value: '{{ states(''''`
+    const anchors = findTemplatePreviewAnchors(doc, { states: {} })
+    expect(anchors).toHaveLength(0)
+  })
+
+  it('shows no anchor when a lone quote closes early before trailing whitespace (F2e)', () => {
+    const doc = `value: '{{ states(' `
+    const anchors = findTemplatePreviewAnchors(doc, { states: {} })
+    expect(anchors).toHaveLength(0)
+  })
+
+  it('shows no anchor when a lone quote closes early before a comma (F2f)', () => {
+    const doc = `value: '{{ states(',`
+    const anchors = findTemplatePreviewAnchors(doc, { states: {} })
+    expect(anchors).toHaveLength(0)
+  })
+
+  it('shows no anchor when a lone quote closes early before a colon (F2g)', () => {
+    const doc = `value: '{{ states(':`
+    const anchors = findTemplatePreviewAnchors(doc, { states: {} })
+    expect(anchors).toHaveLength(0)
+  })
+
+  it('shows no anchor when a lone quote closes early before a comment (F2h)', () => {
+    const doc = `value: '{{ states('#x`
+    const anchors = findTemplatePreviewAnchors(doc, { states: {} })
+    expect(anchors).toHaveLength(0)
+  })
+
+  it('shows no anchor when a lone quote closes early before a newline, mid-document (F2i)', () => {
+    const doc = ['- type: text', "  value: '{{ states('", '  x: 0', ''].join('\n')
+    const anchors = findTemplatePreviewAnchors(doc, { states: {} })
+    expect(anchors).toHaveLength(0)
+  })
+})
+
+// Guardrail (review of #172, F2): the fix rejects unbalanced Jinja delimiters
+// on TOP OF the existing quote-closure check, so every one of these
+// genuinely finished, previously-working templates must still anchor and
+// preview correctly — a false "unclosed" would blank a legitimate preview,
+// which is a worse regression than the leak this PR closes.
+describe('template preview anchors still work for finished templates (F2 guardrail)', () => {
+  const context = { states: { 'sensor.a': 'VAL' } }
+
+  it('evaluates a template ending in a doubled-quote empty-string default', () => {
+    const doc = `value: '{{ states(''sensor.a'', '''') }}'`
+    const anchors = findTemplatePreviewAnchors(doc, context)
+    expect(anchors).toEqual([{ pos: doc.length, preview: 'VAL' }])
+  })
+
+  it('evaluates a template whose value ends in an escaped literal quote', () => {
+    const doc = `value: '{{ "x" if true else "y" }}'''`
+    const anchors = findTemplatePreviewAnchors(doc, context)
+    expect(anchors).toEqual([{ pos: doc.length, preview: "x'" }])
+  })
+
+  it('evaluates a double-quoted scalar with backslash-escaped quotes and backslashes', () => {
+    const doc = 'value: "{{ states(\\"sensor.a\\") }}\\\\n"'
+    const anchors = findTemplatePreviewAnchors(doc, context)
+    expect(anchors).toEqual([{ pos: doc.length, preview: 'VAL\\n' }])
+  })
+
+  it('evaluates a template inside a flow sequence', () => {
+    const doc = `data: ["{{ states('sensor.a') }}"]`
+    const anchors = findTemplatePreviewAnchors(doc, context)
+    expect(anchors).toEqual([{ pos: doc.length - ']'.length, preview: 'VAL' }])
+  })
+
+  it('evaluates a template inside a flow map value', () => {
+    const doc = `data: {a: '{{ states(''sensor.a'') }}'}`
+    const anchors = findTemplatePreviewAnchors(doc, context)
+    expect(anchors).toEqual([{ pos: doc.length - '}'.length, preview: 'VAL' }])
+  })
+
+  it('evaluates a template used as a quoted flow map key', () => {
+    const doc = `data: {'{{ states(''sensor.a'') }}': 1}`
+    const anchors = findTemplatePreviewAnchors(doc, context)
+    expect(anchors).toEqual([{ pos: doc.length - ': 1}'.length, preview: 'VAL' }])
+  })
+
+  it('evaluates a template on an anchored scalar', () => {
+    const doc = `value: &x '{{ states(''sensor.a'') }}'`
+    const anchors = findTemplatePreviewAnchors(doc, context)
+    expect(anchors).toEqual([{ pos: doc.length, preview: 'VAL' }])
+  })
+
+  it('evaluates a template when the key/value separator is a tab', () => {
+    const doc = "value:\t'{{ states(''sensor.a'') }}'"
+    const anchors = findTemplatePreviewAnchors(doc, context)
+    expect(anchors).toEqual([{ pos: doc.length, preview: 'VAL' }])
+  })
+
+  it('evaluates a template containing a literal tab character', () => {
+    const doc = `value: '{{\tstates(''sensor.a'') }}'`
+    const anchors = findTemplatePreviewAnchors(doc, context)
+    expect(anchors).toEqual([{ pos: doc.length, preview: 'VAL' }])
+  })
+
+  it('evaluates a template in a CRLF-terminated document', () => {
+    const doc = `value: '{{ states(''sensor.a'') }}'\r\nx: 0\r\n`
+    const anchors = findTemplatePreviewAnchors(doc, context)
+    expect(anchors).toEqual([{ pos: 35, preview: 'VAL' }])
+  })
+
+  it('evaluates a template before a document-end marker', () => {
+    const doc = `value: '{{ states(''sensor.a'') }}'\n...\n`
+    const anchors = findTemplatePreviewAnchors(doc, context)
+    expect(anchors).toEqual([{ pos: doc.indexOf('\n'), preview: 'VAL' }])
+  })
+
+  it('shows no anchor for a template that only appears inside a YAML comment', () => {
+    const doc = `# value: '{{ states(''sensor.a'') }}'\nx: 0\n`
+    const anchors = findTemplatePreviewAnchors(doc, context)
+    expect(anchors).toHaveLength(0)
+  })
+
+  // The parser treats `{{` starting an unquoted value as a flow-mapping
+  // indicator, not scalar text, so a plain (unquoted) templated scalar was
+  // never supported by the AST-based extractor — unaffected by this fix,
+  // locked in here so a future change doesn't silently start (or regress)
+  // supporting it without a deliberate decision.
+  it('shows no anchor for a plain unquoted templated scalar (unsupported, unaffected by this fix)', () => {
+    const doc = `value: {{ states('sensor.a') }}\n`
+    const anchors = findTemplatePreviewAnchors(doc, context)
+    expect(anchors).toHaveLength(0)
+  })
 })
 
 describe('template preview decorations', () => {
