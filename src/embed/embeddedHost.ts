@@ -4,7 +4,7 @@ import { DEFAULT_DISPLAY_CONFIG } from '../ui/preferences/displayConfig'
 import type { DesignerHost } from './host'
 import { assertActionsAreHandled, normalizeHostActions } from './hostActions'
 import { autoAdoptedHostTarget, normalizeHostTargets } from './hostTargets'
-import { assertHostStates, capabilitiesToCanvas, hostStatesToMockData } from './hostContract'
+import { assertHostStates, displaySpecToCanvas, hostStatesToMockData } from './hostContract'
 import type { HostTarget, MountOptions } from './types'
 
 function buildEmbedBootstrap(
@@ -22,7 +22,7 @@ function buildEmbedBootstrap(
   // A copy of the canonical defaults, never the shared object itself: the
   // bootstrap's canvas becomes live, mutable-by-setState designer state.
   const canvas = adopted
-    ? capabilitiesToCanvas(adopted.display, DEFAULT_DISPLAY_CONFIG.previewDitherMode)
+    ? displaySpecToCanvas(adopted.display, DEFAULT_DISPLAY_CONFIG.previewDitherMode)
     : { ...DEFAULT_DISPLAY_CONFIG }
   return {
     sessionName: 'Untitled',

@@ -44,7 +44,7 @@ const ROTATIONS = new Set<CanvasRotation>([0, 90, 180, 270])
 const PREVIEW_DITHER_MODES = new Set<PreviewDitherMode>([0, 2])
 
 /**
- * The canonical display every adoption resolves from (`capabilitiesToCanvas`)
+ * The canonical display every adoption resolves from (`displaySpecToCanvas`)
  * and every bootstrap without a host display starts at.
  *
  * Frozen: it is handed out **by reference** (here and from `readDisplayConfig`)

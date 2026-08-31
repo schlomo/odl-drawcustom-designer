@@ -94,7 +94,7 @@ describe('host targets push diff (issue #106)', () => {
     const targetsBefore = result.current.hostTargets
 
     // Freshly built objects with identical content — what a host re-pushing its
-    // display inventory on a timer sends, nested capability maps included.
+    // display inventory on a timer sends, nested color maps included.
     act(() => {
       getPushTarget().applyTargets([officeTarget()])
     })
@@ -104,7 +104,7 @@ describe('host targets push diff (issue #106)', () => {
   })
 
   it('lands a change buried in a target’s display spec', () => {
-    // Capabilities are half of what a target *is*, so a diff blind to them
+    // The display spec is half of what a target *is*, so a diff blind to it
     // would hand back the old values the next time the display is picked —
     // and, while it is the *selected* display, leave the canvas on a size the
     // host has already re-defined (the re-apply rule, maintainer ruling

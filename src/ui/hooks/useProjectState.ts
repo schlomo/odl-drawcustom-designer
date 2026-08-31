@@ -67,7 +67,7 @@ import {
   writeShowHiddenHintsPrefs,
 } from '../preferences/hiddenHints'
 import {
-  capabilitiesToCanvas,
+  displaySpecToCanvas,
   hostStateNamesEqual,
   hostStatesEqual,
   hostStatesToMockData,
@@ -83,7 +83,7 @@ import { hostActionsEqual, NO_HOST_ACTIONS } from '../../embed/hostActions'
 import {
   autoAdoptedHostTarget,
   findHostTarget,
-  hostCapabilitiesEqual,
+  displaySpecEqual,
   hostTargetsEqual,
   NO_HOST_TARGETS,
 } from '../../embed/hostTargets'
@@ -490,7 +490,7 @@ export function useProjectState(
    * is adopted while building the bootstrap (`buildEmbedBootstrap`,
    * `src/embed/embeddedHost.ts`), because it has to be in the first painted
    * frame — before this hook's state exists. The two stay equivalent by both
-   * resolving the canvas through `capabilitiesToCanvas` and by treating a
+   * resolving the canvas through `displaySpecToCanvas` and by treating a
    * present `hostDisplay` as locked (see the `displayLocked` initializer);
    * `tests/embed/host-targets.test.tsx` pins the option and the push against
    * each other so the equivalence cannot drift silently.
@@ -501,7 +501,7 @@ export function useProjectState(
       // whatever the user did to rotation before this no longer counts as
       // "since the pick".
       rotationOverriddenSincePickRef.current = false
-      const next = capabilitiesToCanvas(
+      const next = displaySpecToCanvas(
         target.display,
         canvasRef.current.previewDitherMode,
       )
@@ -764,7 +764,7 @@ export function useProjectState(
       if (!selected || !pushed) {
         return
       }
-      const redefined = !hostCapabilitiesEqual(selected.display, pushed.display)
+      const redefined = !displaySpecEqual(selected.display, pushed.display)
       if (pushed.label === selected.label && !redefined) {
         return
       }
@@ -790,7 +790,7 @@ export function useProjectState(
       // `next` is one adoption: its dimensions and its rotation arrived
       // together, so it is the oriented surface every re-orientation below
       // measures from (issue #139 review — the pair is never split).
-      const next = capabilitiesToCanvas(
+      const next = displaySpecToCanvas(
         pushed.display,
         canvasRef.current.previewDitherMode,
       )
@@ -1609,7 +1609,7 @@ export function useProjectState(
    * virtual display.
    *
    * Picking a display adopts its display spec over the **canonical defaults**
-   * rather than the canvas in front of the user (`capabilitiesToCanvas`):
+   * rather than the canvas in front of the user (`displaySpecToCanvas`):
    * picking a display *is* the display, so the same target must land the same
    * canvas whatever was picked before it. Locking the display config onto it is
    * part of the same act; "Virtual display" is exactly the lock's open state,
