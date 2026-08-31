@@ -71,10 +71,13 @@ describe('App header build metadata', () => {
     render(<App bootstrap={bootstrapForApp()} host={STANDALONE_HOST} />)
 
     await waitFor(() => {
-      expect(screen.getByText(APP_PRIVACY_HEADLINE)).toBeInTheDocument()
+      expect(screen.getByTestId('header-meta-row')).toBeInTheDocument()
     })
 
-    expect(screen.getByText(APP_PRIVACY_HEADLINE)).toHaveAttribute('title', APP_PRIVACY_NOTE)
+    // Scope to the live row: the header also renders an off-screen measurement
+    // probe holding every meta segment at its natural width (ADR-016).
+    const privacy = within(screen.getByTestId('header-meta-row')).getByText(APP_PRIVACY_HEADLINE)
+    expect(privacy).toHaveAttribute('title', APP_PRIVACY_NOTE)
   })
 
   it('shows GitHub, branch, and revision links in order', async () => {
@@ -106,12 +109,13 @@ describe('App header build metadata', () => {
     expect(repoLink).toHaveAttribute('href', APP_GITHUB_REPO_URL)
     expect(repoLink).toHaveAttribute('target', '_blank')
 
-    const branchLink = screen.getByTitle(`Branch: ${APP_GIT_BRANCH}`)
+    const meta = screen.getByTestId('header-meta-row')
+    const branchLink = within(meta).getByTitle(`Branch: ${APP_GIT_BRANCH}`)
     expect(branchLink).toHaveAttribute('href', githubBranchUrl(APP_GIT_BRANCH))
     expect(branchLink).toHaveAttribute('target', '_blank')
     expect(branchLink).toHaveTextContent(formatGitBranchLabel(APP_GIT_BRANCH))
 
-    const revisionLink = screen.getByTitle(`Revision: ${APP_GIT_REVISION}`)
+    const revisionLink = within(meta).getByTitle(`Revision: ${APP_GIT_REVISION}`)
     expect(revisionLink).toHaveAttribute('href', githubCommitUrl(APP_GIT_REVISION))
     expect(revisionLink).toHaveAttribute('target', '_blank')
   })

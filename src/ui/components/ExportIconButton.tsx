@@ -25,6 +25,10 @@ interface ExportIconButtonProps
   label?: ReactNode
   /** Stable text for tooltip when `label` is hidden (icon-only). */
   tooltip?: string
+  /** Tooltip vertical anchor — forwarded to {@link IconButton}. */
+  tooltipPlacement?: 'above' | 'below'
+  /** Tooltip horizontal anchor — forwarded to {@link IconButton}. */
+  tooltipAlign?: 'center' | 'end'
   onClick: () => void
 }
 

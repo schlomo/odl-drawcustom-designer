@@ -101,7 +101,11 @@ test.describe('embedded with a host display', () => {
         return null
       }
       const shadowRoot = findShadowRoot(document.body)
-      const tooltip = shadowRoot?.querySelector('[role="tooltip"]')
+      // The SHOWN tooltip: every icon-only control now carries a `role="tooltip"`
+      // span (display:none until hovered), so an unqualified query would pick
+      // whichever comes first in the DOM — since the page header collapses to
+      // icon-only buttons (ADR-016), that is a header bubble, not this one.
+      const tooltip = shadowRoot?.querySelector('[role="tooltip"][aria-hidden="false"]')
       const aside = tooltip?.closest('aside')
       if (!tooltip || !aside) return null
       const tooltipBox = tooltip.getBoundingClientRect()

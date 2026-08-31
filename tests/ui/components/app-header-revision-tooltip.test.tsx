@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Under Vitest both baked revisions are 'test', which would make this test
@@ -81,10 +81,12 @@ describe('App header revision tooltip (PR preview build)', () => {
     render(<App bootstrap={bootstrapForApp()} host={STANDALONE_HOST} />)
 
     await waitFor(() => {
-      expect(screen.getByText(HEAD_REVISION)).toBeInTheDocument()
+      expect(screen.getByTestId('header-meta-row')).toBeInTheDocument()
     })
 
-    const revisionLink = screen.getByText(HEAD_REVISION)
+    // Scope to the live row: the header also renders an off-screen measurement
+    // probe holding every meta segment at its natural width (ADR-016).
+    const revisionLink = within(screen.getByTestId('header-meta-row')).getByText(HEAD_REVISION)
     expect(revisionLink).toHaveAttribute(
       'title',
       `Revision: ${HEAD_REVISION} · built from merge ${MERGE_REVISION}`,
