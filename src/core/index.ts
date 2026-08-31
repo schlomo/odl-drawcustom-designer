@@ -40,6 +40,8 @@ export {
   elementIndexAtOffset,
   findElementSpans,
   type ElementSpan,
+  findYamlQuotedScalarRegions,
+  type YamlQuotedScalarRegion,
   resolveCursorSelection,
   type CursorSelectionResult,
 } from './yaml'
