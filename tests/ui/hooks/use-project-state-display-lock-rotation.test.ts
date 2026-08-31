@@ -29,10 +29,10 @@ function officeTarget(rotationDegrees = 0): HostTarget {
     id: 'display.office',
     label: 'Office display',
     display: {
-      pixel_width: 296,
-      pixel_height: 128,
-      rotation_degrees: rotationDegrees,
-      color_scheme: 0x01,
+      pixelWidth: 296,
+      pixelHeight: 128,
+      rotationDegrees: rotationDegrees,
+      colorScheme: 0x01,
     },
   }
 }
@@ -40,7 +40,7 @@ function officeTarget(rotationDegrees = 0): HostTarget {
 /**
  * A quarter-turn display exactly as the upstream OpenDisplay integration
  * describes one: a 296×128 panel with `user_rotate` 90, so `render_*` is the
- * **effective** (already swapped) drawing surface and `rotation_degrees` states
+ * **effective** (already swapped) drawing surface and `rotationDegrees` states
  * the orientation those render dimensions are expressed in.
  */
 function portraitMountedTarget(): HostTarget {
@@ -48,12 +48,12 @@ function portraitMountedTarget(): HostTarget {
     id: 'display.hallway',
     label: 'Hallway display',
     display: {
-      pixel_width: 296,
-      pixel_height: 128,
-      render_width: 128,
-      render_height: 296,
-      rotation_degrees: 90,
-      color_scheme: 0x01,
+      pixelWidth: 296,
+      pixelHeight: 128,
+      renderWidth: 128,
+      renderHeight: 296,
+      rotationDegrees: 90,
+      colorScheme: 0x01,
     },
   }
 }
@@ -159,7 +159,7 @@ describe('display lock scope excludes rotation (maintainer ruling 2026-08-16)', 
     // rule); the user's rotation override survives it.
     act(() => {
       getPushTarget().applyTargets([
-        { ...officeTarget(0), display: { pixel_width: 400, pixel_height: 300, rotation_degrees: 0, color_scheme: 0x00 } },
+        { ...officeTarget(0), display: { pixelWidth: 400, pixelHeight: 300, rotationDegrees: 0, colorScheme: 0x00 } },
       ])
     })
 
@@ -245,7 +245,7 @@ describe('a host-declared surface keeps its dimensions paired with its own rotat
    * adoption — so a panel the host declared quarter-turned always lands its two
    * dimensions the right way round, however often the user turns it.
    *
-   * Host contract behind this (docs/embedding.md, ADR-018): `rotation_degrees`
+   * Host contract behind this (docs/embedding.md, ADR-018): `rotationDegrees`
    * describes the orientation `render_*` is expressed in.
    */
   it('a quarter-turned host panel survives turn, re-lock and re-push with the same two dimensions', () => {
@@ -271,7 +271,7 @@ describe('a host-declared surface keeps its dimensions paired with its own rotat
       getPushTarget().applyTargets([
         {
           ...portraitMountedTarget(),
-          display: { ...portraitMountedTarget().display, color_scheme: 0x00 },
+          display: { ...portraitMountedTarget().display, colorScheme: 0x00 },
         },
       ])
     })

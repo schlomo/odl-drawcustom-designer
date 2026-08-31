@@ -59,7 +59,7 @@ a display, so it is named for what it is.
 
 Consequence, accepted rather than worked around: **one word, two shapes.**
 `HostTarget.display` is a `HostDisplaySpec` (the host's declaration of the
-panel — `pixel_*`/`render_*`, rotation, palette) while `context.display` is a
+panel — `pixel*`/`render*`, rotation, palette) while `context.display` is a
 `HostDisplayGeometry` (the surface the designer resolved that to —
 `width`/`height`/`rotation`). Declared in, resolved out: two ends of one
 pipeline for the same panel, in the two directions the seam grammar already
@@ -69,11 +69,20 @@ own CI plus one integration's vendored copy), so the names are chosen for the
 interface rather than for migration — the same forward-only basis as the
 2026-08-16 rulings.
 
-`HostDisplaySpec`'s **snake_case fields are deliberate, not drift** (verified
-2026-08-31): they mirror verbatim the JSON the OpenDisplay HA integration
-already publishes from `designer/capabilities.py` as image-entity attributes,
-which its panel wrapper passes straight through. A camelCase spelling would buy
-a translation layer in every host that already has this shape on the wire.
+`HostDisplaySpec`'s fields were briefly declared snake_case-deliberate on the
+grounds above (verified 2026-08-31, superseded the same day): the claim was
+that they mirrored verbatim the JSON an OpenDisplay HA integration exploration
+published from `designer/capabilities.py`. **Reversed, same-day amendment**
+(maintainer ruling 2026-08-31): that exploration — PR100 — was never live and
+never worked well, so it is inspiration, not authority, and cannot settle a
+published interface's naming. With the major bump already in flight there is
+no reason for one published interface to read differently from the rest, so
+`HostDisplaySpec`'s fields are camelCase like everything else on the surface
+(`pixelWidth`, `pixelHeight`, `rotationDegrees`, `renderWidth`, `renderHeight`,
+`colorScheme`, `accentColor`, `availableColors`, `colorMap`,
+`paletteMeasured`). The designer owns this contract; a host adapts its own
+shape to it, not the other way round. Field map in
+[`docs/embedding.md`](../embedding.md#300-rename-map-breaking).
 
 Amended 2026-08-18 (issue #133): a third seam-grammar clause — **state flows
 out via a read handle plus optional change notification; status is derived,

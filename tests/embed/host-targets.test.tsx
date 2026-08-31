@@ -64,17 +64,17 @@ const PAYLOAD = ['- type: text', '  value: hello', '  x: 10', '  y: 10', ''].joi
 const KITCHEN: HostTarget = {
   id: 'display.kitchen',
   label: 'Kitchen tag',
-  display: { render_width: 296, render_height: 128, color_scheme: 0x01 },
+  display: { renderWidth: 296, renderHeight: 128, colorScheme: 0x01 },
 }
 const OFFICE: HostTarget = {
   id: 'display.office',
   label: 'Office display',
-  display: { render_width: 400, render_height: 300, color_scheme: 0x00 },
+  display: { renderWidth: 400, renderHeight: 300, colorScheme: 0x00 },
 }
 const HALLWAY: HostTarget = {
   id: 'display.hallway',
   label: 'Hallway 7.5"',
-  display: { render_width: 800, render_height: 480, color_scheme: 0x03 },
+  display: { renderWidth: 800, renderHeight: 480, colorScheme: 0x03 },
 }
 
 /** A rectangle whose `fill: red` paints the layer-row swatch — the palette probe. */
@@ -93,28 +93,28 @@ const MEASURED_KITCHEN: HostTarget = {
   id: 'display.kitchen',
   label: 'Kitchen tag',
   display: {
-    render_width: 296,
-    render_height: 128,
-    color_map: { black: '#000000', white: '#ffffff', red: '#c81020' },
+    renderWidth: 296,
+    renderHeight: 128,
+    colorMap: { black: '#000000', white: '#ffffff', red: '#c81020' },
   },
 }
 /** Same size class, no measured palette at all. */
 const UNMEASURED_HALLWAY: HostTarget = {
   id: 'display.hallway',
   label: 'Hallway 7.5"',
-  display: { render_width: 800, render_height: 480, color_scheme: 0x01 },
+  display: { renderWidth: 800, renderHeight: 480, colorScheme: 0x01 },
 }
 /** Portrait by rotation, sized in physical pixels so the rotation is visible. */
 const ROTATED_OFFICE: HostTarget = {
   id: 'display.office',
   label: 'Office display',
-  display: { pixel_width: 400, pixel_height: 300, rotation_degrees: 90, color_scheme: 0x00 },
+  display: { pixelWidth: 400, pixelHeight: 300, rotationDegrees: 90, colorScheme: 0x00 },
 }
 /** Declares no rotation — the canonical default (0°) is what it must get. */
 const UPRIGHT_KITCHEN: HostTarget = {
   id: 'display.kitchen',
   label: 'Kitchen tag',
-  display: { pixel_width: 296, pixel_height: 128, color_scheme: 0x01 },
+  display: { pixelWidth: 296, pixelHeight: 128, colorScheme: 0x01 },
 }
 
 let container: HTMLElement
@@ -268,7 +268,7 @@ describe('host targets (issue #106)', () => {
   })
 
   it('drops the previous display’s measured palette when the next declares none', () => {
-    // Same ruling, ADR-007 parity: a display with no `color_map` renders the
+    // Same ruling, ADR-007 parity: a display with no `colorMap` renders the
     // canonical palette. Inheriting the last display's measured hexes paints
     // one panel's red on another's — silently wrong on the tag.
     mountDesigner({
@@ -299,7 +299,7 @@ describe('host targets (issue #106)', () => {
         {
           ...OFFICE,
           label: 'Office display (resized)',
-          display: { render_width: 800, render_height: 480, color_scheme: 0x01 },
+          display: { renderWidth: 800, renderHeight: 480, colorScheme: 0x01 },
         },
       ]),
     )
@@ -319,7 +319,7 @@ describe('host targets (issue #106)', () => {
     act(() =>
       handle.setTargets([
         KITCHEN,
-        { ...OFFICE, display: { render_width: 800, render_height: 480, color_scheme: 0x01 } },
+        { ...OFFICE, display: { renderWidth: 800, renderHeight: 480, colorScheme: 0x01 } },
       ]),
     )
 
@@ -836,16 +836,16 @@ describe('host targets (issue #106)', () => {
     // A sparse array: `map` skips its holes, so a hole that survives
     // validation renders as an entry that selects nothing at all.
     expect(() => handle.setTargets(new Array<HostTarget>(1))).toThrow(/entry 0/i)
-    // A non-iterable `available_colors` must fail with this module's own loud
+    // A non-iterable `availableColors` must fail with this module's own loud
     // message, not a bare "is not iterable" from the copy.
     expect(() =>
       handle.setTargets([
         {
           ...KITCHEN,
-          display: { available_colors: 'red' as unknown as string[] },
+          display: { availableColors: 'red' as unknown as string[] },
         },
       ]),
-    ).toThrow(/Invalid host targets: .*available_colors/i)
+    ).toThrow(/Invalid host targets: .*availableColors/i)
 
     // The rejected pushes changed nothing.
     expect(optionLabels()).toEqual(['Kitchen tag', 'Virtual display'])
@@ -869,14 +869,14 @@ describe('host targets (issue #106)', () => {
     const mutable: HostTarget = {
       id: '  display.office  ',
       label: '  Office display  ',
-      display: { render_width: 400, render_height: 300, color_scheme: 0x00 },
+      display: { renderWidth: 400, renderHeight: 300, colorScheme: 0x00 },
     }
     const onTargetSelected = vi.fn()
     mountDesigner({ payload: PAYLOAD, targets: [mutable], onTargetSelected })
 
     // Mutating the object the host still holds must not reach the designer.
     mutable.label = 'Renamed behind the designer'
-    mutable.display.render_width = 9999
+    mutable.display.renderWidth = 9999
 
     expect(optionLabels()).toEqual(['Office display', 'Virtual display'])
     selectDisplay('Office display')

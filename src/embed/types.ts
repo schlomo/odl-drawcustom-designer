@@ -171,37 +171,34 @@ export type HostStates = Record<string, string | number | boolean | HostState>
  * display does not declare comes from the designer's canonical defaults, never
  * from the display previously in effect.
  *
- * **snake_case is deliberate, not drift** — this is the one published
- * interface that is not camelCase. Its keys mirror, verbatim, the JSON a host
- * already publishes: the OpenDisplay HA integration's
- * `designer/capabilities.py` emits exactly `pixel_width`, `pixel_height`,
- * `rotation_degrees`, `render_width`, `render_height`, `color_scheme`,
- * `accent_color`, `available_colors`, `color_map`, `palette_measured` as image
- * entity attributes, and its panel wrapper passes them straight through. A
- * camelCase spelling here would buy nothing but a translation layer in every
- * host that already has this shape on the wire.
+ * The designer owns this contract; a host adapts its own data to it, not the
+ * other way round — camelCase throughout, like every other published type
+ * (maintainer ruling 2026-08-31: the PR100 exploration this shape once
+ * mirrored was never live and is inspiration, not authority; with a major
+ * bump there is no reason for one published interface to read differently
+ * from the rest).
  */
 export interface HostDisplaySpec {
   /** Physical panel width in pixels (before rotation). */
-  pixel_width?: number
+  pixelWidth?: number
   /** Physical panel height in pixels (before rotation). */
-  pixel_height?: number
+  pixelHeight?: number
   /** Mounting rotation in degrees; only quarter turns are representable. */
-  rotation_degrees?: number
-  /** Drawing-surface width after rotation; preferred over pixel_width. */
-  render_width?: number
-  /** Drawing-surface height after rotation; preferred over pixel_height. */
-  render_height?: number
+  rotationDegrees?: number
+  /** Drawing-surface width after rotation; preferred over pixelWidth. */
+  renderWidth?: number
+  /** Drawing-surface height after rotation; preferred over pixelHeight. */
+  renderHeight?: number
   /** OpenDisplay Basic Standard colour scheme (0x00 BW … 0x04 six-color). */
-  color_scheme?: number
+  colorScheme?: number
   /** Accent color name, e.g. 'red' or 'yellow'. */
-  accent_color?: string
+  accentColor?: string
   /** Palette color names, e.g. ['black', 'white', 'red']. */
-  available_colors?: string[]
+  availableColors?: string[]
   /** Palette name -> hex map, e.g. { black: '#000000', … }. */
-  color_map?: Record<string, string>
+  colorMap?: Record<string, string>
   /** Whether the palette hexes were measured on real hardware. */
-  palette_measured?: boolean
+  paletteMeasured?: boolean
 }
 
 /**

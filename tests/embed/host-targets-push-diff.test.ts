@@ -26,11 +26,11 @@ function officeTarget(): HostTarget {
     id: 'display.office',
     label: 'Office display',
     display: {
-      render_width: 400,
-      render_height: 300,
-      color_scheme: 0x00,
-      available_colors: ['black', 'white'],
-      color_map: { black: '#000000', white: '#ffffff' },
+      renderWidth: 400,
+      renderHeight: 300,
+      colorScheme: 0x00,
+      availableColors: ['black', 'white'],
+      colorMap: { black: '#000000', white: '#ffffff' },
     },
   }
 }
@@ -114,7 +114,7 @@ describe('host targets push diff (issue #106)', () => {
     const { result } = renderHook(() => useProjectState(bootstrap(), host))
 
     const rotated = officeTarget()
-    rotated.display = { ...rotated.display, rotation_degrees: 90 }
+    rotated.display = { ...rotated.display, rotationDegrees: 90 }
     act(() => {
       getPushTarget().applyTargets([rotated])
     })
@@ -123,7 +123,7 @@ describe('host targets push diff (issue #106)', () => {
     const remeasured = officeTarget()
     remeasured.display = {
       ...remeasured.display,
-      color_map: { black: '#111111', white: '#ffffff' },
+      colorMap: { black: '#111111', white: '#ffffff' },
     }
     act(() => {
       getPushTarget().applyTargets([remeasured])

@@ -84,16 +84,16 @@ function currentClockState() {
 // Measured panel palette (issue #68): the red hex is deliberately NOT the
 // canonical #ff0000 — the designer preview must visibly adopt it.
 const DISPLAY_SPEC_296X128_BWR = {
-  pixel_width: 296,
-  pixel_height: 128,
-  rotation_degrees: 0,
-  render_width: 296,
-  render_height: 128,
-  color_scheme: 0x01,
-  accent_color: 'red',
-  available_colors: ['black', 'white', 'red'],
-  color_map: { black: '#000000', white: '#ffffff', red: '#c53929' },
-  palette_measured: true,
+  pixelWidth: 296,
+  pixelHeight: 128,
+  rotationDegrees: 0,
+  renderWidth: 296,
+  renderHeight: 128,
+  colorScheme: 0x01,
+  accentColor: 'red',
+  availableColors: ['black', 'white', 'red'],
+  colorMap: { black: '#000000', white: '#ffffff', red: '#c53929' },
+  paletteMeasured: true,
 }
 
 // Display targets (issue #106, ADR-018): the displays this fake host "knows
@@ -103,31 +103,31 @@ const DISPLAY_SPEC_296X128_BWR = {
 // canvas; a host with exactly one display pushes a one-element list, which the
 // designer adopts and locks without a pick.
 const DISPLAY_SPEC_400X300_BW = {
-  render_width: 400,
-  render_height: 300,
-  color_scheme: 0x00,
-  available_colors: ['black', 'white'],
+  renderWidth: 400,
+  renderHeight: 300,
+  colorScheme: 0x00,
+  availableColors: ['black', 'white'],
 }
 
 const DISPLAY_SPEC_800X480_BWRY = {
-  render_width: 800,
-  render_height: 480,
-  color_scheme: 0x03,
-  available_colors: ['black', 'white', 'red', 'yellow'],
+  renderWidth: 800,
+  renderHeight: 480,
+  colorScheme: 0x03,
+  availableColors: ['black', 'white', 'red', 'yellow'],
 }
 
 const DISPLAY_SPEC_800X480_BWRY_PORTRAIT = {
-  render_width: 480,
-  render_height: 800,
-  rotation_degrees: 90,
-  color_scheme: 0x03,
-  available_colors: ['black', 'white', 'red', 'yellow'],
+  renderWidth: 480,
+  renderHeight: 800,
+  rotationDegrees: 90,
+  colorScheme: 0x03,
+  availableColors: ['black', 'white', 'red', 'yellow'],
 }
 
 const DISPLAY_SPEC_152X152_BW = {
-  pixel_width: 152,
-  pixel_height: 152,
-  color_scheme: 0x00,
+  pixelWidth: 152,
+  pixelHeight: 152,
+  colorScheme: 0x00,
 }
 
 const KITCHEN_TARGET = {

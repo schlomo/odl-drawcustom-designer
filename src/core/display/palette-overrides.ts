@@ -1,5 +1,5 @@
 /**
- * Measured palette overrides (issue #68): a host pushes `color_map`
+ * Measured palette overrides (issue #68): a host pushes `colorMap`
  * (name → hex, the panel's measured colors) and the ACTIVE palette adopts
  * those hexes everywhere it paints — preview canvas, PNG export finalize,
  * halftone tiles and UI swatches. Without overrides every helper returns the
@@ -63,7 +63,7 @@ function normalizeHex(value: string): string | null {
 }
 
 /**
- * Sanitize a host `color_map` into palette overrides: known palette names
+ * Sanitize a host `colorMap` into palette overrides: known palette names
  * only (case-insensitive), valid hexes normalized to uppercase #RRGGBB.
  * Returns undefined when nothing usable remains — canonical palettes apply.
  */

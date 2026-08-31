@@ -212,16 +212,16 @@ test('a very long host label never widens the sidebar', async ({ page }) => {
         id: 'display.kitchen',
         label: `Kitchen tag on the second shelf next to the coffee machine ${'and more '.repeat(30)}`,
         display: {
-          pixel_width: 296,
-          pixel_height: 128,
-          rotation_degrees: 0,
-          render_width: 296,
-          render_height: 128,
-          color_scheme: 0x01,
-          accent_color: 'red',
-          available_colors: ['black', 'white', 'red'],
-          color_map: { black: '#000000', white: '#ffffff', red: '#c53929' },
-          palette_measured: true,
+          pixelWidth: 296,
+          pixelHeight: 128,
+          rotationDegrees: 0,
+          renderWidth: 296,
+          renderHeight: 128,
+          colorScheme: 0x01,
+          accentColor: 'red',
+          availableColors: ['black', 'white', 'red'],
+          colorMap: { black: '#000000', white: '#ffffff', red: '#c53929' },
+          paletteMeasured: true,
         },
       },
     ])
@@ -251,7 +251,7 @@ test('picking a portrait display gives an upright portrait editing surface (issu
   page,
 }) => {
   // The Hallway display (demo target) declares a 480×800 drawing surface at
-  // rotation_degrees: 90 — a landscape panel mounted portrait. The designer
+  // rotationDegrees: 90 — a landscape panel mounted portrait. The designer
   // must present that logical surface **upright**, the way upstream
   // `imagegen` draws it: portrait paper, horizontal text. It used to CSS-turn
   // the paper into a landscape stage with the design on its side (issue #139).

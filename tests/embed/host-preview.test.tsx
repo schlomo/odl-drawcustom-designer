@@ -71,12 +71,12 @@ const DEFAULT_SURFACE = { width: 384, height: 184 }
 const KITCHEN: HostTarget = {
   id: 'display.kitchen',
   label: 'Kitchen tag',
-  display: { pixel_width: 296, pixel_height: 128, color_scheme: 0x01 },
+  display: { pixelWidth: 296, pixelHeight: 128, colorScheme: 0x01 },
 }
 const HALLWAY: HostTarget = {
   id: 'display.hallway',
   label: 'Hallway 7.5"',
-  display: { pixel_width: 296, pixel_height: 128, color_scheme: 0x01 },
+  display: { pixelWidth: 296, pixelHeight: 128, colorScheme: 0x01 },
 }
 
 /** A resolvable/rejectable promise, so a test owns when a render answers. */

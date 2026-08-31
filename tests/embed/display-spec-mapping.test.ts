@@ -3,11 +3,11 @@ import { displaySpecToCanvas } from '../../src/embed/hostContract'
 import { DEFAULT_DISPLAY_CONFIG } from '../../src/ui/preferences/displayConfig'
 
 /**
- * What a display *is*: a {@link HostTarget}'s `display` spec mirrors the
- * payload shape of the OpenDisplay HA integration's `capabilities.py` and
- * maps onto the designer's canvas + tag-palette model. Behavior under test:
- * the canvas config a host observes once the designer is pinned to that
- * display.
+ * What a display *is*: a {@link HostTarget}'s `display` spec — the
+ * designer's own contract for a panel's declaration (pixel/render size,
+ * rotation, palette) — maps onto the designer's canvas + tag-palette model.
+ * Behavior under test: the canvas config a host observes once the designer is
+ * pinned to that display.
  *
  * The mapping resolves from the designer's **canonical defaults** — a display
  * *is* a display, so the same display spec must produce the same canvas
@@ -24,16 +24,16 @@ describe('displaySpecToCanvas', () => {
   it('maps a full display spec payload onto canvas size, rotation and palette', () => {
     const next = displaySpecToCanvas(
       {
-        pixel_width: 128,
-        pixel_height: 296,
-        rotation_degrees: 90,
-        render_width: 296,
-        render_height: 128,
-        color_scheme: 0x01,
-        accent_color: 'red',
-        available_colors: ['black', 'white', 'red'],
-        color_map: { black: '#000000', white: '#ffffff', red: '#ff0000' },
-        palette_measured: false,
+        pixelWidth: 128,
+        pixelHeight: 296,
+        rotationDegrees: 90,
+        renderWidth: 296,
+        renderHeight: 128,
+        colorScheme: 0x01,
+        accentColor: 'red',
+        availableColors: ['black', 'white', 'red'],
+        colorMap: { black: '#000000', white: '#ffffff', red: '#ff0000' },
+        paletteMeasured: false,
       },
       DITHER,
     )
@@ -47,7 +47,7 @@ describe('displaySpecToCanvas', () => {
 
   it('prefers render dimensions over pixel dimensions', () => {
     const next = displaySpecToCanvas(
-      { pixel_width: 100, pixel_height: 200, render_width: 296, render_height: 128 },
+      { pixelWidth: 100, pixelHeight: 200, renderWidth: 296, renderHeight: 128 },
       DITHER,
     )
     expect(next.width).toBe(296)
@@ -56,13 +56,13 @@ describe('displaySpecToCanvas', () => {
 
   it('derives render size from pixel size by swapping at 90/270 degrees', () => {
     const next = displaySpecToCanvas(
-      { pixel_width: 400, pixel_height: 300, rotation_degrees: 270 },
+      { pixelWidth: 400, pixelHeight: 300, rotationDegrees: 270 },
       DITHER,
     )
     expect(next).toMatchObject({ width: 300, height: 400, rotation: 270 })
 
     const flat = displaySpecToCanvas(
-      { pixel_width: 400, pixel_height: 300, rotation_degrees: 180 },
+      { pixelWidth: 400, pixelHeight: 300, rotationDegrees: 180 },
       DITHER,
     )
     expect(flat).toMatchObject({ width: 400, height: 300, rotation: 180 })
@@ -71,14 +71,14 @@ describe('displaySpecToCanvas', () => {
   it('resolves what a display does not declare from the canonical defaults', () => {
     // Not from the canvas in front of the user: a display that mentions no size
     // and no palette is not inheriting the previous display's (issue #106
-    // ruling — a measured `color_map` on the wrong panel is silently wrong ink,
+    // ruling — a measured `colorMap` on the wrong panel is silently wrong ink,
     // ADR-007). The old merge-onto-current base died with the `capabilities`
     // channel (issue #121), and with it the rotation-only-push quirk.
     const next = displaySpecToCanvas({}, DITHER)
 
     expect(next).toEqual({ ...DEFAULT_DISPLAY_CONFIG, previewDitherMode: DITHER })
 
-    const rotatedOnly = displaySpecToCanvas({ rotation_degrees: 90 }, DITHER)
+    const rotatedOnly = displaySpecToCanvas({ rotationDegrees: 90 }, DITHER)
     expect(rotatedOnly).toMatchObject({
       width: DEFAULT_DISPLAY_CONFIG.width,
       height: DEFAULT_DISPLAY_CONFIG.height,
@@ -86,18 +86,18 @@ describe('displaySpecToCanvas', () => {
     })
   })
 
-  it('maps Basic Standard color_scheme values onto tag color modes', () => {
-    expect(displaySpecToCanvas({ color_scheme: 0x00 }, DITHER).colorMode).toBe('bw')
-    expect(displaySpecToCanvas({ color_scheme: 0x01 }, DITHER).colorMode).toBe('bwr')
-    expect(displaySpecToCanvas({ color_scheme: 0x02 }, DITHER).colorMode).toBe('bwy')
-    expect(displaySpecToCanvas({ color_scheme: 0x03 }, DITHER).colorMode).toBe('four')
-    expect(displaySpecToCanvas({ color_scheme: 0x04 }, DITHER).colorMode).toBe('six')
+  it('maps Basic Standard colorScheme values onto tag color modes', () => {
+    expect(displaySpecToCanvas({ colorScheme: 0x00 }, DITHER).colorMode).toBe('bw')
+    expect(displaySpecToCanvas({ colorScheme: 0x01 }, DITHER).colorMode).toBe('bwr')
+    expect(displaySpecToCanvas({ colorScheme: 0x02 }, DITHER).colorMode).toBe('bwy')
+    expect(displaySpecToCanvas({ colorScheme: 0x03 }, DITHER).colorMode).toBe('four')
+    expect(displaySpecToCanvas({ colorScheme: 0x04 }, DITHER).colorMode).toBe('six')
   })
 
-  it('infers the color mode from color_map palette names when no color_scheme is given', () => {
+  it('infers the color mode from colorMap palette names when no colorScheme is given', () => {
     const infer = (names: string[]) =>
       displaySpecToCanvas(
-        { color_map: Object.fromEntries(names.map((name) => [name, '#000000'])) },
+        { colorMap: Object.fromEntries(names.map((name) => [name, '#000000'])) },
         DITHER,
       ).colorMode
 
@@ -108,50 +108,50 @@ describe('displaySpecToCanvas', () => {
     expect(infer(['black', 'white', 'red', 'yellow', 'blue', 'green'])).toBe('six')
   })
 
-  it('falls back to available_colors, then accent_color', () => {
+  it('falls back to availableColors, then accentColor', () => {
     expect(
-      displaySpecToCanvas({ available_colors: ['black', 'white', 'yellow'] }, DITHER).colorMode,
+      displaySpecToCanvas({ availableColors: ['black', 'white', 'yellow'] }, DITHER).colorMode,
     ).toBe('bwy')
-    expect(displaySpecToCanvas({ accent_color: 'yellow' }, DITHER).colorMode).toBe('bwy')
-    expect(displaySpecToCanvas({ accent_color: 'red' }, DITHER).colorMode).toBe('bwr')
+    expect(displaySpecToCanvas({ accentColor: 'yellow' }, DITHER).colorMode).toBe('bwy')
+    expect(displaySpecToCanvas({ accentColor: 'red' }, DITHER).colorMode).toBe('bwr')
   })
 
   it('ignores junk field values instead of rejecting the display', () => {
     // Non-quarter rotations are not representable, and an out-of-range colour
     // scheme names no palette: fall back to the canonical defaults rather than
     // refusing a display the host insists exists.
-    expect(displaySpecToCanvas({ rotation_degrees: 45 }, DITHER).rotation).toBe(
+    expect(displaySpecToCanvas({ rotationDegrees: 45 }, DITHER).rotation).toBe(
       DEFAULT_DISPLAY_CONFIG.rotation,
     )
-    expect(displaySpecToCanvas({ color_scheme: 99 }, DITHER).colorMode).toBe(
+    expect(displaySpecToCanvas({ colorScheme: 99 }, DITHER).colorMode).toBe(
       DEFAULT_DISPLAY_CONFIG.colorMode,
     )
   })
 
   it('normalizes out-of-range rotations into 0..270', () => {
-    expect(displaySpecToCanvas({ rotation_degrees: 360 }, DITHER).rotation).toBe(0)
-    expect(displaySpecToCanvas({ rotation_degrees: 450 }, DITHER).rotation).toBe(90)
-    expect(displaySpecToCanvas({ rotation_degrees: -90 }, DITHER).rotation).toBe(270)
+    expect(displaySpecToCanvas({ rotationDegrees: 360 }, DITHER).rotation).toBe(0)
+    expect(displaySpecToCanvas({ rotationDegrees: 450 }, DITHER).rotation).toBe(90)
+    expect(displaySpecToCanvas({ rotationDegrees: -90 }, DITHER).rotation).toBe(270)
   })
 
   it('carries the designer-only preview dither mode through unchanged', () => {
     // The one thing that survives adopting a display, because it belongs to no
     // display — exactly as the display-config lock treats it.
     expect(
-      displaySpecToCanvas({ pixel_width: 296, pixel_height: 128 }, DITHER).previewDitherMode,
+      displaySpecToCanvas({ pixelWidth: 296, pixelHeight: 128 }, DITHER).previewDitherMode,
     ).toBe(DITHER)
-    expect(displaySpecToCanvas({ pixel_width: 296, pixel_height: 128 }, 0).previewDitherMode).toBe(
+    expect(displaySpecToCanvas({ pixelWidth: 296, pixelHeight: 128 }, 0).previewDitherMode).toBe(
       0,
     )
   })
 
-  // Issue #68: measured color_map hexes become the active palette overrides.
-  it('adopts measured color_map hexes as palette overrides', () => {
+  // Issue #68: measured colorMap hexes become the active palette overrides.
+  it('adopts measured colorMap hexes as palette overrides', () => {
     const next = displaySpecToCanvas(
       {
-        color_scheme: 0x01,
-        color_map: { black: '#000000', white: '#ffffff', red: '#c53929' },
-        palette_measured: true,
+        colorScheme: 0x01,
+        colorMap: { black: '#000000', white: '#ffffff', red: '#c53929' },
+        paletteMeasured: true,
       },
       DITHER,
     )
@@ -164,16 +164,16 @@ describe('displaySpecToCanvas', () => {
 
   it('drops unknown color names and invalid hexes from the overrides', () => {
     const next = displaySpecToCanvas(
-      { color_map: { red: '#c53929', chartreuse: '#7fff00', yellow: 'nope' } },
+      { colorMap: { red: '#c53929', chartreuse: '#7fff00', yellow: 'nope' } },
       DITHER,
     )
     expect(next.paletteOverrides).toEqual({ red: '#C53929' })
   })
 
   it('leaves the palette canonical when a display measures none', () => {
-    // A display with no `color_map` renders the canonical palette — it never
+    // A display with no `colorMap` renders the canonical palette — it never
     // inherits the hexes measured on some other panel (ADR-007 parity).
-    expect(displaySpecToCanvas({ rotation_degrees: 90 }, DITHER).paletteOverrides).toBeUndefined()
+    expect(displaySpecToCanvas({ rotationDegrees: 90 }, DITHER).paletteOverrides).toBeUndefined()
     expect(displaySpecToCanvas({}, DITHER).paletteOverrides).toBeUndefined()
   })
 })

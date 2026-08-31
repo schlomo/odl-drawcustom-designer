@@ -14,7 +14,7 @@ import { renderRectangle } from '../../../src/core/renderer/rectangle'
 import { resolvePreviewPaint } from '../../../src/core/renderer/preview-paint'
 
 /**
- * Issue #68: a host-pushed measured `color_map` (name → hex) re-colors the
+ * Issue #68: a host-pushed measured `colorMap` (name → hex) re-colors the
  * ACTIVE palette — preview, PNG export finalize, and swatches all paint the
  * measured hexes. Without overrides every path stays byte-identical to the
  * canonical palettes.

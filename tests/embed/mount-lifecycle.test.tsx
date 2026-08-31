@@ -73,10 +73,10 @@ const KITCHEN_296X128_BWR = {
   id: 'display.kitchen',
   label: 'Kitchen tag',
   display: {
-    pixel_width: 296,
-    pixel_height: 128,
-    rotation_degrees: 0,
-    color_scheme: 0x01,
+    pixelWidth: 296,
+    pixelHeight: 128,
+    rotationDegrees: 0,
+    colorScheme: 0x01,
   },
 }
 
