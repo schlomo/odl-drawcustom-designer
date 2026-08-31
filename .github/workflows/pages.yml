@@ -135,12 +135,6 @@ jobs:
           # reachable from HEAD (same requirement as auto-release.yml's
           # checkout) to derive the site header's release version below.
           fetch-depth: 0
-          # Partial clone: the derivation above only reads commits and tags,
-          # never file contents, so blobs can be fetched lazily instead of
-          # eagerly for the whole history. Checkout still fetches the blobs
-          # for HEAD's own tree (needed for the build), so this is safe —
-          # do not remove it thinking it starves the build of files.
-          filter: blob:none
 
       - uses: actions/setup-node@v7
         with:
