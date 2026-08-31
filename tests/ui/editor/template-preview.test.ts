@@ -145,6 +145,27 @@ note: "{{ states('sensor.b')
     expect(anchors[0]?.preview).toBe('A')
     expect(anchors[1]?.preview).toBe('B')
   })
+
+  // F1 (review of #172): mid-typing an HA-escaped scalar must not surface an
+  // anchor at all, let alone one showing the raw #168 error text — that
+  // would read to the maintainer as "still broken".
+  it('shows no anchor for an unterminated double-quoted scalar mid-typing (F1)', () => {
+    const doc = `value: "{{ states('sensor.a`
+    const anchors = findTemplatePreviewAnchors(doc, { states: {} })
+    expect(anchors).toHaveLength(0)
+  })
+
+  it("shows no anchor for a single-quoted scalar mid-typing an HA-escaped '' quote (F1)", () => {
+    const doc = `value: '{{ states('sensor.a`
+    const anchors = findTemplatePreviewAnchors(doc, { states: {} })
+    expect(anchors).toHaveLength(0)
+  })
+
+  it("shows no anchor for a scalar mid-typing the second half of an HA '' escape (F1)", () => {
+    const doc = `value: '{{ states(''sensor.a`
+    const anchors = findTemplatePreviewAnchors(doc, { states: {} })
+    expect(anchors).toHaveLength(0)
+  })
 })
 
 describe('template preview decorations', () => {
