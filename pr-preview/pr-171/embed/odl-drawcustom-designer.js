@@ -8058,7 +8058,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/105-action-context", ae = "a321904", oe = "0e16b1c", k = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "feat/105-action-context", ae = "f1f1951", oe = "b59b207", k = "0.0.0-dev";
 function A(e, t = 12) {
 	if (re.has(e) || e.length <= t) return e;
 	let n = e.includes("/") ? e.slice(e.lastIndexOf("/") + 1) : e;
@@ -75488,18 +75488,18 @@ function Rsn(e) {
 	}
 }
 function zsn(e) {
-	let { color_scheme: t } = e;
-	return typeof t == "number" && t >= 0 && t <= 4 ? fqt(t) : e.color_map && Object.keys(e.color_map).length > 0 ? A9(Object.keys(e.color_map)) : e.available_colors && e.available_colors.length > 0 ? A9(e.available_colors) : Rsn(e.accent_color);
+	let { colorScheme: t } = e;
+	return typeof t == "number" && t >= 0 && t <= 4 ? fqt(t) : e.colorMap && Object.keys(e.colorMap).length > 0 ? A9(Object.keys(e.colorMap)) : e.availableColors && e.availableColors.length > 0 ? A9(e.availableColors) : Rsn(e.accentColor);
 }
 function j9(e, t) {
 	let n = {
 		...v9,
 		previewDitherMode: t
-	}, r = Lsn(e.rotation_degrees) ?? n.rotation, i = n.width, a = n.height;
-	if (k9(e.render_width) && k9(e.render_height)) i = Math.round(e.render_width), a = Math.round(e.render_height);
-	else if (k9(e.pixel_width) && k9(e.pixel_height)) {
+	}, r = Lsn(e.rotationDegrees) ?? n.rotation, i = n.width, a = n.height;
+	if (k9(e.renderWidth) && k9(e.renderHeight)) i = Math.round(e.renderWidth), a = Math.round(e.renderHeight);
+	else if (k9(e.pixelWidth) && k9(e.pixelHeight)) {
 		let t = r === 90 || r === 270;
-		i = Math.round(t ? e.pixel_height : e.pixel_width), a = Math.round(t ? e.pixel_width : e.pixel_height);
+		i = Math.round(t ? e.pixelHeight : e.pixelWidth), a = Math.round(t ? e.pixelWidth : e.pixelHeight);
 	}
 	return {
 		...n,
@@ -75507,7 +75507,7 @@ function j9(e, t) {
 		height: a,
 		rotation: r,
 		colorMode: zsn(e) ?? n.colorMode,
-		paletteOverrides: bqt(e.color_map) ?? n.paletteOverrides
+		paletteOverrides: bqt(e.colorMap) ?? n.paletteOverrides
 	};
 }
 //#endregion
@@ -75553,12 +75553,12 @@ function Bsn(e, t) {
 //#endregion
 //#region src/embed/hostTargets.ts
 var R9 = Object.freeze([]), z9 = [
-	"pixel_width",
-	"pixel_height",
-	"rotation_degrees",
-	"render_width",
-	"render_height",
-	"color_scheme"
+	"pixelWidth",
+	"pixelHeight",
+	"rotationDegrees",
+	"renderWidth",
+	"renderHeight",
+	"colorScheme"
 ];
 function B9(e) {
 	throw TypeError(`Invalid host targets: ${e}`);
@@ -75570,7 +75570,7 @@ function Vsn(e, t) {
 	(typeof e != "object" || !e || Array.isArray(e)) && B9(`${t} needs a display object (got ${JSON.stringify(e)})`);
 	let n = e, r = {};
 	for (let e of z9) n[e] !== void 0 && (r[e] = n[e]);
-	return n.accent_color !== void 0 && (r.accent_color = n.accent_color), n.palette_measured !== void 0 && (r.palette_measured = n.palette_measured), n.available_colors !== void 0 && (Array.isArray(n.available_colors) || B9(`${t} needs available_colors as an array (got ${JSON.stringify(n.available_colors)})`), r.available_colors = Object.freeze([...n.available_colors])), n.color_map !== void 0 && (r.color_map = Object.freeze({ ...n.color_map })), Object.freeze(r);
+	return n.accentColor !== void 0 && (r.accentColor = n.accentColor), n.paletteMeasured !== void 0 && (r.paletteMeasured = n.paletteMeasured), n.availableColors !== void 0 && (Array.isArray(n.availableColors) || B9(`${t} needs availableColors as an array (got ${JSON.stringify(n.availableColors)})`), r.availableColors = Object.freeze([...n.availableColors])), n.colorMap !== void 0 && (r.colorMap = Object.freeze({ ...n.colorMap })), Object.freeze(r);
 }
 function H9(e) {
 	if (Array.isArray(e) || B9(`expected an array, got ${typeof e}`), e.length === 0) return R9;
@@ -75597,7 +75597,7 @@ function Usn(e, t) {
 	return n.length === Object.keys(t).length && n.every((n) => n in t && e[n] === t[n]);
 }
 function U9(e, t) {
-	return e === t || z9.every((n) => e[n] === t[n]) && e.accent_color === t.accent_color && e.palette_measured === t.palette_measured && Hsn(e.available_colors, t.available_colors) && Usn(e.color_map, t.color_map);
+	return e === t || z9.every((n) => e[n] === t[n]) && e.accentColor === t.accentColor && e.paletteMeasured === t.paletteMeasured && Hsn(e.availableColors, t.availableColors) && Usn(e.colorMap, t.colorMap);
 }
 function Wsn(e, t) {
 	return e === t || e.length === t.length && e.every((e, n) => {
