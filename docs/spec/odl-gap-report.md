@@ -97,102 +97,84 @@ for line in lines:
 
 ### The flow cursor (`ctx.pos_y`) — deliberate non-goal
 
-The drawcustom language carries one mutable vertical cursor through a payload,
-so an element that omits its `y` is stacked below whatever was drawn before it.
-The designer does not implement this and **will not** (maintainer ruling
-2026-09-01). It is recorded here so the divergence is documented, not so it is
-picked up later.
-
-**This is not an ODL quirk — it is drawcustom itself.** `odl_renderer` is a
-fork of OpenEPaperLink's `custom_components/open_epaper_link/imagegen/`
-package: same file layout, same handlers, same logic. The behavior below is
-identical in both, so `y_padding` is OEPL-inherited vocabulary rather than
-something ODL introduced. Citations give the local `odl_renderer` file:line
-plus the corresponding OEPL path in
-[`OpenEPaperLink/Home_Assistant_Integration`](https://github.com/OpenEPaperLink/Home_Assistant_Integration).
-
-**What both renderers do.** `pos_y` starts at `0` (`types.py:115`, set in
-`core.py:79`) and elements are drawn in one sequential pass. Hidden elements
-`continue` before their handler runs (`core.py:87-89`), so they never advance
-it.
-
-**Twenty sites write the cursor** — every handler advances it — but only
-**four handlers read it**:
-
-| Handler | `odl_renderer` | OEPL `imagegen/` | `y_padding` default |
-|---|---|---|---|
-| `text` | `text.py:38` | `text.py` `draw_text` | `10` |
-| `multiline` | `text.py:180` | `text.py` `draw_multiline` | `10` |
-| `line` | `shapes.py:32` | `shapes.py` `draw_line` | `0` |
-| `diagram` | `visualizations.py:779-877` | `visualizations.py` `draw_diagram` | — reads no `y` at all |
-
-`diagram` is positioned entirely from the cursor: its handler declares
-`requires=["x", "height"]` (`visualizations.py:779`) and takes no vertical
-coordinate whatsoever. So drawcustom's own flow model is half-used —
-universally written, consumed by four handlers.
-
-The designer's 16 types are `debug_grid`, `text`, `multiline`, `line`,
-`rectangle`, `rectangle_pattern`, `polygon`, `circle`, `ellipse`, `arc`,
-`icon`, `icon_sequence`, `dlimg`, `qrcode`, `plot` and `progress_bar` —
-`diagram` is not among them, tracked separately in
-[Unimplemented element: `diagram`](#unimplemented-element-diagram). The
-freely-positioned chart we do support is **`plot`**, a structurally unrelated
-element that takes explicit coordinates.
-
-**Why not implement it.** Beyond the maintainer's design objection — cursor-based
+Drawcustom positions an element that omits its vertical coordinate from a
+running cursor, stacking it below the previous element. **The designer does not
+implement this and will not** (maintainer ruling 2026-09-01): cursor-based
 dynamic vertical positioning is a poor fit for a fixed-size graphical display,
-especially one that only a subset of handlers honours — it collides with how
-the designer renders. Each element draws in its own memoized slot
-(`src/ui/components/CanvasElementSlot.tsx`), and
-[`tests/e2e/drag-repaint-scope.spec.ts`](../../tests/e2e/drag-repaint-scope.spec.ts)
-asserts that dragging one element repaints **no other element's canvas layer**.
-A cursor makes every element's position depend on all the elements before it,
-so any edit would have to invalidate every later slot — reversing a deliberate
-performance property. It would also make element order silently reposition
-`y`-less elements, which the canvas, hit-testing, alignment and drag geometry
-all assume cannot happen.
+and only a subset of handlers honours it.
 
-**Practical consequence.** A hand-authored or imported payload that omits `y`
-on `text`, `multiline` or `line` renders at **y=0** in this designer
-(`text.ts:62`, `line.ts:21` via `resolveY(undefined)`, `multiline.ts:72`),
-while the device stacks it below the preceding elements. Everything the
-designer itself authors carries explicit coordinates, so this only affects
-YAML written by hand or brought in from elsewhere.
+The cursor starts at `0` (`types.py:115`, set in `core.py:79`); hidden elements
+`continue` before their handler runs (`core.py:87-89`) so never advance it.
+Twenty sites write it — every handler — but only four read it:
+
+| Handler | `odl_renderer` | `y_padding` default |
+|---|---|---|
+| `text` | `text.py:38` | `10` |
+| `multiline` | `text.py:180` | `10` |
+| `line` | `shapes.py:32` | `0` |
+| `diagram` | `visualizations.py:779-877` | reads no `y` at all |
+
+Same in OEPL, whose `imagegen` package `odl_renderer` forks.
+
+**Architectural cost, so this is not reopened blindly.** Each element renders
+in its own memoized slot (`src/ui/components/CanvasElementSlot.tsx`), and
+[`tests/e2e/drag-repaint-scope.spec.ts`](../../tests/e2e/drag-repaint-scope.spec.ts)
+asserts that dragging one element repaints no other element's canvas layer. A
+cursor makes every element's position depend on all elements before it, so any
+edit would invalidate every later slot — reversing a deliberate performance
+property. It would also let element order silently reposition `y`-less
+elements, which the canvas, hit-testing, alignment and drag geometry all assume
+cannot happen.
+
+**Consequence.** A payload that omits `y` on `text`, `multiline` or `line`
+renders at `0` here (`text.ts:62`, `line.ts:21` via `resolveY(undefined)`,
+`multiline.ts:72`) and stacked on the device. Only affects hand-written or
+imported YAML — everything the designer authors carries explicit coordinates.
 
 ### Unimplemented element: `diagram`
 
-A real, functional element type in both renderers that the designer does not
-support. Recorded because it was previously untracked in this report and in
-[`supported_types.md`](supported_types.md).
+`@element_handler(ElementType.DIAGRAM, requires=["x", "height"])`
+(`visualizations.py:779`) draws axes plus an optional bar chart parsed from a
+string like `"Mon,10;Tue,20;Wed,15"`, positioned entirely from the flow cursor.
+OEPL-original, inherited by the `odl_renderer` fork; functional in both.
 
-- **What it is.** `@element_handler(ElementType.DIAGRAM, requires=["x", "height"])`
-  (`visualizations.py:779`). Draws axes plus an optional bar chart parsed from
-  a semicolon/comma string, e.g. `"Mon,10;Tue,20;Wed,15"`. Positioned entirely
-  from the flow cursor — it reads no `y`.
-- **Provenance.** OEPL-original
-  (`custom_components/open_epaper_link/imagegen/visualizations.py`), inherited
-  by the `odl_renderer` fork. Present and functional in both today.
-- **Undocumented upstream.** It is absent from *both* projects' official
-  `docs/drawcustom/supported_types.md`. It surfaces only in `odl_renderer`'s
-  own PyPI README (`odl_renderer-0.5.12.dist-info/METADATA`, `#diagram`).
-- **Apparently dormant.** `plot` has active feature work through late 2025
-  (`span_gaps`, `line_style`); `diagram` has none. It is **not** an older
-  generation of `plot` — the two are structurally unrelated and coexist.
-- **What a user sees.** A payload with `type: diagram` parses as YAML but
-  fails schema validation, so the YAML editor flags the `type:` line with
-  `type: Invalid discriminator value. Expected 'debug_grid' | … |
-  'progress_bar'` and, as with any invalid payload, canvas and property
-  editing stay blocked until it is corrected (the text itself is preserved).
+Undocumented in both projects' official `docs/drawcustom/supported_types.md`.
+Not implemented here, and unrelated to `plot`, the explicitly-positioned chart
+the designer does support.
 
-No support is proposed here; this entry exists to track the gap.
+A `type: diagram` payload parses as YAML but fails schema validation, so the
+editor flags the `type:` line with `Invalid discriminator value` listing the
+supported types, and canvas and property editing stay blocked until it is
+corrected. No support is proposed; this entry tracks the gap.
+
+### `multiline.offset_y` authoring default
+
+`offset_y` is required upstream with no default (`requires=[..., "offset_y"]`),
+so the value the designer inserts is purely ours: `round(1.3 × size)` — `26` at
+the default size 20 (maintainer ruling 2026-09-01) — surfaced in the property
+panel as the effective default. It scales with `size` because a fixed pixel
+advance is wrong at every other size. `1.3` is a legibility choice, not a font
+metric: the bundled fonts have natural line-height ratios of `1.400`
+(`ppb.ttf`) and `1.172` (`rbm.ttf`).
+
+### `multiline.spacing` is not accepted
+
+`spacing` is a `text` field (`draw_text`, default `5`); `draw_multiline` never
+reads it. It is therefore not in the designer's `multiline` schema, so the
+editor reports it as an unknown key like any other typo — deliberately
+**flagged rather than stripped or silently accepted**, so nothing is deleted
+from a user's YAML and no special case exists to maintain. Loading is
+unaffected (`parseYamlPayload` does not validate), so an imported or
+host-pushed payload carrying it still renders, identically to one without it.
 
 ## Intentional deltas (keep)
 
 | Delta | Designer behavior | Rationale |
 |-------|-------------------|-----------|
+| **`multiline` has no `spacing`** | Not in schema; flagged as an unknown key | Upstream `draw_multiline` never reads it — see [`multiline.spacing` is not accepted](#multilinespacing-is-not-accepted) |
 | **`multiline.parse_colors`** | Schema + renderer + UI | OEPL text parity; ODL tables omit it — keep until ODL adds or rejects |
-| **Flow cursor (`ctx.pos_y`)** | Not implemented; a missing `y` renders at `0` | Maintainer ruling 2026-09-01 — see [The flow cursor](#the-flow-cursor-ctxpos_y--deliberate-non-goal). Poor fit for a fixed-size display, honoured by only 4 of the ~20 handlers that advance it (same in OEPL and ODL), and incompatible with per-element memoized rendering |
-| **`diagram` element** | Not implemented | Undocumented in both upstreams and apparently dormant — see [Unimplemented element: `diagram`](#unimplemented-element-diagram). Tracked, not proposed |
+| **Flow cursor (`ctx.pos_y`)** | Not implemented; a missing `y` renders at `0` | Maintainer ruling 2026-09-01 — see [The flow cursor](#the-flow-cursor-ctxpos_y--deliberate-non-goal). Poor fit for a fixed-size display, honoured by only 4 of the 20 handlers that advance it, and incompatible with per-element memoized rendering |
+| **`diagram` element** | Not implemented | Undocumented in both upstreams — see [Unimplemented element: `diagram`](#unimplemented-element-diagram). Tracked, not proposed |
 | **`icon.color`** | Accepted alias of `fill` in schema | OEPL examples use `color`; ODL documents `fill` — HA export should prefer `fill` when both present |
 | **`visible` on debug_grid / polygon / arc** | Full stack support | Cross-cutting UX; upstream ODL WIP may add later (ADR-012) |
 | **`TagColorMode.rgb`** | Preview only | Not in Basic Standard `colour_scheme` enum — designer-only preview mode |
