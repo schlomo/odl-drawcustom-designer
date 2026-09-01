@@ -82,10 +82,18 @@ for line in lines:
   concept and starts such a block at `0`. Neither `start_y` nor `y_padding` is
   supported on `multiline`. Open gap — a `multiline` with no `y` renders at a
   different height than on the device.
-- **Per-line anchor still differs.** Upstream draws each line with
-  `anchor=element.get("anchor", "lm")` on the plain path (and hard-codes `lt`
-  on the `parse_colors` path); the designer uses ink-bound `lt` throughout.
-  Open gap, same class as the text glyph differences in ADR-007.
+- **Per-line anchor — closed.** Upstream draws each line with
+  `anchor=element.get("anchor", "lm")` on the plain path and hard-codes `lt`
+  on the `parse_colors` path. The designer used ink-bound `lt` throughout,
+  which hung every multiline block a metric half-box below the device
+  (maintainer side-by-side finding, 2026-09-01). It now applies the anchor per
+  line with Pillow's own semantics — `a`/`m`/`s`/`d` font-metric, `t`/`b`
+  ink-following — and honours an explicit `anchor`, which the schema
+  previously rejected outright. See
+  [supported_types.md](supported_types.md#anchor-multiline-defaults-to-lm-text-defaults-to-lt).
+- **`align` is still unsupported on `multiline`.** Upstream reads it
+  (`element.get("align", "left")`) but consumes it only on the `parse_colors`
+  path, via `calculate_segment_positions`. Not in the designer's schema.
 
 ## Intentional deltas (keep)
 

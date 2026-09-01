@@ -135,6 +135,9 @@ const TYPE_PROPERTY_SPECS: Partial<
   multiline: {
     value: { description: 'Text with delimiter-separated lines' },
     size: { description: 'Font size', default: 20 },
+    // `lm`, not the `lt` a `text` element defaults to — upstream
+    // `draw_multiline` anchors each line at the middle of the font box.
+    anchor: { description: 'Anchor point, applied per line', default: 'lm' },
     // No `spacing` override: upstream `draw_multiline` never reads it, so
     // describing it as line spacing here sends users to a field no renderer
     // honors. `offset_y` is this element's line spacing — see

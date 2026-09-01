@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { renderMultiline } from '../../../src/core/renderer/multiline'
+import { measureInkBoundingBox } from '../../../src/core/renderer/text-ink-bounds'
 import type { RenderContext } from '../../../src/core/renderer/types'
 import { loadBundledTestFont } from './font-test-utils'
 
@@ -111,9 +112,17 @@ describe('multiline honors offset_y as the line advance (#169)', () => {
   })
 
   it('honors offset_y on the parse_colors path too', () => {
-    const advances = lineAdvances(
+    // Upstream draws coloured segments with a hard-coded `anchor="lt"`, and
+    // `t` is ink-relative, so it is each line's INK TOP that steps by exactly
+    // offset_y — baselines differ by the lines' differing ink heights.
+    const font = loadBundledTestFont()
+    const lines = primitive(
       multiline({ value: '[red]One[/red]|Two|[black]Three[/black]', parse_colors: true }),
+    ).drawLines
+    const inkTops = lines.map(
+      (line) => line.y + measureInkBoundingBox(font, line.text, 24).y1,
     )
+    const advances = inkTops.slice(1).map((top, index) => top - inkTops[index]!)
 
     for (const advance of advances) {
       expect(advance).toBeCloseTo(90, 6)

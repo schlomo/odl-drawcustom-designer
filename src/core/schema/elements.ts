@@ -66,6 +66,9 @@ const multilineSchema = z
     size: numericTemplateSchema.optional(),
     font: fontSchema,
     color: colorSchema.optional(),
+    // Upstream `draw_multiline` reads `anchor` (default `lm`) and applies it
+    // per line — see docs/spec/supported_types.md.
+    anchor: anchorSchema,
     spacing: numericTemplateSchema.optional(),
     visible: visibleSchema,
     parse_colors: boolTemplateSchema.optional(),

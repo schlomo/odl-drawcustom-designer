@@ -364,6 +364,7 @@ Splits text into multiple lines based on a delimiter.
 | `size`      | Font size                      | No       | `20`                      | Pixels                                      |
 | `font`      | Font file name                 | No       | `ppb.ttf`                 | Available fonts: `ppb.ttf`, `rbm.ttf`       |
 | `color`     | Text color                     | No       | `black`                   | `white`, `black`, `accent`, `red`, `yellow` |
+| `anchor`    | Anchor point, applied per line | No       | `lm`                      | Pillow anchor — note this differs from `text`, which defaults to `lt` |
 | `visible`   | Show this element              | No       | `true`                    | `true`, `false`                             |
 
 `offset_y` is the field that controls line spacing on a `multiline` element.
@@ -375,6 +376,37 @@ for line in lines:
     draw.text((x, current_y), str(line), ...)
     current_y += offset_y
 ```
+
+### Anchor: `multiline` defaults to `lm`, `text` defaults to `lt`
+
+Each line is drawn by its own `draw.text` call at that line's `current_y`, so
+the anchor applies **per line** — a centering anchor centers every line on `x`
+by its own width, not the block by the widest line.
+
+The default differs from `text`, and this catches people out: a `multiline`
+and a `text` element given the same `y` do **not** line up.
+
+| Handler | Default anchor | Where `y` lands |
+| --- | --- | --- |
+| `draw_text` | `lt` (`la` once wrapped) | the text's **ink top** |
+| `draw_multiline` | `lm` | the **middle of the font's ascent/descent box** |
+
+Pillow's vertical anchors split into two families — `a`, `m`, `s` and `d` are
+font-metric (identical whatever the glyphs are), while `t` and `b` follow the
+ink actually drawn:
+
+| Anchor | Baseline relative to `y` |
+| --- | --- |
+| `a` ascender | `+ ascent` |
+| `t` top | `- ink.top` (ink) |
+| `m` middle | `+ (ascent - descent) / 2` |
+| `s` baseline | `0` |
+| `b` bottom | `- ink.bottom` (ink) |
+| `d` descender | `- descent` |
+
+With `parse_colors: true`, upstream draws every coloured segment with a
+hard-coded `anchor="lt"` and keeps only the horizontal half of the element's
+anchor — so the vertical anchor is `t` on that path whatever you set.
 
 There is **no `spacing` field on `multiline`**. `spacing` belongs to `text`,
 where it sets the gap between the lines Pillow produces for `\n`-wrapped

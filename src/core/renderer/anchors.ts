@@ -2,6 +2,13 @@
 
 export const TEXT_DEFAULT_ANCHOR = 'lt'
 export const ICON_DEFAULT_ANCHOR = 'la'
+/**
+ * `multiline` anchors differently from `text`: upstream `draw_multiline` uses
+ * `element.get("anchor", "lm")` while `draw_text` falls back to `lt` (`la`
+ * once the text wraps). That is half a metric line-box apart, so the two must
+ * not share a default (odl_renderer/elements/text.py).
+ */
+export const MULTILINE_DEFAULT_ANCHOR = 'lm'
 
 export interface AnchoredBox {
   x: number
