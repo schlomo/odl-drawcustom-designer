@@ -190,6 +190,8 @@ console.log(mount(el, {}).version) // same value, also on the handle
 
 `version` is baked in at build time ([`tools/version.ts`](../tools/version.ts)) from the release script's `APP_VERSION` environment variable — git tags, not `package.json` (which stays pinned at `0.0.0`), are this project's version source. A build that isn't produced by the release workflow (local dev, this repo's own GH Pages app build) has no `APP_VERSION` set and reports `'0.0.0-dev'`. Same string as `MountHandle.version`, whichever is more convenient for a host to log or show. See [`docs/releasing.md`](releasing.md) for the release procedure and the semver policy governing this API.
 
+The designer's own header shows this same `APP_VERSION` too, once mounted — this is a display detail, not part of the mount API, covered in [`docs/releasing.md`](releasing.md#site-version).
+
 ### Shadow DOM at the mount boundary ([issue #21](https://github.com/schlomo/odl-drawcustom-designer/issues/21))
 
 `mount()` renders into an **open shadow root on the container**: it reuses `container.shadowRoot` when the host already attached one, otherwise it calls `container.attachShadow({ mode: 'open' })` itself. This isolates styles in both directions:

@@ -7,14 +7,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // Under Vitest APP_SITE_VERSION is always '' (build-time short-circuit,
 // AGENTS.md "Build-time defines"), so mock the src/core barrel to simulate
 // a production-shaped build — same technique as
-// app-header-revision-tooltip.test.tsx.
+// app-header-revision-tooltip.test.tsx. HeaderMetaRow reads the already-
+// resolved `APP_HEADER_VERSION` (src/core/buildInfo.ts's
+// `resolveHeaderVersion`, priority: site version, then a real library
+// version, else empty) rather than `APP_SITE_VERSION` directly, so that's
+// the export to mock here — the priority itself is covered by
+// tests/core/buildInfo.test.ts.
 const { SITE_VERSION } = vi.hoisted(() => ({ SITE_VERSION: '3.0.0' }))
 
 vi.mock('../../../src/core', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../../src/core')>()
   return {
     ...original,
-    APP_SITE_VERSION: SITE_VERSION,
+    APP_HEADER_VERSION: SITE_VERSION,
   }
 })
 
