@@ -8058,7 +8058,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "fix/multiline-drag-offset", ae = "c6e7e2e", k = "96fe4ae", A = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "fix/multiline-drag-offset", ae = "f3b1868", k = "9cc16c8", A = "0.0.0-dev";
 function j(e) {
 	return re.has(e) || e.length <= 7 ? e : /^[0-9a-f]+$/i.test(e) ? e.slice(0, 7) : e.length > 12 ? `${e.slice(0, 11)}…` : e;
 }
