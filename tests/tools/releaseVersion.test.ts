@@ -6,20 +6,15 @@ import {
   maxBump,
   parseCommitMessages,
   planRelease,
-  requireReleaseEnv,
   versionFromTag,
-} from '../../tools/autoRelease'
+} from '../../tools/releaseVersion'
 
-// Auto-release on push to main (issue #93, reworked 2026-07-29 per maintainer
-// ruling: KISS, no PAT, tags as sole version source). A single workflow
-// (.github/workflows/auto-release.yml) derives a semver bump from
-// conventional-commit titles since the last `vX.Y.Z` tag reachable from
-// HEAD, builds the library with that version injected, and publishes it as
-// a GitHub release — which creates the tag. Nothing is pushed to main, so
-// there is no bump commit and no loop guard. All decision logic lives here
-// (thin CI, AGENTS.md); the CLI entry point (`import.meta.main` block in
-// tools/autoRelease.ts) only does git/gh plumbing and the library build,
-// exercised by the workflow itself, not by these tests.
+// The version a push to main releases, computed ONCE up front (maintainer
+// ruling 2026-09-01) and consumed by both publish jobs that fan out from it
+// (.github/workflows/auto-release.yml, docs/releasing.md). Every decision
+// lives here as a pure function (thin CI, AGENTS.md); the CLI entry point
+// (`import.meta.main` in tools/releaseVersion.ts) only reads git and emits
+// the value, exercised by the workflow itself, not by these tests.
 
 describe('bumpForCommit', () => {
   it('bumps minor for a feat: commit', () => {
@@ -40,6 +35,29 @@ describe('bumpForCommit', () => {
 
   it('bumps patch for a commit with no conventional prefix', () => {
     expect(bumpForCommit('Update README')).toBe('patch')
+  })
+
+  // "Every push to main bumps at least a patch" (maintainer ruling
+  // 2026-09-01) — the non-code commit types are the whole point of the rule.
+  it('bumps patch for a docs: commit', () => {
+    expect(bumpForCommit('docs: rewrite the releasing guide')).toBe('patch')
+  })
+
+  it('bumps patch for a revert', () => {
+    expect(bumpForCommit('Revert "feat: add drag handles"\n\nThis reverts commit abc1234.')).toBe('patch')
+  })
+
+  it('bumps patch for a style:/refactor:/test: commit', () => {
+    expect(bumpForCommit('style: reformat')).toBe('patch')
+    expect(bumpForCommit('refactor: extract a helper')).toBe('patch')
+    expect(bumpForCommit('test: cover the edge case')).toBe('patch')
+  })
+
+  it('never returns anything below patch, for any commit shape', () => {
+    const shapes = ['docs: x', 'chore: x', 'ci: x', 'Merge pull request #1 from a/b', '', '   ']
+    for (const shape of shapes) {
+      expect(bumpForCommit(shape)).toBe('patch')
+    }
   })
 
   it('bumps major for feat!: (bang after type)', () => {
@@ -158,22 +176,6 @@ describe('versionFromTag', () => {
   })
 })
 
-describe('requireReleaseEnv', () => {
-  it('returns the target sha when both GITHUB_SHA and GH_TOKEN are set', () => {
-    expect(requireReleaseEnv({ GITHUB_SHA: 'abc123', GH_TOKEN: 'secret' })).toEqual({
-      targetSha: 'abc123',
-    })
-  })
-
-  it('throws loudly when GITHUB_SHA is missing', () => {
-    expect(() => requireReleaseEnv({ GH_TOKEN: 'secret' })).toThrow(/GITHUB_SHA/)
-  })
-
-  it('throws loudly when GH_TOKEN is missing, even with GITHUB_SHA set (before the build step)', () => {
-    expect(() => requireReleaseEnv({ GITHUB_SHA: 'abc123' })).toThrow(/GH_TOKEN/)
-  })
-})
-
 describe('gitTagListArgs', () => {
   it('requires ancestry (--merged HEAD) so a stray tag on an unmerged branch is never the base', () => {
     const args = gitTagListArgs()
@@ -190,17 +192,12 @@ describe('gitTagListArgs', () => {
 describe('planRelease', () => {
   it('first release: no tag reachable from HEAD yet releases v1.0.0', () => {
     const plan = planRelease({ latestTag: undefined, commitMessagesSinceTag: [] })
-    expect(plan).toMatchObject({ skip: false, mode: 'first-release', version: '1.0.0' })
+    expect(plan).toMatchObject({ mode: 'first-release', version: '1.0.0', tag: 'v1.0.0', createRelease: true })
   })
 
   it('first release ignores any commits since there is no tag to diff against', () => {
     const plan = planRelease({ latestTag: undefined, commitMessagesSinceTag: ['feat: whatever'] })
-    expect(plan).toMatchObject({ skip: false, mode: 'first-release', version: '1.0.0' })
-  })
-
-  it('skips when a tag exists but there are no commits since it', () => {
-    const plan = planRelease({ latestTag: 'v1.2.3', commitMessagesSinceTag: [] })
-    expect(plan.skip).toBe(true)
+    expect(plan).toMatchObject({ mode: 'first-release', version: '1.0.0', createRelease: true })
   })
 
   it('bumps from the tag version when commits exist since the last tag', () => {
@@ -208,7 +205,7 @@ describe('planRelease', () => {
       latestTag: 'v1.2.3',
       commitMessagesSinceTag: ['feat: add drag handles'],
     })
-    expect(plan).toMatchObject({ skip: false, mode: 'bump', version: '1.3.0', bump: 'minor' })
+    expect(plan).toMatchObject({ mode: 'bump', version: '1.3.0', tag: 'v1.3.0', bump: 'minor', createRelease: true })
   })
 
   it('takes the max bump across all commits since the last tag', () => {
@@ -216,7 +213,7 @@ describe('planRelease', () => {
       latestTag: 'v1.0.0',
       commitMessagesSinceTag: ['fix: small tweak', 'feat: new option', 'chore: cleanup'],
     })
-    expect(plan).toMatchObject({ skip: false, mode: 'bump', version: '1.1.0', bump: 'minor' })
+    expect(plan).toMatchObject({ mode: 'bump', version: '1.1.0', bump: 'minor', createRelease: true })
   })
 
   it('fails loudly when the latest tag is malformed', () => {
@@ -226,5 +223,55 @@ describe('planRelease', () => {
         commitMessagesSinceTag: ['fix: small tweak'],
       }),
     ).toThrow(/vX\.Y\.Z/)
+  })
+
+  // Maintainer ruling (2026-09-01): EVERY push to main releases at least a
+  // patch — "non-code pushes should bump patch IMHO, why not? more
+  // consistent and doesn't cost". There is no commit shape that reaches
+  // main and produces no release.
+  it('releases a patch for a docs-only push', () => {
+    const plan = planRelease({ latestTag: 'v3.3.0', commitMessagesSinceTag: ['docs: clarify the embed contract'] })
+    expect(plan).toMatchObject({ mode: 'bump', version: '3.3.1', bump: 'patch', createRelease: true })
+  })
+
+  it('releases a patch for a revert push', () => {
+    const plan = planRelease({
+      latestTag: 'v3.3.0',
+      commitMessagesSinceTag: ['Revert "feat: add drag handles"\n\nThis reverts commit abc1234.'],
+    })
+    expect(plan).toMatchObject({ mode: 'bump', version: '3.3.1', bump: 'patch', createRelease: true })
+  })
+
+  it('releases a patch for a push of only chore/docs/build commits', () => {
+    const plan = planRelease({
+      latestTag: 'v3.3.0',
+      commitMessagesSinceTag: ['chore: tidy imports', 'docs: fix a typo', 'build(deps): bump vite'],
+    })
+    expect(plan).toMatchObject({ mode: 'bump', version: '3.3.1', bump: 'patch', createRelease: true })
+  })
+
+  // The version is a FACT for every run, never absent: with no commits
+  // since the tag (a workflow_dispatch re-run, or a re-run after a partial
+  // failure) HEAD *is* that release, so the same version flows to both
+  // publish jobs, which reconcile idempotently. Nothing is skipped away.
+  it('reports the existing release version when there are no commits since the tag', () => {
+    const plan = planRelease({ latestTag: 'v1.2.3', commitMessagesSinceTag: [] })
+    expect(plan).toMatchObject({
+      mode: 'already-released',
+      version: '1.2.3',
+      tag: 'v1.2.3',
+      createRelease: false,
+    })
+  })
+
+  it('never yields a plan without a version, whatever the input', () => {
+    const inputs = [
+      { latestTag: undefined, commitMessagesSinceTag: [] },
+      { latestTag: 'v2.0.0', commitMessagesSinceTag: [] },
+      { latestTag: 'v2.0.0', commitMessagesSinceTag: ['docs: nothing much'] },
+    ]
+    for (const input of inputs) {
+      expect(planRelease(input).version).toMatch(/^\d+\.\d+\.\d+$/)
+    }
   })
 })

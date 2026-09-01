@@ -7,7 +7,7 @@ import { formatChecksumLine, sha256File, writeChecksumFile } from '../../tools/r
 // sha256 + NOTICE + THIRD_PARTY.md release assets (issue #103): the release
 // script must ship a `.sha256` checksum for the library build artifact,
 // verifiable with `shasum -c`. All logic lives here (thin CI, AGENTS.md);
-// the workflow only invokes tools/autoRelease.ts.
+// the workflow only invokes the tools/ scripts.
 
 describe('sha256File', () => {
   let dir: string

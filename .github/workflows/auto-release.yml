@@ -1,38 +1,43 @@
-# Auto-release on push to main (issue #93, reworked 2026-07-29 per
-# maintainer ruling: KISS, long-term, no PAT; extended for issue #103 with
-# npm publishing + sha256/NOTICE/THIRD_PARTY.md release assets; npm publish
-# reworked from a long-lived npm access-token secret to npm Trusted
-# Publishing (OIDC) per maintainer ruling 2026-08-16 — npmjs now refuses
-# classic automation tokens without 2FA and points integrators at Trusted
-# Publishing instead).
-# main is always stable (PR checks gate it), so every push to main is a
-# release candidate. This is the single release mechanism: it derives a
-# semver bump from conventional-commit titles since the last `vX.Y.Z` tag
-# reachable from HEAD, builds the library with that version injected, and
-# publishes it as a GitHub release — `gh release create` creates the tag
-# itself. Nothing is ever pushed to main (no bump commit, no package.json
-# write), so the default `GITHUB_TOKEN` suffices — no downstream workflow
-# needs to trigger off the tag, so there is no loop-prevention problem to
-# work around and no PAT is needed.
+# Release pipeline — every push to main (issue #93; npm publishing #103; npm
+# Trusted Publishing 2026-08-16; unified with the production Pages deploy and
+# de-raced 2026-09-01 per maintainer ruling).
 #
-# `workflow_dispatch` is a manual fallback that runs the exact same path —
-# useful to trigger a release check without waiting for the next push. Note
-# that a stranded `npm publish` failure (release already created, publish
-# itself failed) self-heals on ANY subsequent run, including an ordinary
-# push — tools/autoRelease.ts's skip path checks the npm registry and
-# recovers it automatically (docs/releasing.md#partial-failure-recovery);
-# workflow_dispatch just lets you force that check immediately instead of
-# waiting. See docs/releasing.md.
+# main is always stable (PR `checks` in pages.yml gate it), so every push to
+# main is a release — at least a patch, always (tools/releaseVersion.ts).
+#
+# SHAPE — one computation, then a fan-out:
+#
+#     version  ── computes the version ONCE and creates the tag + release
+#        ├── npm    ── publishes that version to npm
+#        └── pages  ── builds and deploys the standalone site at that version
+#
+# `npm` and `pages` both consume `needs.version.outputs.version` and NEITHER
+# depends on the other, so they run in parallel and either can fail without
+# demoting the other (maintainer ruling: "each has its own value and a
+# failure doesn't demote the other"). Both bake the SAME version, which by
+# then is a published fact, not a prediction — this replaces the old
+# arrangement where pages.yml's `production` job raced this workflow and had
+# to re-derive the version auto-release was about to publish
+# (tools/siteVersion.ts, deleted). Recovery is per-job: "Re-run failed jobs"
+# re-runs only the failed publish against the same version, and both publish
+# steps are idempotent. See docs/releasing.md#failure-and-recovery.
+#
+# DO NOT RENAME THIS FILE. npm Trusted Publishing is configured on npmjs.com
+# against the workflow FILENAME `auto-release.yml` (docs/releasing.md#npm);
+# renaming it breaks publishing until the maintainer updates that setting.
+#
+# `workflow_dispatch` runs the exact same path against the current main. With
+# nothing new to release the `version` job reports the existing tag's version
+# and creates no release, while both publish jobs still run and reconcile —
+# that is the manual recovery trigger.
 #
 # Thin CI (AGENTS.md): all decision logic (bump derivation/precedence, tag
-# ancestry, the no-tag-yet case, release-asset generation, npm staging, the
-# NPM_PUBLISH-gate skip, partial-failure npm-publish recovery) lives in
-# tools/autoRelease.ts and the tools/ modules it calls, unit-tested under
-# tests/tools/. This file only wires checkout/Node/npm, the npm CLI version
-# Trusted Publishing requires, the `id-token: write` permission the OIDC
-# exchange needs, then calls the script.
+# ancestry, the first-release case, release-asset generation, npm staging,
+# the NPM_PUBLISH gate, the already-published check) lives in tools/ and is
+# unit-tested under tests/tools/. This file only wires checkout/Node/npm,
+# passes one job's outputs to the next, and calls the scripts.
 
-name: Auto Release
+name: Release
 
 on:
   push:
@@ -47,56 +52,184 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
-  # npm Trusted Publishing / provenance (issue #103, reworked #113): `npm
-  # publish` under Trusted Publishing exchanges this workflow's OIDC token
-  # for a short-lived npm credential — no long-lived npm token involved.
-  # Harmless when `NPM_PUBLISH` is not enabled — tools/autoRelease.ts skips
-  # the publish step entirely in that case, this permission is just unused.
-  id-token: write
+  contents: read
 
 jobs:
-  auto-release:
+  # ---------------------------------------------------------------------
+  # 1. The version — computed once, up front, and the tag/release created
+  #    here so both publish jobs downstream consume a fact.
+  # ---------------------------------------------------------------------
+  version:
     runs-on: ubuntu-latest
+    permissions:
+      # `gh release create` (which creates the tag too).
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      create-release: ${{ steps.version.outputs.create-release }}
     steps:
       - uses: actions/checkout@v7
         with:
-          # Full history + tags: tools/autoRelease.ts needs every tag
-          # reachable from HEAD and the full commit log since the latest one.
+          # Full history + tags: tools/releaseVersion.ts needs every vX.Y.Z
+          # tag reachable from HEAD and the full commit log since the latest
+          # one. This is the ONLY job that needs it — the publish jobs just
+          # build, so they keep the default shallow checkout.
           fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
-          # Trusted Publishing doesn't need an auth token in .npmrc (no
+
+      - run: npm ci
+
+      # The release gate. It runs once, here, before anything irreversible —
+      # both publish jobs `needs: version`, so neither can publish past a red
+      # gate. (PR `checks` in pages.yml already gated this commit as a PR;
+      # this re-runs it against main itself.)
+      - run: npm test
+      - run: npm run lint
+
+      # Ruling 1: compute the version ONCE. Everything downstream reads this
+      # step's outputs; nothing recomputes it. Runs identically on a laptop —
+      # `node tools/releaseVersion.ts` prints the same decision.
+      - name: Compute the release version
+        id: version
+        run: node tools/releaseVersion.ts
+
+      # Builds the library at that version, generates THIRD_PARTY.md and the
+      # sha256 files, and creates the tag + GitHub release — unless the
+      # version is already released (a workflow_dispatch, or a re-run), in
+      # which case it builds the same artifacts and creates nothing.
+      - name: Build the library and create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP_VERSION: ${{ steps.version.outputs.version }}
+          CREATE_RELEASE: ${{ steps.version.outputs.create-release }}
+        run: node tools/createRelease.ts
+
+      # Handed to the npm job so it publishes the EXACT bytes attached to the
+      # release (the .sha256 assets then describe the npm tarball's contents
+      # too) instead of rebuilding them.
+      - name: Upload the released library
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-lib-${{ steps.version.outputs.version }}
+          path: dist-lib/
+          if-no-files-found: error
+          retention-days: 14
+
+  # ---------------------------------------------------------------------
+  # 2a. npm — parallel with `pages`, independent of it.
+  # ---------------------------------------------------------------------
+  npm:
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # npm Trusted Publishing / provenance (issue #103): `npm publish`
+      # exchanges this workflow's OIDC token for a short-lived npm
+      # credential — no long-lived npm token anywhere. Harmless when
+      # NPM_PUBLISH is not enabled; tools/publishNpm.ts skips the publish.
+      id-token: write
+    steps:
+      # Shallow: this job never reads tags or history, only LICENSE, NOTICE,
+      # README.md and the tools/ scripts that stage the package.
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          # Trusted Publishing needs no auth token in .npmrc (no
           # NODE_AUTH_TOKEN) — the OIDC exchange targets this registry by
           # URL, which is all registry-url wires here.
           registry-url: 'https://registry.npmjs.org'
 
       - run: npm ci
-      - run: npm test
-      - run: npm run lint
 
-      # Trusted Publishing requires npm CLI >= 11.5.1 (docs.npmjs.com/trusted-publishers)
-      # and Node >= 22.14.0; the runner's Node-bundled npm is not guaranteed
-      # to clear that floor, so upgrade explicitly before the publish step
-      # can run. Safe even when npm publish ends up skipped. Pinned to a
+      # Trusted Publishing requires npm CLI >= 11.5.1
+      # (docs.npmjs.com/trusted-publishers) and Node >= 22.14.0; the runner's
+      # Node-bundled npm is not guaranteed to clear that floor. Pinned to a
       # known-good minor (not @latest) so a future npm release cannot
       # silently change publish behavior — bump deliberately.
       - run: npm install -g npm@11.19
 
-      - name: Release
+      - name: Download the released library
+        uses: actions/download-artifact@v7
+        with:
+          name: release-lib-${{ needs.version.outputs.version }}
+          path: dist-lib/
+
+      - name: Publish to npm
         env:
-          GH_TOKEN: ${{ github.token }}
-          # Staged rollout gate (issue #103, reworked #113): a repo
-          # **variable**, not a secret — there is no token to manage under
-          # Trusted Publishing. Unset/anything other than "enabled" means
-          # the maintainer hasn't yet claimed the npm package name (manual
-          # first publish, docs/releasing.md#npm) and/or configured a
-          # trusted publisher for this repo/workflow on npmjs.com;
-          # tools/autoRelease.ts detects that and skips npm publish with a
-          # prominent job-summary warning, and the GitHub release still
-          # completes normally.
+          APP_VERSION: ${{ needs.version.outputs.version }}
+          # Staged rollout gate (issue #103): a repo **variable**, not a
+          # secret — there is no token to manage under Trusted Publishing.
+          # Anything other than "enabled" means the maintainer hasn't
+          # configured a trusted publisher for this repo/workflow on
+          # npmjs.com; tools/publishNpm.ts then skips with a prominent
+          # job-summary warning and the release/site stand unaffected.
           NPM_PUBLISH: ${{ vars.NPM_PUBLISH }}
-        run: node tools/autoRelease.ts
+        run: node tools/publishNpm.ts
+
+  # ---------------------------------------------------------------------
+  # 2b. GitHub Pages production — parallel with `npm`, independent of it.
+  # ---------------------------------------------------------------------
+  pages:
+    needs: version
+    runs-on: ubuntu-latest
+    # Serialize ALL pushes to gh-pages, shared with pages.yml's `preview`
+    # job (concurrency groups are repository-wide): when two deploys land on
+    # gh-pages within seconds, GitHub's legacy Pages build of the first
+    # commit gets superseded mid-build and reports "Page build failed".
+    # Queuing (cancel-in-progress: false) instead of cancelling means no
+    # deploy is ever lost. Do not remove or rename this group.
+    concurrency:
+      group: gh-pages-push
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || format('/{0}/', github.event.repository.name) }}
+      VITE_HEADER_LEGAL_HTML: ${{ vars.VITE_HEADER_LEGAL_HTML || '' }}
+    steps:
+      # Shallow: the version arrives as a job output, so this job needs no
+      # tags and no history (the old `production` job needed fetch-depth: 0
+      # only to re-derive the version itself).
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # build:site = app build (dist/) + library build (dist-lib/) + embed
+      # demo assembly into dist/embed/ (tools/assembleSite.ts, issue #69).
+      # APP_VERSION is the version the release above published — the header
+      # labels the site with it (src/core/buildInfo.ts's APP_HEADER_VERSION).
+      # lint/test are NOT repeated here: the `version` job gated this commit
+      # and this job `needs:` it.
+      - run: npm run build:site
+        env:
+          APP_VERSION: ${{ needs.version.outputs.version }}
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist-production-${{ github.run_number }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Deploy production
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: dist
+          token: ${{ secrets.GITHUB_TOKEN }}
+          clean-exclude: pr-preview
+          force: false

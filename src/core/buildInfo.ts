@@ -38,86 +38,57 @@ export const APP_HEADER_LEGAL_HTML =
 /**
  * Runtime version (issue #23, reworked 2026-07-29: git tags are the sole
  * version source, not package.json — see `tools/version.ts`). Baked in at
- * build time (`tools/buildDefines.ts`) from the release script's
- * `APP_VERSION` env var; a non-release build (local dev, CI `checks`) has
- * none set and falls back to `0.0.0-dev`. Re-exported from
+ * build time (`tools/buildDefines.ts`) from the release pipeline's
+ * `APP_VERSION` env var; a non-release build (local dev, CI `checks`, a PR
+ * preview) has none set and falls back to `0.0.0-dev`. Re-exported from
  * `src/embed/index.ts` (`version`) and surfaced on `MountHandle.version`.
+ *
+ * This is the project's ONE version signal (reworked 2026-09-01): the
+ * release pipeline computes the version once and every build in that run —
+ * the published library AND the standalone site — bakes this same string.
+ * There is no separate site-version define that could disagree with it any
+ * more (docs/releasing.md).
  */
 export const APP_VERSION =
   (import.meta.env.VITE_APP_VERSION ?? '0.0.0-dev').trim() || '0.0.0-dev'
-
-/**
- * Production release-version label for the standalone site header — DISTINCT
- * from `APP_VERSION` above (the library's runtime version, always
- * `0.0.0-dev` outside a release build). Baked in at build time from
- * `SITE_VERSION`, set only by the `production` job in
- * `.github/workflows/pages.yml` via `tools/siteVersion.ts` (which reuses
- * `tools/autoRelease.ts`'s bump algorithm — docs/releasing.md#site-version).
- *
- * The empty string — every other build (local dev, CI `checks`, PR
- * previews, a local `build:site`) — is the deliberate "no site version"
- * signal, never a placeholder like `APP_VERSION` does. It does NOT by
- * itself mean the header falls back to branch + SHA: `APP_HEADER_VERSION`
- * below also consults `APP_VERSION`, so a released library build (empty
- * `APP_SITE_VERSION`, real `APP_VERSION`) still shows a version label —
- * only when *both* are unset/placeholder does the header fall back to
- * branch + SHA.
- */
-export const APP_SITE_VERSION = (import.meta.env.VITE_SITE_VERSION ?? '').trim()
 
 /** A bare `X.Y.Z` version, no leading `v`, no pre-release/build suffix. */
 const RELEASED_VERSION_PATTERN = /^\d+\.\d+\.\d+$/
 
 /**
  * True when `version` names an actual release rather than a placeholder —
- * `tools/version.ts`'s `DEV_APP_VERSION` (`'0.0.0-dev'`, fails the pattern
- * on its `-dev` suffix) or Vitest's short-circuited `'test'`. Exported so
- * `APP_HEADER_VERSION` below and its tests share one definition instead of
- * hardcoding placeholder strings twice.
+ * `tools/version.ts`'s `DEV_APP_VERSION` (`'0.0.0-dev'`, which fails the
+ * pattern on its `-dev` suffix) or Vitest's short-circuited `'test'`.
+ * Exported so `APP_HEADER_VERSION` below and its tests share one definition
+ * instead of hardcoding placeholder strings twice.
  */
 export function isReleasedVersion(version: string): boolean {
   return RELEASED_VERSION_PATTERN.test(version)
 }
 
 /**
- * Resolve the header's version label from the two independent version
- * signals above, in priority order. Exported as a pure function (mirrors
- * `tools/version.ts`'s `resolveAppVersion`/`resolveSiteVersion`) so the
- * priority itself is unit-testable without build-time defines; the module
- * constant below is what the UI actually imports.
+ * The header's version label: `APP_VERSION` when this build came out of the
+ * release pipeline, otherwise the empty string — which the header reads as
+ * "show branch + SHA / `PR #n` instead", never a guessed or placeholder
+ * version.
  *
- *   1. `siteVersion` — the standalone Pages `production` job (unchanged).
- *   2. `appVersion` — when it's a real release, not the dev/test
- *      placeholder. This is what a **library build vendored into a host**
- *      (e.g. the HA panel embed) carries: `tools/autoRelease.ts` bakes the
- *      tag-derived version into `APP_VERSION` for every `build:lib`, but
- *      `SITE_VERSION` is set only by the standalone Pages job — so without
- *      this fallback an embedded designer had no version signal at all and
- *      the header fell back to branch + SHA, even though it knows its own
- *      release version perfectly well (issue: embedded header shows a SHA
- *      instead of the version upstream `main` shows).
- *   3. `''` — local dev, CI `checks`, PR previews: the header falls back to
- *      branch + SHA / `PR #n` exactly as before.
- *
- * Both sources name the SAME derived tag when both are set — one push
- * derives one version, reused for the GitHub release, the site, and the
- * library (`tools/autoRelease.ts`, `tools/siteVersion.ts`) — so a single
- * `githubReleaseUrl()` call is correct regardless of which source supplied
- * the label.
+ * A second `APP_SITE_VERSION` define used to exist alongside `APP_VERSION`
+ * purely because the standalone site build raced tag creation and had to
+ * *predict* the version the release workflow was about to publish. The
+ * pipeline now computes the version once, up front, and hands that one value
+ * to both publish jobs, so the standalone site and a library build vendored
+ * into a host both label themselves from this single define
+ * (docs/releasing.md).
  */
-export function resolveHeaderVersion(siteVersion: string, appVersion: string): string {
-  if (siteVersion) {
-    return siteVersion
-  }
+export function resolveHeaderVersion(appVersion: string): string {
   return isReleasedVersion(appVersion) ? appVersion : ''
 }
 
 /**
- * The version label the header actually renders (`HeaderMetaRow.tsx`) — see
- * `resolveHeaderVersion` above for the priority. `''` means "show branch +
- * SHA / PR # instead", same contract `APP_SITE_VERSION` used to carry alone.
+ * The version label the header actually renders (`HeaderMetaRow.tsx`). `''`
+ * means "show branch + SHA / PR # instead".
  */
-export const APP_HEADER_VERSION = resolveHeaderVersion(APP_SITE_VERSION, APP_VERSION)
+export const APP_HEADER_VERSION = resolveHeaderVersion(APP_VERSION)
 
 /** Compact branch label for the header (leaf segment, truncated when long). */
 export function formatGitBranchLabel(branch: string, maxLen = 12): string {
@@ -180,7 +151,7 @@ export function githubCommitUrl(revision = APP_GIT_REVISION): string {
 }
 
 /** Link to a release's GitHub release page (`version` is a plain `X.Y.Z`, no leading `v`). */
-export function githubReleaseUrl(version = APP_SITE_VERSION): string {
+export function githubReleaseUrl(version = APP_HEADER_VERSION): string {
   const repoBase = APP_GITHUB_REPO_URL.replace(/\/$/, '')
   return `${repoBase}/releases/tag/v${version}`
 }

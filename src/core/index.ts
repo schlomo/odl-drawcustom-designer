@@ -18,7 +18,6 @@ export {
   APP_GIT_REVISION,
   APP_HEADER_LEGAL_HTML,
   APP_HEADER_VERSION,
-  APP_SITE_VERSION,
   APP_VERSION,
   formatGitBranchLabel,
   formatGitRevisionLabel,

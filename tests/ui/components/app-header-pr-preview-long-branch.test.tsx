@@ -24,11 +24,6 @@ vi.mock('../../../src/core', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../../src/core')>()
   return {
     ...original,
-    // HeaderMetaRow reads the already-resolved `APP_HEADER_VERSION`
-    // (src/core/buildInfo.ts), not `APP_SITE_VERSION` directly — see
-    // app-header-production-version.test.tsx. Already '' under Vitest's
-    // real defaults (no override needed to fall through to the PR-preview
-    // branch), kept explicit here for clarity.
     APP_HEADER_VERSION: '',
     APP_GIT_PR_NUMBER: LONG_PR_NUMBER,
     APP_GIT_BRANCH: LONG_BRANCH,

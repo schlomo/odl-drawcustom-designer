@@ -77,12 +77,10 @@ export function HeaderMetaRow({ visible, measureOnly = false }: HeaderMetaRowPro
   ]
 
   if (APP_HEADER_VERSION) {
-    // A real release version is known — either the standalone production
-    // site (`APP_SITE_VERSION`) or a library build vendored into a host
-    // (e.g. the HA panel embed, `APP_VERSION`) — see
-    // `resolveHeaderVersion` (src/core/buildInfo.ts) for the priority.
-    // Both name the same GitHub release tag, so one link target/title
-    // covers either source (build honesty either way).
+    // A build out of the release pipeline: the release version is the
+    // build's identity — for the standalone production site and for a
+    // library build vendored into a host alike, since both bake the one
+    // `APP_VERSION` that run computed (src/core/buildInfo.ts).
     segments.push({
       id: 'version',
       node: (

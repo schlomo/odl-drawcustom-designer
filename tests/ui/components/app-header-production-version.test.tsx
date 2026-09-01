@@ -2,24 +2,21 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Production build metadata (APP_SITE_VERSION set only by the `production`
-// job in .github/workflows/pages.yml, docs/releasing.md#site-version).
-// Under Vitest APP_SITE_VERSION is always '' (build-time short-circuit,
-// AGENTS.md "Build-time defines"), so mock the src/core barrel to simulate
-// a production-shaped build — same technique as
-// app-header-revision-tooltip.test.tsx. HeaderMetaRow reads the already-
-// resolved `APP_HEADER_VERSION` (src/core/buildInfo.ts's
-// `resolveHeaderVersion`, priority: site version, then a real library
-// version, else empty) rather than `APP_SITE_VERSION` directly, so that's
-// the export to mock here — the priority itself is covered by
-// tests/core/buildInfo.test.ts.
-const { SITE_VERSION } = vi.hoisted(() => ({ SITE_VERSION: '3.0.0' }))
+// A build out of the release pipeline: APP_HEADER_VERSION is the one
+// version label the header renders, derived from the single APP_VERSION
+// define the pipeline bakes into the standalone site build and the library
+// build alike (src/core/buildInfo.ts, docs/releasing.md). Under Vitest
+// APP_VERSION short-circuits to 'test' and APP_HEADER_VERSION is therefore
+// '' (AGENTS.md "Build-time defines"), so mock the src/core barrel to
+// simulate a released build — same technique as
+// app-header-revision-tooltip.test.tsx.
+const { RELEASE_VERSION } = vi.hoisted(() => ({ RELEASE_VERSION: '3.0.0' }))
 
 vi.mock('../../../src/core', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../../src/core')>()
   return {
     ...original,
-    APP_HEADER_VERSION: SITE_VERSION,
+    APP_HEADER_VERSION: RELEASE_VERSION,
   }
 })
 
@@ -89,7 +86,7 @@ describe('App header build metadata (production build)', () => {
     const links = within(meta).getAllByRole('link')
     expect(links.map((link) => link.textContent)).toEqual([
       'GitHub',
-      `v${SITE_VERSION}`,
+      `v${RELEASE_VERSION}`,
       formatGitRevisionLabel(APP_GIT_REVISION),
     ])
   })
@@ -101,9 +98,9 @@ describe('App header build metadata (production build)', () => {
       expect(screen.getByRole('link', { name: 'GitHub' })).toBeInTheDocument()
     })
 
-    const versionLink = screen.getByRole('link', { name: `v${SITE_VERSION}` })
-    expect(versionLink).toHaveAttribute('href', githubReleaseUrl(SITE_VERSION))
-    expect(versionLink).toHaveAttribute('title', `Release v${SITE_VERSION}`)
+    const versionLink = screen.getByRole('link', { name: `v${RELEASE_VERSION}` })
+    expect(versionLink).toHaveAttribute('href', githubReleaseUrl(RELEASE_VERSION))
+    expect(versionLink).toHaveAttribute('title', `Release v${RELEASE_VERSION}`)
     expect(versionLink).toHaveAttribute('target', '_blank')
   })
 

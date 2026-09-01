@@ -156,12 +156,20 @@ would otherwise surface only in CI or at release time — see
 
 **Runs on laptop or CI** — every script CI calls must run identically on a developer laptop (loud env checks, no runner-only assumptions). Thin CI (no logic in workflow YAML, behavior in tested `tools/` scripts) exists precisely so CI tooling can be developed and debugged locally.
 
-`.github/workflows/pages.yml`:
+`.github/workflows/pages.yml` — **pull requests only**:
 
 - The **`checks`** job is the merge gate: lint, `test:ci` (vitest), build, Playwright, JUnit check-run publishing.
 - The **`preview`** job is deliberately build+deploy only — do **not** re-add lint/test there (a red-tests PR still gets a preview; `checks` is what blocks merge).
-- All gh-pages pushes (production + every PR preview) share one serializing concurrency group. If Pages reports "Page build failed" right after rapid consecutive merges, it's almost always the superseded-legacy-build race — **rerun the failed job**, don't debug content.
 - Fork PRs run with a read-only token: check-run publishing (`dorny/test-reporter`) is skipped there; inline annotations and artifacts still work.
+
+`.github/workflows/auto-release.yml` — **push to main / `workflow_dispatch`** (full contract: [`docs/releasing.md`](docs/releasing.md)):
+
+- Three jobs, one computation then a fan-out: **`version`** computes the release version once (`tools/releaseVersion.ts`), runs the gate, and creates the tag + GitHub release; **`npm`** and **`pages`** both `needs: version`, run in **parallel**, and are independent — a failed npm publish must never block the Pages deploy or vice versa. Do not serialise them and do not add a shared successor job.
+- **One version, one define.** `APP_VERSION` is the only version define; the `version` job's output feeds every downstream build. Never reintroduce a second, *predicted* version (the deleted `tools/siteVersion.ts` / `VITE_SITE_VERSION`) — it existed only to work around a race that no longer exists.
+- **Do not rename `auto-release.yml`** — npm Trusted Publishing is configured on npmjs.com against the workflow filename.
+- Only the `version` job needs `fetch-depth: 0` (tags + history); the publish jobs must stay shallow.
+- Both publish steps must stay **idempotent** — re-running a failed job is the recovery path.
+- All gh-pages pushes (the release pipeline's `pages` job + every PR preview) share one repository-wide `gh-pages-push` concurrency group. If Pages reports "Page build failed" right after rapid consecutive merges, it's almost always the superseded-legacy-build race — **rerun the failed job**, don't debug content.
 
 ## Commits
 

@@ -3,15 +3,16 @@ import {
   checkNpmRegistryHasVersion,
   compareSemver,
   NPM_PUBLISH_CUTOFF_VERSION,
-  planNpmRecovery,
-} from '../../tools/npmRecovery'
+  planNpmPublish,
+} from '../../tools/npmPublishPlan'
 
-// Recovery for a partial-failure gap (issue #113 review finding): if `npm
-// publish` fails after `gh release create` already made the tag/release
-// irreversible, the next run must not silently skip that version forever
-// (AGENTS.md, "re-running is the upgrade path"). planNpmRecovery is the pure
-// decision; checkNpmRegistryHasVersion is the read-only network check kept
-// separate so the decision itself needs no fetch mocking.
+// The npm job's publish decision. It runs in parallel with the Pages deploy
+// and after the release/tag already exists, so publishing must be idempotent:
+// re-running the failed job alone is the recovery path for a publish that
+// died after `gh release create` (AGENTS.md, "re-running is the upgrade
+// path"). planNpmPublish is the pure decision; checkNpmRegistryHasVersion is
+// the read-only network check, kept separate so the decision itself needs no
+// fetch mocking.
 
 describe('compareSemver', () => {
   it('is zero for equal versions', () => {
@@ -35,10 +36,10 @@ describe('compareSemver', () => {
   })
 })
 
-describe('planNpmRecovery', () => {
-  it('skips when npm publishing is not enabled, even if the version would otherwise recover', () => {
-    const decision = planNpmRecovery({
-      latestVersion: '1.2.0',
+describe('planNpmPublish', () => {
+  it('skips when npm publishing is not enabled, even for a version missing from the registry', () => {
+    const decision = planNpmPublish({
+      version: '1.2.0',
       npmPublishEnabled: false,
       npmHasVersion: false,
     })
@@ -48,9 +49,9 @@ describe('planNpmRecovery', () => {
 
   it('skips a version below the npm-publish cutoff, even when enabled and missing from the registry', () => {
     // v1.0.0-v1.0.4 predate npm publishing entirely (issue #103) — must
-    // never be retroactively published on a later skip run.
-    const decision = planNpmRecovery({
-      latestVersion: '1.0.4',
+    // never be retroactively published by a later run.
+    const decision = planNpmPublish({
+      version: '1.0.4',
       npmPublishEnabled: true,
       npmHasVersion: false,
     })
@@ -59,8 +60,8 @@ describe('planNpmRecovery', () => {
   })
 
   it('skips exactly at the cutoff version when the registry already has it', () => {
-    const decision = planNpmRecovery({
-      latestVersion: NPM_PUBLISH_CUTOFF_VERSION,
+    const decision = planNpmPublish({
+      version: NPM_PUBLISH_CUTOFF_VERSION,
       npmPublishEnabled: true,
       npmHasVersion: true,
     })
@@ -68,23 +69,32 @@ describe('planNpmRecovery', () => {
     expect(decision.reason).toMatch(/already published/)
   })
 
-  it('recovers a cutoff-or-later version missing from the registry', () => {
-    const decision = planNpmRecovery({
-      latestVersion: '1.1.0',
+  it('publishes a cutoff-or-later version missing from the registry', () => {
+    const decision = planNpmPublish({
+      version: '1.1.0',
       npmPublishEnabled: true,
       npmHasVersion: false,
     })
-    expect(decision).toMatchObject({ action: 'recover', version: '1.1.0' })
-    expect(decision.reason).toMatch(/recovering unpublished npm version v1\.1\.0/)
+    expect(decision).toMatchObject({ action: 'publish', version: '1.1.0' })
+    expect(decision.reason).toMatch(/v1\.1\.0 is missing from the npm registry/)
   })
 
-  it('recovers a later version too, not just exactly the cutoff', () => {
-    const decision = planNpmRecovery({
-      latestVersion: '2.4.1',
+  it('publishes a later version too, not just exactly the cutoff', () => {
+    const decision = planNpmPublish({
+      version: '2.4.1',
       npmPublishEnabled: true,
       npmHasVersion: false,
     })
-    expect(decision).toMatchObject({ action: 'recover', version: '2.4.1' })
+    expect(decision).toMatchObject({ action: 'publish', version: '2.4.1' })
+  })
+
+  // Re-running the npm job after a successful publish (the "re-run failed
+  // jobs" recovery path when only the Pages job failed) must be a clean
+  // no-op, never a duplicate-version publish error.
+  it('is a clean skip when the run\'s version is already on the registry', () => {
+    const decision = planNpmPublish({ version: '3.4.0', npmPublishEnabled: true, npmHasVersion: true })
+    expect(decision).toMatchObject({ action: 'skip' })
+    expect(decision.reason).toMatch(/already published/)
   })
 })
 
