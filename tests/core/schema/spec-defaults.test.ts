@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { DrawElement } from '../../../src/core/schema/elements'
 import {
+  defaultMultilineOffsetY,
   getPropertyEffectiveValue,
+  hasPropertyDefault,
   normalizePropertyValueForStorage,
 } from '../../../src/core/schema/propertyMetadata'
+import { ELEMENT_TYPE_INSERTIONS } from '../../../src/core/schema/elementTemplates'
 
 /**
  * Defaults from docs/spec/supported_types.md — regression guard when metadata drifts.
@@ -70,5 +73,60 @@ describe('spec defaults (supported_types.md)', () => {
       y_end: 10,
     }
     expect(getPropertyEffectiveValue(element, 'fill')).toBeNull()
+  })
+})
+
+/**
+ * Maintainer ruling 2026-09-01: a new multiline must come out at `offset_y:
+ * 26` for the default size 20 — "to achieve a natural look". Tied to the font
+ * size rather than frozen at 26, since a fixed pixel value is wrong at every
+ * other size.
+ *
+ * Purely an authoring default: upstream `draw_multiline` declares
+ * `requires=[..., "offset_y"]`, so it demands the field and defines no
+ * default we could inherit.
+ */
+describe('multiline offset_y authoring default', () => {
+  function multiline(size?: number): DrawElement {
+    return {
+      type: 'multiline',
+      value: 'a|b',
+      delimiter: '|',
+      x: 0,
+      offset_y: 10,
+      ...(size === undefined ? {} : { size }),
+    }
+  }
+
+  it('is 26 at the default size 20 — the maintainer\'s number', () => {
+    expect(defaultMultilineOffsetY(20)).toBe(26)
+  })
+
+  it('scales with the font size instead of freezing at 26', () => {
+    expect(defaultMultilineOffsetY(10)).toBe(13)
+    expect(defaultMultilineOffsetY(16)).toBe(21)
+    expect(defaultMultilineOffsetY(40)).toBe(52)
+    expect(defaultMultilineOffsetY(64)).toBe(83)
+  })
+
+  it('surfaces in the property panel as the effective default, not a blank', () => {
+    expect(hasPropertyDefault('multiline', 'offset_y')).toBe(true)
+
+    const withoutOffset = { ...multiline(32) } as Record<string, unknown>
+    delete withoutOffset.offset_y
+    expect(getPropertyEffectiveValue(withoutOffset as DrawElement, 'offset_y')).toBe(42)
+  })
+
+  it('keeps a stored value over the computed default', () => {
+    expect(getPropertyEffectiveValue(multiline(20), 'offset_y')).toBe(10)
+  })
+
+  it('matches what inserting a multiline element actually writes', () => {
+    // The insertion template is plain text, so nothing but this test stops the
+    // two from drifting apart.
+    const inserted = ELEMENT_TYPE_INSERTIONS.multiline
+    const offsetY = /offset_y:\s*(\d+)/.exec(inserted)?.[1]
+
+    expect(Number(offsetY)).toBe(defaultMultilineOffsetY(20))
   })
 })

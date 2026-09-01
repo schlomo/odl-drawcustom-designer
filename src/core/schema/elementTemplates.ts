@@ -8,11 +8,14 @@ export const ELEMENT_TYPE_INSERTIONS: Record<DrawElement['type'], string> = {
   value: Hello World!
   x: 0
   y: 0`,
+  // offset_y is `defaultMultilineOffsetY(20)` — the default font size. Kept
+  // literal because these insertions are plain text; the two are pinned
+  // together by a test in tests/core/schema/spec-defaults.test.ts.
   multiline: `multiline
   value: Line 1|Line 2|Line 3
   delimiter: "|"
   x: 0
-  offset_y: 50`,
+  offset_y: 26`,
   line: `line
   x_start: 20
   x_end: 380

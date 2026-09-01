@@ -36,6 +36,28 @@ export const REQUIRED_PROPERTIES_BY_TYPE: Record<DrawElement['type'], readonly s
   progress_bar: ['x_start', 'y_start', 'x_end', 'y_end', 'progress'],
 }
 
+/**
+ * Line advance the designer authors for a new `multiline`, as a multiple of
+ * the font size — 26px at the default size 20 (maintainer ruling 2026-09-01:
+ * "the default for multiline elements need to be 26 at size 20 to achieve a
+ * natural look").
+ *
+ * Purely OUR authoring default, and not justifiable by upstream:
+ * `draw_multiline` declares `requires=[..., "offset_y"]`, so it demands the
+ * field and has no default of its own.
+ *
+ * A taste value rather than a font metric. The two fonts we ship have natural
+ * line-height ratios of 1.400 (ppb.ttf) and 1.172 (rbm.ttf), so 1.3 sits
+ * between them — a little tighter than ppb's own line height, a little looser
+ * than rbm's. See docs/spec/supported_types.md.
+ */
+export const MULTILINE_OFFSET_Y_SIZE_RATIO = 1.3
+
+/** Authoring default for `multiline.offset_y` at a given font size. */
+export function defaultMultilineOffsetY(size: number): number {
+  return Math.round(MULTILINE_OFFSET_Y_SIZE_RATIO * size)
+}
+
 function computedPropertyDefault(
   element: DrawElement,
   property: string,
@@ -44,6 +66,12 @@ function computedPropertyDefault(
     const size = getPropertyEffectiveValue(element, 'size')
     if (typeof size === 'number' && Number.isFinite(size)) {
       return size / 4
+    }
+  }
+  if (element.type === 'multiline' && property === 'offset_y') {
+    const size = getPropertyEffectiveValue(element, 'size')
+    if (typeof size === 'number' && Number.isFinite(size)) {
+      return defaultMultilineOffsetY(size)
     }
   }
   return undefined
@@ -356,6 +384,10 @@ export function hasPropertyDefault(
   property: string,
 ): boolean {
   if (elementType === 'icon_sequence' && property === 'spacing') {
+    return true
+  }
+  // Size-derived, so the panel shows the effective value rather than a blank.
+  if (elementType === 'multiline' && property === 'offset_y') {
     return true
   }
   return getPropertyDefault(elementType, property) !== undefined
