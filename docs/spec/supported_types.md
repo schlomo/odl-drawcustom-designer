@@ -381,43 +381,12 @@ for line in lines:
 declares `requires=["x", "value", "delimiter", "offset_y"]`, so a payload
 without it is an error, not a default.
 
-> **Designer authoring default (ours, not upstream).** When you insert a
-> `multiline` element the designer writes `round(1.3 × size)` — **26** at the
-> default size 20 — and the property panel shows that as the effective value.
-> It scales with `size` because a fixed pixel advance is wrong at every size
-> but one. 1.3 is a legibility choice, not a font metric: the fonts we ship
-> have natural line-height ratios of **1.400** (`ppb.ttf`) and **1.172**
-> (`rbm.ttf`), so it sits between them.
+### Omitting the vertical coordinate
 
-### Omitting `y`: the designer does not stack elements
-
-The `y` row above says "Last position + y_padding". That is drawcustom's
-**flow cursor**: the renderer keeps one vertical position per payload, and an
-element with no `y` is drawn below whatever came before it. This is the same in
-OpenEPaperLink and OpenDisplay — `odl_renderer` is a fork of OEPL's `imagegen`
-package, and `y_padding` is OEPL-inherited vocabulary.
-
-**The designer does not implement the flow cursor, by decision.** An element
-with no `y` is drawn at **y = 0** here, so a payload that relies on stacking
-looks different in the designer than on the device.
-
-Three element types are affected — the only ones that both read the cursor and
-take a `y`. (A fourth handler reads it, `diagram`, which the designer does not
-implement at all; see the gap report.)
-
-| Type | Upstream when `y` is omitted | Designer |
-|---|---|---|
-| `text` | cursor + `y_padding` (default `10`) | `0` |
-| `multiline` | cursor + `y_padding` (default `10`) | `0` |
-| `line` (`y_start`) | cursor + `y_padding` (default `0`) | `0` |
-
-This only affects YAML written by hand or imported from elsewhere —
-**everything the designer authors carries explicit coordinates**, so anything
-you build here is unaffected. If you are bringing in a payload that omits `y`,
-give those elements explicit coordinates and both renderers will agree.
-
-The reasoning, the upstream file:line references and the architectural cost are
-in [`odl-gap-report.md`](odl-gap-report.md#the-flow-cursor-ctxpos_y--deliberate-non-goal).
+`text`, `multiline` and `line` may omit their vertical coordinate (`y`, or
+`y_start` for `line`). The renderer then positions the element from a running
+vertical cursor, placing it below whatever was drawn before it, offset by
+`y_padding` — default `10` for `text` and `multiline`, `0` for `line`.
 
 ### Anchor: `multiline` defaults to `lm`, `text` defaults to `lt`
 
@@ -425,8 +394,8 @@ Each line is drawn by its own `draw.text` call at that line's `current_y`, so
 the anchor applies **per line** — a centering anchor centers every line on `x`
 by its own width, not the block by the widest line.
 
-The default differs from `text`, and this catches people out: a `multiline`
-and a `text` element given the same `y` do **not** line up.
+The default differs from `text`, so a `multiline` and a `text` element given
+the same `y` do **not** line up.
 
 | Handler | Default anchor | Where `y` lands |
 | --- | --- | --- |
@@ -454,8 +423,7 @@ There is **no `spacing` field on `multiline`**. `spacing` belongs to `text`,
 where it sets the gap between the lines Pillow produces for `\n`-wrapped
 content (`draw_text`, default `5`). `draw_multiline` never reads it, so
 setting `spacing` on a `multiline` element has no effect — change `offset_y`
-instead. The designer still accepts the key on `multiline` so that existing
-payloads keep loading, and ignores it exactly as the renderer does.
+instead.
 
 
 ### Inline Color Markup

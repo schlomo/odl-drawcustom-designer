@@ -61,7 +61,7 @@ export const PROPERTIES_BY_TYPE: Record<(typeof DRAW_ELEMENT_TYPES)[number], rea
     'size',
     'font',
     'color',
-    'spacing',
+    'anchor',
     'visible',
     'parse_colors',
   ],

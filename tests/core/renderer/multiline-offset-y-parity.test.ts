@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { renderMultiline } from '../../../src/core/renderer/multiline'
 import { measureInkBoundingBox } from '../../../src/core/renderer/text-ink-bounds'
 import type { RenderContext } from '../../../src/core/renderer/types'
+import { parseYamlPayload, validatePayload } from '../../../src/core/yaml'
 import { loadBundledTestFont } from './font-test-utils'
 
 /**
@@ -101,7 +102,10 @@ describe('multiline honors offset_y as the line advance (#169)', () => {
     expect(three.height - one.height).toBeCloseTo(2 * 90, 6)
   })
 
-  it('ignores `spacing`, which upstream draw_multiline never reads', () => {
+  it('ignores a stray `spacing`, which upstream draw_multiline never reads', () => {
+    // No longer part of the multiline schema, so the editor flags it as an
+    // unknown key — but a payload carrying it still loads (parseYamlPayload
+    // does not validate), and must render exactly as if it were absent.
     const without = lineAdvances(multiline())
     const withSpacing = lineAdvances(multiline({ spacing: 40 }))
 
@@ -127,5 +131,54 @@ describe('multiline honors offset_y as the line advance (#169)', () => {
     for (const advance of advances) {
       expect(advance).toBeCloseTo(90, 6)
     }
+  })
+})
+
+/**
+ * `spacing` is not a `multiline` field in the language (upstream
+ * `draw_multiline` never reads it) so it is not in the designer's schema
+ * either. Deliberate handling: **flagged, not stripped and not accepted.**
+ *
+ * It becomes an unknown key, treated exactly like any other typo — no
+ * special-case strip list, and nothing silently deleted from the user's YAML.
+ * Loading is unaffected because `parseYamlPayload` does not validate, so an
+ * imported or host-pushed payload still renders; only the editor's lint layer
+ * objects, on that line, with the text preserved.
+ */
+describe('multiline no longer accepts `spacing`', () => {
+  const withSpacing = `- type: multiline
+  value: a|b
+  delimiter: "|"
+  x: 0
+  offset_y: 26
+  spacing: 12
+`
+
+  it('still loads, so existing payloads do not hard-fail', () => {
+    const elements = parseYamlPayload(withSpacing)
+
+    expect(elements).toHaveLength(1)
+    expect((elements[0] as Record<string, unknown>).offset_y).toBe(26)
+  })
+
+  it('is reported as an unrecognized key rather than silently accepted', () => {
+    const result = validatePayload(parseYamlPayload(withSpacing))
+
+    expect(result.success).toBe(false)
+    expect(JSON.stringify(result.success ? [] : result.issues)).toContain('spacing')
+  })
+
+  it('leaves `spacing` real on `text`, where upstream does read it', () => {
+    const result = validatePayload(
+      parseYamlPayload(`- type: text
+  value: wrapped
+  x: 0
+  y: 0
+  max_width: 40
+  spacing: 4
+`),
+    )
+
+    expect(result.success).toBe(true)
   })
 })
