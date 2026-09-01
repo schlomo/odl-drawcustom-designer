@@ -1,4 +1,5 @@
 import type { DrawElement } from '../schema/elements'
+import { MULTILINE_DEFAULT_ANCHOR } from './anchors'
 import { getDominantTextDirection, toVisualText } from './bidi-text'
 import { resolveX, resolveY } from './coordinates'
 import { effectiveBool, effectiveFontSize, effectiveNumber, effectiveString } from './element-defaults'
@@ -6,7 +7,7 @@ import { DEFAULT_FONT_KEY, fontUnavailableMessage, getFont } from './fonts'
 import { stripColorMarkup } from './parse-colors'
 import { buildColoredMultilineDrawLines } from './text-color-lines'
 import { getFontMetrics, layoutMultilineBlock } from './text-layout'
-import { positionTextBlockAtAnchor } from './text-ink-bounds'
+import { positionMultilineLinesAtAnchor } from './text-ink-bounds'
 import { estimateMultilineBounds, LINE_HEIGHT_RATIO } from './text-metrics'
 import type { RenderContext, RenderResult } from './types'
 import { isVisible } from './visibility'
@@ -70,9 +71,34 @@ export function renderMultiline(
   // which is what this used to assume.
   const y = element.y != null ? resolveY(element.y, ctx) : 0
 
+  // Upstream draws each line with its own `draw.text` call at that line's
+  // `current_y`, so the anchor is applied PER LINE — and its default here is
+  // `lm`, not the `lt` a plain `text` element defaults to
+  // (odl_renderer/elements/text.py: `anchor = element.get("anchor", "lm")`).
+  // Anchoring the block as a whole, `lt`-style, hung multiline text a metric
+  // half-box below where the device draws it.
+  //
+  // The `parse_colors` path is the one exception: upstream draws every
+  // coloured segment with a hard-coded `anchor="lt"`, keeping only the
+  // horizontal component of the element's anchor. Resolve that here so the
+  // draw lines and the bounds below are anchored identically.
+  const anchor = element.anchor ?? MULTILINE_DEFAULT_ANCHOR
+  const effectiveAnchor = parseColors
+    ? `${anchor.trim().toLowerCase()[0] ?? 'l'}t`
+    : anchor
+
   const positioned =
-    layout != null && font != null
-      ? positionTextBlockAtAnchor(font, layout, fontSize, x, y, 'lt', lineSpacing, 'lt')
+    font != null
+      ? positionMultilineLinesAtAnchor(
+          font,
+          layoutLineTexts,
+          fontSize,
+          x,
+          y,
+          lineAdvance,
+          effectiveAnchor,
+          MULTILINE_DEFAULT_ANCHOR,
+        )
       : null
 
   const drawLines =
@@ -84,9 +110,10 @@ export function renderMultiline(
             defaultColor,
             true,
             fontSize,
-            lineSpacing,
+            lineAdvance,
             x,
             y,
+            effectiveAnchor,
           )
         : positioned!.drawLines
       : layoutLineTexts.map((text, index) => ({

@@ -1,8 +1,8 @@
 import type opentype from 'opentype.js'
 import { getDominantTextDirection, toVisualText } from './bidi-text'
 import { parseColorMarkup, stripColorMarkup } from './parse-colors'
-import { layoutMultilineBlock, measureTextWidth, type TextBlockLayout } from './text-layout'
-import { positionTextBlockAtAnchor } from './text-ink-bounds'
+import { measureTextWidth, type TextBlockLayout } from './text-layout'
+import { positionMultilineLinesAtAnchor } from './text-ink-bounds'
 import type { ColoredTextDrawSegment, TextDrawLine } from './types'
 import type { TextColorSegment } from './parse-colors'
 export type { TextColorSegment } from './parse-colors'
@@ -120,28 +120,44 @@ export function buildColoredDrawLines(
   })
 }
 
+/**
+ * Draw lines for a `multiline` element's `parse_colors` path.
+ *
+ * Upstream `draw_multiline` splits a coloured line into segments and draws
+ * each with a hard-coded `anchor="lt"`, taking only the horizontal placement
+ * from the element's own anchor:
+ *
+ *     segments, total_width = calculate_segment_positions(segments, font, x, align, anchor)
+ *     for segment in segments:
+ *         draw.text((segment.start_x, current_y), segment.text, anchor="lt", ...)
+ *
+ * So the vertical anchor is `t` here regardless of the element's anchor — a
+ * genuine upstream asymmetry with the plain path, which honours the element
+ * anchor (default `lm`). The caller applies that substitution and passes the
+ * already-effective `anchor`, so bounds and draw lines cannot disagree.
+ */
 export function buildColoredMultilineDrawLines(
   font: opentype.Font,
   lineTexts: string[],
   defaultColor: string,
   parseColors: boolean,
   fontSize: number,
-  lineSpacing: number,
+  lineAdvance: number,
   anchorX: number,
   anchorY: number,
+  anchor: string | undefined,
 ): TextDrawLine[] {
   const layoutLineTexts = parseColors
     ? lineTexts.map((line) => stripColorMarkup(line))
     : lineTexts
-  const layout = layoutMultilineBlock(font, layoutLineTexts, fontSize, lineSpacing)
-  const positioned = positionTextBlockAtAnchor(
+  const positioned = positionMultilineLinesAtAnchor(
     font,
-    layout,
+    layoutLineTexts,
     fontSize,
     anchorX,
     anchorY,
-    'lt',
-    lineSpacing,
+    lineAdvance,
+    anchor,
     'lt',
   )
 
