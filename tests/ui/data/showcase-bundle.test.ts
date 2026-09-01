@@ -105,3 +105,23 @@ describe('showcase bundle (src/assets/showcase/)', () => {
     })
   })
 })
+
+/**
+ * The demo bundle is designer-authored content, not an import — it is held to
+ * the explicit standard here instead of being normalized at load time, so a
+ * `y`-less element added to `showcase.yml` fails this test rather than
+ * silently acquiring a zero (see `docs/spec/odl-gap-report.md`).
+ */
+describe('showcase bundle vertical coordinates', () => {
+  it('never relies on the HA document-flow cursor', () => {
+    const cursorPositioned = SHOWCASE_ELEMENTS.filter((element) => {
+      const record = element as Record<string, unknown>
+      if (element.type === 'text' || element.type === 'multiline') {
+        return record.y === undefined
+      }
+      return element.type === 'line' && record.y_start === undefined
+    })
+
+    expect(cursorPositioned).toEqual([])
+  })
+})

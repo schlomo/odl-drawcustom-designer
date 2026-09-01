@@ -1,4 +1,4 @@
-import { parseYamlPayload } from '../core'
+import { normalizeImportedPayload, parseYamlPayload } from '../core'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import { DEFAULT_DISPLAY_CONFIG } from '../ui/preferences/displayConfig'
 import type { DesignerHost } from './host'
@@ -24,9 +24,17 @@ function buildEmbedBootstrap(
   const canvas = adopted
     ? displaySpecToCanvas(adopted.display, DEFAULT_DISPLAY_CONFIG.previewDitherMode)
     : { ...DEFAULT_DISPLAY_CONFIG }
+  // A mount option is an initial push (ADR-018 seam grammar), so the host's
+  // `payload` is held to the same import treatment a later `setPayload()` gets
+  // in `useProjectState`: cursor-positioned elements made explicit at `0`, dead
+  // `multiline` `spacing` dropped, and the shell told to say so.
+  const payload = normalizeImportedPayload(
+    options.payload ? parseYamlPayload(options.payload) : [],
+  )
   return {
     sessionName: 'Untitled',
-    elements: options.payload ? parseYamlPayload(options.payload) : [],
+    elements: payload.elements,
+    ...(payload.normalized ? { normalization: payload.normalized } : {}),
     canvas,
     // Host-defined display (issue #70): presence is what enables the lock (and
     // starts locked), and re-locking returns to it.

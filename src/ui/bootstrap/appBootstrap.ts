@@ -1,4 +1,4 @@
-import type { DrawElement, HaMockContext, ServiceOptions } from '../../core'
+import type { DrawElement, HaMockContext, ImportNormalization, ServiceOptions } from '../../core'
 import {
   clearShareHashFromLocation,
   decodeShareHash,
@@ -44,6 +44,14 @@ export interface AppBootstrap {
    * nothing is pinned until the user picks.
    */
   hostDisplay?: DisplayConfig
+  /**
+   * What `normalizeImportedPayload` had to change on the way in, when the
+   * bootstrap carries an *imported* payload (the share hash, a host `payload`
+   * option). Absent when nothing changed — the shell shows its notice exactly
+   * when this is present. A restored session is the designer's own document,
+   * not an import, and never sets it.
+   */
+  normalization?: ImportNormalization
 }
 
 /** Saved sessions with no elements fall back to the built-in sample dashboard. */

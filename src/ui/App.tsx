@@ -29,6 +29,7 @@ import {
   headerMetaSlotWidth,
   headerProbeSlotWidth,
 } from './lib/header-chrome-layout'
+import { getImportNormalizationMessage } from './lib/import-normalization-messages'
 import { getMissingAssetMessages } from './lib/missing-asset-messages'
 import { summarizeStatusMessages, type StatusMessage } from './lib/status-messages'
 import {
@@ -192,6 +193,8 @@ export function App({ bootstrap, host }: AppProps) {
     addElement,
     clearElements,
     loadDemo,
+    importNormalization,
+    dismissImportNormalization,
     nudgeSelectedElements,
     selectAllInRect,
     bringSelectionToFront,
@@ -510,6 +513,14 @@ export function App({ bootstrap, host }: AppProps) {
     void assetRevision
     return collectKnownFontKeys(elements)
   }, [assetRevision, elements])
+
+  // One-time report on what an import had to rewrite (flow-cursor `y`, dead
+  // `multiline` `spacing`). Dismissible because nothing else clears it: it
+  // describes something that already happened, not live state.
+  const importNormalizationMessage = useMemo(
+    () => getImportNormalizationMessage(importNormalization),
+    [importNormalization],
+  )
 
   const hashImportMessages = useMemo(() => {
     if (bootstrap.importSource !== 'hash') {
@@ -882,6 +893,13 @@ export function App({ bootstrap, host }: AppProps) {
 
       {elementAddNotice != null ? (
         <StatusBanner message={elementAddNotice} />
+      ) : null}
+
+      {importNormalizationMessage != null ? (
+        <StatusBanner
+          message={importNormalizationMessage}
+          onDismiss={dismissImportNormalization}
+        />
       ) : null}
 
       {hashImportMessages.map((message, index) => (

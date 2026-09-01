@@ -2,8 +2,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import {
   applyPlotPropertyUpdate,
   BUNDLED_SHOWCASE_IMAGE_KEY,
+  normalizeImportedPayload,
   resolveAsset,
   type DrawElement,
+  type ImportNormalization,
   type HaMockContext,
   type ServiceOptions,
 } from '../../core'
@@ -291,6 +293,13 @@ export function useProjectState(
   // restores these values.
   const [hostDisplay, setHostDisplay] = useState<CanvasConfig | null>(
     bootstrap.hostDisplay ?? null,
+  )
+  // What an import had to make explicit (the flow-cursor gap, ADR-012 /
+  // docs/spec/odl-gap-report.md). Seeded from the bootstrap — the share hash
+  // and the host `payload` option both normalize on the way in — and replaced
+  // by a later `setPayload()` push. `null` is the silent case: nothing shown.
+  const [importNormalization, setImportNormalization] = useState<ImportNormalization | null>(
+    bootstrap.normalization ?? null,
   )
   // An adopted host display starts locked — adopting a display and locking onto
   // it are one act (issue #70, issue #121). Unlocking is the user's move.
@@ -989,7 +998,14 @@ export function useProjectState(
       // inside `onTargetSelected` is parked and applied once that notification
       // settles, so this channel can never re-enter itself.
       applyTargets: pushHostTargets,
-      applyPayload: (nextElements) => {
+      applyPayload: (pushedElements) => {
+        // A host push is an import, exactly like the `payload` mount option
+        // it can replace: make the cursor-positioned coordinates explicit and
+        // drop the dead `multiline` `spacing` before anything downstream sees
+        // the elements — including the dedupe below, so re-pushing the same
+        // un-normalized payload compares equal to what is already committed
+        // and stays silent.
+        const { elements: nextElements, normalized } = normalizeImportedPayload(pushedElements)
         // The parent replaced the payload wholesale — undo history from the
         // previous payload no longer applies, and neither does a YAML edit the
         // user typed before the push: invalidate that draft *first*, in this
@@ -1054,8 +1070,15 @@ export function useProjectState(
         // selection reset stay too — a host push is authoritative and has
         // always meant both; carving out an exception here would make the
         // rescue a second, subtly different push path, which is the thing this
-        // applier's history keeps warning against.
-        if (!hadPendingDraft && !docBlocked && elementsSequenceEqual(elementsRef.current, nextElements)) {
+        // applier's history keeps warning against. Import normalization does
+        // not change any of that: it reshapes what gets committed, never
+        // whether the commit happens.
+        //
+        // Compared once and reused below: the dedupe asks "did this push
+        // change the committed design?", and so does the import notice — they
+        // must never answer differently.
+        const changesCommittedElements = !elementsSequenceEqual(elementsRef.current, nextElements)
+        if (!hadPendingDraft && !docBlocked && !changesCommittedElements) {
           return
         }
         // Past the dedupe, this push is definitely committing — so it is safe,
@@ -1066,6 +1089,20 @@ export function useProjectState(
         // committing, and an arm with no commit behind it would be left
         // waiting for an unrelated sync to consume it.
         yamlArmExternalReplaceRef?.current?.()
+        // The import notice describes the committed design, so it is replaced
+        // only when this push actually changed that design — `null` when the
+        // new design needed no normalization.
+        //
+        // Reaching here with `changesCommittedElements` false means a draft or
+        // a blocked document forced the full apply path while the committed
+        // elements came out identical (PR #180's rescue push). The design on
+        // screen is the one the standing notice already described, so the
+        // notice is left exactly as it is: a rescue must not re-announce a
+        // normalization the user was already told about and may have
+        // dismissed, and must not clear a notice that is still true either.
+        if (changesCommittedElements) {
+          setImportNormalization(normalized)
+        }
         resetEditHistory()
         // Issue #133: a host push is not "the user doing something" — guard
         // `commitElements`'s `lastEditAt` bump for the duration of this one
@@ -1650,6 +1687,8 @@ export function useProjectState(
     resetEditHistory()
     commitElements([])
     commitSelectedIndices([])
+    // The imported document the notice described is gone.
+    setImportNormalization(null)
     // Strip only the unmodified demo-seeded simulator entries; mocks, attributes
     // and variables the user added or changed are preserved (persisted via the
     // debounced writes). This gives a clean slate without deleting user data.
@@ -1759,6 +1798,8 @@ export function useProjectState(
     yamlArmExternalReplaceRef?.current?.()
     allowShowcaseBundledForDemo()
     resetEditHistory()
+    // The demo replaces the imported document the notice described.
+    setImportNormalization(null)
     // While the display is locked to a host-defined config, Load Demo keeps
     // it (issue #70) — the demo payload loads, the display does not change.
     if (!(displayLockedRef.current && hostDisplayRef.current)) {
@@ -2092,9 +2133,19 @@ export function useProjectState(
     [],
   )
 
+  const dismissImportNormalization = useCallback(() => setImportNormalization(null), [])
+
   return {
     sessionName,
     setSessionName,
+    /**
+     * What the imported payload had to have made explicit, or `null` — the
+     * shell's one-time info notice (maintainer ruling: "we normalize y to 0
+     * with an info"). Cleared by `dismissImportNormalization`, by a later push,
+     * and by Load Demo / Clear all replacing the document.
+     */
+    importNormalization,
+    dismissImportNormalization,
     service,
     setService: commitService,
     elements,

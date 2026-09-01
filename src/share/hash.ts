@@ -1,5 +1,9 @@
 import { deflate, inflate } from 'pako'
 import { isTagColorMode } from '../core/display/palette'
+// Leaf import, like `display/palette` above: the `../core` barrel reaches
+// `buildInfo.ts`, whose `import.meta.env` read explodes when the Playwright
+// fixtures load this module in plain Node.
+import { normalizeImportedPayload } from '../core/schema/normalizeElements'
 import type { StoredVariables } from '../storage'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import type { MockData } from '../ui/preferences/mockStates'
@@ -146,10 +150,16 @@ export function sharePayloadToBootstrap(
   variables: StoredVariables = {},
 ): AppBootstrap {
   const previewDitherMode = resolvePreviewDitherFromShare(payload.service)
+  // A shared design is authored somewhere else — an import (ADR-005). Its
+  // cursor-positioned elements get an explicit `0` and its dead `multiline`
+  // `spacing` keys are dropped, and `normalization` is what makes the shell
+  // say so instead of silently relocating the recipient's design.
+  const { elements, normalized } = normalizeImportedPayload(payload.elements)
 
   return {
     sessionName: payload.name,
-    elements: payload.elements,
+    elements,
+    ...(normalized ? { normalization: normalized } : {}),
     canvas: shareCanvasToDisplayConfig(payload.canvas, previewDitherMode),
     service: payload.service,
     mockStates: mock.states,

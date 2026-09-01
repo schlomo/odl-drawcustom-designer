@@ -88,3 +88,9 @@ export {
   parseListItemPropertyKeys,
   isDrawElementType,
 } from './elementTemplates'
+export {
+  normalizeImportedPayload,
+  type CursorPositionedType,
+  type ImportNormalization,
+  type ImportNormalizationResult,
+} from './normalizeElements'
