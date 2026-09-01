@@ -38,8 +38,8 @@ test('breaking the YAML blocks canvas/property editing without reverting the edi
   await yamlLineContaining(page, 'type: rectangle').first().click()
   await expect(page.getByTestId('property-panel-selection')).toContainText(SMOKE_RECT.typeLabel)
 
-  // Make one property edit so undo history exists — the Undo button must be
-  // disabled while blocked BECAUSE of the block, not for lack of history.
+  // Make one property edit so undo history exists, so the Undo assertions
+  // below are about the block rather than about an empty history.
   const xEndInput = page.getByTestId('property-input-x_end')
   await xEndInput.fill('150')
   await xEndInput.blur()
@@ -58,10 +58,16 @@ test('breaking the YAML blocks canvas/property editing without reverting the edi
   await expect(page.getByTestId('property-input-x_end')).toBeDisabled()
 
   // Every control that EDITS the current design is disabled while blocked
-  // (issue #35 contract: no element mutation while the doc is broken) —
-  // canvas header undo and the add-element toolbar.
-  await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled()
+  // (issue #35 contract: no element mutation while the doc is broken).
   await expect(page.getByRole('button', { name: 'Add text' })).toBeDisabled()
+
+  // Undo is the exception among the history controls (maintainer ruling
+  // 2026-09-01): while blocked it stops being a history step and becomes an
+  // escape — return to the last valid design — so it is enabled. Redo has no
+  // such meaning and stays disabled. Recovery itself is covered by
+  // yaml-blocked-escape.spec.ts.
+  await expect(page.getByRole('button', { name: 'Undo' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Redo' })).toBeDisabled()
 
   // The two controls that REPLACE the design stay available: they never read
   // the broken document, and they are how the user gets out of it. See

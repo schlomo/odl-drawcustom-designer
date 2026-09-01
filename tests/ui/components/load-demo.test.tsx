@@ -169,4 +169,24 @@ describe('Load Demo UX', () => {
       expect(screen.getAllByText('ODL/OEPL drawcustom Showcase').length).toBeGreaterThan(0)
     })
   })
+
+  /**
+   * The maintainer asked for a Clear all prompt specifically "when YAML is
+   * invalid" (ruling 2026-09-01). On a valid document Clear all keeps the
+   * behaviour it has always had — no prompt — so this guards the scope of that
+   * ruling rather than letting the new prompt leak into the normal path.
+   */
+  it('Clear all does not confirm on a valid document', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    await renderApp()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Clear all' }))
+    })
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    await waitFor(() => {
+      expect(screen.queryAllByText('Custom only').length).toBe(0)
+    })
+  })
 })
