@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { NPM_PACKAGE_NAME } from './npmPackage.ts'
 import { NPM_PUBLISH_SKIP_MESSAGE, shouldPublishToNpm, writeGithubStepSummary } from './npmPublish.ts'
@@ -14,9 +14,21 @@ import { stageNpmPackage } from './stageNpmPackage.ts'
  * doesn't demote the other"), consuming the version the `version` job
  * already computed and released.
  *
- * It publishes the EXACT bytes attached to the GitHub release: `dist-lib/`
- * arrives as that job's build artifact rather than being rebuilt here, so
- * the release's `.sha256` files describe the tarball's contents too.
+ * It publishes the EXACT bytes attached to the GitHub release, fetched from
+ * the release itself with `gh release download` — so the release's `.sha256`
+ * assets describe the npm tarball's contents by construction, and there is
+ * nothing to rebuild here.
+ *
+ * The release, not a workflow artifact, is deliberately the source. An
+ * earlier draft had the `version` job hand `dist-lib/` over as an
+ * `actions/upload-artifact` artifact, but artifacts are scoped to a workflow
+ * run and their visibility across RUN ATTEMPTS is not something the action's
+ * docs pin down — and "re-run the failed npm job alone" (attempt 2 running
+ * `npm` while `version` stays green from attempt 1) is precisely this
+ * pipeline's headline recovery path. Reading the release removes that
+ * doubt entirely: by the time this job runs the release exists, complete
+ * (tools/createRelease.ts reconciles it), and it outlives artifact
+ * retention.
  *
  * Idempotent by construction: it asks the registry whether this version is
  * already published and skips cleanly if so. That is what makes "re-run the
@@ -26,6 +38,32 @@ import { stageNpmPackage } from './stageNpmPackage.ts'
  */
 
 const PLAIN_SEMVER = /^\d+\.\d+\.\d+$/
+
+/** The release assets this package is staged from. */
+export const NPM_SOURCE_ASSET_NAMES = [
+  'odl-drawcustom-designer.js',
+  'odl-drawcustom-designer.d.ts',
+  'THIRD_PARTY.md',
+] as const
+
+/**
+ * `gh release download` args for exactly the assets staging needs.
+ * `--clobber` keeps a re-run from failing on files a previous attempt left
+ * in the directory; the per-asset `--pattern` list avoids pulling LICENSE
+ * and NOTICE, which are staged from the checkout, and the two `.sha256`
+ * files, which the npm tarball does not ship.
+ */
+export function ghReleaseDownloadArgs(tag: string, dir: string): string[] {
+  return [
+    'release',
+    'download',
+    tag,
+    ...NPM_SOURCE_ASSET_NAMES.flatMap((name) => ['--pattern', name]),
+    '--dir',
+    dir,
+    '--clobber',
+  ]
+}
 
 /** The version to publish, from the `version` job's output. Fails loudly rather than guessing. */
 export function requirePublishVersion(env: NodeJS.ProcessEnv): string {
@@ -66,15 +104,20 @@ if (import.meta.main) {
   const repoRoot = process.cwd()
   const distLibDir = join(repoRoot, 'dist-lib')
   const stagingDir = join(repoRoot, 'dist-npm')
+
+  // The published bytes come from the GitHub release itself, so they cannot
+  // drift from what the release's checksums describe.
+  mkdirSync(distLibDir, { recursive: true })
+  console.log(`Fetching ${tag}'s release assets...`)
+  execFileSync('gh', ghReleaseDownloadArgs(tag, distLibDir), { stdio: 'inherit' })
   stageNpmPackage({
     version,
     repoRoot,
     distLibJsPath: join(distLibDir, 'odl-drawcustom-designer.js'),
     distLibDtsPath: join(distLibDir, 'odl-drawcustom-designer.d.ts'),
     stagingDir,
-    // Generated once by tools/createRelease.ts and carried in the same
-    // artifact as the ESM — regenerating it here could only ever disagree
-    // with the copy attached to the GitHub release.
+    // Downloaded from the release alongside the ESM — regenerating it here
+    // could only ever disagree with the copy the release publishes.
     thirdPartyMarkdown: readFileSync(join(distLibDir, 'THIRD_PARTY.md'), 'utf8'),
   })
 
