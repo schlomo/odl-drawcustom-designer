@@ -8058,7 +8058,7 @@ function ae(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var oe = /* @__PURE__ */ new Set(["dev", "test"]), E = "fix/embedded-header-version", se = "a03cf6c", ce = "7884105", D = "0.0.0-dev", O = /^\d+\.\d+\.\d+$/;
+var oe = /* @__PURE__ */ new Set(["dev", "test"]), E = "fix/embedded-header-version", se = "30a4af2", ce = "9d6425d", D = "0.0.0-dev", O = /^\d+\.\d+\.\d+$/;
 function le(e) {
 	return O.test(e);
 }
