@@ -76,6 +76,33 @@ jobs:
           # one. This is the ONLY job that needs it — the publish jobs just
           # build, so they keep the default shallow checkout.
           fetch-depth: 0
+          # Blobless: fetch every commit and tree, but download a historical
+          # file's CONTENTS only when something actually asks for one.
+          # Nothing in this job does — `git tag --list --merged HEAD` and
+          # `git log --format=%B` read refs and commit objects; the gate and
+          # the library build read the checked-out working tree (whose blobs
+          # actions/checkout downloads regardless); `gh release create` talks
+          # to the API and uploads locally built files. So what this saves is
+          # the HISTORY of file contents, not the working tree: on this repo
+          # a full clone's object store measures ~224 MB against ~4 MB
+          # blobless, while the checked-out tree costs the same ~7 MB either
+          # way.
+          #
+          # DO NOT COPY THIS TO THE `pages` JOB. PR #174 put `filter:
+          # blob:none` on the old production job and BROKE PRODUCTION
+          # DEPLOYS: JamesIves/github-pages-deploy-action runs its own
+          # `git fetch --no-recurse-submodules --depth=1 origin gh-pages`
+          # inside that same checkout to build its deploy worktree, and a
+          # promisor (partial) clone cannot satisfy it —
+          #   fatal: missing blob object '871af9f8af779d0ec4cb6cc7c44f023aab620395'
+          #   error: remote did not send all necessary objects
+          #   ##[error]The cwd: .../github-pages-deploy-action-temp-deployment-folder does not exist!
+          # (run 33432789880: steps 1-9 all green, only `Deploy production`
+          # failed — the site silently stopped deploying while every PR check
+          # stayed green). Reverted in PR #176. The filter is usable again
+          # ONLY because this restructure moved the deploy into a separate
+          # job: this one never runs that action.
+          filter: blob:none
 
       - uses: actions/setup-node@v7
         with:

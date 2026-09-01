@@ -180,6 +180,36 @@ The only job with `fetch-depth: 0` (it needs every `vX.Y.Z` tag reachable
 from HEAD plus the full log since the latest one; the publish jobs only
 build, so they keep the default shallow checkout).
 
+It is also the only job with **`filter: blob:none`** — a blobless partial
+clone: every commit and tree, but a historical file's *contents* only if
+something asks for one. Nothing in this job does. `git tag --list --merged
+HEAD` and `git log --format=%B` read refs and commit objects; the gate and
+`build:lib` read the checked-out working tree, whose blobs
+`actions/checkout` downloads regardless; `gh release create` talks to the
+API and uploads locally built files. The saving is therefore the **history**
+of file contents, not the working tree: on this repo a full clone's object
+store measures ~224 MB against ~4 MB blobless, while the checked-out tree
+costs the same ~7 MB either way.
+
+> **Never put `filter: blob:none` on the `pages` job.**
+> [PR #174](https://github.com/schlomo/odl-drawcustom-designer/pull/174)
+> added it to the old `production` job and **broke production deploys**:
+> `JamesIves/github-pages-deploy-action` runs its own
+> `git fetch --no-recurse-submodules --depth=1 origin gh-pages` inside that
+> same checkout to build its deploy worktree, and a promisor clone cannot
+> satisfy it —
+> ```
+> fatal: missing blob object '871af9f8af779d0ec4cb6cc7c44f023aab620395'
+> error: remote did not send all necessary objects
+> ##[error]The cwd: .../github-pages-deploy-action-temp-deployment-folder does not exist!
+> ```
+> In run `33432789880` steps 1–9 were all green and only `Deploy production`
+> failed, so the site silently stopped deploying while every PR check stayed
+> green. Reverted in
+> [PR #176](https://github.com/schlomo/odl-drawcustom-designer/pull/176).
+> The filter is usable again **only** because this restructure moved the
+> deploy into a job of its own — the `version` job never runs that action.
+
 1. `npm ci`, then `npm test` and `npm run lint` — **the release gate**. It
    runs once, here, before anything irreversible; both publish jobs `needs:`
    this job, so neither can publish past a red gate. (This also replaced the
