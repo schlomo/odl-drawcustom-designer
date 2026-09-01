@@ -394,6 +394,12 @@ Each line is drawn by its own `draw.text` call at that line's `current_y`, so
 the anchor applies **per line** — a centering anchor centers every line on `x`
 by its own width, not the block by the widest line.
 
+There is no block-level box, so the vertical anchor positions each line
+relative to its own baseline and the block always grows downward from the
+first line. A bottom anchor therefore does not pin the block's bottom: raising
+`offset_y` leaves the first line where it is and pushes the remaining lines
+further down.
+
 The default differs from `text`, so a `multiline` and a `text` element given
 the same `y` do **not** line up.
 
