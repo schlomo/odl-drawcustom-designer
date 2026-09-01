@@ -20,7 +20,10 @@ vi.mock('../../../src/core', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../../src/core')>()
   return {
     ...original,
-    APP_SITE_VERSION: '',
+    // HeaderMetaRow reads the already-resolved `APP_HEADER_VERSION`
+    // (src/core/buildInfo.ts's `resolveHeaderVersion`), not
+    // `APP_SITE_VERSION` directly — see app-header-production-version.test.tsx.
+    APP_HEADER_VERSION: '',
     APP_GIT_PR_NUMBER: PR_NUMBER,
     APP_GIT_BRANCH: PR_BRANCH,
   }

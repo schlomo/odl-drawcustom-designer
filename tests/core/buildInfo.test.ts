@@ -5,6 +5,7 @@ import {
   APP_GIT_PR_NUMBER,
   APP_GIT_REVISION,
   APP_HEADER_LEGAL_HTML,
+  APP_HEADER_VERSION,
   APP_SITE_VERSION,
   APP_VERSION,
   formatGitBranchLabel,
@@ -13,6 +14,8 @@ import {
   githubBranchUrl,
   githubCommitUrl,
   githubReleaseUrl,
+  isReleasedVersion,
+  resolveHeaderVersion,
 } from '../../src/core/buildInfo'
 
 describe('APP_GIT_REVISION', () => {
@@ -51,6 +54,65 @@ describe('APP_SITE_VERSION', () => {
 describe('APP_HEADER_LEGAL_HTML', () => {
   it('is empty when VITE_HEADER_LEGAL_HTML is unset', () => {
     expect(APP_HEADER_LEGAL_HTML).toBe('')
+  })
+})
+
+describe('isReleasedVersion', () => {
+  it('accepts a plain X.Y.Z release version', () => {
+    expect(isReleasedVersion('3.3.0')).toBe(true)
+    expect(isReleasedVersion('1.0.0')).toBe(true)
+    expect(isReleasedVersion('10.20.30')).toBe(true)
+  })
+
+  it('rejects the dev placeholder (tools/version.ts DEV_APP_VERSION)', () => {
+    expect(isReleasedVersion('0.0.0-dev')).toBe(false)
+  })
+
+  it("rejects Vitest's own short-circuited placeholder", () => {
+    expect(isReleasedVersion('test')).toBe(false)
+  })
+
+  it('rejects a leading v, a pre-release suffix, and empty', () => {
+    expect(isReleasedVersion('v3.3.0')).toBe(false)
+    expect(isReleasedVersion('3.3.0-rc.1')).toBe(false)
+    expect(isReleasedVersion('')).toBe(false)
+  })
+})
+
+describe('resolveHeaderVersion', () => {
+  // Point 1 (issue: embedded designer showed a SHA instead of its version):
+  // priority order between the two independent version signals.
+  it('prefers the site version when present, regardless of the app version', () => {
+    expect(resolveHeaderVersion('3.0.0', '0.0.0-dev')).toBe('3.0.0')
+    expect(resolveHeaderVersion('3.0.0', '3.3.0')).toBe('3.0.0')
+  })
+
+  it('falls back to the app/library version when it is a real release — the library-build fix', () => {
+    expect(resolveHeaderVersion('', '3.3.0')).toBe('3.3.0')
+  })
+
+  it('never presents the dev placeholder as a real version', () => {
+    expect(resolveHeaderVersion('', '0.0.0-dev')).toBe('')
+  })
+
+  it("never presents Vitest's own placeholder as a real version", () => {
+    expect(resolveHeaderVersion('', 'test')).toBe('')
+  })
+
+  it('is empty when neither source has a real version (local dev, CI checks, PR previews)', () => {
+    expect(resolveHeaderVersion('', '')).toBe('')
+  })
+})
+
+describe('APP_HEADER_VERSION', () => {
+  // Proves the Vitest short-circuit holds end-to-end for the resolved
+  // export too: real APP_SITE_VERSION is '' and real APP_VERSION is the
+  // Vitest placeholder 'test' under the runtime's own build-time defines
+  // (AGENTS.md, "Build-time defines") — neither leaks through as a shown
+  // version.
+  it('is empty under Vitest (neither source supplies a real version)', () => {
+    expect(APP_HEADER_VERSION).toBe('')
+    expect(APP_HEADER_VERSION).toBe(resolveHeaderVersion(APP_SITE_VERSION, APP_VERSION))
   })
 })
 

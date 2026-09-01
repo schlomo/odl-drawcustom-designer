@@ -122,12 +122,16 @@ means a shallow clone, a fork with no tags, or a local `npm run
 build:site` — and this repo already has releases, so guessing `v1.0.0`
 there would be actively wrong. `resolveSiteVersion` mirrors that: an
 unset/blank `SITE_VERSION` degrades to the **empty string**, never a
-placeholder like `APP_VERSION`'s `0.0.0-dev`. The header
-(`src/ui/App.tsx`) reads an empty `APP_SITE_VERSION` as "show branch + SHA
-instead" — today's behavior, unchanged.
+placeholder like `APP_VERSION`'s `0.0.0-dev`. An empty `APP_SITE_VERSION`
+no longer means "show branch + SHA instead" on its own — see [Embedded /
+library-build header version](#embedded--library-build-header-version)
+below for what the header (`HeaderMetaRow.tsx`) does next before falling
+back to that.
 
 **PR previews are unaffected by `SITE_VERSION`** — the `preview` job
-never sets it, so no PR preview ever shows a version label.
+never sets it, so no PR preview ever shows a version label (`build:site`
+never sets `APP_VERSION` either, so the library-version fallback below
+doesn't kick in for previews).
 
 **PR preview header shape** (maintainer ruling 2026-08-31, on PR #173's own
 preview): the PR number and the full branch name are rendered as VISIBLE
@@ -149,6 +153,44 @@ horizontal-scrollbar bug class; ADR-016 single-row responsive layout). "PR
 #n" itself stays fixed-width/non-breaking. The full, untruncated branch
 name always reaches the DOM and the tooltip regardless of how it renders
 visually - see `tests/ui/components/app-header-pr-preview-long-branch.test.tsx`.
+
+### Embedded / library-build header version
+
+A library build vendored into a host — e.g. the OpenDisplay HA integration's
+panel — never gets `SITE_VERSION` (only the standalone Pages `production`
+job sets it), so an embedded designer's `APP_SITE_VERSION` is always empty.
+Before that fix, the header fell all the way through to its branch + SHA
+fallback in that case — the maintainer-reported bug: *"the embedded
+designer in HA doesn't show the version but a SHA, even though the embedded
+designer on upstream main shows the version correctly."*
+
+The fix: the header's version label now resolves in priority order via
+`resolveHeaderVersion`/`APP_HEADER_VERSION` (`src/core/buildInfo.ts`):
+
+1. `APP_SITE_VERSION` — the standalone production site, unchanged.
+2. `APP_VERSION` — when it's a **real release**, not the dev/test
+   placeholder — this is what a library build carries: `tools/autoRelease.ts`
+   bakes the tag-derived version into `APP_VERSION` for every
+   `build:lib` ([Runtime version](#runtime-version) above), and that same
+   value is exactly what `deriveSiteVersion` would have computed for a site
+   build at the same commit (both come from `planRelease` on the same git
+   state) — so this fallback shows the correct version, not a guess.
+3. Empty — local dev, CI `checks`, PR previews: unchanged, branch + SHA /
+   `PR #n` as before.
+
+The version link always targets that version's GitHub release page
+(`githubReleaseUrl`) regardless of which source supplied it — both name the
+same tag, so there is no separate "library version" link target to design.
+`isReleasedVersion` (a bare `X.Y.Z`, no leading `v`, no suffix) is what
+keeps `tools/version.ts`'s `DEV_APP_VERSION` (`'0.0.0-dev'`) and Vitest's
+short-circuited `'test'` from ever being presented as if they were real
+versions.
+
+**Only fully confirmed once a release is vendored into a real host** — the
+fix is covered by build-metadata-shaped Vitest tests
+(`tests/core/buildInfo.test.ts`, `tests/ui/components/app-header-library-version.test.tsx`),
+not by an actual HA-panel embed; that needs the next OpenDisplay HA
+integration round to pin a release built after this fix landed.
 
 ## Release procedure: automated (primary, issue #93)
 

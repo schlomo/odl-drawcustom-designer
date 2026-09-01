@@ -5,9 +5,9 @@ import {
   APP_GIT_MERGE_REVISION,
   APP_GIT_PR_NUMBER,
   APP_GIT_REVISION,
+  APP_HEADER_VERSION,
   APP_PRIVACY_HEADLINE,
   APP_PRIVACY_NOTE,
-  APP_SITE_VERSION,
   formatGitBranchLabel,
   formatGitRevisionLabel,
   formatRevisionTooltip,
@@ -76,20 +76,25 @@ export function HeaderMetaRow({ visible, measureOnly = false }: HeaderMetaRowPro
     },
   ]
 
-  if (APP_SITE_VERSION) {
-    // Production build: the release version is the build's identity.
+  if (APP_HEADER_VERSION) {
+    // A real release version is known — either the standalone production
+    // site (`APP_SITE_VERSION`) or a library build vendored into a host
+    // (e.g. the HA panel embed, `APP_VERSION`) — see
+    // `resolveHeaderVersion` (src/core/buildInfo.ts) for the priority.
+    // Both name the same GitHub release tag, so one link target/title
+    // covers either source (build honesty either way).
     segments.push({
       id: 'version',
       node: (
         <a
           {...tag('version')}
-          href={githubReleaseUrl(APP_SITE_VERSION)}
+          href={githubReleaseUrl(APP_HEADER_VERSION)}
           target="_blank"
           rel="noopener noreferrer"
           className={MONO_LINK_CLASS}
-          title={`Release v${APP_SITE_VERSION}`}
+          title={`Release v${APP_HEADER_VERSION}`}
         >
-          {`v${APP_SITE_VERSION}`}
+          {`v${APP_HEADER_VERSION}`}
         </a>
       ),
     })
