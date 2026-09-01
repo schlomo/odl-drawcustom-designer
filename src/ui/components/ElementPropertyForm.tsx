@@ -2,6 +2,7 @@ import { useRef, useState, useMemo } from 'react'
 import {
   FONT_UPLOAD_ACCEPT,
   getPropertyEditorShape,
+  isSchemaRequiredProperty,
   type AssetUploadResult,
   type DrawElement,
   DEBUG_GRID_MIN_SPACING,
@@ -474,27 +475,56 @@ export function ElementPropertyForm({
 }: ElementPropertyFormProps) {
   const properties = propertiesOverride ?? getEditableProperties(element)
   const mixed = new Set(mixedProperties)
+  const [refusedProperty, setRefusedProperty] = useState<string | null>(null)
+
+  /**
+   * A required key must never leave the payload — without it the YAML fails
+   * validation and the canvas locks behind "YAML not applied" (maintainer
+   * report 2026-09-01). Guarding here rather than in each field component
+   * covers every field shape and every element type at once, and reads
+   * requiredness off the schema so it cannot drift from what validation
+   * actually demands.
+   *
+   * Keystrokes are never blocked: the field keeps its own draft, so the user
+   * can select-all and retype. Only the commit is refused, and because the
+   * stored value never changed the input snaps back to it on blur. Nothing is
+   * substituted into the payload — no empty string, no zero, no placeholder.
+   */
+  const commitProperty = (property: string, next: unknown) => {
+    const stored = normalizePropertyValueForStorage(element, property, next)
+    if (stored === undefined && isSchemaRequiredProperty(element.type, property)) {
+      setRefusedProperty(property)
+      return
+    }
+    setRefusedProperty(null)
+    onPropertyChange(property, stored)
+  }
 
   return (
     <div className="space-y-3">
       {properties.map((property) => (
-        <PropertyField
-          key={property}
-          property={property}
-          element={element}
-          value={
-            mixed.has(property) ? undefined : getPropertyEffectiveValue(element, property)
-          }
-          mixed={mixed.has(property)}
-          fontKeys={fontKeys}
-          onChange={(next) =>
-            onPropertyChange(property, normalizePropertyValueForStorage(element, property, next))
-          }
-          onUploadFont={onUploadFont}
-          onUploadImageForUrl={onUploadImageForUrl}
-          onBeginEdit={onBeginEdit}
-          onEndEdit={onEndEdit}
-        />
+        <div key={property}>
+          <PropertyField
+            property={property}
+            element={element}
+            value={
+              mixed.has(property) ? undefined : getPropertyEffectiveValue(element, property)
+            }
+            mixed={mixed.has(property)}
+            fontKeys={fontKeys}
+            onChange={(next) => commitProperty(property, next)}
+            onUploadFont={onUploadFont}
+            onUploadImageForUrl={onUploadImageForUrl}
+            onBeginEdit={onBeginEdit}
+            onEndEdit={onEndEdit}
+          />
+          {refusedProperty === property ? (
+            <p role="status" className="mt-1 text-xs text-[var(--shell-warning-fg)]">
+              {getPropertyLabel(element, property)} is required — kept its previous
+              value.
+            </p>
+          ) : null}
+        </div>
       ))}
     </div>
   )

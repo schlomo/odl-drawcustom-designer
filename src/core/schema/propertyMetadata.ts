@@ -1,10 +1,34 @@
-import type { DrawElement } from './elements'
+import { elementSchemasByType, type DrawElement } from './elements'
 import { PROPERTIES_BY_TYPE } from './completions'
 import { hasTemplateSyntax } from '../templates/patterns'
 
 export interface PropertySpecMeta {
   description: string
   default?: string | number | boolean | null
+}
+
+/**
+ * Whether the element schema demands this key — the schema itself is the
+ * source of truth, so a field cannot become required (or stop being required)
+ * without this answer following automatically.
+ *
+ * A required key must never be dropped from the payload: doing so produces
+ * YAML that fails validation and locks the canvas behind "YAML not applied".
+ * Probed with `safeParse(undefined)` rather than a zod internal so it does not
+ * depend on the library's private shape.
+ */
+export function isSchemaRequiredProperty(
+  elementType: DrawElement['type'],
+  property: string,
+): boolean {
+  const shape = elementSchemasByType[elementType]?.shape as
+    | Record<string, { safeParse: (value: unknown) => { success: boolean } }>
+    | undefined
+  const field = shape?.[property]
+  if (!field) {
+    return false
+  }
+  return !field.safeParse(undefined).success
 }
 
 /** Required property keys per element type (from docs/spec/supported_types.md). */
@@ -425,6 +449,15 @@ export function normalizePropertyValueForStorage(
     return undefined
   }
   if (typeof value === 'string' && hasTemplateSyntax(value)) {
+    return value
+  }
+  // Omitting a value equal to its default keeps the YAML clean — but only for
+  // OPTIONAL keys. A required key omitted is a payload that fails validation
+  // and locks the canvas behind "YAML not applied", so it is always written
+  // out, even when it happens to match the default the panel suggests. Hits
+  // `multiline.offset_y` (computed default) and `circle`/`arc` `radius`
+  // (static default).
+  if (isSchemaRequiredProperty(element.type, property)) {
     return value
   }
   const defaultValue =
