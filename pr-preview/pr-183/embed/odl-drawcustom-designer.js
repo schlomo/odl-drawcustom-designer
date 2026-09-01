@@ -8058,7 +8058,7 @@ function ae(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var oe = /* @__PURE__ */ new Set(["dev", "test"]), E = "refactor/unified-release-pipeline", se = "d15624a", ce = "a9ccc0c", D = "0.0.0-dev", O = /^\d+\.\d+\.\d+$/;
+var oe = /* @__PURE__ */ new Set(["dev", "test"]), E = "refactor/unified-release-pipeline", se = "37e852b", ce = "b705ff4", D = "0.0.0-dev", O = /^\d+\.\d+\.\d+$/;
 function le(e) {
 	return O.test(e);
 }
