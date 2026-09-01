@@ -377,6 +377,18 @@ for line in lines:
     current_y += offset_y
 ```
 
+**The field is required and has no upstream default** — `draw_multiline`
+declares `requires=["x", "value", "delimiter", "offset_y"]`, so a payload
+without it is an error, not a default.
+
+> **Designer authoring default (ours, not upstream).** When you insert a
+> `multiline` element the designer writes `round(1.3 × size)` — **26** at the
+> default size 20 — and the property panel shows that as the effective value.
+> It scales with `size` because a fixed pixel advance is wrong at every size
+> but one. 1.3 is a legibility choice, not a font metric: the fonts we ship
+> have natural line-height ratios of **1.400** (`ppb.ttf`) and **1.172**
+> (`rbm.ttf`), so it sits between them.
+
 ### Anchor: `multiline` defaults to `lm`, `text` defaults to `lt`
 
 Each line is drawn by its own `draw.text` call at that line's `current_y`, so
