@@ -23,8 +23,9 @@ interface PropertyPanelProps {
   elementCount: number
   fontKeys: string[]
   onPropertyChange: (key: string, value: unknown) => void
-  onUploadFont: (file: File) => Promise<AssetUploadResult>
-  onUploadImageForUrl: (urlKey: string, file: File) => Promise<AssetUploadResult>
+  /** Absent when the host owns asset resolution (`hostOwnsAssets`, ADR-002). */
+  onUploadFont?: (file: File) => Promise<AssetUploadResult>
+  onUploadImageForUrl?: (urlKey: string, file: File) => Promise<AssetUploadResult>
   onBeginPropertyEdit?: () => void
   onEndPropertyEdit?: () => void
   onDelete: () => void

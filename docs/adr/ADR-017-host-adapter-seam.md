@@ -14,6 +14,15 @@ the uniform-push rule below are unchanged; the tables and consequences state the
 2.0 members, with the 1.x names they superseded noted inline where the record
 matters.
 
+Amended 2026-09-01: `DesignerHost` gained `assetUploadsEnabled: boolean` and
+`assetUploadsHint?: string`, the adapter's rendering of
+`MountOptions.hostOwnsAssets` — `true` for the standalone adapter and every
+embedded mount that does not set `hostOwnsAssets`, `false` (with the option's
+optional `{ hint }`) for one that does. Full contract, including the
+write-boundary enforcement in `useProjectState`, lives in
+[ADR-002](ADR-002-local-content-map.md#hostownsassets-read-only-content-tab)
+and [`docs/embedding.md`](../embedding.md#hostownsassets-adr-002).
+
 ## Context
 
 [Issue #20](https://github.com/schlomo/odl-drawcustom-designer/issues/20) made the designer embeddable and [PR #67](https://github.com/schlomo/odl-drawcustom-designer/pull/67) split mounting in two:

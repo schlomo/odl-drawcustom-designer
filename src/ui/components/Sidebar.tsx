@@ -87,8 +87,20 @@ interface SidebarProps {
   onAddVariable: (name: string, value: string) => void
   onRenameVariable?: (previousName: string, nextName: string) => void
   onRemoveVariable: (name: string) => void
-  onUploadAsset: (key: string, kind: AssetKind, file: File) => Promise<AssetUploadResult>
-  onClearAsset: (key: string) => void
+  /**
+   * Absent when the host owns asset resolution (`hostOwnsAssets`, ADR-002):
+   * the Content tab stays visible as a read-only explorer, with no upload
+   * affordance to remove it — the same "conditional chrome, presence gates
+   * it" pattern `actions`/`targets`/`renderPreview` already use.
+   */
+  onUploadAsset?: (key: string, kind: AssetKind, file: File) => Promise<AssetUploadResult>
+  onClearAsset?: (key: string) => void
+  /**
+   * Host-supplied plain-text replacement for the Content tab's upload
+   * instructions (`hostOwnsAssets`'s `{ hint }` form) — meaningful only when
+   * `onUploadAsset`/`onClearAsset` are absent.
+   */
+  assetUploadsHint?: string
   onReorderElement: (
     fromIndex: number,
     toIndex: number,
@@ -158,6 +170,7 @@ export function Sidebar({
   onRemoveVariable,
   onUploadAsset,
   onClearAsset,
+  assetUploadsHint,
   onReorderElement,
   onFocusSimulatorEntity,
   yamlBlocked = false,
@@ -461,6 +474,7 @@ export function Sidebar({
               onScopeChange={setPanelScope}
               onUpload={onUploadAsset}
               onClear={onClearAsset}
+              assetUploadsHint={assetUploadsHint}
               embedded
             />
           </div>

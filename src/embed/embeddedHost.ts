@@ -94,6 +94,18 @@ export function createEmbeddedHost(options: MountOptions): DesignerHost {
     // Last asset tier (issue #138): the mount lifecycle installs it, so the
     // very first frame can already paint host-supplied fonts and images.
     resolveAsset: options.resolveAsset,
+    // Explicit host declaration, never inferred from `resolveAsset`'s
+    // presence — a host may want the resolver tier AND local uploads
+    // (ADR-002 host asset resolver). `hostOwnsAssets` (`true` or `{ hint }`,
+    // both truthy) is the only thing that turns local writes off; every
+    // other embedded mount keeps uploads on.
+    assetUploadsEnabled: !options.hostOwnsAssets,
+    // Only the `{ hint }` form carries a hint; `true` or absent means "the
+    // UI supplies its own domain-neutral fallback".
+    assetUploadsHint:
+      typeof options.hostOwnsAssets === 'object' && options.hostOwnsAssets !== null
+        ? options.hostOwnsAssets.hint
+        : undefined,
     // Status notifications (issue #133): a stable closure fixed at mount,
     // like `onAction`/`renderPreview` — there is no update channel for it.
     onStatusChange: options.onStatusChange,

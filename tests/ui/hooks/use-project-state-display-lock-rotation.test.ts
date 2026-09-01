@@ -81,6 +81,7 @@ function createTestHost(targets?: readonly HostTarget[]): {
     theme: { owner: 'host', value: 'light' },
     fill: 'container',
     shareLink: false,
+    assetUploadsEnabled: true,
     persistence: null,
     targets,
     loadBootstrap: bootstrap,

@@ -1484,6 +1484,17 @@ export function useProjectState(
 
   const uploadAsset = useCallback(
     async (key: string, kind: AssetKind, file: File): Promise<AssetUploadResult> => {
+      // Write boundary for `hostOwnsAssets` (ADR-002): a reachable control is
+      // only the first line of defense — this refuses the write even if some
+      // other path still called in, so the local asset store is never
+      // touched once a host has declared it owns asset resolution.
+      if (!host.assetUploadsEnabled) {
+        return {
+          ok: false,
+          message: 'Uploads are disabled — this host resolves assets itself.',
+        }
+      }
+
       const result = await verifyAndValidateAssetUpload(kind, file, key)
       if (!result.ok) {
         return result
@@ -1503,22 +1514,29 @@ export function useProjectState(
         }
       }
     },
-    [],
+    [host.assetUploadsEnabled],
   )
 
-  const clearAsset = useCallback(async (key: string) => {
-    if (key === BUNDLED_SHOWCASE_IMAGE_KEY) {
-      if (resolveAsset(key).status === 'resolved') {
-        await removePersistedAsset(key)
+  const clearAsset = useCallback(
+    async (key: string) => {
+      if (!host.assetUploadsEnabled) {
+        return
       }
-      suppressShowcaseBundled()
-      setAssetRevision((revision) => revision + 1)
-      return
-    }
 
-    await removePersistedAsset(key)
-    setAssetRevision((revision) => revision + 1)
-  }, [])
+      if (key === BUNDLED_SHOWCASE_IMAGE_KEY) {
+        if (resolveAsset(key).status === 'resolved') {
+          await removePersistedAsset(key)
+        }
+        suppressShowcaseBundled()
+        setAssetRevision((revision) => revision + 1)
+        return
+      }
+
+      await removePersistedAsset(key)
+      setAssetRevision((revision) => revision + 1)
+    },
+    [host.assetUploadsEnabled],
+  )
 
   const updateElementsBatch = useCallback(
     (updates: ReadonlyMap<number, DrawElement>) => {

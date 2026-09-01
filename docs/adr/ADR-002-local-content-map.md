@@ -4,7 +4,10 @@
 
 Accepted. Amended 2026-08-17 (issue #138 layer 1): an embedding host may supply
 a **last resolution tier** behind the map and the bundled assets — see
-[Host asset resolver](#host-asset-resolver-issue-138) below.
+[Host asset resolver](#host-asset-resolver-issue-138) below. Amended
+2026-09-01: a host that owns asset resolution may also turn writes into
+**tier 1 off entirely** — see [`hostOwnsAssets`](#hostownsassets-read-only-content-tab)
+below.
 
 ## Context
 
@@ -60,6 +63,41 @@ Consequences:
   with it, so a second host on the same page cannot inherit them.
 - Content Manager badges such a key **Host** rather than **Missing**, and the
   missing-asset warning does not fire for it.
+
+## `hostOwnsAssets`: read-only Content tab
+
+A host that resolves its own assets (the resolver above, or otherwise) turns
+the local content map's *write* path into a trap: an upload lands in this
+one browser's IndexedDB, renders fine on the canvas (it is read straight back
+out of that same map), and then fails the moment the design is sent, because
+whatever finally draws it looks in the host's own directories and finds
+nothing. Found on real hardware (a maintainer's live Home Assistant panel),
+not hypothesized.
+
+`MountOptions.hostOwnsAssets` (`true`, or `{ hint }` — see
+[`docs/embedding.md`](../embedding.md#hostownsassets-adr-002)) declares this
+explicitly — **never inferred from `resolveAsset`'s presence**, since a host
+may legitimately want the resolver tier *and* local uploads together:
+
+- **Tier order is unchanged.** Local content map → bundled → `resolveAsset`
+  (above) still resolves in that order; this option stops new writes from
+  reaching tier 1, it does not reorder or remove any tier, and anything
+  already stored still resolves and still lists.
+- **The tab stays a read-only explorer, not an empty one.** Content Manager
+  keeps listing every key the current payload references and how it
+  resolves — **Host**-badged rows included — with every write affordance
+  (upload/replace, delete, the font/image-URL property-field upload
+  controls) removed from the render tree. This does **not** give the
+  designer a directory-browsing API into the host's own asset library; the
+  contract stays `name -> asset` (previous section).
+- **Enforced at the write boundary, not only the UI.** The designer's
+  `uploadAsset`/`clearAsset` refuse outright when this is set, so a
+  reachable control is only ever the first line of defense.
+- **The published surface stays domain-neutral (ADR-018).** The designer
+  cannot word "upload to your media folder" for you — an optional `hint`
+  string lets the host supply that sentence in its own words, rendered as
+  plain text only (never HTML/Markdown), with a neutral designer-authored
+  fallback when absent.
 
 ## Alternatives considered
 

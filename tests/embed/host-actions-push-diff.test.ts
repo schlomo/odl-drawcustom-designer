@@ -44,6 +44,7 @@ function createTestHost(
     theme: { owner: 'host', value: 'light' },
     fill: 'container',
     shareLink: false,
+    assetUploadsEnabled: true,
     persistence: null,
     actions,
     loadBootstrap: bootstrap,

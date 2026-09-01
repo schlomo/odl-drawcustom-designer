@@ -60,6 +60,7 @@ function createTestHost(): { host: DesignerHost; getPushTarget: () => HostPushTa
     theme: { owner: 'host', value: 'light' },
     fill: 'container',
     shareLink: false,
+    assetUploadsEnabled: true,
     persistence: null,
     loadBootstrap: () => bootstrapWithTemplate(),
     registerPushTarget: (target) => {

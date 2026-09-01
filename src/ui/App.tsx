@@ -936,8 +936,9 @@ export function App({ bootstrap, host }: AppProps) {
           onAddVariable={addVariable}
           onRenameVariable={renameVariable}
           onRemoveVariable={removeVariable}
-          onUploadAsset={uploadAsset}
-          onClearAsset={clearAsset}
+          onUploadAsset={host.assetUploadsEnabled ? uploadAsset : undefined}
+          onClearAsset={host.assetUploadsEnabled ? clearAsset : undefined}
+          assetUploadsHint={host.assetUploadsHint}
           onReorderElement={handleReorderElement}
           onFocusSimulatorEntity={handleSimulatorEntityFocus}
           yamlBlocked={mutationBlocked}
@@ -1028,8 +1029,8 @@ export function App({ bootstrap, host }: AppProps) {
           elementCount={elements.length}
           fontKeys={fontKeys}
           onPropertyChange={handlePropertyChange}
-          onUploadFont={handleUploadFont}
-          onUploadImageForUrl={handleUploadImageForUrl}
+          onUploadFont={host.assetUploadsEnabled ? handleUploadFont : undefined}
+          onUploadImageForUrl={host.assetUploadsEnabled ? handleUploadImageForUrl : undefined}
           onBeginPropertyEdit={handleBeginPropertyEdit}
           onEndPropertyEdit={handleEndPropertyEdit}
           onDelete={handleDeleteSelected}
