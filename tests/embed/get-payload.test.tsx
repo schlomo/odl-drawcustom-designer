@@ -8,6 +8,7 @@ import { mount } from '../../src/embed'
 import { mountStandaloneApp } from '../../src/embed/standalone'
 import type { MountHandle } from '../../src/embed'
 import { parseYamlPayload, serializeYamlPayload } from '../../src/core'
+import { isYamlDocBlocked } from '../../src/ui/editor/yamlElementsSync'
 
 // Full-designer mounts under parallel load exceed vitest's 5s default on
 // 2-core CI runners — the documented gotcha, not a slow test.
@@ -430,5 +431,92 @@ describe('getPayload() fallback vs. a setPayload queued before registration', ()
     expect(() => handle.setPayload(PUSHED_PAYLOAD)).not.toThrow()
     expect(() => handle.destroy()).not.toThrow()
     expect(() => handle.getPayload()).toThrow('MountHandle used after destroy()')
+  })
+})
+
+/**
+ * A host rescue push onto a BROKEN document (Copilot review, PR #180).
+ *
+ * While the live YAML fails to parse, `elements` stays frozen at the last
+ * valid design — so the payload a host would re-push to rescue the user is,
+ * structurally, exactly what `elements` already holds. The `setPayload`
+ * dedupe compares against `elements`, found them equal, and returned before
+ * arming the external replace, so the obvious host move — "re-send the
+ * payload to resync the panel" — was swallowed and the editor stayed broken.
+ *
+ * A blocked document means the editor and `elements` are NOT in sync, so
+ * structural equality of `elements` is not grounds to skip. The dedupe still
+ * holds for the normal, non-blocked heartbeat push it exists for.
+ */
+describe('setPayload push onto a broken YAML document', () => {
+  async function mountAndBreakTheDocument(): Promise<{ handle: MountHandle; view: EditorView }> {
+    const handle = mountDesigner({ payload: PAYLOAD })
+
+    await waitFor(() => {
+      expect(container.shadowRoot!.querySelector('[data-testid="element-list-row"]')).not.toBeNull()
+    })
+
+    const view = findMountedView()
+    const colonIndex = view.state.doc.toString().indexOf(':')
+    expect(colonIndex).toBeGreaterThan(-1)
+    dispatchUserEdit(view, { from: colonIndex, to: colonIndex + 1, insert: '' })
+
+    // Really unparseable, and `elements` really frozen at the last valid design.
+    expect(isYamlDocBlocked(view.state.doc.toString())).toBe(true)
+    let frozen!: string
+    act(() => {
+      frozen = handle.getPayload()
+    })
+    expect(frozen).toContain('value: Hello')
+
+    return { handle, view }
+  }
+
+  it('a re-push of the identical payload still rescues the editor', async () => {
+    const { handle, view } = await mountAndBreakTheDocument()
+
+    // The rescue move: the host re-sends what it believes the payload is,
+    // which is structurally identical to the frozen `elements`.
+    act(() => handle.setPayload(PAYLOAD))
+
+    // The recovery outcome: the broken text is gone and the document parses.
+    const recovered = view.state.doc.toString()
+    expect(isYamlDocBlocked(recovered)).toBe(false)
+    expect(recovered).toBe(serializeYamlPayload(parseYamlPayload(PAYLOAD)))
+  })
+
+  it('a push carrying different elements also rescues the editor', async () => {
+    const { handle, view } = await mountAndBreakTheDocument()
+
+    act(() => handle.setPayload(PUSHED_PAYLOAD))
+
+    const recovered = view.state.doc.toString()
+    expect(isYamlDocBlocked(recovered)).toBe(false)
+    expect(recovered).toContain('value: Pushed')
+  })
+
+  /**
+   * The dedupe is load-bearing for the case it was written for and must not
+   * be weakened by the fix: on a VALID document an identical re-push is still
+   * a full no-op — no revision bump, no cleared selection.
+   */
+  it('still dedupes an identical re-push on a valid document', async () => {
+    const handle = mountDesigner({ payload: PAYLOAD })
+    await waitFor(() => {
+      expect(container.shadowRoot!.querySelector('[data-testid="element-list-row"]')).not.toBeNull()
+    })
+
+    let before!: number
+    act(() => {
+      before = handle.getStatus().payloadRevision
+    })
+
+    act(() => handle.setPayload(PAYLOAD))
+
+    let after!: number
+    act(() => {
+      after = handle.getStatus().payloadRevision
+    })
+    expect(after).toBe(before)
   })
 })

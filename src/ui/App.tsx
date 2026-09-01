@@ -135,6 +135,7 @@ export function App({ bootstrap, host }: AppProps) {
   const yamlFlushPendingRef = useRef<(() => void) | null>(null)
   const yamlDiscardPendingRef = useRef<(() => boolean) | null>(null)
   const yamlArmExternalReplaceRef = useRef<(() => void) | null>(null)
+  const yamlDocBlockedRef = useRef<(() => boolean) | null>(null)
   const {
     sessionName,
     service,
@@ -212,7 +213,11 @@ export function App({ bootstrap, host }: AppProps) {
     beginEditCoalesce,
     endEditCoalesce,
     cancelEditCoalesce,
-  } = useProjectState(bootstrap, host, { yamlDiscardPendingRef, yamlArmExternalReplaceRef })
+  } = useProjectState(bootstrap, host, {
+    yamlDiscardPendingRef,
+    yamlArmExternalReplaceRef,
+    yamlDocBlockedRef,
+  })
 
   const elementsRef = useRef(elements)
 
@@ -994,6 +999,7 @@ export function App({ bootstrap, host }: AppProps) {
             flushPendingRef={yamlFlushPendingRef}
             discardPendingRef={yamlDiscardPendingRef}
             armExternalReplaceRef={yamlArmExternalReplaceRef}
+            docBlockedRef={yamlDocBlockedRef}
             readOnly={displayPreview.active}
           />
         </div>
