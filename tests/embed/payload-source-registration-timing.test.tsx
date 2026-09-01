@@ -104,6 +104,7 @@ function orderSpyHost(order: string[]): DesignerHost {
     theme: { owner: 'host', value: 'light' },
     fill: 'container',
     shareLink: false,
+    assetUploadsEnabled: true,
     persistence: null,
     loadBootstrap: () => bootstrapWith('Order'),
     registerPushTarget: (target: HostPushTarget) => {

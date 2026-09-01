@@ -19,6 +19,9 @@ export function createStandaloneHost(): DesignerHost {
     theme: { owner: 'designer' },
     fill: 'viewport',
     shareLink: true,
+    // Standalone has no `hostOwnsAssets` concept — there is no embedding
+    // host to own it instead. Local uploads always work here.
+    assetUploadsEnabled: true,
     persistence: {
       writeSession: (payload) => void writeSessionToDb(payload),
       writeMocks: (mock) => void writeMockStates(mock),

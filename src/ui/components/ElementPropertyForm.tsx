@@ -48,8 +48,15 @@ interface ElementPropertyFormProps {
   element: DrawElement
   fontKeys: string[]
   onPropertyChange: (key: string, value: unknown) => void
-  onUploadFont: (file: File) => Promise<AssetUploadResult>
-  onUploadImageForUrl: (urlKey: string, file: File) => Promise<AssetUploadResult>
+  /**
+   * Absent when the host owns asset resolution (`hostOwnsAssets`, ADR-002):
+   * no "Upload font…" option and no hidden file input are rendered — same
+   * "conditional chrome, presence gates it" pattern as
+   * `actions`/`targets`/`renderPreview`.
+   */
+  onUploadFont?: (file: File) => Promise<AssetUploadResult>
+  /** Absent under the same policy as {@link onUploadFont}: no Upload button. */
+  onUploadImageForUrl?: (urlKey: string, file: File) => Promise<AssetUploadResult>
   properties?: string[]
   mixedProperties?: string[]
   onBeginEdit?: () => void
@@ -75,7 +82,7 @@ function FontPropertyField({
   value: unknown
   fontKeys: string[]
   onChange: (value: unknown) => void
-  onUploadFont: (file: File) => Promise<AssetUploadResult>
+  onUploadFont?: (file: File) => Promise<AssetUploadResult>
 }) {
   const fontInputRef = useRef<HTMLInputElement>(null)
   const current = typeof value === 'string' ? value : ''
@@ -130,25 +137,27 @@ function FontPropertyField({
       label={<PropertyLabel element={element} property="font" />}
       trailing={<TemplateToggleButton onClick={() => onChange(TEMPLATE_EDITOR_STARTER)} />}
     >
-      <input
-        ref={fontInputRef}
-        type="file"
-        accept={FONT_UPLOAD_ACCEPT}
-        className="sr-only"
-        tabIndex={-1}
-        aria-hidden="true"
-        onChange={(event) => {
-          const file = event.target.files?.[0]
-          if (file) {
-            void onUploadFont(file).then((result) => {
-              if (result.ok) {
-                onChange(file.name)
-              }
-            })
-          }
-          event.target.value = ''
-        }}
-      />
+      {onUploadFont ? (
+        <input
+          ref={fontInputRef}
+          type="file"
+          accept={FONT_UPLOAD_ACCEPT}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) {
+              void onUploadFont(file).then((result) => {
+                if (result.ok) {
+                  onChange(file.name)
+                }
+              })
+            }
+            event.target.value = ''
+          }}
+        />
+      ) : null}
       <select
         className={`w-full ${shell.input}`}
         value={current}
@@ -166,7 +175,7 @@ function FontPropertyField({
             {key}
           </option>
         ))}
-        <option value={FONT_UPLOAD_OPTION}>Upload font…</option>
+        {onUploadFont ? <option value={FONT_UPLOAD_OPTION}>Upload font…</option> : null}
       </select>
     </PropertyFieldControl>
   )
@@ -245,8 +254,8 @@ function PropertyField({
   mixed?: boolean
   fontKeys: string[]
   onChange: (value: unknown) => void
-  onUploadFont: (file: File) => Promise<AssetUploadResult>
-  onUploadImageForUrl: (urlKey: string, file: File) => Promise<AssetUploadResult>
+  onUploadFont?: (file: File) => Promise<AssetUploadResult>
+  onUploadImageForUrl?: (urlKey: string, file: File) => Promise<AssetUploadResult>
   onBeginEdit?: () => void
   onEndEdit?: () => void
 }) {
@@ -319,35 +328,39 @@ function PropertyField({
             placeholder="/local/logo.png"
             onChange={(event) => onChange(event.target.value)}
           />
-          <button
-            type="button"
-            className={`shrink-0 self-start ${shell.button} px-2 py-1`}
-            onClick={(event) => {
-              getScopedElementById(event.currentTarget, `image-upload-${property}`)?.click()
-            }}
-          >
-            Upload
-          </button>
-          <input
-            id={`image-upload-${property}`}
-            type="file"
-            accept="image/*"
-            className="sr-only"
-            tabIndex={-1}
-            aria-hidden="true"
-            onChange={(event) => {
-              const file = event.target.files?.[0]
-              if (!file) {
-                return
-              }
-              const key = urlKey.trim() || `/local/${file.name}`
-              if (!urlKey.trim()) {
-                onChange(key)
-              }
-              void onUploadImageForUrl(key, file)
-              event.target.value = ''
-            }}
-          />
+          {onUploadImageForUrl ? (
+            <>
+              <button
+                type="button"
+                className={`shrink-0 self-start ${shell.button} px-2 py-1`}
+                onClick={(event) => {
+                  getScopedElementById(event.currentTarget, `image-upload-${property}`)?.click()
+                }}
+              >
+                Upload
+              </button>
+              <input
+                id={`image-upload-${property}`}
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden="true"
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  if (!file) {
+                    return
+                  }
+                  const key = urlKey.trim() || `/local/${file.name}`
+                  if (!urlKey.trim()) {
+                    onChange(key)
+                  }
+                  void onUploadImageForUrl(key, file)
+                  event.target.value = ''
+                }}
+              />
+            </>
+          ) : null}
         </div>
       </div>
     )

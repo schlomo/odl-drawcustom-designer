@@ -128,6 +128,26 @@ export interface DesignerHost {
    */
   readonly onStatusChange?: HostStatusChangeHandler
   /**
+   * Whether the designer may write to its local asset store
+   * (`MountOptions.hostOwnsAssets`, ADR-002): `true` for every adapter
+   * except an embedded host that declared `hostOwnsAssets`. `false` is
+   * enforced at the write boundary itself (`useProjectState`'s
+   * `uploadAsset`/`clearAsset`), not only in the UI — a reachable control is
+   * only ever the first line of defense. The Content tab keeps listing what
+   * the payload references and how each resolves either way (local map,
+   * bundled, or `resolveAsset`, badged **Host**) — this flag removes write
+   * affordances, not the read-only explorer.
+   */
+  readonly assetUploadsEnabled: boolean
+  /**
+   * Host-supplied replacement for the Content tab's upload instructions
+   * (`MountOptions.hostOwnsAssets`'s `{ hint }` form), rendered verbatim as
+   * plain text only where the upload control used to be. Meaningful only
+   * when {@link assetUploadsEnabled} is `false`; the UI supplies its own
+   * domain-neutral fallback sentence when this is absent.
+   */
+  readonly assetUploadsHint?: string
+  /**
    * Initial designer state. May be async so an adapter can read IndexedDB
    * and the `#d=` share hash; a synchronous return renders in the same tick
    * (and its exceptions propagate to the `mount()` caller — the embedded

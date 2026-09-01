@@ -48,6 +48,16 @@ WYSIWYG-send fixes — `HostPreviewServiceOptions` → `HostRenderOptions`,
 `HostTarget.capabilities` → `HostTarget.display`. The map for consumers lives
 in [`docs/embedding.md`](../embedding.md#300-rename-map-breaking).
 
+Amended 2026-09-01: `MountOptions.hostOwnsAssets` (ADR-002) adds one narrow,
+deliberate carve-out to the domain-neutral rule below — its optional `{ hint
+}` is host-authored free text, rendered by the designer as plain text only
+(never parsed as HTML/Markdown), specifically because the designer cannot
+itself name a host's upload location without breaking that same rule. The
+carve-out is the string's *content*, not the *option*: `hostOwnsAssets`
+itself, and the Content tab's read-only behavior it drives, stay exactly as
+domain-neutral as every other seam here. Full contract:
+[`docs/embedding.md`](../embedding.md#hostownsassets-adr-002).
+
 Two reasons, both of them this ADR's own doing. First, the seam grammar's
 domain-neutral rule below names "service" as a word that must not appear on the
 published surface — and this ADR shipped `HostPreviewServiceOptions` and
@@ -464,7 +474,11 @@ Every seam above follows one shape, and any future addition must fit it:
   the earlier grandfather clause: legacy "entity"-named published types
   ([`HostEntityState`](../../src/embed/types.ts)) are renamed at 2.0. The
   rule applies to this ADR's own additions too, which it did not until 3.0.0
-  — see the rename amendment in Status.
+  — see the rename amendment in Status. `hostOwnsAssets`'s optional `hint`
+  string is host-authored free text the designer renders verbatim as plain
+  text (Status amendment, 2026-09-01) — the one place the *content* crossing
+  the seam is allowed to be host-specific; the option and its behavior are
+  not.
 
 **Litmus test for any addition to this seam:** a non-HA host must be able to
 implement it meaningfully, *and* the UI it drives must be testable in Vitest

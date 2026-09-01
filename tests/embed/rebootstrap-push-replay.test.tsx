@@ -161,6 +161,7 @@ function stubHost(overrides: Partial<DesignerHost>): DesignerHost {
     theme: { owner: 'host', value: 'light' },
     fill: 'container',
     shareLink: false,
+    assetUploadsEnabled: true,
     persistence: null,
     loadBootstrap: () => bootstrapWith('Stub'),
     ...overrides,

@@ -74,6 +74,9 @@ const handle = mount(document.getElementById('designer'), {
     // optional: 'font' | 'image' by the name the payload uses — see below
     return yourBackend.assetBytes(kind, name)
   },
+  hostOwnsAssets: {               // optional: turns off local uploads — see below
+    hint: 'Add files to the media folder in your Home Assistant config.',
+  },
   onStatusChange(status) {
     // optional: a YAML validity flip or a payload revision change — see below
   },
@@ -652,6 +655,70 @@ font picker) and a host-side upload round-trip. Those are layer 2 of
 [issue #138](https://github.com/schlomo/odl-drawcustom-designer/issues/138),
 deliberately deferred until this layer is consumed upstream.
 
+### `hostOwnsAssets` (ADR-002)
+
+A host that resolves its own assets (`resolveAsset` above, or otherwise) has a
+trap waiting in the Content tab: its upload/replace/delete controls write to
+this **one browser's** IndexedDB, which the host never reads. An uploaded
+image renders fine on the canvas — it came straight back out of that same
+IndexedDB — and then fails the moment the design is sent, because whatever
+finally draws it looks in the host's own directories and finds nothing. This
+was found on real Home Assistant hardware, not hypothesized.
+
+```js
+mount(el, {
+  resolveAsset(kind, name) { /* … */ },
+  hostOwnsAssets: {
+    hint: 'Add files to the media folder in your Home Assistant config.',
+  },
+})
+```
+
+`true` also works if you have no hint to add:
+
+```js
+mount(el, { resolveAsset: myResolver, hostOwnsAssets: true })
+```
+
+**Never inferred from `resolveAsset`.** A host might want the resolver tier
+*and* local uploads (a design mixing host-provided and user-uploaded assets),
+so this is its own explicit option — set it only when you mean "uploads must
+not happen here."
+
+**What changes.** The Content tab stays visible — it keeps listing every font
+and image the current payload references and how each one resolves, **Host**-badged
+rows included, exactly as before (a maintainer verified this directly: a
+payload referencing a `/media/…` image never uploaded to that browser still
+listed it, labelled `HOST`). What disappears is every write path into the
+local store: the Upload/Replace button and its hidden file input, the Clear
+and "Hide demo" buttons, and the upload affordances on font and image-URL
+property fields (a select option, a button plus file input) — removed from
+the render tree, not merely `disabled`. `useProjectState`'s `uploadAsset`/
+`clearAsset` also refuse outright, so even a path that somehow still called in
+would not touch the store. **Resolution order is unchanged** (local content
+map → bundled → `resolveAsset`, ADR-002): this stops new entries from
+reaching the first tier, it does not reorder or remove any tier, and anything
+already stored still resolves and still lists. **This does not make the
+host's own asset library appear in the tab** — there is still no
+directory-browsing API (ADR-002 stays `name -> asset`); it only removes an
+affordance that silently fails at send time.
+
+**`hint` replaces the upload instructions, verbatim.** The designer's
+published surface stays domain-neutral (ADR-018) — it never learns Home
+Assistant's `/media`/`/config/www` or any other host's paths — so it cannot
+word this for you. Give it a sentence in your own words, and the designer
+renders exactly that string, in the sidebar's existing muted/hint style,
+where the upload button used to be. **Always plain text** — never parsed as
+HTML or Markdown (no `dangerouslySetInnerHTML`, no link parsing): a
+`<b>`/`**`/`<script>` in your string shows up as those literal characters. A
+missing or blank `hint` (or plain `true`) falls back to a neutral sentence of
+the designer's own, itself free of any host-specific vocabulary: "Assets are
+provided by the host application. Nothing is stored in this browser."
+
+**Standalone is untouched.** The GitHub Pages SPA adapter takes no
+`MountOptions` at all, so there is nothing for this option to reach; uploads
+there behave exactly as before this option existed.
+
 ### `theme`
 
 `'light' | 'dark'`, applied as a class on the designer's wrapper element inside the mount's shadow root — embedded mounts never touch `document.documentElement` or `localStorage` theme preferences. Because every instance carries its own wrapper and stylesheet, two mounts on one page can hold different themes simultaneously.
@@ -705,6 +772,9 @@ Everything that would otherwise be an `embedded` conditional in the React shell 
 | `actions` / `onAction` | absent — no action chrome | host-registered buttons |
 | `targets` / `onTargetSelected` | absent — no display picker | host-pushed displays in the picker |
 | `renderPreview` | absent — no Display preview toggle | host-rendered preview when supplied |
+| `resolveAsset` | absent — local resolution only | host-supplied last tier when supplied |
+| `assetUploadsEnabled` | always `true` | `false` only when `hostOwnsAssets` is set |
+| `assetUploadsHint` | never set | the `hostOwnsAssets` `{ hint }` string, or absent |
 | `loadBootstrap` | async: session + `#d=` hash | sync: `payload`/`states`/`targets` options |
 
 The interface is **internal on purpose** — it references internal types, so publishing it would freeze designer internals under semver ([`docs/releasing.md`](releasing.md)). The public embedded surface is `mount`, `MountOptions`, `MountHandle` and the host data contract above.
