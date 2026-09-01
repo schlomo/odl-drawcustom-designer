@@ -8058,7 +8058,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "fix/multiline-drag-offset", ae = "3e6e833", k = "799238c", A = "0.0.0-dev";
+var re = /* @__PURE__ */ new Set(["dev", "test"]), ie = "fix/multiline-drag-offset", ae = "05d8db0", k = "8f13e5e", A = "0.0.0-dev";
 function j(e) {
 	return re.has(e) || e.length <= 7 ? e : /^[0-9a-f]+$/i.test(e) ? e.slice(0, 7) : e.length > 12 ? `${e.slice(0, 11)}…` : e;
 }
@@ -23147,7 +23147,6 @@ var uz = ru().refine((e) => Fd(e) || aqt(e), { message: "Unknown Material Design
 	font: ef,
 	color: Gd.optional(),
 	anchor: tf,
-	spacing: qd.optional(),
 	visible: Qd,
 	parse_colors: Zd.optional()
 }).strict(), lqt = zu({
@@ -24370,7 +24369,7 @@ var Yz = {
 		"size",
 		"font",
 		"color",
-		"spacing",
+		"anchor",
 		"visible",
 		"parse_colors"
 	],
