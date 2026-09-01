@@ -679,6 +679,32 @@ export function useProjectState(
     }
   }, [captureSnapshot, restoreSnapshot, syncHistoryUi])
 
+  /**
+   * Escape from a broken document by returning to the last valid design
+   * (maintainer ruling 2026-09-01). This is what the app's Undo does while
+   * `yamlBlocked`, and it is deliberately NOT `undo()`.
+   *
+   * Two undo stacks exist. CodeMirror owns the text history and still works
+   * while the editor is focused — that is the keystroke-level undo, untouched.
+   * This history holds element-model snapshots, and text that never validated
+   * never entered it, so there is no history entry representing "before I
+   * typed the broken characters". Stepping the history back (`undo()`) would
+   * therefore discard the broken text AND the last valid design, landing the
+   * user on the design before it — surprising, and not what "undo out of a
+   * broken state" means.
+   *
+   * So this consumes **zero** history steps: it re-commits the current
+   * (last-valid) snapshot, which is already what `elements` holds, purely so
+   * the editor text is rewritten over the unparseable document. It is a
+   * replace, hence the arm; `restoreSnapshot` structuredClones, so `elements`
+   * gets the new reference the sync effect needs to run at all. Undo pressed
+   * again afterwards steps through history normally.
+   */
+  const restoreLastValidDesign = useCallback(() => {
+    yamlArmExternalReplaceRef?.current?.()
+    restoreSnapshot(captureSnapshot())
+  }, [captureSnapshot, restoreSnapshot, yamlArmExternalReplaceRef])
+
   const redo = useCallback(() => {
     const restored = historyRef.current!.redo(captureSnapshot())
     if (restored) {
@@ -2143,6 +2169,7 @@ export function useProjectState(
     togglePreviewDither,
     undo,
     redo,
+    restoreLastValidDesign,
     canUndo: historyUi.canUndo,
     canRedo: historyUi.canRedo,
     historyUndoDepth: historyUi.undoDepth,

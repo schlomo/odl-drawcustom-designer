@@ -26,6 +26,19 @@ export interface CanvasHeaderToolbarProps {
   onDownloadPng: () => void
   canUndo: boolean
   canRedo: boolean
+  /**
+   * The YAML document is broken and Undo is the escape out of it (maintainer
+   * ruling 2026-09-01): it returns to the last valid design instead of
+   * stepping the element history back. That target always exists, so `canUndo`
+   * does not gate it — and the control says what it really does, because a
+   * user expecting a keystroke-level undo would otherwise lose a paragraph.
+   *
+   * Redo has no equivalent and stays disabled: the unparseable text was never
+   * committed, so no forward element state corresponds to it, and stepping
+   * forward would throw the text away to reach a design the user did not ask
+   * for. The asymmetry is deliberate.
+   */
+  undoEscapesBlock?: boolean
   onUndo: () => void
   onRedo: () => void
   showHiddenHints: boolean
@@ -44,6 +57,24 @@ export interface CanvasHeaderToolbarProps {
   blocked?: boolean
 }
 
+/**
+ * Says what the control actually does while the document is broken: it does
+ * not step back one keystroke, it jumps to the last valid design. Deliberately
+ * kept to one short line — `ToolbarTooltip` bubbles are `whitespace-nowrap`,
+ * and an embedded host may give the mount no room to either side, so the full
+ * detail (including CodeMirror's own Ctrl/Cmd+Z as the keystroke-level
+ * alternative) lives in the confirmation prompt, which the user cannot miss.
+ */
+const UNDO_ESCAPE_TOOLTIP = 'Undo — return to the last valid design'
+
+/**
+ * Redo gets no escape counterpart, and says so rather than looking merely
+ * greyed out: the unparseable text was never committed, so no forward element
+ * state corresponds to it. Stepping forward would discard the user's typing to
+ * reach a design they never asked to return to.
+ */
+const REDO_BLOCKED_TOOLTIP = 'Redo — unavailable while the YAML is invalid'
+
 export function CanvasHeaderToolbar({
   showLabels,
   zoomMode,
@@ -54,6 +85,7 @@ export function CanvasHeaderToolbar({
   onDownloadPng,
   canUndo,
   canRedo,
+  undoEscapesBlock = false,
   onUndo,
   onRedo,
   showHiddenHints,
@@ -104,9 +136,13 @@ export function CanvasHeaderToolbar({
           actionId="undo"
           feedback={measureOnly ? null : getFeedback('undo')}
           iconPath={TOOL_ICONS.undo}
-          tooltip="Undo"
+          tooltip={undoEscapesBlock ? UNDO_ESCAPE_TOOLTIP : 'Undo'}
+          // The visible label stays "Undo" — it is a measured, collapsing
+          // toolbar (ADR-016) and the honest long-form explanation lives in
+          // the hover title and, unmissably, in the confirmation prompt.
           label={labelsVisible ? 'Undo' : undefined}
-          disabled={measureOnly || !canUndo || blocked}
+          title={undoEscapesBlock ? UNDO_ESCAPE_TOOLTIP : undefined}
+          disabled={measureOnly || (undoEscapesBlock ? false : !canUndo || blocked)}
           onClick={measureOnly ? noop : onUndo}
           data-canvas-toolbar
         />
@@ -114,8 +150,9 @@ export function CanvasHeaderToolbar({
           actionId="redo"
           feedback={measureOnly ? null : getFeedback('redo')}
           iconPath={TOOL_ICONS.redo}
-          tooltip="Redo"
+          tooltip={undoEscapesBlock ? REDO_BLOCKED_TOOLTIP : 'Redo'}
           label={labelsVisible ? 'Redo' : undefined}
+          title={undoEscapesBlock ? REDO_BLOCKED_TOOLTIP : undefined}
           disabled={measureOnly || !canRedo || blocked}
           onClick={measureOnly ? noop : onRedo}
           data-canvas-toolbar

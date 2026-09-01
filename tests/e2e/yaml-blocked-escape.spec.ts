@@ -63,6 +63,9 @@ test('Load Demo recovers from a broken YAML document', async ({ page }) => {
 test('Clear all recovers from a broken YAML document', async ({ page }) => {
   await breakTheDocument(page)
 
+  // Clear all asks first on a broken document (it discards unparsed text) —
+  // the dedicated confirmation test below covers the prompt itself.
+  page.once('dialog', (dialog) => void dialog.accept())
   await page.getByRole('button', { name: 'Clear all' }).click()
 
   // The design is empty and the document is valid again.
@@ -76,4 +79,83 @@ test('Clear all recovers from a broken YAML document', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Add text' })).toBeEnabled()
   await page.getByRole('button', { name: 'Add text' }).click()
   await expect(page.getByTestId('element-list-row')).toHaveCount(1)
+})
+
+/**
+ * Undo as the third escape (maintainer ruling 2026-09-01: "it would be nice if
+ * a user can undo out of a broken YAML state too").
+ *
+ * There are two undo stacks. CodeMirror keeps its own text history and still
+ * works while focused — that is the finer-grained "step back through my
+ * keystrokes". The app's Undo walks the *element-model* history, and text that
+ * never validated never entered it, so app-Undo cannot replay broken
+ * keystrokes. What it can do is return to the last valid design and drop the
+ * unparsed text, which is a replace, and so runs through the same seam Clear
+ * all and Load Demo use. It confirms first, for exactly that reason.
+ */
+test('Undo returns to the last valid design from a broken YAML document', async ({ page }) => {
+  await breakTheDocument(page)
+
+  // Enabled while broken — the escape does not need an element-history entry,
+  // because the design it returns to is the last valid one, not a previous one.
+  const undo = page.getByRole('button', { name: 'Undo' })
+  await expect(undo).toBeEnabled()
+
+  page.once('dialog', (dialog) => {
+    expect(dialog.message()).toContain('Return to the last valid design')
+    // The finer-grained alternative is named, so a user expecting
+    // character-level undo can back out and use the editor's own.
+    expect(dialog.message()).toContain('editor')
+    void dialog.accept()
+  })
+  await undo.click()
+
+  // The recovery outcome: the broken text is gone, the last valid design is
+  // back (all three smoke elements), the block lifted, editing works again.
+  await expect(yamlLineContaining(page, BROKEN_TYPE_LINE)).toHaveCount(0)
+  await expect(yamlLineContaining(page, 'type: rectangle')).toHaveCount(1)
+  await expect(page.getByTestId('element-list-row')).toHaveCount(3)
+  await expect(page.getByTestId('canvas-blocked-overlay')).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Add text' })).toBeEnabled()
+})
+
+test('dismissing the Undo confirmation leaves the broken document untouched', async ({ page }) => {
+  await breakTheDocument(page)
+
+  page.once('dialog', (dialog) => void dialog.dismiss())
+  await page.getByRole('button', { name: 'Undo' }).click()
+
+  // Nothing happened: the in-progress text survives and the block stands.
+  await expect(yamlLineContaining(page, BROKEN_TYPE_LINE)).toHaveCount(1)
+  await expect(page.getByTestId('canvas-blocked-overlay')).toBeVisible()
+})
+
+test('Redo stays disabled on a broken document', async ({ page }) => {
+  await breakTheDocument(page)
+
+  // Deliberate asymmetry, not an oversight: Undo has somewhere to go (the last
+  // valid design). Redo does not — the unparseable text was never committed,
+  // so there is no forward element state that corresponds to it, and stepping
+  // forward would discard the user's typing to reach a design they did not ask
+  // for. See ADR-009.
+  await expect(page.getByRole('button', { name: 'Redo' })).toBeDisabled()
+})
+
+test('Clear all confirms before discarding a broken document', async ({ page }) => {
+  await breakTheDocument(page)
+
+  // Dismissing first: the design and the broken text both survive.
+  page.once('dialog', (dialog) => {
+    expect(dialog.message()).toContain('invalid YAML')
+    void dialog.dismiss()
+  })
+  await page.getByRole('button', { name: 'Clear all' }).click()
+  await expect(page.getByTestId('element-list-row')).toHaveCount(3)
+  await expect(yamlLineContaining(page, BROKEN_TYPE_LINE)).toHaveCount(1)
+
+  // Accepting clears, exactly as before the prompt existed.
+  page.once('dialog', (dialog) => void dialog.accept())
+  await page.getByRole('button', { name: 'Clear all' }).click()
+  await expect(page.getByTestId('element-list-row')).toHaveCount(0)
+  await expect(page.getByTestId('canvas-blocked-overlay')).toBeHidden()
 })

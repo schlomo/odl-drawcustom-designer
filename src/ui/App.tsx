@@ -17,7 +17,13 @@ import { YamlPanel } from './components/YamlPanel'
 import { remapSelectedIndex } from './editor/yamlElementsSync'
 import { collectKnownFontKeys } from './lib/known-font-keys'
 import { copyTextToClipboard } from './lib/export-download'
-import { requestLoadDemoConfirm, shouldConfirmLoadDemo } from './lib/load-demo'
+import {
+  CLEAR_ALL_INVALID_CONFIRM_MESSAGE,
+  LOAD_DEMO_CONFIRM_MESSAGE,
+  UNDO_INVALID_CONFIRM_MESSAGE,
+  requestReplaceConfirm,
+  shouldConfirmLoadDemo,
+} from './lib/replace-confirm'
 import {
   HEADER_TOOLBAR_ITEM_SELECTOR,
   headerMetaSlotWidth,
@@ -200,6 +206,7 @@ export function App({ bootstrap, host }: AppProps) {
     togglePreviewDither,
     undo,
     redo,
+    restoreLastValidDesign,
     canUndo,
     canRedo,
     beginEditCoalesce,
@@ -479,6 +486,14 @@ export function App({ bootstrap, host }: AppProps) {
    * not an error state and must not be explained as one.
    */
   const mutationBlocked = yamlBlocked || displayPreview.active
+  /**
+   * Undo doubles as an escape from a broken document (maintainer ruling
+   * 2026-09-01), so it is enabled while `yamlBlocked` even with no history to
+   * step through — the design it returns to is the last valid one, which
+   * always exists. It stays disabled under a host display preview: that is not
+   * a state the user is stuck in, and a server render cannot follow an edit.
+   */
+  const undoEscapesBlock = yamlBlocked && !displayPreview.active
 
   useEffect(() => {
     if (bootstrap.importSource === 'hash') {
@@ -522,11 +537,46 @@ export function App({ bootstrap, host }: AppProps) {
   }, [elementAddNotice])
 
   const handleLoadDemo = useCallback(() => {
-    if (shouldConfirmLoadDemo(elements.length, yamlBlocked) && !requestLoadDemoConfirm()) {
+    if (
+      shouldConfirmLoadDemo(elements.length, yamlBlocked) &&
+      !requestReplaceConfirm(LOAD_DEMO_CONFIRM_MESSAGE)
+    ) {
       return
     }
     loadDemo()
   }, [elements.length, loadDemo, yamlBlocked])
+
+  /**
+   * Clear all prompts only while the document is broken (maintainer ruling
+   * 2026-09-01): there it destroys editor text nothing has committed, so
+   * nothing downstream would even record that it existed. On a valid document
+   * it keeps its long-standing no-prompt behaviour.
+   */
+  const handleClearAll = useCallback(() => {
+    if (yamlBlocked && !requestReplaceConfirm(CLEAR_ALL_INVALID_CONFIRM_MESSAGE)) {
+      return
+    }
+    clearElements()
+  }, [clearElements, yamlBlocked])
+
+  /**
+   * While the document is broken, Undo is an escape rather than a history
+   * step: it returns to the last valid design and drops the unparsed text
+   * (see `restoreLastValidDesign` for why it is not `undo()`), so it confirms
+   * exactly like the other two replacing controls. CodeMirror's own undo is
+   * untouched and remains the keystroke-level alternative — the confirmation
+   * says so.
+   */
+  const handleUndo = useCallback(() => {
+    if (!yamlBlocked) {
+      undo()
+      return
+    }
+    if (!requestReplaceConfirm(UNDO_INVALID_CONFIRM_MESSAGE)) {
+      return
+    }
+    restoreLastValidDesign()
+  }, [restoreLastValidDesign, undo, yamlBlocked])
 
   // Host-registered action clicked (issue #108): the designer reports the id,
   // the current payload, the opaque id of the display the design is pinned to
@@ -746,7 +796,7 @@ export function App({ bootstrap, host }: AppProps) {
     resolvedTheme,
     shareFeedback: getFeedback('share-link'),
     shareFeedbackMessage: getFeedbackMessage('share-link'),
-    onClearAll: clearElements,
+    onClearAll: handleClearAll,
     onLoadDemo: handleLoadDemo,
     onShare: handleShareClick,
     onHostAction: handleHostAction,
@@ -914,7 +964,8 @@ export function App({ bootstrap, host }: AppProps) {
               onCancelEditCoalesce={cancelEditCoalesce}
               canUndo={canUndo}
               canRedo={canRedo}
-              onUndo={undo}
+              onUndo={handleUndo}
+              undoEscapesBlock={undoEscapesBlock}
               onRedo={redo}
               blocked={mutationBlocked}
               blockedVisible={yamlBlockedVisible}

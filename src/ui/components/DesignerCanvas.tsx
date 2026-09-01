@@ -163,6 +163,14 @@ interface DesignerCanvasProps {
   onCancelEditCoalesce?: () => void
   canUndo?: boolean
   canRedo?: boolean
+  /**
+   * The YAML document is broken and Undo is acting as the escape out of it
+   * (maintainer ruling 2026-09-01) — it returns to the last valid design
+   * rather than stepping the element history back, so it is enabled even with
+   * no history and relabelled to say so. Never true during a host display
+   * preview.
+   */
+  undoEscapesBlock?: boolean
   onUndo?: () => void
   onRedo?: () => void
   /**
@@ -358,6 +366,7 @@ export function DesignerCanvas({
   onCancelEditCoalesce,
   canUndo = false,
   canRedo = false,
+  undoEscapesBlock = false,
   onUndo,
   onRedo,
   blocked = false,
@@ -1963,6 +1972,7 @@ export function DesignerCanvas({
     onDownloadPng: () => void handleDownloadPng(),
     canUndo,
     canRedo,
+    undoEscapesBlock,
     onUndo: () => onUndo?.(),
     onRedo: () => onRedo?.(),
     showHiddenHints,
