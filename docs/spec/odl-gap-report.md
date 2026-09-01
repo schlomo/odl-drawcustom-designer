@@ -72,10 +72,11 @@ for line in lines:
   (`requires=["x", "value", "delimiter", "offset_y"]`). The designer renderer
   matches this ([issue #169](https://github.com/schlomo/odl-drawcustom-designer/issues/169)).
 - **`spacing` is not a `multiline` field.** `draw_multiline` never reads it;
-  it belongs to `draw_text` (`element.get("spacing", 5)`). The designer keeps
-  it in the `multiline` schema so existing payloads still load, and ignores it
-  in the renderer exactly as upstream does. It is not offered in the property
-  UI for `multiline`.
+  it belongs to `draw_text` (`element.get("spacing", 5)`). It is not in the
+  designer's `multiline` schema, not read by the renderer, and not offered in
+  the property UI. In the editor it reads as an unknown key; on **import** it
+  is removed outright — see
+  [`multiline.spacing` is not accepted](#multilinespacing-is-not-accepted).
 - **`y`-absent start differs — deliberate non-goal**, see
   [The flow cursor](#the-flow-cursor-ctxpos_y--deliberate-non-goal) below.
   Upstream falls back to the flow cursor, `ctx.pos_y + y_padding`
@@ -131,6 +132,12 @@ renders at `0` here (`text.ts:62`, `line.ts:21` via `resolveY(undefined)`,
 `multiline.ts:72`) and stacked on the device. Only affects hand-written or
 imported YAML — everything the designer authors carries explicit coordinates.
 
+**What the designer does about it.** An *imported* payload does not keep the
+disagreement: the coordinate is written out as an explicit `0` and the user is
+told, so the YAML says what the canvas draws. A document the user is typing is
+never rewritten. See
+[Import normalization](#import-normalization--what-the-designer-writes-into-an-imported-payload).
+
 ### Unimplemented element: `diagram`
 
 `@element_handler(ElementType.DIAGRAM, requires=["x", "height"])`
@@ -160,18 +167,72 @@ metric: the bundled fonts have natural line-height ratios of `1.400`
 ### `multiline.spacing` is not accepted
 
 `spacing` is a `text` field (`draw_text`, default `5`); `draw_multiline` never
-reads it. It is therefore not in the designer's `multiline` schema, so the
-editor reports it as an unknown key like any other typo — deliberately
-**flagged rather than stripped or silently accepted**, so nothing is deleted
-from a user's YAML and no special case exists to maintain. Loading is
-unaffected (`parseYamlPayload` does not validate), so an imported or
-host-pushed payload carrying it still renders, identically to one without it.
+reads it. It is therefore not in the designer's `multiline` schema, and the two
+entry points treat it differently on purpose:
+
+- **In the editor it is flagged, never touched.** The document reports it as an
+  unknown key like any other typo. Nothing is deleted from text the user is
+  typing (ADR-009), and no special case exists to maintain.
+- **On import it is removed** (maintainer ruling 2026-09-01: the designer
+  invented the key, and there are no users of it in the wild). Without that, a
+  shared or host-pushed payload carrying it would land in the editor already
+  failing validation, with the canvas blocked on a key that never did anything.
+  Removing it changes nothing on screen, and the notice says so — see
+  [Import normalization](#import-normalization--what-the-designer-writes-into-an-imported-payload).
+
+## Import normalization — what the designer writes into an imported payload
+
+Two upstream behaviours have no designer equivalent, and rather than leave an
+imported payload meaning one thing here and another on the device, the designer
+makes it explicit **on import** and says so in a dismissible info banner naming
+the count and the element types. Nothing else in the document is touched, and
+re-importing an already-normalized payload changes nothing and shows nothing.
+
+| Rewrite | Types | What it does | Can it move anything? |
+|---|---|---|---|
+| Missing vertical coordinate → `0` | `text` / `multiline` (`y`), `line` (`y_start`) | Writes the coordinate the designer was already rendering at | **Yes** — the device would have stacked these |
+| Drop `spacing` | `multiline` only | Removes a key upstream never reads | **No** |
+
+**The vertical coordinate.** Drawcustom positions `text`, `multiline` and
+`line` from a running document-flow cursor when their vertical coordinate is
+omitted — `ctx.pos_y + y_padding`, stacking each below the one before
+(`y_padding` defaults to `10` for `text`/`multiline`, `0` for `line`). The
+designer has no cursor and will not get one — see
+[The flow cursor](#the-flow-cursor-ctxpos_y--deliberate-non-goal) — so it
+renders such elements at `0`. **Plainly: the device would have stacked these elements; the designer
+places them at 0.** Import writes that `0` into the YAML so the document, the
+canvas and the device finally agree on one answer, accepting a layout that may
+differ from what the device would have drawn — which is exactly what the notice
+warns about. `multiline`'s legacy `start_y` alias is not supported and is not
+normalized.
+
+**`multiline.spacing`.** `spacing` is a `text` field upstream (`draw_text`,
+default `5`); `draw_multiline` never reads it. The designer invented that
+meaning, so import deletes the key. This changes nothing on screen — and it
+matters more than tidiness now that the `multiline` schema is `.strict()`
+without it: an imported payload carrying `spacing` would otherwise arrive
+already failing validation, blocking the canvas on a key that never did
+anything. In the editor the key is still flagged rather than removed
+(ADR-009). `spacing` on `text`, `debug_grid` and `icon_sequence` is real and
+is never touched.
+
+**Where this applies.** Only where a payload enters the designer from outside
+its own document:
+
+| Path | Normalized | Why |
+|---|---|---|
+| Share hash `#d=` (ADR-005) | ✅ | Someone else's design arriving in this designer |
+| Host `payload` mount option and `setPayload()` push (ADR-018) | ✅ | A mount option is an initial push; `getPayload()` then reports what the canvas shows |
+| YAML editor — typing, pasting | ❌ | Rewriting the document as the user types is hostile and fights ADR-009's echo contract. The editor's `validatePayload` path never normalizes |
+| Restored IndexedDB session | ❌ | The designer's own committed document round-tripping, not an import — normalizing it would rewrite the user's work on every reload |
+| Built-in demo bundle (`src/assets/showcase/`) | ❌ | Designer-authored and versioned in-repo; held to the explicit standard by a test instead |
 
 ## Intentional deltas (keep)
 
 | Delta | Designer behavior | Rationale |
 |-------|-------------------|-----------|
-| **`multiline` has no `spacing`** | Not in schema; flagged as an unknown key | Upstream `draw_multiline` never reads it — see [`multiline.spacing` is not accepted](#multilinespacing-is-not-accepted) |
+| **`multiline` has no `spacing`** | Not in schema; flagged as an unknown key in the editor, stripped on import | Upstream `draw_multiline` never reads it — see [`multiline.spacing` is not accepted](#multilinespacing-is-not-accepted) |
+| **Import normalization** | Missing `y`/`y_start` written as `0`; `multiline.spacing` dropped — both reported in a dismissible banner | See [Import normalization](#import-normalization--what-the-designer-writes-into-an-imported-payload). Forces imported payloads to be explicit rather than meaning one thing here and another on the device |
 | **`multiline.parse_colors`** | Schema + renderer + UI | OEPL text parity; ODL tables omit it — keep until ODL adds or rejects |
 | **Flow cursor (`ctx.pos_y`)** | Not implemented; a missing `y` renders at `0` | Maintainer ruling 2026-09-01 — see [The flow cursor](#the-flow-cursor-ctxpos_y--deliberate-non-goal). Poor fit for a fixed-size display, honoured by only 4 of the 20 handlers that advance it, and incompatible with per-element memoized rendering |
 | **`diagram` element** | Not implemented | Undocumented in both upstreams — see [Unimplemented element: `diagram`](#unimplemented-element-diagram). Tracked, not proposed |
