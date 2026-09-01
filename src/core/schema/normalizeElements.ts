@@ -39,6 +39,9 @@ export function normalizePayload(elements: DrawElement[]): DrawElement[] {
  * coordinate is written out explicitly instead, and the shell says so (see
  * `docs/spec/odl-gap-report.md`). `diagram` is cursor-only and unimplemented,
  * so it has no entry here.
+ *
+ * `after` names the horizontal partner the coordinate is written next to when
+ * the key has to be created.
  */
 const CURSOR_POSITIONED_FIELDS = {
   text: { vertical: 'y', after: 'x' },
@@ -77,8 +80,15 @@ export interface ImportNormalizationResult {
  * Insert `key: value` immediately after `after`, keeping every existing key in
  * its original order — the payload must come back with nothing but the missing
  * coordinate added. Appends when `after` is absent.
+ *
+ * `key` is skipped while copying (Copilot review, PR #179): a source that
+ * already carries it would otherwise reach it later in the loop and overwrite
+ * the value just inserted, leaving the caller reporting a change it did not
+ * make. Callers here reach this only for a genuinely absent key — a
+ * present-but-empty one is rewritten in place by {@link withCoordinate}, which
+ * keeps it where its author wrote it — but the helper must not depend on that.
  */
-function withInsertedKey(
+export function insertKeyAfter(
   source: Record<string, unknown>,
   after: string,
   key: string,
@@ -87,6 +97,9 @@ function withInsertedKey(
   const next: Record<string, unknown> = {}
   let inserted = false
   for (const [existingKey, existingValue] of Object.entries(source)) {
+    if (existingKey === key) {
+      continue
+    }
     next[existingKey] = existingValue
     if (existingKey === after) {
       next[key] = value
@@ -97,6 +110,37 @@ function withInsertedKey(
     next[key] = value
   }
   return next
+}
+
+/**
+ * A vertical coordinate counts as unset when the key is absent **or** empty.
+ *
+ * A bare `y:` in YAML parses to `null`, not to a missing key, and no
+ * coordinate schema accepts `null` — `colorSchema` is the only place `null`
+ * carries meaning (`z.null()`, "no paint"). So on these three fields `null`
+ * can only ever be a validation error that blocks the canvas, and the author
+ * plainly meant the same thing as leaving the key out. Import treats the two
+ * identically rather than letting one of them dead-end.
+ */
+function isUnsetCoordinate(value: unknown): boolean {
+  return value === undefined || value === null
+}
+
+/**
+ * Write `key: value`, in place when the key already exists (an empty `y:`
+ * stays exactly where its author put it) and immediately after `after` when it
+ * does not.
+ */
+function withCoordinate(
+  source: Record<string, unknown>,
+  after: string,
+  key: string,
+  value: unknown,
+): Record<string, unknown> {
+  if (key in source) {
+    return { ...source, [key]: value }
+  }
+  return insertKeyAfter(source, after, key, value)
 }
 
 /** Copy without `key`, leaving every other key in its original order. */
@@ -135,10 +179,10 @@ export function normalizeImportedPayload(
     const fields = CURSOR_POSITIONED_FIELDS[element.type as CursorPositionedType] as
       | (typeof CURSOR_POSITIONED_FIELDS)[CursorPositionedType]
       | undefined
-    if (fields && record[fields.vertical] === undefined) {
+    if (fields && isUnsetCoordinate(record[fields.vertical])) {
       verticalCount += 1
       verticalTypes.add(element.type as CursorPositionedType)
-      record = withInsertedKey(record, fields.after, fields.vertical, 0)
+      record = withCoordinate(record, fields.after, fields.vertical, 0)
       changed = true
     }
 
