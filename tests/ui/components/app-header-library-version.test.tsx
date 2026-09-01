@@ -3,19 +3,17 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Library-shaped build metadata: a build vendored into a host (e.g. the HA
-// panel embed) — `tools/autoRelease.ts` bakes a real, released `APP_VERSION`
-// into every `build:lib`, but `SITE_VERSION` is set only by the standalone
-// Pages `production` job, so `APP_SITE_VERSION` is always empty here and
-// there is no PR context either. `resolveHeaderVersion`
-// (src/core/buildInfo.ts) is what turns that combination into a real
-// `APP_HEADER_VERSION` — its priority is unit-tested directly in
+// panel embed). The release pipeline bakes a real, released `APP_VERSION`
+// into every build of a release run (tools/releaseVersion.ts →
+// tools/createRelease.ts), and there is no PR context here.
+// `resolveHeaderVersion` (src/core/buildInfo.ts) is what turns that into a
+// real `APP_HEADER_VERSION` — unit-tested directly in
 // tests/core/buildInfo.test.ts; this test only proves HeaderMetaRow renders
 // what `APP_HEADER_VERSION` resolves to, the same way
 // app-header-production-version.test.tsx and
 // app-header-pr-preview-version.test.tsx mock it. The bug this guards
-// against: without that fallback, this exact build shape fell through to
-// the branch + SHA label — an embedded designer showing a SHA even though
-// it knows its own release version.
+// against: an embedded designer showing a SHA even though it knows its own
+// release version.
 const { APP_VERSION } = vi.hoisted(() => ({ APP_VERSION: '3.3.0' }))
 
 vi.mock('../../../src/core', async (importOriginal) => {

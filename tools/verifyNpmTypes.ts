@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { buildThirdPartyMarkdown } from './autoRelease.ts'
+import { buildThirdPartyMarkdown } from './createRelease.ts'
 import { invalidConsumerSource, validConsumerSource } from './npmTypesConsumerFixture.ts'
 import { NPM_PACKAGE_NAME } from './npmPackage.ts'
 import { stageNpmPackage } from './stageNpmPackage.ts'
@@ -27,7 +27,7 @@ import { stageNpmPackage } from './stageNpmPackage.ts'
  * every PR.
  *
  * It rebuilds the library itself so a stale artifact can never produce a
- * false pass, then stages an npm package the same way `tools/autoRelease.ts`
+ * false pass, then stages an npm package the same way `tools/publishNpm.ts`
  * does for a real release (reusing the same tested `stageNpmPackage`/
  * `buildThirdPartyMarkdown` functions — this is not a parallel test-only
  * staging path). **Side effect note (issue #122 review finding):** the build

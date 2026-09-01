@@ -614,7 +614,7 @@ export interface MountHandle {
    * The designer build's version (issue #23, reworked 2026-07-29: git tags
    * are the sole version source, `package.json` stays pinned at `0.0.0`),
    * e.g. `'1.0.0'`. A release build bakes in the tag-derived version via the
-   * `APP_VERSION` env var (`tools/autoRelease.ts` sets it, `tools/version.ts`
+   * `APP_VERSION` env var (the release pipeline sets it, `tools/version.ts`
    * resolves it); any other build (local dev, CI `checks`) falls back to
    * `'0.0.0-dev'`, and Vitest gets the fixed string `'test'`. Same value as
    * the library's `version` export (`src/embed/index.ts`); handy when a host

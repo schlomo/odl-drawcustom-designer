@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process'
 import { resolveGitBranch, resolveGitPrNumber, resolveGitRevision } from './gitRevision.ts'
-import { resolveAppVersion, resolveSiteVersion } from './version.ts'
+import { resolveAppVersion } from './version.ts'
 
 /**
  * Build-time `define` entries shared by the app build (vite.config.ts) and
@@ -70,30 +70,18 @@ function gitPrNumber(): number {
 }
 
 /**
- * The designer's runtime version (issue #23, reworked 2026-07-29: git tags
- * are the sole version source, not package.json). `tools/autoRelease.ts`
- * sets `APP_VERSION` in the environment for the release build it triggers;
- * baked in here so a host embedding the library build can log which
- * designer build it's running (`version` export / mount handle field,
- * `src/embed/index.ts`). Absent (local dev, CI `checks`), this falls back
- * to `DEV_APP_VERSION` (`tools/version.ts`).
+ * The designer's version (issue #23; reworked 2026-09-01 to be the ONE
+ * version define). The release pipeline computes it once
+ * (`tools/releaseVersion.ts`) and sets `APP_VERSION` for every build in that
+ * run — the library build AND the standalone site build — so a host
+ * embedding the library can log which designer build it runs (`version`
+ * export / mount handle field, `src/embed/index.ts`) and the site header can
+ * label itself, from the same string. Absent (local dev, CI `checks`, PR
+ * previews) this falls back to `DEV_APP_VERSION` (`tools/version.ts`), which
+ * the header reads as "no release version — show branch + SHA".
  */
 function appVersion(): string {
   return resolveAppVersion({ vitest: isVitest, envVersion: process.env.APP_VERSION })
-}
-
-/**
- * The standalone site header's release-version label (distinct from
- * `appVersion()`/`APP_VERSION` above, which is the *library's* runtime
- * version and always falls back to `0.0.0-dev`). Only the `production` job
- * in `.github/workflows/pages.yml` sets `SITE_VERSION`, computed by
- * `tools/siteVersion.ts` — see docs/releasing.md#site-version. Every other
- * build (local dev, CI `checks`, PR previews, a local `build:site`) has
- * none set and resolves to the empty string, which the header reads as
- * "omit the version, show branch + SHA instead".
- */
-function siteVersion(): string {
-  return resolveSiteVersion({ vitest: isVitest, envVersion: process.env.SITE_VERSION })
 }
 
 export function buildDefines(): Record<string, string> {
@@ -103,6 +91,5 @@ export function buildDefines(): Record<string, string> {
     'import.meta.env.VITE_GIT_MERGE_REVISION': JSON.stringify(gitMergeRevision()),
     'import.meta.env.VITE_GIT_PR_NUMBER': JSON.stringify(String(gitPrNumber())),
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion()),
-    'import.meta.env.VITE_SITE_VERSION': JSON.stringify(siteVersion()),
   }
 }

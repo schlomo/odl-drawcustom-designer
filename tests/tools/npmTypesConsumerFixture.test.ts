@@ -4,7 +4,7 @@ import { invalidConsumerSource, validConsumerSource } from '../../tools/npmTypes
 // Scratch-consumer types check fixtures (issue #122): these are plain string
 // builders, unit-tested here independently of the slow pack/install/tsc
 // pipeline in tools/verifyNpmTypes.ts, which is exercised for real (not unit
-// tested, like tools/autoRelease.ts's import.meta.main block).
+// tested, like tools/createRelease.ts's import.meta.main block).
 
 describe('validConsumerSource', () => {
   it('imports mount, version and MountHandle from the given package name', () => {
