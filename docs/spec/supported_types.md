@@ -389,6 +389,36 @@ without it is an error, not a default.
 > have natural line-height ratios of **1.400** (`ppb.ttf`) and **1.172**
 > (`rbm.ttf`), so it sits between them.
 
+### Omitting `y`: the designer does not stack elements
+
+The `y` row above says "Last position + y_padding". That is drawcustom's
+**flow cursor**: the renderer keeps one vertical position per payload, and an
+element with no `y` is drawn below whatever came before it. This is the same in
+OpenEPaperLink and OpenDisplay — `odl_renderer` is a fork of OEPL's `imagegen`
+package, and `y_padding` is OEPL-inherited vocabulary.
+
+**The designer does not implement the flow cursor, by decision.** An element
+with no `y` is drawn at **y = 0** here, so a payload that relies on stacking
+looks different in the designer than on the device.
+
+Three element types are affected — the only ones that both read the cursor and
+take a `y`. (A fourth handler reads it, `diagram`, which the designer does not
+implement at all; see the gap report.)
+
+| Type | Upstream when `y` is omitted | Designer |
+|---|---|---|
+| `text` | cursor + `y_padding` (default `10`) | `0` |
+| `multiline` | cursor + `y_padding` (default `10`) | `0` |
+| `line` (`y_start`) | cursor + `y_padding` (default `0`) | `0` |
+
+This only affects YAML written by hand or imported from elsewhere —
+**everything the designer authors carries explicit coordinates**, so anything
+you build here is unaffected. If you are bringing in a payload that omits `y`,
+give those elements explicit coordinates and both renderers will agree.
+
+The reasoning, the upstream file:line references and the architectural cost are
+in [`odl-gap-report.md`](odl-gap-report.md#the-flow-cursor-ctxpos_y--deliberate-non-goal).
+
 ### Anchor: `multiline` defaults to `lm`, `text` defaults to `lt`
 
 Each line is drawn by its own `draw.text` call at that line's `current_y`, so
