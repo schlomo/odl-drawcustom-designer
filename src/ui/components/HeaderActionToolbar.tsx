@@ -14,7 +14,18 @@ interface HeaderActionToolbarProps {
   showLabels: boolean
   /** Off-screen probe copy — always fully labeled, never shown to the user. */
   measureOnly?: boolean
-  mutationBlocked: boolean
+  /**
+   * The host's own display render is on screen (issue #109). Clear all and
+   * Load Demo replace the design, and a server render cannot follow that, so
+   * they wait for the preview to be switched off — a mode the user leaves at
+   * will, not a state they can be trapped in.
+   *
+   * Deliberately NOT the broader `mutationBlocked` these two used to take:
+   * that also covered a broken YAML document, which disabled the only two
+   * controls able to escape one. Neither reads the current design — they
+   * replace it — so whether it currently parses is irrelevant to them.
+   */
+  previewActive: boolean
   yamlBlocked: boolean
   hostActions: readonly HostAction[]
   shareLink: boolean
@@ -49,7 +60,7 @@ interface HeaderActionToolbarProps {
 export function HeaderActionToolbar({
   showLabels,
   measureOnly = false,
-  mutationBlocked,
+  previewActive,
   yamlBlocked,
   hostActions,
   shareLink,
@@ -78,7 +89,7 @@ export function HeaderActionToolbar({
           tooltipPlacement="below"
           tooltipAlign="end"
           surfaceClass={shell.buttonDestructiveIcon}
-          disabled={mutationBlocked}
+          disabled={previewActive}
           onClick={onClearAll}
         />
       </div>
@@ -89,7 +100,7 @@ export function HeaderActionToolbar({
           tooltip="Load Demo"
           tooltipPlacement="below"
           tooltipAlign="end"
-          disabled={mutationBlocked}
+          disabled={previewActive}
           onClick={onLoadDemo}
         />
       </div>

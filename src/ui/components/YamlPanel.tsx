@@ -105,6 +105,29 @@ interface YamlPanelProps {
    */
   discardPendingRef?: RefObject<(() => boolean) | null>
   /**
+   * Kept pointed at the current `armExternalYamlReplace`: the parent calls it
+   * synchronously, immediately before committing elements that **replace** the
+   * design wholesale rather than edit it — Clear all, Load Demo, a host
+   * payload push.
+   *
+   * Such a commit is exempt from the echo gate in the external-sync effect.
+   * That gate exists because, while the doc is broken, `elements` is frozen at
+   * last-valid and re-serializing it would revert the user's in-progress edit
+   * (issue #35). A replacement is the opposite case: the elements are brand
+   * new and supersede whatever the editor holds, broken text included. Without
+   * the exemption the commit landed in `elements` while the editor kept the
+   * broken text — canvas and YAML pane silently disagreeing, the doc still
+   * blocked — which is precisely how the two escape hatches out of a bad
+   * document failed to escape it.
+   *
+   * Armed one sync at a time and consumed by the run it was armed for, so it
+   * can never license clobbering a *later*, unrelated edit. That is also why
+   * the parent must arm it only where a commit is guaranteed to follow: an arm
+   * with no commit behind it would leave the flag waiting for whatever sync
+   * happens to run next.
+   */
+  armExternalReplaceRef?: RefObject<(() => void) | null>
+  /**
    * The document is shown but not editable (issue #109): the host display
    * preview is on, so the design must not move under a render that cannot
    * follow it. Read-only rather than hidden or disabled — the YAML stays
@@ -134,6 +157,7 @@ export function YamlPanel({
   onYamlBlockedChange,
   flushPendingRef,
   discardPendingRef,
+  armExternalReplaceRef,
   readOnly = false,
 }: YamlPanelProps) {
   // Serializing the payload happens inside the external-sync effect below, its
@@ -157,6 +181,13 @@ export function YamlPanel({
    * other flag this effect reads, a flip of it must never re-trigger the sync.
    */
   const dragSuspendedSyncRef = useRef(false)
+  /**
+   * Set by `armExternalYamlReplace` while an authoritative replacement of the
+   * whole design is landing, read and cleared by the sync run that performs
+   * it. A ref, not state — like every other flag this effect reads, a flip of
+   * it must never re-trigger the sync.
+   */
+  const externalReplaceRef = useRef(false)
   /** Parse of the live doc awaiting the debounced flush — set/cleared by handleYamlChange. */
   const pendingParsedRef = useRef<DrawElement[] | null>(null)
   const syncTimerRef = useRef<number | null>(null)
@@ -216,7 +247,16 @@ export function YamlPanel({
     // must never re-trigger this effect: the blocked->unblocked transition
     // mid-typing previously fired the echo with a stale serialization right
     // after the doc turned valid again (typing `30` over `y: 0` became `00`).
-    if (yamlBlockedRef.current || pendingParsedRef.current != null) {
+    // ...unless the parent is REPLACING the design rather than editing it
+    // (Clear all, Load Demo, a host payload push). Neither of the two reasons
+    // above applies then: the incoming elements are not a stale echo of a
+    // frozen array, and not something the editor is ahead of — they supersede
+    // the document outright, broken text included. Gating them is what left
+    // the canvas showing the new design while the YAML pane still showed the
+    // old broken text, with the block never lifting.
+    const externalReplace = externalReplaceRef.current
+
+    if (!externalReplace && (yamlBlockedRef.current || pendingParsedRef.current != null)) {
       // A drag that ended while the doc is blocked/pending can't land its
       // sync here — but `dragSuspendedSyncRef` must not survive past this
       // point either, or a LATER, wholly unrelated sync (once the doc
@@ -224,6 +264,17 @@ export function YamlPanel({
       // a scroll-to-linked-element for a drag that is long over.
       dragSuspendedSyncRef.current = false
       return
+    }
+
+    if (externalReplace) {
+      // Spend it here, on the one run it was armed for.
+      externalReplaceRef.current = false
+      // Same reasoning as the drag suspension above: clicking Clear all or
+      // Load Demo blurs the editor, so a debounced draft's flush — which arms
+      // the self-echo suppression — can commit in the very batch that starts
+      // the replace. Left armed it would swallow this sync and strand the
+      // editor on the text the replacement was supposed to supersede.
+      skipExternalSyncRef.current = false
     }
 
     // A drag's single sync runs at drag END, when `canvasDragging` is already
@@ -344,6 +395,23 @@ export function YamlPanel({
     return hadPendingDraft
   }, [])
 
+  /**
+   * Announce an authoritative replacement of the whole design, landing in the
+   * commit the caller is about to make. Discards any parked draft for the same
+   * reason a host push does — the replacement overrules text typed before it,
+   * so that parse must not be flushed over the top afterwards — and exempts
+   * the following sync from the echo gate so the editor actually shows what
+   * replaced it. See `armExternalReplaceRef` for why this is armed only
+   * immediately before a guaranteed commit.
+   *
+   * Only refs are touched — no state, no render — so the caller can run it
+   * synchronously right before committing.
+   */
+  const armExternalYamlReplace = useCallback(() => {
+    discardPendingYamlEdit()
+    externalReplaceRef.current = true
+  }, [discardPendingYamlEdit])
+
   useEffect(
     () => () => {
       if (syncTimerRef.current != null) {
@@ -358,6 +426,7 @@ export function YamlPanel({
   // flush a real blur/timeout would.
   usePublishedCallback(flushPendingRef, flushYamlElementsSync)
   usePublishedCallback(discardPendingRef, discardPendingYamlEdit)
+  usePublishedCallback(armExternalReplaceRef, armExternalYamlReplace)
 
   const handleYamlChange = useCallback(
     (text: string) => {

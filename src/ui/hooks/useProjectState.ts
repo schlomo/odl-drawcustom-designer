@@ -230,12 +230,28 @@ export interface ProjectStateEditorHooks {
    * MINOR-6 dedupe is safe to take.
    */
   yamlDiscardPendingRef?: RefObject<(() => boolean) | null>
+  /**
+   * Points at `YamlPanel`'s `armExternalYamlReplace`. Called synchronously,
+   * immediately before a commit that **replaces** the design wholesale rather
+   * than editing it — `clearElements`, `loadDemo`, and the host payload push.
+   *
+   * Without it those commits land in `elements` but never reach the editor
+   * while the live document is broken: the elements→editor sync deliberately
+   * refuses to overwrite a broken doc (issue #35), because the elements it
+   * would normally write there are a stale echo. A replacement is not stale,
+   * so it says so. This is what lets Clear all and Load Demo be the escape
+   * hatches out of an unparseable document that they are meant to be.
+   *
+   * Arm only where a commit is guaranteed to follow — see the ref's own docs
+   * in `YamlPanel` for why an arm with no commit behind it is a hazard.
+   */
+  yamlArmExternalReplaceRef?: RefObject<(() => void) | null>
 }
 
 export function useProjectState(
   bootstrap: AppBootstrap,
   host: DesignerHost,
-  { yamlDiscardPendingRef }: ProjectStateEditorHooks = {},
+  { yamlDiscardPendingRef, yamlArmExternalReplaceRef }: ProjectStateEditorHooks = {},
 ) {
   const [sessionName, setSessionName] = useState(bootstrap.sessionName)
   const [elements, setElements] = useState<DrawElement[]>(bootstrap.elements)
@@ -985,6 +1001,14 @@ export function useProjectState(
         if (!hadPendingDraft && elementsSequenceEqual(elementsRef.current, nextElements)) {
           return
         }
+        // Past the dedupe, this push is definitely committing — so it is safe,
+        // and necessary, to exempt its sync from the echo gate: a push is
+        // authoritative over the editor's text too, including text that
+        // currently fails to parse. Armed HERE rather than beside the discard
+        // above precisely because the dedupe can still return without
+        // committing, and an arm with no commit behind it would be left
+        // waiting for an unrelated sync to consume it.
+        yamlArmExternalReplaceRef?.current?.()
         resetEditHistory()
         // Issue #133: a host push is not "the user doing something" — guard
         // `commitElements`'s `lastEditAt` bump for the duration of this one
@@ -1007,6 +1031,7 @@ export function useProjectState(
     pushHostTargets,
     resetEditHistory,
     yamlDiscardPendingRef,
+    yamlArmExternalReplaceRef,
   ])
 
   useEffect(() => {
@@ -1561,6 +1586,9 @@ export function useProjectState(
   )
 
   const clearElements = useCallback(() => {
+    // Replaces the design, never reads it — so it works whatever state the
+    // live document is in, and is one of the two ways out of a broken one.
+    yamlArmExternalReplaceRef?.current?.()
     resetEditHistory()
     commitElements([])
     commitSelectedIndices([])
@@ -1573,7 +1601,7 @@ export function useProjectState(
     setMockStates((current) => clearDemoMockStates(current))
     setMockAttributes((current) => clearDemoMockAttributes(current))
     setVariables((current) => clearDemoVariables(current))
-  }, [commitElements, commitSelectedIndices, resetEditHistory])
+  }, [commitElements, commitSelectedIndices, resetEditHistory, yamlArmExternalReplaceRef])
 
   const toggleDisplayLock = useCallback(() => {
     // Working the lock is a display choice: it is how the user leaves a display
@@ -1668,6 +1696,9 @@ export function useProjectState(
   }, [activeTargetId, onTargetSelected, runTargetsCycle])
 
   const loadDemo = useCallback(() => {
+    // Replaces the design, never reads it — the other escape hatch out of a
+    // document that no longer parses.
+    yamlArmExternalReplaceRef?.current?.()
     allowShowcaseBundledForDemo()
     resetEditHistory()
     // While the display is locked to a host-defined config, Load Demo keeps
@@ -1696,7 +1727,7 @@ export function useProjectState(
     // Variables are not a host channel — no push can supply or clobber them —
     // so the demo's own variables seed in either mode.
     setVariables(simulator.variables)
-  }, [commitCanvas, commitElements, commitSelectedIndices, resetEditHistory])
+  }, [commitCanvas, commitElements, commitSelectedIndices, resetEditHistory, yamlArmExternalReplaceRef])
 
   const nudgeElement = useCallback(
     (index: number, dx: number, dy: number) => {

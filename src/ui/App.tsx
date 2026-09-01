@@ -128,6 +128,7 @@ export function App({ bootstrap, host }: AppProps) {
   //   decide whether a dedupe would leave stale text on screen.
   const yamlFlushPendingRef = useRef<(() => void) | null>(null)
   const yamlDiscardPendingRef = useRef<(() => boolean) | null>(null)
+  const yamlArmExternalReplaceRef = useRef<(() => void) | null>(null)
   const {
     sessionName,
     service,
@@ -204,7 +205,7 @@ export function App({ bootstrap, host }: AppProps) {
     beginEditCoalesce,
     endEditCoalesce,
     cancelEditCoalesce,
-  } = useProjectState(bootstrap, host, { yamlDiscardPendingRef })
+  } = useProjectState(bootstrap, host, { yamlDiscardPendingRef, yamlArmExternalReplaceRef })
 
   const elementsRef = useRef(elements)
 
@@ -521,11 +522,11 @@ export function App({ bootstrap, host }: AppProps) {
   }, [elementAddNotice])
 
   const handleLoadDemo = useCallback(() => {
-    if (shouldConfirmLoadDemo(elements.length) && !requestLoadDemoConfirm()) {
+    if (shouldConfirmLoadDemo(elements.length, yamlBlocked) && !requestLoadDemoConfirm()) {
       return
     }
     loadDemo()
-  }, [elements.length, loadDemo])
+  }, [elements.length, loadDemo, yamlBlocked])
 
   // Host-registered action clicked (issue #108): the designer reports the id,
   // the current payload, the opaque id of the display the design is pinned to
@@ -736,7 +737,7 @@ export function App({ bootstrap, host }: AppProps) {
     headerMetaSlotWidth(headerRowWidth, headerBrandWidth, headerToolbarWidth),
   )
   const headerToolbarProps = {
-    mutationBlocked,
+    previewActive: displayPreview.active,
     yamlBlocked,
     hostActions,
     shareLink: host.shareLink === true,
@@ -941,6 +942,7 @@ export function App({ bootstrap, host }: AppProps) {
             propertyEditing={propertyEditing}
             flushPendingRef={yamlFlushPendingRef}
             discardPendingRef={yamlDiscardPendingRef}
+            armExternalReplaceRef={yamlArmExternalReplaceRef}
             readOnly={displayPreview.active}
           />
         </div>
