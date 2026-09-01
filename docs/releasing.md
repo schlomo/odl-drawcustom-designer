@@ -256,14 +256,50 @@ costs the same ~7 MB either way.
       ```
       This single command **creates the `vX.Y.Z` tag** (pointed at the exact
       commit that was gated, via `--target "$GITHUB_SHA"`) **and** the
-      GitHub release in one step — no separate tag push, no bump commit, no
-      write back to `main` at all. When `create-release` is `false` the
-      artifacts above are still built (the npm job consumes them) and
-      nothing is created.
-4. Uploads `dist-lib/` as a workflow artifact, so the npm job publishes the
-   **exact bytes** attached to the release rather than rebuilding them —
-   which also means the release's `.sha256` assets describe the npm
-   tarball's contents.
+      GitHub release — no separate tag push, no bump commit, no write back
+      to `main` at all.
+   4. When `create-release` is `false`, it **reconciles** instead — see
+      below. It does not simply exit.
+
+#### Reconciling an `already-released` tag
+
+`gh release create` creates the tag and the release, then uploads the seven
+assets **one at a time**. It is not atomic. If an upload dies, the tag exists
+and is reachable from HEAD, so every later run's `releaseVersion.ts` reports
+`already-released` — and a `createRelease.ts` that merely exited there would
+leave the GitHub release permanently incomplete while npm and Pages sailed
+past it. npm reconciles itself against the registry; the release needs this
+(Copilot review on [PR #183](https://github.com/schlomo/odl-drawcustom-designer/pull/183)).
+
+So the `already-released` path reads the release back
+(`gh release view --json assets`), compares it against
+`RELEASE_ASSET_NAMES`, and uploads whatever is missing
+(`gh release upload --clobber`). Three deliberate rulings, all in
+`planReleaseReconcile` and unit-tested:
+
+- **"Complete" = every expected asset name is present.** A GitHub asset
+  upload either completes or leaves nothing behind, so presence is a sound
+  completeness test — there are no half-written assets to detect.
+- **A checksum already on the release must match the fresh build, or the run
+  fails loudly.** `build:lib` is byte-reproducible at a fixed `APP_VERSION`
+  (verified: two runs, identical sha256s), so a disagreement is a real
+  anomaly — a moved tag, a different toolchain, a hand-edited asset — and
+  must be surfaced rather than clobbered over bytes a consumer may already
+  have downloaded and verified. Only the two tiny `.sha256` assets are
+  fetched for this; their contents *are* the digests of the two big
+  binaries, so it checks those without downloading 5.7 MB.
+- **A tag with no release fails loudly.** The pipeline cannot produce that
+  state, so it means the release was deleted outside it. Recreating it would
+  regenerate notes over a range someone deliberately changed and would
+  quietly undo a destructive action. The error names the manual fix.
+
+A genuine collision — `create-release: true` for a tag that already exists,
+i.e. a tag created off HEAD or a concurrent run — still fails loudly, exactly
+as before. Reconciliation repairs states this pipeline can produce; it does
+not paper over ones it cannot.
+
+Running the job twice in a row converges: the second run finds every asset
+present and every checksum matching, and does nothing.
 
 **Why tag/release creation sits here, before the fan-out.** `gh release
 create` is the one irreversible step in the pipeline, and the version's
@@ -292,11 +328,22 @@ anti-loop `if:` condition.
 
 Shallow checkout (for `LICENSE`/`NOTICE`/`README.md` and the `tools/`
 scripts), `npm ci`, `npm install -g npm@11.19` (the Trusted Publishing
-floor), download the `dist-lib/` artifact, then
-[`node tools/publishNpm.ts`](../tools/publishNpm.ts) with `APP_VERSION` from
-the `version` job. It asks the registry whether that exact version is
-already published and publishes only if not — see
+floor), then [`node tools/publishNpm.ts`](../tools/publishNpm.ts) with
+`APP_VERSION` from the `version` job. It asks the registry whether that exact
+version is already published, and only if not, fetches the release's own
+assets (`gh release download`) and publishes those bytes — see
 [Failure and recovery](#failure-and-recovery) and [npm](#npm).
+
+**The release, not a workflow artifact, is the source.** An earlier draft had
+the `version` job hand `dist-lib/` over via
+`upload-artifact`/`download-artifact`. Artifacts are scoped to a workflow
+run, and their visibility across run **attempts** is not something the
+action's docs pin down — while "re-run the failed `npm` job alone" (attempt 2
+running `npm` while `version` stays green from attempt 1) is precisely this
+pipeline's headline recovery path. Reading the release removes that doubt:
+by then it exists and is complete, it is authoritative, and it outlives
+artifact retention. It also makes the release's `.sha256` assets describe the
+npm tarball's contents by construction.
 
 ### 2b. `pages` — deploy the standalone site
 
@@ -644,11 +691,30 @@ anything.
 |---|---|---|---|
 | `version` — gate red (`npm test` / `npm run lint`) | Nothing tagged, nothing published, site unchanged | Fix the code and push (or `workflow_dispatch` once fixed) | Recomputes the version from tag ancestry — the version is derived, never stored, so nothing is stale |
 | `version` — `build:lib` or asset generation | Nothing tagged (those steps run **before** `gh release create`) | Re-run the job | Same as above |
-| `version` — `gh release create` | Nothing tagged (the command is atomic: tag + release together) | Re-run the job | Recomputes the same version and retries the creation |
-| `version` — artifact upload, **after** the release was created | Tag + release exist; nothing published | Re-run the job | The new tag is now reachable from HEAD → `already-released`, so it rebuilds the same artifacts and creates **no** second release |
-| `npm` | Tag + release exist; **site still deploys** (parallel job, unaffected) | Re-run failed jobs | `tools/publishNpm.ts` asks the registry for that version, gets a 404, and publishes it |
+| `version` — `gh release create`, before the tag was made | Nothing tagged | Re-run the job | Recomputes the same version and retries the creation |
+| `version` — `gh release create`, **after** the tag was made but mid asset upload | Tag + an **incomplete** release exist | Re-run the job | The tag is now reachable from HEAD → `already-released` → **reconciles**: reads the release back and uploads exactly the missing assets (`gh release upload --clobber`) |
+| `npm` | Tag + release exist; **site still deploys** (parallel job, unaffected) | Re-run failed jobs | `tools/publishNpm.ts` asks the registry for that version, gets a 404, downloads the release assets and publishes them |
 | `pages` | Tag + release exist; **npm still publishes** (parallel job, unaffected) | Re-run failed jobs | Rebuilds the site at the same `APP_VERSION` and redeploys — deploying identical content again is harmless |
 | both publishes | Tag + release exist | Re-run failed jobs | Both re-run, again in parallel, each idempotent |
+
+**`gh release create` is not atomic** — it makes the tag and release, then
+uploads assets one by one. That is why the fourth row exists and why the
+`already-released` path reconciles rather than exiting; see
+[Reconciling an `already-released` tag](#reconciling-an-already-released-tag).
+
+**Re-runs and workflow artifacts.** The three `upload-artifact` steps left in
+the two workflows (`dist-production-*`, `playwright-report-*`, `dist-pr-*`)
+are diagnostic snapshots that nothing downloads, and each name is keyed on
+the **run** number, which "Re-run failed jobs" reuses. Observed behaviour is
+that uploads are scoped per run *attempt*, so `overwrite: false` does not
+conflict across attempts — PR #183's own `preview` job re-ran with the
+default and uploaded the same name again, leaving two same-named artifacts on
+the run. They nonetheless all set `overwrite: true`: each of those steps runs
+*before* a deploy, so were that ever to change, a name conflict would block
+the deploy from being retried at all — and overwriting keeps the newest
+attempt as the single snapshot instead of accumulating duplicates. Nothing in
+the release path depends on artifacts at all any more (see
+[2a. npm](#2a-npm--publish-the-library)).
 
 **Idempotency, concretely:**
 
@@ -665,7 +731,9 @@ anything.
   any more — the ordinary path *is* the recovery path.
 - **GitHub release** — the `version` job creates one only when the version
   has no tag reachable from HEAD. A re-run after a successful creation sees
-  `already-released` and creates nothing.
+  `already-released` and creates nothing, but does **reconcile** the
+  release's assets, so a creation that died mid-upload is repaired rather
+  than frozen. Running it again after that is a no-op.
 - **Pages** — a deploy of the same `dist/` is a no-op commit on `gh-pages`.
 
 **The one gap, stated plainly.** The npm job reconciles *this run's*

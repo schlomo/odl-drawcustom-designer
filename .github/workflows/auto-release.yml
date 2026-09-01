@@ -136,17 +136,6 @@ jobs:
           CREATE_RELEASE: ${{ steps.version.outputs.create-release }}
         run: node tools/createRelease.ts
 
-      # Handed to the npm job so it publishes the EXACT bytes attached to the
-      # release (the .sha256 assets then describe the npm tarball's contents
-      # too) instead of rebuilding them.
-      - name: Upload the released library
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-lib-${{ steps.version.outputs.version }}
-          path: dist-lib/
-          if-no-files-found: error
-          retention-days: 14
-
   # ---------------------------------------------------------------------
   # 2a. npm — parallel with `pages`, independent of it.
   # ---------------------------------------------------------------------
@@ -183,14 +172,20 @@ jobs:
       # silently change publish behavior — bump deliberately.
       - run: npm install -g npm@11.19
 
-      - name: Download the released library
-        uses: actions/download-artifact@v7
-        with:
-          name: release-lib-${{ needs.version.outputs.version }}
-          path: dist-lib/
-
+      # tools/publishNpm.ts fetches the release's own assets (`gh release
+      # download`) and publishes exactly those bytes, so the release's
+      # .sha256 assets describe the npm tarball too. Deliberately NOT an
+      # upload-artifact/download-artifact hand-off from the `version` job:
+      # artifacts are scoped to a workflow run and their visibility across
+      # run ATTEMPTS is not pinned down by the action's docs, while
+      # "Re-run failed jobs" on this job alone — attempt 2 running `npm`
+      # while `version` stays green from attempt 1 — is exactly this
+      # pipeline's headline recovery path. The release is authoritative,
+      # complete by the time this runs (tools/createRelease.ts reconciles
+      # it), and outlives artifact retention.
       - name: Publish to npm
         env:
+          GH_TOKEN: ${{ github.token }}
           APP_VERSION: ${{ needs.version.outputs.version }}
           # Staged rollout gate (issue #103): a repo **variable**, not a
           # secret — there is no token to manage under Trusted Publishing.
@@ -244,6 +239,15 @@ jobs:
         env:
           APP_VERSION: ${{ needs.version.outputs.version }}
 
+      # Diagnostic snapshot; nothing downloads it. `overwrite: true` because
+      # the artifact name is keyed on the RUN number, which "Re-run failed
+      # jobs" reuses: on the observed evidence uploads are scoped per run
+      # ATTEMPT and a re-run does not conflict (PR #183's own preview job
+      # re-ran with overwrite:false and uploaded the same name again), but
+      # this step sits BEFORE the deploy, so if that ever changed a conflict
+      # here would block the deploy from being retried at all. Overwriting
+      # also keeps the newest attempt as the one snapshot, instead of
+      # accumulating same-named duplicates.
       - name: Upload dist artifact
         uses: actions/upload-artifact@v7
         with:
@@ -251,6 +255,7 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 14
+          overwrite: true
 
       - name: Deploy production
         uses: JamesIves/github-pages-deploy-action@v4

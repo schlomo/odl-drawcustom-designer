@@ -106,6 +106,10 @@ jobs:
           name: playwright-report-${{ github.run_number }}
           path: playwright-report/
           retention-days: 7
+          # Name is keyed on the RUN number, which a re-run reuses; overwrite
+          # so the newest attempt's report is the one kept (see the same note
+          # in auto-release.yml's `pages` job).
+          overwrite: true
 
   preview:
     if: github.event.pull_request.head.repo.full_name == github.repository
@@ -162,6 +166,9 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 14
+          # Same reasoning as the Playwright report above: the run number is
+          # reused by a re-run, and this step precedes the preview deploy.
+          overwrite: true
 
       - name: Deploy PR preview
         uses: rossjrw/pr-preview-action@v1

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { ghReleaseCreateArgs, requireReleaseEnv } from '../../tools/createRelease'
+import {
+  ghReleaseCreateArgs,
+  ghReleaseUploadArgs,
+  ghReleaseViewAssetsArgs,
+  planReleaseReconcile,
+  RELEASE_ASSET_NAMES,
+  requireReleaseEnv,
+} from '../../tools/createRelease'
 
 // Step two of the release pipeline: build the library at the version the
 // `version` job already computed and — when this run owns that version —
@@ -65,5 +72,136 @@ describe('ghReleaseCreateArgs', () => {
     const args = ghReleaseCreateArgs('v3.4.0', 'abc123', [])
     expect(args[args.indexOf('--title') + 1]).toBe('v3.4.0')
     expect(args).toContain('--generate-notes')
+  })
+})
+
+// Reconcile (Copilot review on PR #183): `gh release create` is NOT atomic —
+// it creates the tag, then uploads assets one by one. If an upload dies, the
+// tag exists and is reachable from HEAD, so the next run's releaseVersion.ts
+// reports `already-released` and this script must NOT just exit: it would
+// leave the GitHub release permanently incomplete while npm and Pages sail
+// past. The already-released path therefore reconciles what the release has
+// against what it should have.
+
+describe('RELEASE_ASSET_NAMES', () => {
+  it('names every asset a complete release carries', () => {
+    expect([...RELEASE_ASSET_NAMES].sort()).toEqual(
+      [
+        'LICENSE',
+        'NOTICE',
+        'THIRD_PARTY.md',
+        'odl-drawcustom-designer.d.ts',
+        'odl-drawcustom-designer.d.ts.sha256',
+        'odl-drawcustom-designer.js',
+        'odl-drawcustom-designer.js.sha256',
+      ].sort(),
+    )
+  })
+})
+
+describe('planReleaseReconcile', () => {
+  const fresh = {
+    'odl-drawcustom-designer.js.sha256': 'aaa  odl-drawcustom-designer.js\n',
+    'odl-drawcustom-designer.d.ts.sha256': 'bbb  odl-drawcustom-designer.d.ts\n',
+  }
+  const completeAssets = (): string[] => [...RELEASE_ASSET_NAMES]
+
+  it('is a no-op when the release already carries every asset', () => {
+    const decision = planReleaseReconcile({
+      tag: 'v3.4.2',
+      release: { exists: true, assetNames: completeAssets() },
+      freshChecksums: fresh,
+      recordedChecksums: fresh,
+    })
+    expect(decision).toMatchObject({ action: 'complete' })
+  })
+
+  it('uploads exactly the assets a partial release is missing', () => {
+    const decision = planReleaseReconcile({
+      tag: 'v3.4.2',
+      release: {
+        exists: true,
+        assetNames: ['odl-drawcustom-designer.js', 'odl-drawcustom-designer.js.sha256', 'LICENSE'],
+      },
+      freshChecksums: fresh,
+      recordedChecksums: { 'odl-drawcustom-designer.js.sha256': fresh['odl-drawcustom-designer.js.sha256'] },
+    })
+    expect(decision).toMatchObject({ action: 'upload' })
+    expect(decision.action === 'upload' && [...decision.assetNames].sort()).toEqual(
+      ['NOTICE', 'THIRD_PARTY.md', 'odl-drawcustom-designer.d.ts', 'odl-drawcustom-designer.d.ts.sha256'].sort(),
+    )
+  })
+
+  it('uploads everything when the tag exists but the release carries no assets at all', () => {
+    const decision = planReleaseReconcile({
+      tag: 'v3.4.2',
+      release: { exists: true, assetNames: [] },
+      freshChecksums: fresh,
+      recordedChecksums: {},
+    })
+    expect(decision).toMatchObject({ action: 'upload' })
+    expect(decision.action === 'upload' && decision.assetNames.length).toBe(completeAssets().length)
+  })
+
+  // The rebuild is byte-reproducible at a fixed APP_VERSION (verified: two
+  // `build:lib` runs produce identical sha256), so a recorded checksum that
+  // disagrees with the fresh one is a real anomaly — never something to
+  // silently clobber over bytes a consumer may already have downloaded.
+  it('fails loudly when a checksum already on the release disagrees with the fresh build', () => {
+    expect(() =>
+      planReleaseReconcile({
+        tag: 'v3.4.2',
+        release: { exists: true, assetNames: completeAssets() },
+        freshChecksums: fresh,
+        recordedChecksums: {
+          ...fresh,
+          'odl-drawcustom-designer.js.sha256': 'DIFFERENT  odl-drawcustom-designer.js\n',
+        },
+      }),
+    ).toThrow(/checksum/i)
+  })
+
+  it('tolerates whitespace differences when comparing checksum files', () => {
+    const decision = planReleaseReconcile({
+      tag: 'v3.4.2',
+      release: { exists: true, assetNames: completeAssets() },
+      freshChecksums: fresh,
+      recordedChecksums: {
+        'odl-drawcustom-designer.js.sha256': '  aaa  odl-drawcustom-designer.js  ',
+        'odl-drawcustom-designer.d.ts.sha256': 'bbb  odl-drawcustom-designer.d.ts',
+      },
+    })
+    expect(decision).toMatchObject({ action: 'complete' })
+  })
+
+  // A tag with no release is not a state this pipeline can produce (`gh
+  // release create` makes both together), so it means someone deleted the
+  // release. Recreating it would regenerate notes over a range that was
+  // deliberately changed and would mask a destructive action.
+  it('fails loudly when the tag exists but the release does not', () => {
+    expect(() =>
+      planReleaseReconcile({
+        tag: 'v3.4.2',
+        release: { exists: false, assetNames: [] },
+        freshChecksums: fresh,
+        recordedChecksums: {},
+      }),
+    ).toThrow(/no GitHub release/i)
+  })
+})
+
+describe('ghReleaseUploadArgs', () => {
+  it('uploads the named files against the tag, clobbering so a re-run converges', () => {
+    const args = ghReleaseUploadArgs('v3.4.2', ['dist-lib/a.js', 'NOTICE'])
+    expect(args.slice(0, 3)).toEqual(['release', 'upload', 'v3.4.2'])
+    expect(args).toContain('dist-lib/a.js')
+    expect(args).toContain('NOTICE')
+    expect(args).toContain('--clobber')
+  })
+})
+
+describe('ghReleaseViewAssetsArgs', () => {
+  it('asks only for the asset list, as JSON', () => {
+    expect(ghReleaseViewAssetsArgs('v3.4.2')).toEqual(['release', 'view', 'v3.4.2', '--json', 'assets'])
   })
 })
