@@ -106,6 +106,8 @@ export {
   hasPropertyDefault,
   isPlotNestedProperty,
   isRequiredProperty,
+  defaultMultilineOffsetY,
+  isSchemaRequiredProperty,
   normalizePropertyValueForStorage,
   PLOT_NESTED_FIELDS,
   REQUIRED_PROPERTIES_BY_TYPE,
