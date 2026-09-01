@@ -55,9 +55,13 @@ export const APP_VERSION =
  * `tools/autoRelease.ts`'s bump algorithm — docs/releasing.md#site-version).
  *
  * The empty string — every other build (local dev, CI `checks`, PR
- * previews, a local `build:site`) — is the deliberate "cannot safely show
- * a version" signal: the header falls back to branch + SHA rather than
- * guess. Never defaults to a placeholder like `APP_VERSION` does.
+ * previews, a local `build:site`) — is the deliberate "no site version"
+ * signal, never a placeholder like `APP_VERSION` does. It does NOT by
+ * itself mean the header falls back to branch + SHA: `APP_HEADER_VERSION`
+ * below also consults `APP_VERSION`, so a released library build (empty
+ * `APP_SITE_VERSION`, real `APP_VERSION`) still shows a version label —
+ * only when *both* are unset/placeholder does the header fall back to
+ * branch + SHA.
  */
 export const APP_SITE_VERSION = (import.meta.env.VITE_SITE_VERSION ?? '').trim()
 
