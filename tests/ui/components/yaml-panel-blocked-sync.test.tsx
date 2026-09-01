@@ -6,6 +6,7 @@ import { act, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DrawElement } from '../../../src/core'
 import { YamlPanel } from '../../../src/ui/components/YamlPanel'
+import { isYamlDocBlocked, tryParseYamlElements } from '../../../src/ui/editor/yamlElementsSync'
 import { haJinjaCompletionSource } from '../../../src/ui/editor/jinjaCompletions'
 import { yamlSchemaCompletionSource } from '../../../src/ui/editor/yamlCompletionSource'
 
@@ -442,5 +443,112 @@ describe('YamlPanel Jinja completions reach React state (issue #35 follow-up, ji
     // so `onElementsChange` never fires for this edit.
     expect(elementsChanges.length).toBeGreaterThan(baseline)
     expect(elementsChanges.at(-1)?.[0]).toMatchObject({ value: expect.stringContaining('if condition') })
+  })
+})
+
+/**
+ * Escape hatches out of a broken document.
+ *
+ * The echo gate above (issue #35) is what freezes the editor while the live
+ * doc is broken: `elements` is stale, so re-serializing it would revert the
+ * user's in-progress edit. But "Clear all" and "Load Demo" do not *read* the
+ * current design at all — they REPLACE it — so the elements they commit are
+ * not a stale echo, and the gate must not swallow them. Before this, the
+ * commit landed in `elements` while the editor kept the broken text: the
+ * canvas and the YAML pane silently disagreed and the doc stayed blocked, so
+ * the two controls whose whole purpose is escaping a bad state could not.
+ *
+ * The parent signals such a replacement through `armExternalReplaceRef`,
+ * synchronously, immediately before the commit — one sync run consumes it.
+ */
+describe('YamlPanel external replace while the live YAML doc is broken', () => {
+  function breakDoc(view: EditorView): string {
+    const colonIndex = view.state.doc.toString().indexOf(':')
+    expect(colonIndex).toBeGreaterThan(-1)
+    dispatchUserEdit(view, { from: colonIndex, to: colonIndex + 1, insert: '' })
+    const broken = view.state.doc.toString()
+    expect(isYamlDocBlocked(broken)).toBe(true)
+    return broken
+  }
+
+  it('Clear all recovers: the editor is replaced with the empty design and the doc parses again', () => {
+    const armRef = { current: null as (() => void) | null }
+    const blockedChanges: boolean[] = []
+    const props = (overrides = {}) =>
+      panelProps({
+        armExternalReplaceRef: armRef,
+        onYamlBlockedChange: (blocked: boolean) => blockedChanges.push(blocked),
+        ...overrides,
+      })
+
+    const { container, rerender } = render(<YamlPanel {...props()} />)
+    const view = findMountedView(container)
+
+    const brokenDoc = breakDoc(view)
+    expect(blockedChanges.at(-1)).toBe(true)
+
+    // "Clear all": arm the replace, then commit the empty design.
+    act(() => {
+      armRef.current?.()
+    })
+    rerender(<YamlPanel {...props({ elements: [] })} />)
+
+    const recovered = view.state.doc.toString()
+    expect(recovered).not.toBe(brokenDoc)
+    expect(tryParseYamlElements(recovered)).toEqual([])
+    expect(blockedChanges.at(-1)).toBe(false)
+  })
+
+  it('Load Demo recovers: the editor is replaced with the loaded design and the doc parses again', () => {
+    const armRef = { current: null as (() => void) | null }
+    const demo: DrawElement[] = [
+      { type: 'text', value: 'demo', x: 5, y: 6 },
+      { type: 'rectangle', x_start: 0, y_start: 0, x_end: 10, y_end: 10 },
+    ]
+
+    const props = (overrides = {}) => panelProps({ armExternalReplaceRef: armRef, ...overrides })
+    const { container, rerender } = render(<YamlPanel {...props()} />)
+    const view = findMountedView(container)
+
+    const brokenDoc = breakDoc(view)
+
+    act(() => {
+      armRef.current?.()
+    })
+    rerender(<YamlPanel {...props({ elements: demo })} />)
+
+    const recovered = view.state.doc.toString()
+    expect(recovered).not.toBe(brokenDoc)
+    expect(isYamlDocBlocked(recovered)).toBe(false)
+    expect(tryParseYamlElements(recovered)).toEqual(demo)
+  })
+
+  it('a consumed replace does not leak: a later sync still refuses to rewrite a newly broken doc', () => {
+    const armRef = { current: null as (() => void) | null }
+    const props = (overrides = {}) => panelProps({ armExternalReplaceRef: armRef, ...overrides })
+
+    const { container, rerender } = render(<YamlPanel {...props()} />)
+    const view = findMountedView(container)
+
+    breakDoc(view)
+
+    // One armed replace, consumed by the sync it was armed for.
+    act(() => {
+      armRef.current?.()
+    })
+    rerender(<YamlPanel {...props({ elements: [] })} />)
+    expect(isYamlDocBlocked(view.state.doc.toString())).toBe(false)
+
+    // The user starts typing a new element into the now-empty document and an
+    // ordinary dependency flip runs the sync effect mid-edit. This must behave
+    // exactly as issue #35 requires — the earlier arm is spent and cannot
+    // license clobbering the new, not-yet-valid text.
+    dispatchUserEdit(view, { from: 0, to: view.state.doc.length, insert: '- type text' })
+    const brokenAgain = view.state.doc.toString()
+    expect(isYamlDocBlocked(brokenAgain)).toBe(true)
+    rerender(<YamlPanel {...props({ elements: [], canvasDragging: true })} />)
+    expect(view.state.doc.toString()).toBe(brokenAgain)
+    rerender(<YamlPanel {...props({ elements: [], canvasDragging: false })} />)
+    expect(view.state.doc.toString()).toBe(brokenAgain)
   })
 })

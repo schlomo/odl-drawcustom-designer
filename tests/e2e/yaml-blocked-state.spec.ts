@@ -57,13 +57,17 @@ test('breaking the YAML blocks canvas/property editing without reverting the edi
   // Property inputs are disabled while blocked.
   await expect(page.getByTestId('property-input-x_end')).toBeDisabled()
 
-  // Every element-mutating control is disabled while blocked (issue #35
-  // contract: no element mutation while the doc is broken) — canvas header
-  // undo, the add-element toolbar, and the header session actions.
+  // Every control that EDITS the current design is disabled while blocked
+  // (issue #35 contract: no element mutation while the doc is broken) —
+  // canvas header undo and the add-element toolbar.
   await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Add text' })).toBeDisabled()
-  await expect(page.getByRole('button', { name: 'Clear all' })).toBeDisabled()
-  await expect(page.getByRole('button', { name: 'Load Demo' })).toBeDisabled()
+
+  // The two controls that REPLACE the design stay available: they never read
+  // the broken document, and they are how the user gets out of it. See
+  // yaml-blocked-escape.spec.ts for the recovery itself.
+  await expect(page.getByRole('button', { name: 'Clear all' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Load Demo' })).toBeEnabled()
 
   // A canvas click on the circle is inert: selection stays on the rectangle...
   await clickCanvasPoint(page, { x: SMOKE_CIRCLE.x, y: SMOKE_CIRCLE.y }, SMOKE_CANVAS)
@@ -83,8 +87,6 @@ test('breaking the YAML blocks canvas/property editing without reverting the edi
   // The element-mutating controls come back with the valid doc.
   await expect(page.getByRole('button', { name: 'Undo' })).toBeEnabled()
   await expect(page.getByRole('button', { name: 'Add text' })).toBeEnabled()
-  await expect(page.getByRole('button', { name: 'Clear all' })).toBeEnabled()
-  await expect(page.getByRole('button', { name: 'Load Demo' })).toBeEnabled()
 
   // Editing resumes: the same canvas click now selects the circle.
   await clickCanvasPoint(page, { x: SMOKE_CIRCLE.x, y: SMOKE_CIRCLE.y }, SMOKE_CANVAS)
