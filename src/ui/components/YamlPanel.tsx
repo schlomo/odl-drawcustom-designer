@@ -128,6 +128,18 @@ interface YamlPanelProps {
    */
   armExternalReplaceRef?: RefObject<(() => void) | null>
   /**
+   * Kept pointed at a live read of whether the document currently fails to
+   * parse. The host `setPayload` applier needs it to decide whether its dedupe
+   * is safe: while blocked, the editor and `elements` are NOT in sync, so
+   * structural equality of `elements` says nothing about what the user is
+   * looking at (Copilot review, PR #180).
+   *
+   * A published callback rather than the parent's own `yamlBlocked` state: the
+   * state reaches `App` a render later than this component knows it, and a
+   * push can arrive inside that window.
+   */
+  docBlockedRef?: RefObject<(() => boolean) | null>
+  /**
    * The document is shown but not editable (issue #109): the host display
    * preview is on, so the design must not move under a render that cannot
    * follow it. Read-only rather than hidden or disabled — the YAML stays
@@ -158,6 +170,7 @@ export function YamlPanel({
   flushPendingRef,
   discardPendingRef,
   armExternalReplaceRef,
+  docBlockedRef,
   readOnly = false,
 }: YamlPanelProps) {
   // Serializing the payload happens inside the external-sync effect below, its
@@ -407,6 +420,9 @@ export function YamlPanel({
    * Only refs are touched — no state, no render — so the caller can run it
    * synchronously right before committing.
    */
+  /** Live read of the blocked state — see `docBlockedRef`. */
+  const isYamlDocCurrentlyBlocked = useCallback(() => yamlBlockedRef.current, [])
+
   const armExternalYamlReplace = useCallback(() => {
     discardPendingYamlEdit()
     externalReplaceRef.current = true
@@ -427,6 +443,7 @@ export function YamlPanel({
   usePublishedCallback(flushPendingRef, flushYamlElementsSync)
   usePublishedCallback(discardPendingRef, discardPendingYamlEdit)
   usePublishedCallback(armExternalReplaceRef, armExternalYamlReplace)
+  usePublishedCallback(docBlockedRef, isYamlDocCurrentlyBlocked)
 
   const handleYamlChange = useCallback(
     (text: string) => {

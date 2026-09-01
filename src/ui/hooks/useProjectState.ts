@@ -246,12 +246,21 @@ export interface ProjectStateEditorHooks {
    * in `YamlPanel` for why an arm with no commit behind it is a hazard.
    */
   yamlArmExternalReplaceRef?: RefObject<(() => void) | null>
+  /**
+   * Points at `YamlPanel`'s live "is the document currently unparseable?"
+   * read. The `setPayload` applier consults it before deduping — see there.
+   */
+  yamlDocBlockedRef?: RefObject<(() => boolean) | null>
 }
 
 export function useProjectState(
   bootstrap: AppBootstrap,
   host: DesignerHost,
-  { yamlDiscardPendingRef, yamlArmExternalReplaceRef }: ProjectStateEditorHooks = {},
+  {
+    yamlDiscardPendingRef,
+    yamlArmExternalReplaceRef,
+    yamlDocBlockedRef,
+  }: ProjectStateEditorHooks = {},
 ) {
   const [sessionName, setSessionName] = useState(bootstrap.sessionName)
   const [elements, setElements] = useState<DrawElement[]>(bootstrap.elements)
@@ -1012,6 +1021,14 @@ export function useProjectState(
         // path (commit + selection reset) gives `elements` that new
         // reference and lets the sync effect re-serialize over it.
         const hadPendingDraft = yamlDiscardPendingRef?.current?.() ?? false
+        // Copilot review (PR #180): a blocked document is the *other* way the
+        // editor can hold text `elements` does not account for. While the doc
+        // fails to parse, `elements` is frozen at the last valid design — so
+        // the payload a host re-pushes to rescue the user is, structurally,
+        // exactly what `elements` already holds, and the dedupe below swallowed
+        // it. That silently broke the obvious host move ("re-send the payload
+        // to resync the panel") in precisely the state it is most needed.
+        const docBlocked = yamlDocBlockedRef?.current?.() ?? false
 
         // Issue #133 MINOR 6: dedupe only when there was no draft to correct
         // — the same full-bail pattern `applyStates` uses (issue #110) for
@@ -1024,7 +1041,21 @@ export function useProjectState(
         // `payloadRevision`: the push observably changed something (the
         // draft is gone, the editor re-synced), even though the committed
         // elements end up structurally the same as before.
-        if (!hadPendingDraft && elementsSequenceEqual(elementsRef.current, nextElements)) {
+        //
+        // Hence both disqualifiers: dedupe only when the editor is actually in
+        // sync with `elements`. The guard still holds for the case it exists
+        // for — the non-blocked heartbeat/reconnect push with nothing pending,
+        // which stays a complete no-op.
+        //
+        // A rescue push takes the full apply path, and that is deliberate on
+        // all three counts. `payloadRevision` bumps: identical elements or not,
+        // the push observably replaced unparseable text and lifted the block,
+        // exactly the N11 reasoning above. `resetEditHistory()` and the
+        // selection reset stay too — a host push is authoritative and has
+        // always meant both; carving out an exception here would make the
+        // rescue a second, subtly different push path, which is the thing this
+        // applier's history keeps warning against.
+        if (!hadPendingDraft && !docBlocked && elementsSequenceEqual(elementsRef.current, nextElements)) {
           return
         }
         // Past the dedupe, this push is definitely committing — so it is safe,
@@ -1058,6 +1089,7 @@ export function useProjectState(
     resetEditHistory,
     yamlDiscardPendingRef,
     yamlArmExternalReplaceRef,
+    yamlDocBlockedRef,
   ])
 
   useEffect(() => {
