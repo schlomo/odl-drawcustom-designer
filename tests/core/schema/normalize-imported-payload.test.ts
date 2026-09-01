@@ -3,10 +3,12 @@ import type { DrawElement } from '../../../src/core'
 import {
   DRAW_ELEMENT_TYPES,
   normalizeImportedPayload,
+  parseYamlPayload,
   serializeYamlPayload,
   validatePayload,
 } from '../../../src/core'
 import { elementSchemasByType } from '../../../src/core/schema/elements'
+import { insertKeyAfter } from '../../../src/core/schema/normalizeElements'
 
 /**
  * HA `imagegen` (and its `odl_renderer` fork) positions `text`, `multiline`
@@ -200,5 +202,83 @@ describe('validatePayload (the editor path)', () => {
     }
     expect(result.data[0]).not.toHaveProperty('y')
     expect(result.data[1]).not.toHaveProperty('y_start')
+  })
+})
+
+/**
+ * Order-preserving insert, exercised directly because its one job is a rule
+ * two callers depend on: the new key lands next to its horizontal partner, and
+ * a key already present under that name must not clobber the value being
+ * written (Copilot review, PR #179).
+ */
+describe('insertKeyAfter', () => {
+  it('places the new key immediately after its anchor, leaving the rest in order', () => {
+    const result = insertKeyAfter({ type: 'text', x: 1, font: 'ppb.ttf' }, 'x', 'y', 0)
+
+    expect(Object.keys(result)).toEqual(['type', 'x', 'y', 'font'])
+    expect(result.y).toBe(0)
+  })
+
+  it('appends when the anchor is absent', () => {
+    const result = insertKeyAfter({ type: 'line', x_end: 9 }, 'x_start', 'y_start', 0)
+
+    expect(Object.keys(result)).toEqual(['type', 'x_end', 'y_start'])
+    expect(result.y_start).toBe(0)
+  })
+
+  it('never lets a later copy of the same key overwrite the inserted value', () => {
+    const result = insertKeyAfter({ type: 'text', x: 1, y: undefined, font: 'ppb.ttf' }, 'x', 'y', 0)
+
+    expect(result.y).toBe(0)
+    expect(Object.keys(result)).toEqual(['type', 'x', 'y', 'font'])
+  })
+})
+
+/**
+ * A bare `y:` in YAML parses to `null`, not to a missing key. Nothing in the
+ * schema accepts `null` for a coordinate (only `colorSchema` has a meaningful
+ * `z.null()`), so such a payload can only ever be a validation error that
+ * blocks the canvas — and the author's intent is identical to omitting the
+ * key. Import treats it as absent.
+ */
+describe('normalizeImportedPayload — a bare vertical coordinate (null)', () => {
+  it('materializes a null y the same way it materializes a missing one', () => {
+    const result = normalizeImportedPayload([
+      { type: 'text', value: 'Bare', x: 1, y: null, font: 'ppb.ttf', anchor: 'lt' },
+      { type: 'line', x_start: 0, y_start: null, x_end: 100 },
+    ] as unknown as DrawElement[])
+
+    expect(result.elements).toEqual([
+      { type: 'text', value: 'Bare', x: 1, y: 0, font: 'ppb.ttf', anchor: 'lt' },
+      { type: 'line', x_start: 0, y_start: 0, x_end: 100 },
+    ])
+    expect(result.normalized).toEqual({
+      verticalCount: 2,
+      verticalTypes: ['line', 'text'],
+      spacingCount: 0,
+    })
+  })
+
+  it('keeps the key where the author wrote it rather than relocating it', () => {
+    const result = normalizeImportedPayload([
+      { type: 'text', value: 'Bare', x: 1, font: 'ppb.ttf', y: null },
+    ] as unknown as DrawElement[])
+
+    expect(Object.keys(result.elements[0] as object)).toEqual([
+      'type',
+      'value',
+      'x',
+      'font',
+      'y',
+    ])
+  })
+
+  it('turns a payload the schema rejected into one it accepts', () => {
+    const bare = parseYamlPayload(['- type: text', '  value: Bare', '  x: 1', '  y:', ''].join('\n'))
+    expect(validatePayload(bare).success).toBe(false)
+
+    const { elements } = normalizeImportedPayload(bare)
+
+    expect(validatePayload(elements).success).toBe(true)
   })
 })

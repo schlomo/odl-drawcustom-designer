@@ -206,6 +206,13 @@ differ from what the device would have drawn — which is exactly what the notic
 warns about. `multiline`'s legacy `start_y` alias is not supported and is not
 normalized.
 
+An **empty** coordinate counts as a missing one: a bare `y:` parses to `null`,
+which no coordinate schema accepts (`null` is meaningful only in `colorSchema`,
+as "no paint"), so it could otherwise only ever be a validation error blocking
+the canvas — the exact outcome this normalization exists to prevent, for an
+author who plainly meant the same thing as leaving the key out. It is filled in
+with `0`, counted in the notice, and left where it was written.
+
 **`multiline.spacing`.** `spacing` is a `text` field upstream (`draw_text`,
 default `5`); `draw_multiline` never reads it. The designer invented that
 meaning, so import deletes the key. This changes nothing on screen — and it
