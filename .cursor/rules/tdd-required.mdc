@@ -26,7 +26,7 @@ Assert **outcomes**, not implementation:
 - **Yes:** anchor ink at `anchorY`; YAML round-trip; primitive `stroke === '#000000'`; PNG row pixel color after export
 - **No:** `toContain('crispEdges')` as sole parity proof; `expect(shouldShowX()).toBe(true)` on one-liners; duplicate render smoke per type
 
-**Renderer / HA parity (ADR-007):** visual fixes must include a test on the render or export path. Attribute/markup-only tests do not count.
+**Renderer / HA parity (ADR-007):** visual fixes must include a test on the render or export path. Attribute/markup-only tests do not count. Verify against the vendored `odl_renderer` or measured library behaviour, not the spec doc or assumption — spec docs have shipped inverted (offset_y/spacing, issue #169).
 
 ## Before finishing / committing
 
