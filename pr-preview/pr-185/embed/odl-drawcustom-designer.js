@@ -8058,7 +8058,7 @@ function ae(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var oe = /* @__PURE__ */ new Set(["dev", "test"]), E = "dependabot/npm_and_yarn/npm-security-updates-78481560ff", se = "93c3ee5", ce = "7d17da9", D = "0.0.0-dev", O = /^\d+\.\d+\.\d+$/;
+var oe = /* @__PURE__ */ new Set(["dev", "test"]), E = "dependabot/npm_and_yarn/npm-security-updates-78481560ff", se = "d54bcb9", ce = "3532a75", D = "0.0.0-dev", O = /^\d+\.\d+\.\d+$/;
 function le(e) {
 	return O.test(e);
 }
