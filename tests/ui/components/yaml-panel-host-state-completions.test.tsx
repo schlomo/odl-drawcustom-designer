@@ -101,4 +101,82 @@ describe('YAML autocomplete offers the host catalog (issue #107)', () => {
       expect(labels).toContain('sensor.referenced')
     })
   })
+
+  it('finds a pushed state by a mid-id fragment (issue #170)', async () => {
+    const { container } = render(
+      <YamlPanel
+        elements={ELEMENTS}
+        sessionName="test-session"
+        selectedIndex={null}
+        selectionSource="canvas"
+        onSelectElement={() => {}}
+        onElementsChange={() => {}}
+        colorScheme="dark"
+        containerRef={{ current: null }}
+        extraEntityIds={['sensor.referenced', PUSHED_UNREFERENCED]}
+      />,
+    )
+    const view = findMountedView(container)
+
+    // Real entity ids bury the meaningful part mid-string: typing `door`
+    // must still find `binary_sensor.pushed_door`.
+    const doc = view.state.doc.toString()
+    const typed = `${doc.endsWith('\n') ? '' : '\n'}- type: text\n  value: "{{ states('door`
+    const at = doc.length
+    act(() => {
+      view.dispatch({
+        changes: { from: at, to: at, insert: typed },
+        selection: { anchor: at + typed.length },
+        annotations: Transaction.userEvent.of('input'),
+      })
+    })
+
+    act(() => {
+      startCompletion(view)
+    })
+
+    await vi.waitFor(() => {
+      const labels = currentCompletions(view.state).map((completion) => completion.label)
+      expect(labels).toContain(PUSHED_UNREFERENCED)
+      expect(labels).not.toContain('sensor.referenced')
+    })
+  })
+
+  it('finds a pushed state by its friendly name (issue #170)', async () => {
+    const { container } = render(
+      <YamlPanel
+        elements={ELEMENTS}
+        sessionName="test-session"
+        selectedIndex={null}
+        selectionSource="canvas"
+        onSelectElement={() => {}}
+        onElementsChange={() => {}}
+        colorScheme="dark"
+        containerRef={{ current: null }}
+        extraEntityIds={['sensor.referenced', PUSHED_UNREFERENCED]}
+        entityNames={{ [PUSHED_UNREFERENCED]: 'Garage Entrance' }}
+      />,
+    )
+    const view = findMountedView(container)
+
+    const doc = view.state.doc.toString()
+    const typed = `${doc.endsWith('\n') ? '' : '\n'}- type: text\n  value: "{{ states('garage`
+    const at = doc.length
+    act(() => {
+      view.dispatch({
+        changes: { from: at, to: at, insert: typed },
+        selection: { anchor: at + typed.length },
+        annotations: Transaction.userEvent.of('input'),
+      })
+    })
+
+    act(() => {
+      startCompletion(view)
+    })
+
+    await vi.waitFor(() => {
+      const labels = currentCompletions(view.state).map((completion) => completion.label)
+      expect(labels).toContain(PUSHED_UNREFERENCED)
+    })
+  })
 })

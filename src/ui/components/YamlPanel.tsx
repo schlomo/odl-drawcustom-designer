@@ -62,6 +62,9 @@ interface YamlPanelProps {
   colorScheme: ResolvedTheme
   containerRef: RefObject<HTMLDivElement | null>
   extraEntityIds?: readonly string[]
+  /** Friendly names by entity id (host state catalog) — autocomplete matches
+   * against them too (issue #170). */
+  entityNames?: Readonly<Record<string, string>>
   entityScrollRequest?: { entityId: string; token: string } | null
   /** Canvas click on the already-selected element — re-scroll to it (fresh token per click). */
   elementScrollRequest?: ElementScrollRequest | null
@@ -159,6 +162,7 @@ export function YamlPanel({
   colorScheme,
   containerRef,
   extraEntityIds = [],
+  entityNames = {},
   entityScrollRequest = null,
   elementScrollRequest = null,
   onStatusMessagesChange,
@@ -552,6 +556,7 @@ export function YamlPanel({
           className="h-full min-h-0 [&_.cm-editor]:h-full [&_.cm-scroller]:min-h-0"
           colorScheme={colorScheme}
           extraEntityIds={extraEntityIds}
+          entityNames={entityNames}
           fontSizePx={fontSize}
           height="100%"
           mockContext={mockContext}

@@ -5,6 +5,8 @@ import {
   HA_FILTER_COMPLETIONS,
   HA_NOW_METHOD_COMPLETIONS,
   HA_TAG_COMPLETIONS,
+  haJinjaCompletionSource,
+  matchEntityCompletions,
   resolveJinjaCompletionContext,
 } from '../../../src/ui/editor/jinjaCompletions'
 
@@ -230,5 +232,94 @@ describe('resolveJinjaCompletionContext', () => {
       from: pos,
       prefix: '',
     })
+  })
+})
+
+describe('entity-id completion matching (issue #170)', () => {
+  const ENTITIES = [
+    { id: 'sensor.wardrobe_outside_temperature', name: 'Wardrobe Temperature' },
+    { id: 'sensor.hallway_humidity', name: 'Hallway Humidity' },
+  ]
+
+  function entityLabels(doc: string): string[] {
+    const result = haJinjaCompletionSource(ENTITIES)(mockContext(doc, doc.length))
+    return (result?.options ?? []).map((option) => option.label)
+  }
+
+  it('offers an entity whose id buries the fragment mid-string', () => {
+    const labels = entityLabels("  value: \"{{ states('temp")
+    expect(labels).toContain('sensor.wardrobe_outside_temperature')
+    expect(labels).not.toContain('sensor.hallway_humidity')
+  })
+
+  it('offers the humidity sensor for a mid-id fragment', () => {
+    const labels = entityLabels("  value: \"{{ states('hum")
+    expect(labels).toEqual(['sensor.hallway_humidity'])
+  })
+
+  it('matches via the friendly name when the id never contains the fragment', () => {
+    const entities = [{ id: 'climate.livingroom', name: 'Thermostat Downstairs' }]
+    const result = haJinjaCompletionSource(entities)(
+      mockContext("  value: \"{{ states('thermo", "  value: \"{{ states('thermo".length),
+    )
+    expect(result?.options.map((option) => option.label)).toEqual(['climate.livingroom'])
+  })
+
+  it('disables CodeMirror label re-filtering so friendly-name matches survive', () => {
+    const doc = "  value: \"{{ states('temp"
+    const result = haJinjaCompletionSource(ENTITIES)(mockContext(doc, doc.length))
+    expect(result?.filter).toBe(false)
+  })
+
+  it('matches case-insensitively', () => {
+    const labels = entityLabels("  value: \"{{ states('Temp")
+    expect(labels).toContain('sensor.wardrobe_outside_temperature')
+  })
+
+  it('shows the friendly name as the completion detail', () => {
+    const doc = "  value: \"{{ states('hum"
+    const result = haJinjaCompletionSource(ENTITIES)(mockContext(doc, doc.length))
+    expect(result?.options[0]?.detail).toBe('Hallway Humidity')
+  })
+
+  it('ranks prefix above token-start above plain substring', () => {
+    const entries = [
+      { id: 'sensor.attemperator' },
+      { id: 'sensor.outside_temperature' },
+      { id: 'sensor.kitchen', name: 'Temperature Kitchen' },
+    ]
+    const labels = matchEntityCompletions(entries, 'temp').map((option) => option.label)
+    expect(labels).toEqual([
+      'sensor.kitchen', // friendly name starts with the query
+      'sensor.outside_temperature', // query starts a `_`-separated token
+      'sensor.attemperator', // bare substring
+    ])
+  })
+
+  it('ranks a boundary occurrence even when a non-boundary one comes first', () => {
+    const entries = [
+      { id: 'sensor.attempt_temperature' },
+      { id: 'sensor.attemperator' },
+    ]
+    const labels = matchEntityCompletions(entries, 'temp').map((option) => option.label)
+    expect(labels).toEqual(['sensor.attempt_temperature', 'sensor.attemperator'])
+  })
+
+  it('offers every entity for an empty fragment', () => {
+    const labels = matchEntityCompletions(ENTITIES, '').map((option) => option.label)
+    expect(labels).toEqual([
+      'sensor.hallway_humidity',
+      'sensor.wardrobe_outside_temperature',
+    ])
+  })
+
+  it('still puts a true id prefix first', () => {
+    const entries = [
+      { id: 'sensor.outside_temperature' },
+      { id: 'sensor.sensible' },
+    ]
+    const labels = matchEntityCompletions(entries, 'sens').map((option) => option.label)
+    expect(labels[0]).toBe('sensor.outside_temperature')
+    expect(labels).toContain('sensor.sensible')
   })
 })

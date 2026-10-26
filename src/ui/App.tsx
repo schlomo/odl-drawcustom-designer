@@ -1003,6 +1003,7 @@ export function App({ bootstrap, host }: AppProps) {
             elements={elements}
             sessionName={sessionName}
             extraEntityIds={extraEntityIds}
+            entityNames={hostStateCatalog?.names}
             mockContext={previewMockContext}
             hostStatesFed={hostStateCatalog != null}
             onElementsChange={handleYamlElementsChange}

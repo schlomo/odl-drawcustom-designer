@@ -10,7 +10,11 @@ import {
   yamlEditorTooltipParent,
   yamlThemeCompartment,
 } from './yamlEditorExtensions'
-import { yamlEntityIdsCompartment, yamlEntityIdsFacet } from './yamlEntityIds'
+import {
+  yamlEntityIdsCompartment,
+  yamlEntityIdsFacet,
+  type EntityCompletionEntry,
+} from './yamlEntityIds'
 import { reconfigureTemplatePreview, templatePreviewNowEffect } from './yamlTemplatePreview'
 import { createYamlEditorTheme } from './yamlTheme'
 import {
@@ -52,6 +56,9 @@ export interface YamlEditorProps {
   yamlScrollRef?: { current: number }
   className?: string
   extraEntityIds?: readonly string[]
+  /** Friendly names by entity id (host state catalog) — autocomplete matches
+   * against them too (issue #170). */
+  entityNames?: Readonly<Record<string, string>>
   mockContext?: HaMockContext
   templatePreviewEnabled?: boolean
   /**
@@ -61,8 +68,14 @@ export interface YamlEditorProps {
   readOnly?: boolean
 }
 
-function mergeEntityIds(scanned: readonly string[], extra: readonly string[]): string[] {
-  return [...new Set([...scanned, ...extra])].sort()
+function mergeEntityEntries(
+  scanned: readonly string[],
+  extra: readonly string[],
+  names: Readonly<Record<string, string>>,
+): EntityCompletionEntry[] {
+  return [...new Set([...scanned, ...extra])]
+    .sort()
+    .map((id) => (names[id] !== undefined ? { id, name: names[id] } : { id }))
 }
 
 function resolveEntityIds(yamlSource: string): string[] {
@@ -93,6 +106,7 @@ export function YamlEditor({
   yamlScrollRef,
   className,
   extraEntityIds = [],
+  entityNames = {},
   mockContext,
   templatePreviewEnabled = true,
   readOnly = false,
@@ -108,9 +122,9 @@ export function YamlEditor({
   const suppressCursorReportRef = useRef(false)
   const [entityScanSource, setEntityScanSource] = useState(value)
   const scannedEntityIds = useMemo(() => resolveEntityIds(entityScanSource), [entityScanSource])
-  const entityIds = useMemo(
-    () => mergeEntityIds(scannedEntityIds, extraEntityIds),
-    [scannedEntityIds, extraEntityIds],
+  const entityEntries = useMemo(
+    () => mergeEntityEntries(scannedEntityIds, extraEntityIds, entityNames),
+    [scannedEntityIds, extraEntityIds, entityNames],
   )
   const templatePreview = useMemo(
     () => ({
@@ -149,7 +163,7 @@ export function YamlEditor({
         value,
         colorScheme,
         fontSizePx,
-        entityIds,
+        entityEntries,
         (nextValue) => {
           lastEmittedValueRef.current = nextValue
           onChangeRef.current(nextValue)
@@ -198,9 +212,9 @@ export function YamlEditor({
     }
 
     view.dispatch({
-      effects: yamlEntityIdsCompartment.reconfigure(yamlEntityIdsFacet.of(entityIds)),
+      effects: yamlEntityIdsCompartment.reconfigure(yamlEntityIdsFacet.of(entityEntries)),
     })
-  }, [entityIds])
+  }, [entityEntries])
 
   useEffect(() => {
     const view = viewRef.current
