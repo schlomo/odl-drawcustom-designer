@@ -8058,7 +8058,7 @@ function ie(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var ae = /* @__PURE__ */ new Set(["dev", "test"]), D = "fix/evaluator-missing-entity", oe = "b9fde12", se = "2a4d86b", O = "0.0.0-dev", k = /^\d+\.\d+\.\d+$/;
+var ae = /* @__PURE__ */ new Set(["dev", "test"]), D = "fix/evaluator-missing-entity", oe = "025fda2", se = "fcc447b", O = "0.0.0-dev", k = /^\d+\.\d+\.\d+$/;
 function ce(e) {
 	return k.test(e);
 }
@@ -38918,19 +38918,18 @@ var RB = "__ha_setattr";
 function RYt(e) {
 	return e.replace(/\{%(-)?\s*set\s+([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)\s*=\s*([\s\S]*?)\s*(-)?%\}/g, (e, t, n, r, i, a) => `{{${t ?? ""} ${RB}(${n}, '${r}', ${i}) ${a ?? ""}}}`);
 }
-var zB = class {
-	haMessage;
+var zB = class extends String {
 	constructor(e) {
-		this.haMessage = e, Object.freeze(this);
-	}
-	[Symbol.toPrimitive]() {
-		throw Error(this.haMessage);
+		super(""), Object.defineProperty(this, "haMessage", {
+			value: e,
+			enumerable: !1
+		}), Object.freeze(this);
 	}
 	toString() {
-		throw Error(this.haMessage);
+		return "";
 	}
 	valueOf() {
-		throw Error(this.haMessage);
+		return "";
 	}
 }, BB = !1;
 function zYt() {
