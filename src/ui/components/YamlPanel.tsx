@@ -16,6 +16,7 @@ import {
   shouldScrollLinkedElementOnSync,
   yamlTextForExternalSync,
 } from '../editor/yamlExternalSync'
+import { NO_HOST_STATE_NAMES } from '../../embed/hostContract'
 import { getYamlStatusMessages } from '../lib/yaml-status-messages'
 import { YamlEditor } from '../editor/YamlEditor'
 import {
@@ -162,7 +163,8 @@ export function YamlPanel({
   colorScheme,
   containerRef,
   extraEntityIds = [],
-  entityNames = {},
+  // Shared frozen map, NOT `{}` — see YamlEditor's entityNames default.
+  entityNames = NO_HOST_STATE_NAMES,
   entityScrollRequest = null,
   elementScrollRequest = null,
   onStatusMessagesChange,

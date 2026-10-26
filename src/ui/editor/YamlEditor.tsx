@@ -1,6 +1,7 @@
 import { EditorView } from '@codemirror/view'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { parseYamlPayload, scanPayloadForTemplates, validatePayload, type HaMockContext } from '../../core'
+import { NO_HOST_STATE_NAMES } from '../../embed/hostContract'
 import type { ResolvedTheme } from '../preferences/theme'
 import { locateElementFocusInYaml } from './locateElementInYaml'
 import { locateFirstEntityOccurrenceInYaml } from './locateEntityInYaml'
@@ -75,7 +76,7 @@ function mergeEntityEntries(
 ): EntityCompletionEntry[] {
   return [...new Set([...scanned, ...extra])]
     .sort()
-    .map((id) => (names[id] !== undefined ? { id, name: names[id] } : { id }))
+    .map((id) => (Object.hasOwn(names, id) ? { id, name: names[id] } : { id }))
 }
 
 function resolveEntityIds(yamlSource: string): string[] {
@@ -106,7 +107,9 @@ export function YamlEditor({
   yamlScrollRef,
   className,
   extraEntityIds = [],
-  entityNames = {},
+  // Shared frozen map, NOT `{}`: a fresh per-render default would recompute
+  // entityEntries and dispatch a no-op compartment reconfigure per keystroke.
+  entityNames = NO_HOST_STATE_NAMES,
   mockContext,
   templatePreviewEnabled = true,
   readOnly = false,
