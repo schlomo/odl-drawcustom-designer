@@ -36,37 +36,51 @@ function rewriteNamespaceMemberAssignments(template: string): string {
 }
 
 /**
- * Jinja-parity deferred undefined. In Python Jinja2 (and therefore HA),
- * attribute access on None does not raise at the access itself — it returns an
- * `Undefined` object CARRYING the message `'None' has no attribute '<name>'`,
- * which raises only when the value is RENDERED or dereferenced further.
- * `| default(...)` consumes it, `is defined` on it is false, and guards that
- * never render it (`{% if %}`, ternaries) never raise. An eager throw at
- * lookup time rejected valid HA guard idioms (PR #189 review): the error must
- * be deferred to exactly the moments Jinja raises.
+ * Jinja-parity deferred undefined. In Python Jinja2 (and therefore HA's
+ * default printable `LoggingUndefined`, measured against HA 2026.8.3 /
+ * jinja2 3.1.6), attribute access on None does not raise at the access
+ * itself — it returns an `Undefined` object CARRYING the message
+ * `'None' has no attribute '<name>'` that:
  *
- * Rendering throws via the coercion hooks (`Symbol.toPrimitive` first —
- * nunjucks' `output += value` hits it before `toString`); further dereference
- * throws via the wrapped `memberLookup` in {@link ensureJinjaCompat}, which
- * also keeps `.constructor`/`.__proto__` from ever reaching
- * Function/Object.prototype through it. Instances are frozen: they carry one
- * message and nothing else.
+ *   - STRINGIFIES to the empty string — `{{ missing.state }}` renders '' in
+ *     HA (a send succeeds with blank text and a log warning), and so do
+ *     concat, `| upper`, `== 'on'` (False) and friends. Throwing here was the
+ *     INVERSE WYSIWYG violation: our preview blocked templates HA sends fine.
+ *   - raises only on FURTHER dereference (`Undefined.__getattr__` re-raises
+ *     the carried message) — that is the real incident
+ *     (`{{ missing.attributes.humidity }}`), and the wrapped `memberLookup`
+ *     in {@link ensureJinjaCompat} keeps throwing it verbatim. That wrapper
+ *     also keeps `.constructor`/`.__proto__` from ever reaching
+ *     Function/Object.prototype through a sentinel.
+ *   - `| default(...)` consumes it and `is defined` on it is false (filter
+ *     and test overrides below).
+ *
+ * Ruling: preview errors only where a send would error; where HA renders
+ * blank, preview renders blank.
+ *
+ * Extending `String` with the empty string is what makes coercion total:
+ * nunjucks string filters call methods DIRECTLY (`val.toUpperCase()`), so a
+ * plain object coercing to '' would still crash them. An empty String wrapper
+ * answers every string filter with '' (HA: ''), `| length` with 0 (HA: '0'),
+ * and `| list` with the empty sequence (HA: '[]'). The carried message is a
+ * frozen NON-enumerable own property so object-shaped filters see an empty
+ * object. Instances are frozen: one hidden message and nothing else.
  */
-class HaUndefined {
-  constructor(readonly haMessage: string) {
+class HaUndefined extends String {
+  declare readonly haMessage: string
+
+  constructor(haMessage: string) {
+    super('')
+    Object.defineProperty(this, 'haMessage', { value: haMessage, enumerable: false })
     Object.freeze(this)
   }
 
-  [Symbol.toPrimitive](): never {
-    throw new Error(this.haMessage)
+  override toString(): string {
+    return ''
   }
 
-  toString(): never {
-    throw new Error(this.haMessage)
-  }
-
-  valueOf(): never {
-    throw new Error(this.haMessage)
+  override valueOf(): string {
+    return ''
   }
 }
 
@@ -198,17 +212,22 @@ type DomainBucket = Record<string, HaStateObject>
  * `null` too: inert, and never a prototype walk.
  *
  * Documented divergences from HA (not reachable without replacing nunjucks'
- * value model; maintainer-accepted):
+ * value model; maintainer-accepted, each measured on HA 2026.8.3 — pinned in
+ * tests/core/templates/missing-entity.test.ts):
  *   - `{{ states.weather.home }}` renders '' here; HA prints `None` (nunjucks
  *     suppresses null in output).
  *   - A deferred undefined used as a bare truthiness guard
- *     (`{{ 'x' if states.weather.home.state else 'y' }}`) is truthy here; HA's
- *     Undefined is falsy. Guarding the ENTITY (`if states.weather.home`),
+ *     (`{{ 'x' if states.weather.home.state else 'y' }}`) is truthy here
+ *     (JS object); HA's Undefined is falsy — silent wrong branch, rare.
+ *     Guarding the ENTITY (`if states.weather.home`), `== 'on'`,
  *     `is defined`, and `| default(...)` all match HA.
- *   - `{{ states.weather.home.state | upper }}` throws a JS-shaped error
- *     instead of HA's UndefinedError message (loud either way), and
- *     `.items()` on a missing entity throws nunjucks' not-a-function error
- *     rather than HA's exact text.
+ *   - `{% for f in states.weather.home %}` renders '' here; HA raises
+ *     `TypeError: 'NoneType' object is not iterable`.
+ *   - Numeric contexts on a deferred undefined coerce instead of raising:
+ *     `{{ states.weather.home.state > 5 }}` → 'false' and `| int(0)` → '0'
+ *     here; HA raises UndefinedError for both. More lenient, never a false
+ *     error. `.items()` on a missing entity likewise throws nunjucks'
+ *     not-a-function error rather than HA's exact text (loud either way).
  */
 function createDomainBucket(entries: DomainBucket): DomainBucket {
   return new Proxy(entries, {

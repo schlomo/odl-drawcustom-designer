@@ -10,11 +10,18 @@ import {
 // previewed as an empty string while HA's server-side Jinja raised
 // `UndefinedError: 'None' has no attribute 'attributes'` at send time — a
 // WYSIWYG violation). The designer must surface the same failure the server
-// will — but ONLY where HA fails. Jinja's real model: a missing entity is
-// None; attribute access on None returns an Undefined CARRYING the message,
-// which raises only when rendered or dereferenced further; `| default(...)`
-// consumes it, `is defined` on it is false, and guards on the entity itself
-// (`{% if %}`, `== none`, `is none`) never raise.
+// will — but ONLY where HA fails: preview errors only where a send would
+// error; where HA renders blank, preview renders blank. Jinja's real model
+// (measured against HA 2026.8.3 / jinja2 3.1.6, default TemplateEnvironment =
+// printable LoggingUndefined; `{{ none.state … }}` is the exact equivalent of
+// missing-entity member access): a missing entity is None; attribute access
+// on None returns an Undefined CARRYING the message `'None' has no attribute
+// '<name>'`. That Undefined STRINGIFIES to '' (HA renders blank and logs a
+// warning — the send succeeds), and raises only on FURTHER dereference;
+// `| default(...)` consumes it, `is defined` on it is false, and guards on
+// the entity itself (`{% if %}`, `== none`, `is none`) never raise.
+// Every expectation below carries the HA output measured by the oracle
+// script (scratchpad ha_measure.py) next to it.
 
 const emptyContext: HaMockContext = { states: {} }
 
@@ -24,26 +31,78 @@ const populatedWeatherContext: HaMockContext = {
 }
 
 describe('missing-entity dotted access (HA parity)', () => {
-  describe('attribute access on a missing entity raises like HA when rendered', () => {
-    it("raises 'None' has no attribute 'state'", () => {
-      expect(() => evaluateTemplate('{{ states.weather.home.state }}', emptyContext)).toThrowError(
-        TemplateEvaluationError,
-      )
-      expect(() => evaluateTemplate('{{ states.weather.home.state }}', emptyContext)).toThrowError(
-        /'None' has no attribute 'state'/,
-      )
+  describe('rendering a missing attribute is blank like HA (send succeeds, logs a warning)', () => {
+    it("single hop renders '' (HA: '')", () => {
+      // Oracle: {{ none.state }} → OK ''
+      expect(evaluateTemplate('{{ states.weather.home.state }}', emptyContext)).toBe('')
+      // Oracle equivalent for any first-hop name — blank, never an error.
+      expect(evaluateTemplate('{{ states.weather.home.entity_id }}', emptyContext)).toBe('')
     })
 
-    it('names the FIRST missing hop; chained hops keep its message', () => {
-      // `.attributes` is the first access on None — `.humidity` must not
-      // rename the error (Jinja: Undefined.__getattr__ re-raises the carried
-      // message).
+    it("concat swallows it (HA: 'a')", () => {
+      // Oracle: {{ 'a' ~ none.state }} → OK 'a'
+      expect(evaluateTemplate("{{ 'a' ~ states.weather.home.state }}", emptyContext)).toBe('a')
+    })
+
+    it("string filters see the empty string (HA: '')", () => {
+      // Oracle: {{ none.state | upper }} → OK ''
+      expect(evaluateTemplate('{{ states.weather.home.state | upper }}', emptyContext)).toBe('')
+    })
+
+    it("| length is 0 (HA: '0')", () => {
+      // Oracle: {{ none.state | length }} → OK '0'
+      expect(evaluateTemplate('{{ states.weather.home.state | length }}', emptyContext)).toBe('0')
+    })
+
+    it('| list is an empty sequence (HA: \'[]\' — Python prints the empty list, nunjucks joins it to \'\')', () => {
+      // Oracle: {{ none.state | list }} → OK '[]'. Same empty list on both
+      // sides; only the sequence PRINTING differs (nunjucks-wide, not
+      // specific to the sentinel: {{ [] }} is '' here too).
+      expect(evaluateTemplate('{{ states.weather.home.state | list }}', emptyContext)).toBe('')
+      expect(
+        evaluateTemplate('{{ states.weather.home.state | list | length }}', emptyContext),
+      ).toBe('0')
+    })
+  })
+
+  describe('comparisons coerce to the empty string like HA', () => {
+    it("== against a string is false (HA: 'False'; guard takes the else branch)", () => {
+      // Oracle: {{ none.state == 'on' }} → OK 'False'
+      // (boolean print CASE differs repo-wide: nunjucks 'false' vs Python 'False')
+      expect(evaluateTemplate("{{ states.weather.home.state == 'on' }}", emptyContext)).toBe(
+        'false',
+      )
+      // Oracle: {% if none.state == 'on' %}x{% else %}y{% endif %} → OK 'y'
+      expect(
+        evaluateTemplate(
+          "{% if states.weather.home.state == 'on' %}x{% else %}y{% endif %}",
+          emptyContext,
+        ),
+      ).toBe('y')
+    })
+
+    it("!= against a string is true (HA: 'True')", () => {
+      // Oracle: {{ none.state != 'x' }} → OK 'True'
+      expect(evaluateTemplate("{{ states.weather.home.state != 'x' }}", emptyContext)).toBe('true')
+    })
+  })
+
+  describe('FURTHER dereference still raises exactly like HA (the real incident)', () => {
+    it("two hops raise 'None' has no attribute 'attributes' (HA: UndefinedError, message verbatim)", () => {
+      // Oracle: {{ none.attributes.humidity }} → ERR UndefinedError: 'None' has no attribute 'attributes'
+      expect(() =>
+        evaluateTemplate('{{ states.weather.home.attributes.humidity }}', emptyContext),
+      ).toThrowError(TemplateEvaluationError)
       expect(() =>
         evaluateTemplate('{{ states.weather.home.attributes.humidity }}', emptyContext),
       ).toThrowError(/'None' has no attribute 'attributes'/)
+    })
+
+    it('a stored sentinel keeps its FIRST-hop message through later dereference', () => {
+      // Oracle: {% set e = none.state %}{{ e.foo }} → ERR UndefinedError: 'None' has no attribute 'state'
       expect(() =>
-        evaluateTemplate('{{ states.weather.home.entity_id }}', emptyContext),
-      ).toThrowError(/'None' has no attribute 'entity_id'/)
+        evaluateTemplate('{% set e = states.weather.home.state %}{{ e.foo }}', emptyContext),
+      ).toThrowError(/'None' has no attribute 'state'/)
     })
 
     it('raises even when the domain has other entities', () => {
@@ -78,11 +137,20 @@ describe('missing-entity dotted access (HA parity)', () => {
     })
 
     it('… but an attribute of it is NOT defined', () => {
+      // Oracle: {{ none.state is defined }} → OK 'False'
       expect(evaluateTemplate('{{ states.weather.home.state is defined }}', emptyContext)).toBe(
         'false',
       )
+      // Oracle: {{ none.state is undefined }} → OK 'True'
       expect(evaluateTemplate('{{ states.weather.home.state is undefined }}', emptyContext)).toBe(
         'true',
+      )
+    })
+
+    it('… and the attribute is NOT none (HA: Undefined is not None)', () => {
+      // Oracle: {{ none.state is none }} → OK 'False'
+      expect(evaluateTemplate('{{ states.weather.home.state is none }}', emptyContext)).toBe(
+        'false',
       )
     })
 
@@ -125,6 +193,34 @@ describe('missing-entity dotted access (HA parity)', () => {
     })
   })
 
+  describe('documented divergences from HA (pins — see evaluate.ts comment + PR body)', () => {
+    it('bare truthiness guard on a missing ATTRIBUTE takes the truthy branch (HA: falsy)', () => {
+      // Oracle: {{ 'x' if none.state else 'y' }} → OK 'y'. The sentinel is a
+      // JS object, truthy here — silent wrong branch, known and accepted.
+      // Guarding the ENTITY ({% if states.weather.home %}) matches HA.
+      expect(
+        evaluateTemplate("{{ 'x' if states.weather.home.state else 'y' }}", emptyContext),
+      ).toBe('x')
+    })
+
+    it('iterating the missing ENTITY renders blank (HA: TypeError NoneType not iterable)', () => {
+      // Oracle: {% for f in none %}…{% endfor %} → ERR TypeError: 'NoneType'
+      // object is not iterable. nunjucks iterates null as empty instead.
+      expect(
+        evaluateTemplate('{% for f in states.weather.home %}{{ f }}{% endfor %}', emptyContext),
+      ).toBe('')
+    })
+
+    it('numeric contexts coerce instead of raising (HA: UndefinedError)', () => {
+      // Oracle: {{ none.state > 5 }} → ERR UndefinedError: 'None' has no
+      // attribute 'state'; {{ none.state | int(0) }} → same ERR. JS relational
+      // and parseInt coercion see '' here — more lenient than HA, never a
+      // false error.
+      expect(evaluateTemplate('{{ states.weather.home.state > 5 }}', emptyContext)).toBe('false')
+      expect(evaluateTemplate('{{ states.weather.home.state | int(0) }}', emptyContext)).toBe('0')
+    })
+  })
+
   describe('unknown domains are namespaces, never errors (HA: states.<domain> always exists)', () => {
     it('does not raise on unknown domain access itself', () => {
       expect(() => evaluateTemplate('{{ states.nosuchdomain }}ok', emptyContext)).not.toThrow()
@@ -132,9 +228,10 @@ describe('missing-entity dotted access (HA parity)', () => {
 
     it('treats an entity in an unknown domain exactly like a missing entity', () => {
       expect(evaluateTemplate('{{ states.nosuchdomain.foo }}', emptyContext)).toBe('')
+      expect(evaluateTemplate('{{ states.nosuchdomain.foo.state }}', emptyContext)).toBe('')
       expect(() =>
-        evaluateTemplate('{{ states.nosuchdomain.foo.state }}', emptyContext),
-      ).toThrowError(/'None' has no attribute 'state'/)
+        evaluateTemplate('{{ states.nosuchdomain.foo.attributes.x }}', emptyContext),
+      ).toThrowError(/'None' has no attribute 'attributes'/)
       expect(
         evaluateTemplate('{% if states.nosuchdomain.foo %}x{% endif %}', emptyContext),
       ).toBe('')
@@ -187,10 +284,8 @@ describe('missing-entity dotted access (HA parity)', () => {
 
     it('never exposes a constructor through the deferred undefined', () => {
       // `constructor` on the missing entity (None) is just another missing
-      // attribute: rendering it raises the HA message, never Function.
-      expect(() =>
-        evaluateTemplate('{{ states.weather.home.constructor }}', emptyContext),
-      ).toThrowError(/'None' has no attribute 'constructor'/)
+      // attribute: it renders blank like any sentinel, never Function.
+      expect(evaluateTemplate('{{ states.weather.home.constructor }}', emptyContext)).toBe('')
       // Dereferencing THROUGH the deferred undefined raises instead of
       // walking to Function/Object.prototype.
       expect(() =>
