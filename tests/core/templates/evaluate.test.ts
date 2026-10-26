@@ -300,8 +300,12 @@ describe('evaluateTemplate', () => {
       // The malicious `sensor.__proto__` id must not leak a real `sensor` bucket
       // whose prototype carries the injected state object's fields. The skipped
       // id leaves `sensor.entity_id` unmocked, so it resolves to the HA-parity
-      // missing-entity None placeholder — never to the injected object.
-      expect(evaluateTemplate('{{ states.sensor.entity_id }}', maliciousContext)).toBe('None')
+      // missing-entity None (null, rendered '') — never to the injected
+      // object; dereferencing it raises the HA message instead of leaking.
+      expect(evaluateTemplate('{{ states.sensor.entity_id }}', maliciousContext)).toBe('')
+      expect(() =>
+        evaluateTemplate('{{ states.sensor.entity_id.anything }}', maliciousContext),
+      ).toThrowError(/'None' has no attribute 'anything'/)
 
       // Global prototype chain is untouched by evaluation.
       expect(Object.prototype.hasOwnProperty.call(Object.prototype, 'x')).toBe(false)
