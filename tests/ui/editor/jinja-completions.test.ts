@@ -323,3 +323,60 @@ describe('entity-id completion matching (issue #170)', () => {
     expect(labels).toContain('sensor.sensible')
   })
 })
+
+describe('friendly-name fragments in quoted entity arguments (PR #192 review)', () => {
+  const FRIENDLY = [
+    { id: 'binary_sensor.garage_door', name: 'Garage Entrance' },
+    { id: 'sensor.kueche_temperatur', name: 'Küche Temperatur' },
+    { id: 'light.wohnzimmer', name: 'Living-Room Lamp' },
+  ]
+
+  function completionResult(doc: string) {
+    return haJinjaCompletionSource(FRIENDLY)(mockContext(doc, doc.length))
+  }
+
+  it('recognizes a fragment containing a space inside the quoted argument', () => {
+    const doc = "  value: \"{{ states('garage en"
+    expect(resolveJinjaCompletionContext(mockContext(doc, doc.length))).toEqual({
+      kind: 'entity-id',
+      from: doc.indexOf('garage en'),
+      prefix: 'garage en',
+    })
+  })
+
+  it('finds Garage Entrance for `garage en` and replaces the whole fragment', () => {
+    const doc = "  value: \"{{ states('garage en"
+    const result = completionResult(doc)
+    expect(result?.options.map((option) => option.label)).toEqual(['binary_sensor.garage_door'])
+    // Accepting must replace the WHOLE typed fragment — `from` at the quote,
+    // not at the last word — or `garage ` is left behind before the id.
+    expect(result?.from).toBe(doc.indexOf('garage en'))
+  })
+
+  it('finds a non-ASCII friendly name automatically (no explicit trigger)', () => {
+    const doc = "  value: \"{{ states('kü"
+    const result = completionResult(doc)
+    expect(result?.options.map((option) => option.label)).toEqual(['sensor.kueche_temperatur'])
+    expect(result?.from).toBe(doc.indexOf('kü'))
+  })
+
+  it('finds a hyphenated friendly name', () => {
+    const doc = "  value: \"{{ states('living-r"
+    const result = completionResult(doc)
+    expect(result?.options.map((option) => option.label)).toEqual(['light.wohnzimmer'])
+  })
+
+  it('stops the fragment at the previous closing quote (is_state second argument)', () => {
+    const doc = "  value: \"{{ is_state('binary_sensor.garage_door', 'garage en"
+    expect(resolveJinjaCompletionContext(mockContext(doc, doc.length))).toEqual({
+      kind: 'entity-id',
+      from: doc.lastIndexOf('garage en'),
+      prefix: 'garage en',
+    })
+  })
+
+  it('does not complete spaced fragments outside quotes', () => {
+    const doc = '  value: "{{ states(garage en'
+    expect(completionResult(doc)).toBeNull()
+  })
+})

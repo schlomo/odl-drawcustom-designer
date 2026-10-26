@@ -153,15 +153,6 @@ export const HA_TAG_COMPLETIONS: Completion[] = HA_TAG_SNIPPETS.map((entry) => (
   apply: applyJinjaSnippet(entry.insert),
 }))
 
-export function buildJinjaCompletionConfig(entities: readonly EntityCompletionEntry[]) {
-  return {
-    entities,
-    expressionCompletions: HA_EXPRESSION_COMPLETIONS,
-    filterCompletions: HA_FILTER_COMPLETIONS,
-    tagCompletions: HA_TAG_COMPLETIONS,
-  }
-}
-
 type JinjaCompletionKind =
   | 'delimiter'
   | 'expression'
@@ -257,11 +248,19 @@ function matchStrftimeFormatContext(slice: string, pos: number): { from: number;
   return { from: pos - prefix.length - 1, prefix }
 }
 
+/**
+ * Fragment grammar inside a QUOTED entity argument: friendly-name queries
+ * (issue #170) legitimately contain spaces, hyphens and non-ASCII letters
+ * (`garage en` → "Garage Entrance", `kü` → "Küche Temperatur"), so the
+ * fragment is any run of Unicode letters/digits plus `_ . - ` and space —
+ * stopping at the quote characters, which end the argument. Bare (unquoted)
+ * contexts keep the strict `[\w.]` word grammar via `context.matchBefore`.
+ */
 function matchEntityIdQuote(slice: string): string | null {
   const patterns = [
-    /(?:states|state_attr|is_state_attr)\s*\(\s*['"]([\w.]*)$/,
-    /is_state\s*\(\s*['"]([\w.]*)$/,
-    /is_state\s*\(\s*['"][^'"]*['"]\s*,\s*['"]([\w.]*)$/,
+    /(?:states|state_attr|is_state_attr)\s*\(\s*['"]([\p{L}\p{N}_. -]*)$/u,
+    /is_state\s*\(\s*['"]([\p{L}\p{N}_. -]*)$/u,
+    /is_state\s*\(\s*['"][^'"]*['"]\s*,\s*['"]([\p{L}\p{N}_. -]*)$/u,
   ]
 
   for (const pattern of patterns) {
@@ -294,6 +293,18 @@ export function resolveJinjaCompletionContext(context: CompletionContext): Resol
     }
   }
 
+  // Quoted entity fragments bypass the ASCII-word gate below: a friendly-name
+  // query may hold spaces or non-ASCII letters that `matchBefore(/[\w.]*/)`
+  // cannot see (`kü` matches no \w word at all). A non-empty fragment is
+  // deliberate typing inside the argument quotes, so it completes
+  // automatically; an empty one still needs an explicit request, as before.
+  // `from` spans the WHOLE fragment — accepting a suggestion must replace
+  // `garage en`, not leave `garage ` behind and insert the id after it.
+  const entityPrefix = matchEntityIdQuote(slice)
+  if (entityPrefix !== null && (entityPrefix.length > 0 || context.explicit)) {
+    return { kind: 'entity-id', from: context.pos - entityPrefix.length, prefix: entityPrefix }
+  }
+
   const word = context.matchBefore(/[\w.]*/)
   const hasWord = Boolean(word && word.text.length > 0)
   if (
@@ -303,11 +314,6 @@ export function resolveJinjaCompletionContext(context: CompletionContext): Resol
     !isAtCallArgumentBoundary(slice)
   ) {
     return null
-  }
-
-  const entityPrefix = matchEntityIdQuote(slice)
-  if (entityPrefix !== null) {
-    return { kind: 'entity-id', from: word?.from ?? context.pos, prefix: entityPrefix }
   }
 
   const nowMethod = matchNowMethodContext(slice, context.pos)

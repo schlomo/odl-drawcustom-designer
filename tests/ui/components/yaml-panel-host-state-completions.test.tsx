@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { startCompletion, currentCompletions } from '@codemirror/autocomplete'
+import { acceptCompletion, startCompletion, currentCompletions } from '@codemirror/autocomplete'
 import { Transaction } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { act, render } from '@testing-library/react'
@@ -178,5 +178,61 @@ describe('YAML autocomplete offers the host catalog (issue #107)', () => {
       const labels = currentCompletions(view.state).map((completion) => completion.label)
       expect(labels).toContain(PUSHED_UNREFERENCED)
     })
+  })
+
+  it('finds a state by a multi-word friendly-name fragment and replaces the whole fragment on accept (PR #192 review)', async () => {
+    const { container } = render(
+      <YamlPanel
+        elements={ELEMENTS}
+        sessionName="test-session"
+        selectedIndex={null}
+        selectionSource="canvas"
+        onSelectElement={() => {}}
+        onElementsChange={() => {}}
+        colorScheme="dark"
+        containerRef={{ current: null }}
+        extraEntityIds={['sensor.referenced', PUSHED_UNREFERENCED]}
+        entityNames={{ [PUSHED_UNREFERENCED]: 'Garage Entrance' }}
+      />,
+    )
+    const view = findMountedView(container)
+
+    // A friendly-name query is naturally multi-word: `garage en` must still
+    // find "Garage Entrance" even though the fragment contains a space.
+    const doc = view.state.doc.toString()
+    const typed = `${doc.endsWith('\n') ? '' : '\n'}- type: text\n  value: "{{ states('garage en`
+    const at = doc.length
+    act(() => {
+      view.dispatch({
+        changes: { from: at, to: at, insert: typed },
+        selection: { anchor: at + typed.length },
+        annotations: Transaction.userEvent.of('input'),
+      })
+    })
+
+    act(() => {
+      startCompletion(view)
+    })
+
+    await vi.waitFor(() => {
+      const labels = currentCompletions(view.state).map((completion) => completion.label)
+      expect(labels).toContain(PUSHED_UNREFERENCED)
+    })
+
+    // acceptCompletion refuses within CM's interactionDelay (75ms of the list
+    // opening), so poll until the accept lands.
+    await vi.waitFor(() => {
+      let accepted = false
+      act(() => {
+        accepted = acceptCompletion(view)
+      })
+      expect(accepted).toBe(true)
+    })
+
+    // Accepting must replace the whole typed fragment — not leave `garage `
+    // behind and append the id after it (Copilot review on PR #192).
+    const accepted = view.state.doc.toString()
+    expect(accepted).toContain(`states('${PUSHED_UNREFERENCED}`)
+    expect(accepted).not.toContain('garage en')
   })
 })
