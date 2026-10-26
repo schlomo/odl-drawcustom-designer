@@ -97,6 +97,30 @@ describe('template evaluator prototype-pollution hardening', () => {
     expect(removeLeakedKeys(before)).toEqual([])
   })
 
+  it('haSetAttr refuses non-string keys that would coerce into dangerous ones', () => {
+    const before = snapshotPrototypeKeys()
+
+    // `__ha_setattr` is a registered template global, so a template can call
+    // it directly with ANY runtime value as the key. An array like
+    // ['__proto__'] is not in the string-key refusal set, but bracket
+    // assignment coerces it to the string '__proto__' — which would replace
+    // the target's prototype. Non-string keys are therefore refused outright.
+    const victim: Record<string, unknown> = {}
+    expect(haSetAttr(victim, ['__proto__'] as unknown as string, { polluted: 1 })).toBe('')
+    expect(Object.getPrototypeOf(victim)).toBe(Object.prototype)
+    expect(victim.polluted).toBeUndefined()
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+
+    // Template-level regression for the same bypass.
+    const template =
+      "{% set victim = namespace() %}{{ __ha_setattr(victim, ['__proto__'], {'polluted': 1}) }}ok"
+    expect(evaluateTemplate(template, emptyContext).trim()).toBe('ok')
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+    expect(Object.hasOwn(Object.prototype, 'polluted')).toBe(false)
+
+    expect(removeLeakedKeys(before)).toEqual([])
+  })
+
   it('legitimate namespace() accumulation keeps working', () => {
     const template =
       '{% set ns = namespace(sum=0) %}' +

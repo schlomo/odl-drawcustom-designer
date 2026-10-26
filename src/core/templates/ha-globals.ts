@@ -71,11 +71,17 @@ export function haNamespace(kwargs?: Record<string, unknown>): Record<string, un
  * of swallowing blocked sets rather than crashing): prototype-chain keys
  * (`__proto__` / `constructor` / `prototype`), well-known prototype targets,
  * functions, and anything that is not a plain mutable object all no-op.
+ *
+ * The key must be a string: this global is directly callable from template
+ * text, and a non-string key (e.g. `['__proto__']`) would slip past the
+ * refusal set only to be coerced into the dangerous string by the bracket
+ * assignment below.
  */
 export function haSetAttr(target: unknown, key: string, value: unknown): string {
   if (
     target &&
     typeof target === 'object' &&
+    typeof key === 'string' &&
     !UNSAFE_SET_KEYS.has(key) &&
     !PROTECTED_SET_TARGETS.has(target)
   ) {
