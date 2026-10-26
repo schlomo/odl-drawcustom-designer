@@ -59,12 +59,18 @@ export function StateSimulator({
 
   const attributesByEntity = mockContext.attributes ?? {}
 
+  // The rows union the REAL mocks with the scanned-but-unmocked entity ids.
+  // The latter are display-only synthesis: the evaluation context contains
+  // only real mocks (PR #189 — seeding scanned ids into it masked HA's
+  // missing-entity error), so an unmocked row shows the `states('…')`
+  // fallback value until the user types one, which writes a real mock.
   const entityRows = useMemo(() => {
-    return Object.keys(mockContext.states)
+    const entityIds = new Set([...Object.keys(mockContext.states), ...scannedIds])
+    return [...entityIds]
       .sort()
       .map((entityId) => ({
         entityId,
-        value: mockContext.states[entityId],
+        value: mockContext.states[entityId] ?? 'unknown',
         referenced: scannedIds.has(entityId),
       }))
       .filter((row) => scope === 'all' || row.referenced)
