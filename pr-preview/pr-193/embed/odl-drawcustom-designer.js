@@ -8058,7 +8058,7 @@ function ie(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var ae = /* @__PURE__ */ new Set(["dev", "test"]), D = "fix/harden-namespace-setattr", oe = "e5ad75a", se = "22e1e42", O = "0.0.0-dev", k = /^\d+\.\d+\.\d+$/;
+var ae = /* @__PURE__ */ new Set(["dev", "test"]), D = "fix/harden-namespace-setattr", oe = "09eed1c", se = "fe7ef51", O = "0.0.0-dev", k = /^\d+\.\d+\.\d+$/;
 function ce(e) {
 	return k.test(e);
 }
@@ -38922,7 +38922,7 @@ function NYt(e) {
 	return t;
 }
 function PYt(e, t, n) {
-	return e && typeof e == "object" && !jYt.has(t) && !MYt.has(e) && (e[t] = n), "";
+	return e && typeof e == "object" && typeof t == "string" && !jYt.has(t) && !MYt.has(e) && (e[t] = n), "";
 }
 //#endregion
 //#region src/core/templates/evaluate.ts
