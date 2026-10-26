@@ -95,6 +95,15 @@ describe('showcase bundle (src/assets/showcase/)', () => {
       expect(evaluateTemplate(nsValue, bareHost).trim()).toBe('Avg 21.5°C · Hum ?%')
     })
 
+    it('keeps a real humidity of 0 instead of falling back to "?"', () => {
+      const nsValue = findFieldValue('value', 'set ns = namespace(')
+      const dryAir: HaMockContext = {
+        ...showcaseContext,
+        attributes: { 'weather.forecast_home': { temperature: 18, humidity: 0 } },
+      }
+      expect(evaluateTemplate(nsValue, dryAir).trim()).toBe('Avg 21.5°C · Hum 0%')
+    })
+
     it('uses no direct states.<domain>.<object>.attributes chain (raises server-side when the entity is missing)', () => {
       const chain = /states\.\w+\.\w+\.attributes/
       expect(SHOWCASE_YAML).not.toMatch(chain)

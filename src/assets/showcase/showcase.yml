@@ -135,7 +135,8 @@
   value: >-
     {%- set ns = namespace(sum=0) -%}{%- for v in [21, 22, 23, 20] -%}{%- set ns.sum = ns.sum + v -%}{%- endfor -%}Avg
     {{ (ns.sum / 4) | round(1) }}°C · Hum
-    {{ state_attr('weather.forecast_home', 'humidity') or '?' }}%
+    {% set humidity = state_attr('weather.forecast_home', 'humidity') -%}
+    {{ humidity if humidity != None else '?' }}%
   x: 40
   y: 348
   size: 15
