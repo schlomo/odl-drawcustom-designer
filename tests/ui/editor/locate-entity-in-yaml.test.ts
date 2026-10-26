@@ -31,8 +31,9 @@ describe('locateFirstEntityOccurrenceInYaml', () => {
 
   // PR #142 maintainer finding: the referenced-states panel and the Simulator
   // read entity ids the payload reaches via dotted access on the `states`
-  // global (`states.<domain>.<object>`, ADR-004) — the showcase demo's own
-  // payload uses exactly this form (`states.weather.home.attributes.humidity`).
+  // global (`states.<domain>.<object>`, ADR-004) — a form user payloads use
+  // (the showcase demo itself avoids it: it raises on a live HA lacking the
+  // entity).
   // That id has no surrounding quotes to anchor on, and it always sits right
   // after a literal `states.`, i.e. immediately preceded by a dot — which the
   // bare-identifier fallback below deliberately excludes (to avoid matching a

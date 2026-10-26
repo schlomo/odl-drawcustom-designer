@@ -48,7 +48,8 @@ describe('showcase bundle (src/assets/showcase/)', () => {
   it('loads canvas and simulator seed from showcase.json', () => {
     expect(SHOWCASE_CANVAS).toMatchObject({ width: 800, height: 480, colorMode: 'four' })
     expect(SHOWCASE_MOCK_STATES['sensor.temperature']).toBe('21.5')
-    expect(SHOWCASE_MOCK_ATTRIBUTES['weather.home']).toMatchObject({ temperature: 18, humidity: 64 })
+    expect(SHOWCASE_MOCK_STATES['weather.forecast_home']).toBe('sunny')
+    expect(SHOWCASE_MOCK_ATTRIBUTES['weather.forecast_home']).toMatchObject({ temperature: 18, humidity: 64 })
     expect(SHOWCASE_VARIABLES).toMatchObject({ accent_color: 'red', alert: 'true' })
     expect(SHOWCASE_JSON_PATH).toBe('src/assets/showcase/showcase.json')
   })
@@ -65,7 +66,7 @@ describe('showcase bundle (src/assets/showcase/)', () => {
       (element) =>
         element.type === 'text' &&
         typeof element.value === 'string' &&
-        element.value.includes("state_attr('weather.home'"),
+        element.value.includes("state_attr('weather.forecast_home', 'temperature')"),
     )
     expect(tempLine).toMatchObject({ x: 500, y: 32 })
   })
@@ -77,15 +78,31 @@ describe('showcase bundle (src/assets/showcase/)', () => {
     })
 
     it('resolves state_attr alongside states()', () => {
-      const tempValue = findFieldValue('value', "state_attr('weather.home'")
+      const tempValue = findFieldValue('value', "state_attr('weather.forecast_home', 'temperature')")
       const rendered = evaluateTemplate(tempValue, showcaseContext)
       expect(rendered).toContain('21.5')
       expect(rendered).toContain('18')
     })
 
-    it('resolves within-field namespace() and dotted attribute access', () => {
+    it('resolves within-field namespace() and a tolerant state_attr read', () => {
       const nsValue = findFieldValue('value', 'set ns = namespace(')
       expect(evaluateTemplate(nsValue, showcaseContext).trim()).toBe('Avg 21.5°C · Hum 64%')
+    })
+
+    it('degrades to "?" instead of raising on a host without the weather entity', () => {
+      const nsValue = findFieldValue('value', 'set ns = namespace(')
+      const bareHost: HaMockContext = { states: {}, attributes: {}, variables: {} }
+      expect(evaluateTemplate(nsValue, bareHost).trim()).toBe('Avg 21.5°C · Hum ?%')
+    })
+
+    it('uses no direct states.<domain>.<object>.attributes chain (raises server-side when the entity is missing)', () => {
+      const chain = /states\.\w+\.\w+\.attributes/
+      expect(SHOWCASE_YAML).not.toMatch(chain)
+    })
+
+    it('references only the stock Home Assistant weather entity', () => {
+      expect(SHOWCASE_YAML).not.toContain('weather.home')
+      expect(SHOWCASE_YAML).toContain('weather.forecast_home')
     })
 
     it('resolves cross-field Simulator variables in multiple fields', () => {
