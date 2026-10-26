@@ -123,7 +123,7 @@ test('clicking a referenced-state row scrolls the YAML editor to its template (#
 
   await yamlContent(page).click()
   await page.keyboard.press('ControlOrMeta+Home')
-  const humidityLine = yamlLineContaining(page, "'humidity') or '?'")
+  const humidityLine = yamlLineContaining(page, "set humidity = state_attr(")
   await expect(humidityLine).not.toBeInViewport()
 
   await page.getByRole('button', { name: 'States', exact: true }).click()
