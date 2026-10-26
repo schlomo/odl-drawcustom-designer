@@ -102,6 +102,84 @@ type StatesGlobal = ((entityId: string) => string) &
 // enabling prototype pollution from user-controlled entity ids.
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 
+/**
+ * HA-parity placeholder for a missing entity. In Home Assistant,
+ * `states.<domain>.<object>` on an unknown entity yields Python `None`:
+ * printing it outputs `None`, and touching ANY attribute raises
+ * `UndefinedError: 'None' has no attribute '<name>'`. Nunjucks instead
+ * resolves undefined chains silently, so a missing entity previewed as an
+ * empty string while HA blew up at send time (WYSIWYG violation, live
+ * incident). This proxy reproduces HA: string-coerces to `None`, throws the
+ * HA-shaped message on template-authored member access, and stays inert for
+ * the probes the JS runtime / nunjucks make on values they merely pass along
+ * (symbols, `toString`/`valueOf` for coercion, `then` promise sniffing).
+ *
+ * Documented divergences from HA (cheap-to-match cases are matched; these
+ * are not reachable without replacing nunjucks' value model):
+ *   - `states.weather.home == none` and `… is none` are false here (a JS
+ *     object can never equal null); HA's None == none / is none are True.
+ *   - `{% if states.weather.home %}` is truthy here; HA's None is falsy.
+ *   - jinja-compat dict helpers (`.items`, `.get`, …) are intercepted by
+ *     nunjucks before this proxy sees them, so they do not raise.
+ *   `is defined` matches HA (true — None is defined).
+ */
+const missingEntityNone = new Proxy(Object.create(null) as Record<string, unknown>, {
+  get(_target, key) {
+    if (typeof key === 'symbol') {
+      return key === Symbol.toPrimitive ? () => 'None' : undefined
+    }
+    if (key === 'toString' || key === 'valueOf') {
+      return () => 'None'
+    }
+    if (key === 'then') {
+      return undefined
+    }
+    throw new Error(`'None' has no attribute '${key}'`)
+  },
+  // Member assignment onto None is meaningless; swallow it instead of letting
+  // a rewritten `{% set %}` define properties on the shared placeholder.
+  set() {
+    return true
+  },
+})
+
+type DomainBucket = Record<string, HaStateObject>
+
+/**
+ * Wrap a domain's entity map so a missing `object_id` resolves to the None
+ * placeholder instead of `undefined` — in HA, `states.<domain>` is always a
+ * namespace and only the ENTITY lookup yields None. Unsafe keys resolve to
+ * the placeholder too (inert: it only prints or raises).
+ */
+function createDomainBucket(entries: DomainBucket): DomainBucket {
+  return new Proxy(entries, {
+    get(target, key) {
+      if (typeof key === 'symbol') {
+        // Rendering a domain itself (`{{ states.weather }}`) is not an error
+        // in HA; print a stable tag instead of a JS coercion TypeError.
+        return key === Symbol.toPrimitive ? () => '<DomainStates>' : undefined
+      }
+      if (key in target) {
+        return target[key]
+      }
+      return missingEntityNone
+    },
+    set() {
+      return true
+    },
+  })
+}
+
+/** Shared bucket for domains with no mocked entities (`states.nosuchdomain`). */
+const emptyDomainBucket = createDomainBucket(Object.create(null) as DomainBucket)
+
+// Function members nunjucks itself needs on the callable `states` global
+// (`callWrap` invokes `obj.apply`); these mirror the domain names
+// `buildStatesGlobal` already refuses to materialize.
+function isFunctionMemberKey(key: string): boolean {
+  return key in Function.prototype || key === 'name' || key === 'length'
+}
+
 function buildStatesGlobal(context: HaMockContext): StatesGlobal {
   const statesFn = ((entityId: string) => getStateValue(context, entityId)) as StatesGlobal
 
@@ -109,6 +187,8 @@ function buildStatesGlobal(context: HaMockContext): StatesGlobal {
     ...Object.keys(context.states),
     ...Object.keys(context.attributes ?? {}),
   ])
+
+  const domains = new Map<string, DomainBucket>()
 
   for (const entityId of entityIds) {
     const dot = entityId.indexOf('.')
@@ -123,15 +203,15 @@ function buildStatesGlobal(context: HaMockContext): StatesGlobal {
       continue
     }
     // Skip domains that would clash with Function's own non-writable members.
-    if (domain in Function.prototype || domain === 'name' || domain === 'length') {
+    if (isFunctionMemberKey(domain)) {
       continue
     }
     // Null-prototype buckets so dotted lookups (`states.<domain>.<object>`)
     // can never reach Object.prototype members.
-    let bucket = statesFn[domain]
+    let bucket = domains.get(domain)
     if (bucket === undefined) {
-      bucket = Object.create(null) as Record<string, HaStateObject>
-      statesFn[domain] = bucket
+      bucket = Object.create(null) as DomainBucket
+      domains.set(domain, bucket)
     }
     bucket[objectId] = {
       entity_id: entityId,
@@ -140,7 +220,37 @@ function buildStatesGlobal(context: HaMockContext): StatesGlobal {
     }
   }
 
-  return statesFn
+  const buckets = new Map<string, DomainBucket>()
+  for (const [domain, entries] of domains) {
+    buckets.set(domain, createDomainBucket(entries))
+  }
+
+  // Proxy so EVERY domain name resolves to a namespace (HA: `states.<domain>`
+  // always exists; only the entity lookup yields None). Unsafe keys stay
+  // inert (`states.constructor` is undefined — previously it leaked a bound
+  // Function wrapper via nunjucks' memberLookup), and the function members
+  // nunjucks needs to CALL `states('entity.id')` pass through.
+  return new Proxy(statesFn, {
+    get(target, key, receiver) {
+      if (typeof key === 'symbol') {
+        return Reflect.get(target, key, receiver)
+      }
+      if (UNSAFE_KEYS.has(key)) {
+        return undefined
+      }
+      const bucket = buckets.get(key)
+      if (bucket !== undefined) {
+        return bucket
+      }
+      if (isFunctionMemberKey(key)) {
+        return Reflect.get(target, key, receiver)
+      }
+      return emptyDomainBucket
+    },
+    set() {
+      return true
+    },
+  }) as StatesGlobal
 }
 
 /** Globals we register ourselves — a user variable may not shadow these. */

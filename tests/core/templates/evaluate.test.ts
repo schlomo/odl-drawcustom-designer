@@ -298,8 +298,10 @@ describe('evaluateTemplate', () => {
       expect(evaluateTemplate("{{ states('weather.home') }}", maliciousContext)).toBe('sunny')
 
       // The malicious `sensor.__proto__` id must not leak a real `sensor` bucket
-      // whose prototype carries the injected state object's fields.
-      expect(evaluateTemplate('{{ states.sensor.entity_id }}', maliciousContext)).toBe('')
+      // whose prototype carries the injected state object's fields. The skipped
+      // id leaves `sensor.entity_id` unmocked, so it resolves to the HA-parity
+      // missing-entity None placeholder — never to the injected object.
+      expect(evaluateTemplate('{{ states.sensor.entity_id }}', maliciousContext)).toBe('None')
 
       // Global prototype chain is untouched by evaluation.
       expect(Object.prototype.hasOwnProperty.call(Object.prototype, 'x')).toBe(false)
