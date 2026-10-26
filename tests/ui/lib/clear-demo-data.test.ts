@@ -29,11 +29,11 @@ describe('clearDemoMockAttributes', () => {
   it('drops unmodified demo attributes, keeps edited values and user-added keys', () => {
     const result = clearDemoMockAttributes({
       'sensor.next_event': { active: false }, // matches demo → dropped
-      'weather.home': { temperature: 18, humidity: 99 }, // humidity edited → kept
+      'weather.forecast_home': { temperature: 18, humidity: 99 }, // humidity edited → kept
       'sensor.my_power': { unit: 'W' }, // user entity → kept
     })
     expect(result).toEqual({
-      'weather.home': { humidity: 99 },
+      'weather.forecast_home': { humidity: 99 },
       'sensor.my_power': { unit: 'W' },
     })
   })
