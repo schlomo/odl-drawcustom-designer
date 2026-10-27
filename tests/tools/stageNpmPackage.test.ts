@@ -26,6 +26,10 @@ function writeFixtureRepo(workDir: string): { repoRoot: string; distLibJsPath: s
   writeFileSync(join(repoRoot, 'LICENSE'), 'Apache License text')
   writeFileSync(join(repoRoot, 'NOTICE'), 'Copyright notice text')
   writeFileSync(join(repoRoot, 'README.md'), '# @schlomo/odl-drawcustom-designer\n')
+  const showcaseDir = join(repoRoot, 'src', 'assets', 'showcase')
+  mkdirSync(showcaseDir, { recursive: true })
+  writeFileSync(join(showcaseDir, 'showcase.yml'), '- type: text\n  value: demo\n')
+  writeFileSync(join(showcaseDir, 'showcase.json'), '{"simulator":{"states":{}}}\n')
   return { repoRoot, distLibJsPath, distLibDtsPath }
 }
 
@@ -82,6 +86,29 @@ describe('stageNpmPackage', () => {
 
     const readme = readFileSync(join(stagingDir, 'README.md'), 'utf8')
     expect(readme).toContain('@schlomo/odl-drawcustom-designer')
+  })
+
+  it('stages the showcase demo payload and simulator seed so a host can render the demo through its own pipeline', () => {
+    // The Home Assistant integration vendors the npm tarball and renders
+    // showcase.yml with real Python Jinja against showcase.json's states —
+    // the one check that catches a template the designer's JS preview
+    // coerces silently but HA rejects (issue #196: a strftime string divided
+    // by 60).
+    workDir = mkdtempSync(join(tmpdir(), 'stage-npm-test-'))
+    const { repoRoot, distLibJsPath, distLibDtsPath } = writeFixtureRepo(workDir)
+    const stagingDir = join(workDir, 'dist-npm')
+
+    stageNpmPackage({
+      version: '1.2.3',
+      repoRoot,
+      distLibJsPath,
+      distLibDtsPath,
+      stagingDir,
+      thirdPartyMarkdown: '# Third-party notices\n',
+    })
+
+    expect(readFileSync(join(stagingDir, 'showcase.yml'), 'utf8')).toBe('- type: text\n  value: demo\n')
+    expect(readFileSync(join(stagingDir, 'showcase.json'), 'utf8')).toBe('{"simulator":{"states":{}}}\n')
   })
 
   it('creates the staging directory if it does not exist yet', () => {

@@ -74,6 +74,11 @@ describe('buildNpmPackageJson', () => {
     expect(pkg.bugs).toEqual({ url: 'https://github.com/schlomo/odl-drawcustom-designer/issues' })
   })
 
+  it('lists the showcase demo payload and simulator seed in files so a host can vendor them from the tarball', () => {
+    const pkg = buildNpmPackageJson('1.0.0')
+    expect(pkg.files).toEqual(expect.arrayContaining(['showcase.yml', 'showcase.json']))
+  })
+
   it('lists README.md in files so npm includes it in the published tarball', () => {
     const pkg = buildNpmPackageJson('1.0.0')
     expect(pkg.files).toEqual(expect.arrayContaining(['README.md']))

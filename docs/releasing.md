@@ -506,7 +506,10 @@ import { mount, version } from '@schlomo/odl-drawcustom-designer'
 The package ships the **same single self-contained ESM** as the GitHub
 release asset — React and every other runtime dependency bundled in, no
 peer dependencies to resolve — plus its bundled `odl-drawcustom-designer.d.ts`
-(issue #122), `README.md`, `LICENSE`, `NOTICE`, and `THIRD_PARTY.md`.
+(issue #122), `README.md`, `LICENSE`, `NOTICE`, `THIRD_PARTY.md`, and the
+Load Demo bundle's `showcase.yml` + `showcase.json` (ADR-015) so a host can
+render the demo through its own pipeline — the Home Assistant integration
+runs the demo payload through real Python Jinja in its test-suite.
 `package.json`'s `types` field and `exports['.'].types` both point at the
 declaration file, so `tsc`/editor tooling resolves it automatically on a
 plain `import { mount } from '@schlomo/odl-drawcustom-designer'` — no
@@ -572,7 +575,8 @@ only invokes `tools/releaseVersion.ts`, `tools/createRelease.ts` and
   the ESM and the `.d.ts`).
 - **`tools/stageNpmPackage.ts`** — assembles a `dist-npm/` staging directory
   (the built ESM, its bundled `.d.ts`, generated `package.json`, `README.md`,
-  `LICENSE`, `NOTICE`, `THIRD_PARTY.md`). `npm publish --dry-run` against this
+  `LICENSE`, `NOTICE`, `THIRD_PARTY.md`, `showcase.yml`, `showcase.json`).
+  `npm publish --dry-run` against this
   directory works on a laptop exactly as in CI (`runs on laptop or CI
   identically`) — no `GITHUB_SHA`/`GH_TOKEN` required, just
   `npm run build:lib` first.
@@ -813,7 +817,8 @@ CI provider (GitHub Actions/GitLab CI), not a local `npm publish`; this
 manual path authenticates the ordinary way (`npm login`, 2FA as usual), not
 via Trusted Publishing. (Verified locally with `npm publish --dry-run` — the
 tarball contains exactly the ESM, its bundled `.d.ts`, `package.json`,
-`README.md`, `LICENSE`, `NOTICE`, `THIRD_PARTY.md`.) In practice, re-running
+`README.md`, `LICENSE`, `NOTICE`, `THIRD_PARTY.md`, `showcase.yml`,
+`showcase.json`.) In practice, re-running
 the failed `npm` job — or a `workflow_dispatch` — is simpler and is the
 tested path; this manual fallback exists only for an urgent one-off.
 

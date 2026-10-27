@@ -151,7 +151,8 @@ jobs:
       id-token: write
     steps:
       # Shallow: this job never reads tags or history, only LICENSE, NOTICE,
-      # README.md and the tools/ scripts that stage the package.
+      # README.md, src/assets/showcase/ and the tools/ scripts that stage
+      # the package.
       - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
