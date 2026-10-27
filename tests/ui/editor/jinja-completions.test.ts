@@ -5,6 +5,8 @@ import {
   HA_FILTER_COMPLETIONS,
   HA_NOW_METHOD_COMPLETIONS,
   HA_TAG_COMPLETIONS,
+  haJinjaCompletionSource,
+  matchEntityCompletions,
   resolveJinjaCompletionContext,
 } from '../../../src/ui/editor/jinjaCompletions'
 
@@ -230,5 +232,196 @@ describe('resolveJinjaCompletionContext', () => {
       from: pos,
       prefix: '',
     })
+  })
+})
+
+describe('entity-id completion matching (issue #170)', () => {
+  const ENTITIES = [
+    { id: 'sensor.wardrobe_outside_temperature', name: 'Wardrobe Temperature' },
+    { id: 'sensor.hallway_humidity', name: 'Hallway Humidity' },
+  ]
+
+  function entityLabels(doc: string): string[] {
+    const result = haJinjaCompletionSource(ENTITIES)(mockContext(doc, doc.length))
+    return (result?.options ?? []).map((option) => option.label)
+  }
+
+  it('offers an entity whose id buries the fragment mid-string', () => {
+    const labels = entityLabels("  value: \"{{ states('temp")
+    expect(labels).toContain('sensor.wardrobe_outside_temperature')
+    expect(labels).not.toContain('sensor.hallway_humidity')
+  })
+
+  it('offers the humidity sensor for a mid-id fragment', () => {
+    const labels = entityLabels("  value: \"{{ states('hum")
+    expect(labels).toEqual(['sensor.hallway_humidity'])
+  })
+
+  it('matches via the friendly name when the id never contains the fragment', () => {
+    const entities = [{ id: 'climate.livingroom', name: 'Thermostat Downstairs' }]
+    const result = haJinjaCompletionSource(entities)(
+      mockContext("  value: \"{{ states('thermo", "  value: \"{{ states('thermo".length),
+    )
+    expect(result?.options.map((option) => option.label)).toEqual(['climate.livingroom'])
+  })
+
+  it('disables CodeMirror label re-filtering so friendly-name matches survive', () => {
+    const doc = "  value: \"{{ states('temp"
+    const result = haJinjaCompletionSource(ENTITIES)(mockContext(doc, doc.length))
+    expect(result?.filter).toBe(false)
+  })
+
+  it('matches case-insensitively', () => {
+    const labels = entityLabels("  value: \"{{ states('Temp")
+    expect(labels).toContain('sensor.wardrobe_outside_temperature')
+  })
+
+  it('shows the friendly name as the completion detail', () => {
+    const doc = "  value: \"{{ states('hum"
+    const result = haJinjaCompletionSource(ENTITIES)(mockContext(doc, doc.length))
+    expect(result?.options[0]?.detail).toBe('Hallway Humidity')
+  })
+
+  it('ranks prefix above token-start above plain substring', () => {
+    const entries = [
+      { id: 'sensor.attemperator' },
+      { id: 'sensor.outside_temperature' },
+      { id: 'sensor.kitchen', name: 'Temperature Kitchen' },
+    ]
+    const labels = matchEntityCompletions(entries, 'temp').map((option) => option.label)
+    expect(labels).toEqual([
+      'sensor.kitchen', // friendly name starts with the query
+      'sensor.outside_temperature', // query starts a `_`-separated token
+      'sensor.attemperator', // bare substring
+    ])
+  })
+
+  it('ranks a boundary occurrence even when a non-boundary one comes first', () => {
+    const entries = [
+      { id: 'sensor.attempt_temperature' },
+      { id: 'sensor.attemperator' },
+    ]
+    const labels = matchEntityCompletions(entries, 'temp').map((option) => option.label)
+    expect(labels).toEqual(['sensor.attempt_temperature', 'sensor.attemperator'])
+  })
+
+  it('offers every entity for an empty fragment', () => {
+    const labels = matchEntityCompletions(ENTITIES, '').map((option) => option.label)
+    expect(labels).toEqual([
+      'sensor.hallway_humidity',
+      'sensor.wardrobe_outside_temperature',
+    ])
+  })
+
+  it('still puts a true id prefix first', () => {
+    const entries = [
+      { id: 'sensor.outside_temperature' },
+      { id: 'sensor.sensible' },
+    ]
+    const labels = matchEntityCompletions(entries, 'sens').map((option) => option.label)
+    expect(labels[0]).toBe('sensor.outside_temperature')
+    expect(labels).toContain('sensor.sensible')
+  })
+})
+
+describe('friendly-name fragments in quoted entity arguments (PR #192 review)', () => {
+  const FRIENDLY = [
+    { id: 'binary_sensor.garage_door', name: 'Garage Entrance' },
+    { id: 'sensor.kueche_temperatur', name: 'Küche Temperatur' },
+    { id: 'light.wohnzimmer', name: 'Living-Room Lamp' },
+  ]
+
+  function completionResult(doc: string) {
+    return haJinjaCompletionSource(FRIENDLY)(mockContext(doc, doc.length))
+  }
+
+  it('recognizes a fragment containing a space inside the quoted argument', () => {
+    const doc = "  value: \"{{ states('garage en"
+    expect(resolveJinjaCompletionContext(mockContext(doc, doc.length))).toEqual({
+      kind: 'entity-id',
+      from: doc.indexOf('garage en'),
+      prefix: 'garage en',
+    })
+  })
+
+  it('finds Garage Entrance for `garage en` and replaces the whole fragment', () => {
+    const doc = "  value: \"{{ states('garage en"
+    const result = completionResult(doc)
+    expect(result?.options.map((option) => option.label)).toEqual(['binary_sensor.garage_door'])
+    // Accepting must replace the WHOLE typed fragment — `from` at the quote,
+    // not at the last word — or `garage ` is left behind before the id.
+    expect(result?.from).toBe(doc.indexOf('garage en'))
+  })
+
+  it('finds a non-ASCII friendly name automatically (no explicit trigger)', () => {
+    const doc = "  value: \"{{ states('kü"
+    const result = completionResult(doc)
+    expect(result?.options.map((option) => option.label)).toEqual(['sensor.kueche_temperatur'])
+    expect(result?.from).toBe(doc.indexOf('kü'))
+  })
+
+  it('finds a hyphenated friendly name', () => {
+    const doc = "  value: \"{{ states('living-r"
+    const result = completionResult(doc)
+    expect(result?.options.map((option) => option.label)).toEqual(['light.wohnzimmer'])
+  })
+
+  it('stops the fragment at the previous closing quote (is_state second argument)', () => {
+    const doc = "  value: \"{{ is_state('binary_sensor.garage_door', 'garage en"
+    expect(resolveJinjaCompletionContext(mockContext(doc, doc.length))).toEqual({
+      kind: 'entity-id',
+      from: doc.lastIndexOf('garage en'),
+      prefix: 'garage en',
+    })
+  })
+
+  it('does not complete spaced fragments outside quotes', () => {
+    const doc = '  value: "{{ states(garage en'
+    expect(completionResult(doc)).toBeNull()
+  })
+})
+
+describe('multi-word fragments match every word independently (PR #192 maintainer review)', () => {
+  const ENTITIES = [
+    { id: 'sensor.wohnzimmer_temperatur', name: 'Living Room Temperature' },
+    { id: 'sensor.freezer_temperature', name: 'Freezer' },
+    { id: 'binary_sensor.garage_door', name: 'Garage Entrance' },
+  ]
+
+  it('finds the living room sensor for `liv temp` (words are not adjacent in the name)', () => {
+    const labels = matchEntityCompletions(ENTITIES, 'liv temp').map((option) => option.label)
+    expect(labels).toEqual(['sensor.wohnzimmer_temperatur'])
+  })
+
+  it('requires every word to match somewhere', () => {
+    expect(matchEntityCompletions(ENTITIES, 'liv froz')).toEqual([])
+  })
+
+  it('lets different words match the id and the friendly name', () => {
+    const labels = matchEntityCompletions(ENTITIES, 'wohn temp').map((option) => option.label)
+    expect(labels).toEqual(['sensor.wohnzimmer_temperatur'])
+  })
+
+  it('keeps suggestions while a trailing space is typed between words', () => {
+    const labels = matchEntityCompletions(ENTITIES, 'liv ').map((option) => option.label)
+    expect(labels).toEqual(['sensor.wohnzimmer_temperatur'])
+  })
+
+  it('ranks a contiguous match above a word-split one', () => {
+    const entries = [
+      { id: 'sensor.a', name: 'Garage Light Entrance' },
+      { id: 'sensor.b', name: 'Garage Entrance' },
+    ]
+    const labels = matchEntityCompletions(entries, 'garage en').map((option) => option.label)
+    expect(labels).toEqual(['sensor.b', 'sensor.a'])
+  })
+
+  it('completes `liv temp` through the full source with the fragment-wide from', () => {
+    const doc = "  value: \"{{ states('liv temp"
+    const result = haJinjaCompletionSource(ENTITIES)(mockContext(doc, doc.length))
+    expect(result?.options.map((option) => option.label)).toEqual([
+      'sensor.wohnzimmer_temperatur',
+    ])
+    expect(result?.from).toBe(doc.indexOf('liv temp'))
   })
 })

@@ -1,6 +1,7 @@
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete'
 import { JINJA_DELIMITER_INSERTS, jinjaDelimiterOpenTransaction } from './jinjaBracketHandling'
 import { isAtJinjaTemplateStart, isAtLoneOpenBrace, isInsideJinjaTemplate } from './jinjaContext'
+import type { EntityCompletionEntry } from './yamlEntityIds'
 
 function applyJinjaDelimiter(open: '{{' | '{%'): Completion['apply'] {
   return (view, _completion, from, to) => {
@@ -152,15 +153,6 @@ export const HA_TAG_COMPLETIONS: Completion[] = HA_TAG_SNIPPETS.map((entry) => (
   apply: applyJinjaSnippet(entry.insert),
 }))
 
-export function buildJinjaCompletionConfig(entityIds: readonly string[]) {
-  return {
-    entityIds,
-    expressionCompletions: HA_EXPRESSION_COMPLETIONS,
-    filterCompletions: HA_FILTER_COMPLETIONS,
-    tagCompletions: HA_TAG_COMPLETIONS,
-  }
-}
-
 type JinjaCompletionKind =
   | 'delimiter'
   | 'expression'
@@ -256,11 +248,19 @@ function matchStrftimeFormatContext(slice: string, pos: number): { from: number;
   return { from: pos - prefix.length - 1, prefix }
 }
 
+/**
+ * Fragment grammar inside a QUOTED entity argument: friendly-name queries
+ * (issue #170) legitimately contain spaces, hyphens and non-ASCII letters
+ * (`garage en` → "Garage Entrance", `kü` → "Küche Temperatur"), so the
+ * fragment is any run of Unicode letters/digits plus `_ . - ` and space —
+ * stopping at the quote characters, which end the argument. Bare (unquoted)
+ * contexts keep the strict `[\w.]` word grammar via `context.matchBefore`.
+ */
 function matchEntityIdQuote(slice: string): string | null {
   const patterns = [
-    /(?:states|state_attr|is_state_attr)\s*\(\s*['"]([\w.]*)$/,
-    /is_state\s*\(\s*['"]([\w.]*)$/,
-    /is_state\s*\(\s*['"][^'"]*['"]\s*,\s*['"]([\w.]*)$/,
+    /(?:states|state_attr|is_state_attr)\s*\(\s*['"]([\p{L}\p{N}_. -]*)$/u,
+    /is_state\s*\(\s*['"]([\p{L}\p{N}_. -]*)$/u,
+    /is_state\s*\(\s*['"][^'"]*['"]\s*,\s*['"]([\p{L}\p{N}_. -]*)$/u,
   ]
 
   for (const pattern of patterns) {
@@ -293,6 +293,18 @@ export function resolveJinjaCompletionContext(context: CompletionContext): Resol
     }
   }
 
+  // Quoted entity fragments bypass the ASCII-word gate below: a friendly-name
+  // query may hold spaces or non-ASCII letters that `matchBefore(/[\w.]*/)`
+  // cannot see (`kü` matches no \w word at all). A non-empty fragment is
+  // deliberate typing inside the argument quotes, so it completes
+  // automatically; an empty one still needs an explicit request, as before.
+  // `from` spans the WHOLE fragment — accepting a suggestion must replace
+  // `garage en`, not leave `garage ` behind and insert the id after it.
+  const entityPrefix = matchEntityIdQuote(slice)
+  if (entityPrefix !== null && (entityPrefix.length > 0 || context.explicit)) {
+    return { kind: 'entity-id', from: context.pos - entityPrefix.length, prefix: entityPrefix }
+  }
+
   const word = context.matchBefore(/[\w.]*/)
   const hasWord = Boolean(word && word.text.length > 0)
   if (
@@ -302,11 +314,6 @@ export function resolveJinjaCompletionContext(context: CompletionContext): Resol
     !isAtCallArgumentBoundary(slice)
   ) {
     return null
-  }
-
-  const entityPrefix = matchEntityIdQuote(slice)
-  if (entityPrefix !== null) {
-    return { kind: 'entity-id', from: word?.from ?? context.pos, prefix: entityPrefix }
   }
 
   const nowMethod = matchNowMethodContext(slice, context.pos)
@@ -341,18 +348,95 @@ function filterStrftimeFormatCompletions(prefix: string): Completion[] {
   return HA_STRFTIME_FORMAT_COMPLETIONS.filter((option) => option.label.slice(1).startsWith(prefix))
 }
 
-function entityIdCompletions(entityIds: readonly string[], prefix: string): Completion[] {
-  return filterByPrefix(
-    entityIds.map((entityId) => ({
-      label: entityId,
-      type: 'variable',
-      detail: 'entity',
-    })),
-    prefix,
-  )
+/**
+ * Best match rank of `query` inside `haystack` (both lowercased):
+ * 0 = prefix, 1 = token start (after `.`/`_`/space/`-`), 2 = substring,
+ * null = no match. Scans every occurrence — the first one is not always the
+ * best-ranked one (`attempt_temperature` for `temp`).
+ */
+function entityMatchRank(haystack: string, query: string): number | null {
+  let best: number | null = null
+  for (let index = haystack.indexOf(query); index >= 0; index = haystack.indexOf(query, index + 1)) {
+    const rank = index === 0 ? 0 : /[._\s-]/.test(haystack[index - 1]!) ? 1 : 2
+    best = best === null ? rank : Math.min(best, rank)
+    if (best === 0) {
+      break
+    }
+  }
+  return best
 }
 
-export function haJinjaCompletionSource(entityIds: readonly string[]) {
+function bestHaystackRank(haystacks: readonly string[], needle: string): number | null {
+  return haystacks
+    .map((haystack) => entityMatchRank(haystack, needle))
+    .reduce<number | null>(
+      (best, current) =>
+        current === null ? best : best === null ? current : Math.min(best, current),
+      null,
+    )
+}
+
+// A contiguous whole-query match always outranks a word-split one; 3 is one
+// past the worst contiguous rank (2, plain mid-word substring).
+const WORD_SPLIT_RANK_OFFSET = 3
+
+/**
+ * Rank one entry against the query. A contiguous substring match wins; failing
+ * that, a query containing whitespace matches when EVERY word matches
+ * independently, each against the id or the friendly name — `liv temp` finds
+ * "Living Room Temperature" — ranked after all contiguous matches.
+ */
+function entityEntryRank(haystacks: readonly string[], needle: string): number | null {
+  const contiguous = bestHaystackRank(haystacks, needle)
+  if (contiguous !== null) {
+    return contiguous
+  }
+  const words = needle.split(/\s+/).filter((word) => word.length > 0)
+  if (words.length === 0 || (words.length === 1 && words[0] === needle)) {
+    return null
+  }
+  let sum = 0
+  for (const word of words) {
+    const rank = bestHaystackRank(haystacks, word)
+    if (rank === null) {
+      return null
+    }
+    sum += rank
+  }
+  return WORD_SPLIT_RANK_OFFSET + sum
+}
+
+/**
+ * Entity completions for a typed fragment (issue #170): substring matching,
+ * case-insensitive, against the entity id AND the friendly name; ranked
+ * prefix → token start → substring → word-split multi-word match, ties broken
+ * alphabetically by id.
+ */
+export function matchEntityCompletions(
+  entities: readonly EntityCompletionEntry[],
+  query: string,
+): Completion[] {
+  const needle = query.toLowerCase()
+
+  const ranked: Array<{ entry: EntityCompletionEntry; rank: number }> = []
+  for (const entry of entities) {
+    const haystacks = [entry.id.toLowerCase(), (entry.name ?? '').toLowerCase()]
+    const rank = needle.length === 0 ? 0 : entityEntryRank(haystacks, needle)
+    if (rank !== null) {
+      ranked.push({ entry, rank })
+    }
+  }
+
+  ranked.sort((a, b) => a.rank - b.rank || a.entry.id.localeCompare(b.entry.id))
+
+  return ranked.map(({ entry }) => ({
+    label: entry.id,
+    type: 'variable',
+    detail: entry.name ?? 'entity',
+  }))
+}
+
+export function haJinjaCompletionSource(entities: readonly EntityCompletionEntry[]) {
   return (context: CompletionContext): CompletionResult | null => {
     const resolved = resolveJinjaCompletionContext(context)
     if (!resolved) {
@@ -365,7 +449,7 @@ export function haJinjaCompletionSource(entityIds: readonly string[]) {
         options = HA_DELIMITER_COMPLETIONS
         break
       case 'entity-id':
-        options = entityIdCompletions(entityIds, resolved.prefix)
+        options = matchEntityCompletions(entities, resolved.prefix)
         break
       case 'filter':
         options = filterByPrefix(HA_FILTER_COMPLETIONS, resolved.prefix)
@@ -388,6 +472,19 @@ export function haJinjaCompletionSource(entityIds: readonly string[]) {
 
     if (options.length === 0) {
       return null
+    }
+
+    if (resolved.kind === 'entity-id') {
+      // Our matcher already filtered AND ranked (id + friendly name,
+      // issue #170). CodeMirror's own label matcher would drop a
+      // friendly-name-only match (the label is the id), so it is disabled;
+      // no `validFor` means every keystroke re-runs the source for a fresh
+      // ranking instead of letting CM re-filter a stale list.
+      return {
+        from: resolved.from,
+        options,
+        filter: false,
+      }
     }
 
     const validFor =

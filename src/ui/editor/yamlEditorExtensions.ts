@@ -18,7 +18,11 @@ import {
 } from './yamlTemplatePreview'
 import { yamlEditorAutocompletion } from './yamlCompletionSource'
 import { YAML_EDITOR_BASIC_SETUP } from './yamlEditorSetup'
-import { yamlEntityIdsCompartment, yamlEntityIdsFacet } from './yamlEntityIds'
+import {
+  yamlEntityIdsCompartment,
+  yamlEntityIdsFacet,
+  type EntityCompletionEntry,
+} from './yamlEntityIds'
 import { yamlWithJinja } from './yamlLanguage'
 import { yamlPayloadLinter } from './yamlLint'
 import { yamlScalarHighlight } from './yamlScalarHighlight'
@@ -116,7 +120,7 @@ export function createYamlEditorState(
   doc: string,
   colorScheme: ResolvedTheme,
   fontSizePx: number,
-  entityIds: readonly string[],
+  entityEntries: readonly EntityCompletionEntry[],
   onDocChange: (value: string, update: ViewUpdate) => void,
   pointerActiveRef: { current: boolean },
   onCursorPositionChangeRef: {
@@ -202,7 +206,7 @@ export function createYamlEditorState(
         onCursorPositionChange(main.head, update.state.doc.toString())
       }),
       yamlThemeCompartment.of(createYamlEditorTheme(colorScheme, fontSizePx)),
-      yamlEntityIdsCompartment.of(yamlEntityIdsFacet.of(entityIds)),
+      yamlEntityIdsCompartment.of(yamlEntityIdsFacet.of(entityEntries)),
       // Editable at birth; YamlEditor's own effect reconfigures this on every
       // change of its `readOnly` prop, including the first commit.
       yamlReadOnlyCompartment.of(yamlReadOnlyExtension(false)),
