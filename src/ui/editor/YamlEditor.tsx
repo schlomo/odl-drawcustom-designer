@@ -1,6 +1,7 @@
 import { EditorView } from '@codemirror/view'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { parseYamlPayload, scanPayloadForTemplates, validatePayload, type HaMockContext } from '../../core'
+import { NO_HOST_STATE_NAMES } from '../../embed/hostContract'
 import type { ResolvedTheme } from '../preferences/theme'
 import { locateElementFocusInYaml } from './locateElementInYaml'
 import { locateFirstEntityOccurrenceInYaml } from './locateEntityInYaml'
@@ -10,7 +11,11 @@ import {
   yamlEditorTooltipParent,
   yamlThemeCompartment,
 } from './yamlEditorExtensions'
-import { yamlEntityIdsCompartment, yamlEntityIdsFacet } from './yamlEntityIds'
+import {
+  yamlEntityIdsCompartment,
+  yamlEntityIdsFacet,
+  type EntityCompletionEntry,
+} from './yamlEntityIds'
 import { reconfigureTemplatePreview, templatePreviewNowEffect } from './yamlTemplatePreview'
 import { createYamlEditorTheme } from './yamlTheme'
 import {
@@ -52,6 +57,9 @@ export interface YamlEditorProps {
   yamlScrollRef?: { current: number }
   className?: string
   extraEntityIds?: readonly string[]
+  /** Friendly names by entity id (host state catalog) — autocomplete matches
+   * against them too (issue #170). */
+  entityNames?: Readonly<Record<string, string>>
   mockContext?: HaMockContext
   templatePreviewEnabled?: boolean
   /**
@@ -61,8 +69,14 @@ export interface YamlEditorProps {
   readOnly?: boolean
 }
 
-function mergeEntityIds(scanned: readonly string[], extra: readonly string[]): string[] {
-  return [...new Set([...scanned, ...extra])].sort()
+function mergeEntityEntries(
+  scanned: readonly string[],
+  extra: readonly string[],
+  names: Readonly<Record<string, string>>,
+): EntityCompletionEntry[] {
+  return [...new Set([...scanned, ...extra])]
+    .sort()
+    .map((id) => (Object.hasOwn(names, id) ? { id, name: names[id] } : { id }))
 }
 
 function resolveEntityIds(yamlSource: string): string[] {
@@ -93,6 +107,9 @@ export function YamlEditor({
   yamlScrollRef,
   className,
   extraEntityIds = [],
+  // Shared frozen map, NOT `{}`: a fresh per-render default would recompute
+  // entityEntries and dispatch a no-op compartment reconfigure per keystroke.
+  entityNames = NO_HOST_STATE_NAMES,
   mockContext,
   templatePreviewEnabled = true,
   readOnly = false,
@@ -108,9 +125,9 @@ export function YamlEditor({
   const suppressCursorReportRef = useRef(false)
   const [entityScanSource, setEntityScanSource] = useState(value)
   const scannedEntityIds = useMemo(() => resolveEntityIds(entityScanSource), [entityScanSource])
-  const entityIds = useMemo(
-    () => mergeEntityIds(scannedEntityIds, extraEntityIds),
-    [scannedEntityIds, extraEntityIds],
+  const entityEntries = useMemo(
+    () => mergeEntityEntries(scannedEntityIds, extraEntityIds, entityNames),
+    [scannedEntityIds, extraEntityIds, entityNames],
   )
   const templatePreview = useMemo(
     () => ({
@@ -149,7 +166,7 @@ export function YamlEditor({
         value,
         colorScheme,
         fontSizePx,
-        entityIds,
+        entityEntries,
         (nextValue) => {
           lastEmittedValueRef.current = nextValue
           onChangeRef.current(nextValue)
@@ -198,9 +215,9 @@ export function YamlEditor({
     }
 
     view.dispatch({
-      effects: yamlEntityIdsCompartment.reconfigure(yamlEntityIdsFacet.of(entityIds)),
+      effects: yamlEntityIdsCompartment.reconfigure(yamlEntityIdsFacet.of(entityEntries)),
     })
-  }, [entityIds])
+  }, [entityEntries])
 
   useEffect(() => {
     const view = viewRef.current

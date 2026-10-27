@@ -135,7 +135,8 @@
   value: >-
     {%- set ns = namespace(sum=0) -%}{%- for v in [21, 22, 23, 20] -%}{%- set ns.sum = ns.sum + v -%}{%- endfor -%}Avg
     {{ (ns.sum / 4) | round(1) }}°C · Hum
-    {{ states.weather.home.attributes.humidity }}%
+    {% set humidity = state_attr('weather.forecast_home', 'humidity') -%}
+    {{ humidity if humidity != None else '?' }}%
   x: 40
   y: 348
   size: 15
@@ -208,7 +209,7 @@
   stroke_width: 20
 - type: text
   value: |-
-    In [yellow]{{ states('sensor.temperature') }}[/yellow]°C · Out {{ state_attr('weather.home', 'temperature') }}°C
+    In [yellow]{{ states('sensor.temperature') }}[/yellow]°C · Out {{ state_attr('weather.forecast_home', 'temperature') }}°C
   x: 500
   y: 32
   size: 17

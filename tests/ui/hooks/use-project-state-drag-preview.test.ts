@@ -108,8 +108,9 @@ describe('useProjectState previewElements during a canvas drag (issue #124)', ()
       })
     })
 
-    // Unseeded entities are seeded as `unknown` by the effective mock context;
-    // the newly referenced one must reach the preview, not a stale context.
+    // The unmocked entity resolves through the `states('…')` fallback; the
+    // edited element must be re-evaluated (templated-slot signature), not
+    // served from a stale preview.
     expect(result.current.previewElements[1]).toMatchObject({ value: 'unknown' })
   })
 })

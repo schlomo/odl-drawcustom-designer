@@ -95,8 +95,10 @@ test('Load Demo under host-fed states loads the payload only: unreferenced-by-th
  *    the `states` global (`states.<domain>.<object>`, ADR-004) — the id has
  *    no quotes to anchor on and always sits right after a literal `states.`
  *    (a dot), which the bare-identifier fallback deliberately excludes to
- *    dodge fragments of a longer chain. The showcase payload itself uses
- *    exactly this form (`states.weather.home.attributes.humidity`).
+ *    dodge fragments of a longer chain. The showcase payload no longer uses
+ *    that form (a direct `.attributes` chain raises on a live HA lacking the
+ *    entity), so that branch is covered by
+ *    tests/ui/editor/locate-entity-in-yaml.test.ts alone.
  * 2. The panel's row list sits above a sibling VariablesEditor that is
  *    `shrink-0` (up to 45% of their shared column) — with enough referenced
  *    states and variables (exactly what Load Demo seeds), the row list's own
@@ -109,7 +111,7 @@ test('Load Demo under host-fed states loads the payload only: unreferenced-by-th
  * Needs the real EditorView and real layout — jsdom cannot prove the pane
  * actually scrolls, nor would it have caught the zero-height squeeze.
  */
-test('clicking a referenced-state row scrolls the YAML editor to its dotted-access template (#142)', async ({
+test('clicking a referenced-state row scrolls the YAML editor to its template (#142)', async ({
   page,
 }) => {
   await page.goto(embedUrl())
@@ -121,13 +123,13 @@ test('clicking a referenced-state row scrolls the YAML editor to its dotted-acce
 
   await yamlContent(page).click()
   await page.keyboard.press('ControlOrMeta+Home')
-  const humidityLine = yamlLineContaining(page, 'weather.home.attributes.humidity')
+  const humidityLine = yamlLineContaining(page, "set humidity = state_attr(")
   await expect(humidityLine).not.toBeInViewport()
 
   await page.getByRole('button', { name: 'States', exact: true }).click()
-  const weatherHomeLabel = page.getByTestId('referenced-state-label-weather.home')
-  await expect(weatherHomeLabel).toBeVisible()
-  await weatherHomeLabel.click()
+  const weatherLabel = page.getByTestId('referenced-state-label-weather.forecast_home')
+  await expect(weatherLabel).toBeVisible()
+  await weatherLabel.click()
 
   await expect(humidityLine).toBeInViewport()
 })
@@ -149,8 +151,8 @@ test('the referenced-states row list stays clickable next to a full Variables ed
   await expect(page.getByTestId('element-list-row').first()).toBeVisible()
 
   await page.getByRole('button', { name: 'States', exact: true }).click()
-  const row = page.getByTestId('referenced-state-row-weather.home')
-  // Scroll within the row list's own `overflow-y-auto` (weather.home sorts
+  const row = page.getByTestId('referenced-state-row-weather.forecast_home')
+  // Scroll within the row list's own `overflow-y-auto` (weather.forecast_home sorts
   // near the end alphabetically) — this is what a real click does too, and
   // is the point: a squeezed-to-zero list has no visible scroll room to
   // deliver a row into, no matter how far it scrolls.

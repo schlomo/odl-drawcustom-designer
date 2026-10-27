@@ -14,7 +14,6 @@ import {
   applyTemplateContextToElement,
   elementHasTemplates,
   resolvePreviewClockInterval,
-  scanPayloadForTemplates,
 } from '../../core'
 import {
   persistAsset,
@@ -188,23 +187,6 @@ function resolveActiveTargetId(
     findHostTarget(hostTargets, selectedTarget.id) != null
     ? selectedTarget.id
     : null
-}
-
-function buildEffectiveMockContext(
-  templateEntityIds: readonly string[],
-  mockStates: HaMockContext['states'],
-  mockAttributes: MockEntityAttributes,
-  variables: StoredVariables,
-): HaMockContext {
-  const states = { ...mockStates }
-
-  for (const entityId of templateEntityIds) {
-    if (!(entityId in states)) {
-      states[entityId] = 'unknown'
-    }
-  }
-
-  return { states, attributes: mockAttributes, variables }
 }
 
 /**
@@ -1144,25 +1126,21 @@ export function useProjectState(
 
   const previewNow = useTemplatePreviewClock(previewClockInterval)
 
-  // The entity ids the payload's templates reference, as a list whose IDENTITY
-  // only changes when the referenced set does (issue #124). `mockContext` seeds
-  // an `unknown` state for each of them, so keyed on `elements` it churned on
-  // every canvas pointermove — and through it `previewElements`, which reuses
-  // its previous evaluation only while the context is unchanged. Geometry
-  // edits cannot change which entities are referenced. Signature-string
-  // technique as in `useStableAssetKeys`.
-  const templateEntityIdSignature = useMemo(
-    () => JSON.stringify(scanPayloadForTemplates(elements).entityIds),
-    [elements],
-  )
-  const templateEntityIds = useMemo(
-    () => JSON.parse(templateEntityIdSignature) as string[],
-    [templateEntityIdSignature],
-  )
-
+  // The evaluation context carries ONLY real mocks — user-set Simulator mocks
+  // or host-fed states — never entities merely scanned from the payload's
+  // templates (PR #189). Seeding every scanned id with an `'unknown'` state
+  // materialized unmocked entities, so `states.<domain>.<object>` on them
+  // silently previewed empty instead of raising HA's
+  // `'None' has no attribute '<name>'` — the original incident, masked
+  // end-to-end. The Simulator panel still LISTS scanned-but-unmocked entities
+  // by synthesizing display rows itself (see StateSimulator); that synthesis
+  // must never reach the evaluator. Dropping the seeding also drops the
+  // context's dependency on `elements` entirely, which is stronger than the
+  // issue #124 signature plumbing it replaces: a canvas pointermove can no
+  // longer churn the context at all.
   const mockContext = useMemo(
-    () => buildEffectiveMockContext(templateEntityIds, mockStates, mockAttributes, variables),
-    [templateEntityIds, mockStates, mockAttributes, variables],
+    (): HaMockContext => ({ states: mockStates, attributes: mockAttributes, variables }),
+    [mockStates, mockAttributes, variables],
   )
 
   const previewMockContext = useMemo(
