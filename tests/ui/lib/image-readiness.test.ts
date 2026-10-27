@@ -59,3 +59,16 @@ describe('image readiness messages (issue #55)', () => {
     expect(getImageStatusMessages([dlimg], new Map())).toHaveLength(0)
   })
 })
+
+describe('image readiness messages — inline data: images (review round on PR #198)', () => {
+  it('tells the user the inline data could not be decoded, not to check an uploaded file', () => {
+    const url = 'data:image/png;base64,bm90LWEtcG5n'
+    const messages = getImageStatusMessages(
+      [{ type: 'dlimg' as const, url, x: 0, y: 0, xsize: 10, ysize: 10 }],
+      new Map([[url, { key: url, status: 'failed' as const, message: 'data: image/png (34 chars) could not be decoded.' }]]),
+    )
+
+    expect(messages[0]?.detail).toMatch(/inline/i)
+    expect(messages[0]?.detail).not.toMatch(/uploaded file/i)
+  })
+})

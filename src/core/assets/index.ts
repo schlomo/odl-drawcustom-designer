@@ -19,7 +19,7 @@ export {
   type HostAssetResolver,
 } from './host-resolver'
 export { scanPayloadForAssets } from './scanner'
-export { isDataUrl } from './data-url'
+export { dataUrlMediaType, isDataUrl, isRenderableImageDataUrl } from './data-url'
 export {
   BUNDLED_FONT_KEYS,
   deleteAsset,

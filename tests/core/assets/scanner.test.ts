@@ -191,3 +191,21 @@ describe('scanPayloadForAssets — inline images', () => {
     expect(result.references.map((ref) => ref.path)).toEqual(['[1].url'])
   })
 })
+
+describe('scanPayloadForAssets — data: skip is scoped (review round on PR #198)', () => {
+  it('skips a DATA: image url regardless of scheme case', () => {
+    const result = scanPayloadForAssets([
+      { type: 'dlimg', url: 'DATA:image/png;base64,AAAA', x: 0, y: 0, xsize: 1, ysize: 1 },
+    ])
+    expect(result.keys).toEqual([])
+  })
+
+  it('still reports a font whose name happens to start with data: — font references are untouched by this PR', () => {
+    const result = scanPayloadForAssets([
+      { type: 'text', value: 'x', x: 0, y: 0, font: 'data:font/ttf;base64,AAAA' },
+    ])
+    expect(result.references).toEqual([
+      { path: '[0].font', key: 'data:font/ttf;base64,AAAA', kind: 'font' },
+    ])
+  })
+})

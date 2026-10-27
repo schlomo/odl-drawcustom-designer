@@ -113,3 +113,37 @@ describe('loadAppBootstrap hash precedence', () => {
     expect(replaceState).toHaveBeenCalledWith(null, '', '/designer')
   })
 })
+
+/**
+ * Review round on PR #198: autosaved sessions and `#d=` links from before the
+ * demo image moved inline still say `url: /local/showcase.png` — a key no tier
+ * resolves any more. That exact string is rewritten to the current demo image
+ * where payloads enter, so an old session or link keeps showing the demo
+ * picture instead of a render error plus a "Missing" Content Manager row.
+ */
+describe('legacy /local/showcase.png migration', () => {
+  const legacyDlimg = { type: 'dlimg' as const, url: '/local/showcase.png', x: 330, y: 260, xsize: 100, ysize: 100 }
+  const demoImageUrl = SHOWCASE_ELEMENTS.find((element) => element.type === 'dlimg')!.url
+
+  it('rewrites the legacy demo key in a restored session to the current demo data: URI', () => {
+    const bootstrap = buildAppBootstrap(sessionWithElements([legacyDlimg]), {})
+    expect(bootstrap.elements).toEqual([{ ...legacyDlimg, url: demoImageUrl }])
+  })
+
+  it('rewrites the legacy demo key in a #d= share link too', async () => {
+    const payload = buildSharePayload({
+      name: 'Old link',
+      canvas: { width: 800, height: 480, rotation: 0, colorMode: 'four', previewDitherMode: 0 },
+      elements: [legacyDlimg],
+    })
+    const bootstrap = await loadAppBootstrap(`#d=${encodeShareHash(payload)}`)
+    expect(bootstrap.importSource).toBe('hash')
+    expect(bootstrap.elements[0]).toMatchObject({ url: demoImageUrl })
+  })
+
+  it('leaves every other url alone and returns the same array when nothing matches', () => {
+    const own = { ...legacyDlimg, url: '/local/mine.png' }
+    const session = sessionWithElements([own])
+    expect(buildAppBootstrap(session, {}).elements).toBe(session.elements)
+  })
+})

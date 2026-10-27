@@ -656,3 +656,20 @@ describe('data: images and the local tiers (demo image inline)', () => {
     expect(outcomes.get('/local/showcase.png')).toMatchObject({ status: 'missing' })
   })
 })
+
+describe('data: scheme is case-insensitive (RFC 2397) — review round on PR #198', () => {
+  afterEach(resetAll)
+
+  it('never asks the host for a DATA: image either', async () => {
+    await withImmediateImageLoad(async () => {
+      const resolver = vi.fn(async () => pngBlob())
+      installHostAssetResolver(resolver)
+      const upper = `DATA:image/png;base64,${PNG_1X1_BASE64}`
+
+      const { outcomes } = await loadAssetImageMapWithOutcomes([upper])
+
+      expect(outcomes.get(upper)).toMatchObject({ status: 'ready' })
+      expect(resolver).not.toHaveBeenCalled()
+    })
+  })
+})

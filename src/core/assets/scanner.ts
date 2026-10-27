@@ -17,8 +17,13 @@ function addReference(
   key: string,
   kind: AssetKind,
 ): void {
-  // A `data:` URL is the image itself — nothing to upload, resolve or warn about.
-  if (!key || hasTemplateSyntax(key) || isDataUrl(key)) {
+  if (!key || hasTemplateSyntax(key)) {
+    return
+  }
+  // A `data:` image URL is the image itself — nothing to upload, resolve or
+  // warn about. Fonts are deliberately not covered: a font name is a lookup
+  // key whatever it starts with, and that path is unchanged.
+  if (kind === 'image' && isDataUrl(key)) {
     return
   }
 

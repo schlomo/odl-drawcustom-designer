@@ -16,6 +16,7 @@ import {
   SHOWCASE_CANVAS,
   SHOWCASE_ELEMENTS,
   cloneShowcaseSimulator,
+  migrateLegacyShowcaseImage,
 } from '../data/showcase'
 import type { DisplayConfig } from '../preferences/displayConfig'
 import { readMockStates, type MockData } from '../preferences/mockStates'
@@ -53,10 +54,14 @@ export interface AppBootstrap {
   normalization?: ImportNormalization
 }
 
-/** Saved sessions with no elements fall back to the built-in sample dashboard. */
+/**
+ * Saved sessions with no elements fall back to the built-in sample dashboard.
+ * A saved session from before the demo image moved inline gets its
+ * `/local/showcase.png` rewritten on the way in (`migrateLegacyShowcaseImage`).
+ */
 export function resolveElementsForLoad(session: SessionSnapshot | null): DrawElement[] {
   if (session && session.elements.length > 0) {
-    return session.elements
+    return migrateLegacyShowcaseImage(session.elements)
   }
   return SHOWCASE_ELEMENTS
 }
@@ -112,7 +117,10 @@ export async function loadAppBootstrap(locationHash?: string): Promise<AppBootst
       if (useWindowLocation) {
         clearShareHashFromLocation()
       }
-      return sharePayloadToBootstrap(payload, mock, variables)
+      const bootstrap = sharePayloadToBootstrap(payload, mock, variables)
+      // Same courtesy as a restored session: a link minted before the demo
+      // image moved inline still names the retired `/local/showcase.png`.
+      return { ...bootstrap, elements: migrateLegacyShowcaseImage(bootstrap.elements) }
     }
   }
 

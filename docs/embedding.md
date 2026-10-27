@@ -577,11 +577,23 @@ and the host is only asked for what is left over:
 | # | Tier | Where it comes from |
 |---|------|---------------------|
 | 1 | Local content map | the user's own uploads in Content Manager ([ADR-002](adr/ADR-002-local-content-map.md)) |
-| 2 | Bundled assets | `ppb.ttf`, `rbm.ttf`, the demo image — shipped inside the bundle |
+| 2 | Bundled assets | `ppb.ttf`, `rbm.ttf` — fonts shipped inside the bundle |
 | 3 | **`resolveAsset`** | the host, **by name** |
 
 So a user upload always wins over the host's copy (that is the escape hatch
 when a host font is wrong), and a bundled font never costs a round trip.
+
+**`data:` image URLs are outside the tiers.** A `dlimg` whose `url` is a
+`data:image/…;base64,…` URI is decoded as-is: it is never a Content Manager
+row, never a missing-asset warning, and `resolveAsset` is never called for
+it. Only what odl-renderer can render on the host is accepted — base64 raster
+(`png`, `jpeg`, `gif`, `bmp`, `webp`); SVG or a non-base64 payload shows the
+render-error state instead of a preview the send would reject. The Load Demo
+carries its own image this way, so a demo payload sends with no file on the
+host. There is no bundled *image* any more: the former demo key
+`/local/showcase.png` is an ordinary name now, and like any other name it
+reaches `resolveAsset` when nothing local resolves it (fonts are unaffected —
+a font name starting with `data:` is still a lookup key).
 
 **Answers.** Return a `Blob` (the bytes — the safest answer: no CORS
 questions, and nothing that can taint the PNG export canvas), or a `string`

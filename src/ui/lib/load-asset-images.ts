@@ -1,9 +1,11 @@
 import {
   clearImageUnavailable,
+  dataUrlMediaType,
   hasHostAssetResolver,
   hasHostSuppliedAsset,
   isDataUrl,
   isImageMime,
+  isRenderableImageDataUrl,
   markImageUnavailable,
   resolveAsset,
   resolveHostAsset,
@@ -21,16 +23,13 @@ function loadImageElement(src: string): Promise<HTMLImageElement> {
 }
 
 /**
- * How a failed image is named in messages. A `data:` URL *is* the image, so
- * naming it in full would paste kilobytes of base64 into a banner — the
- * scheme plus the first few characters identify it well enough.
+ * How a failed `data:` image is named in messages. The URL *is* the image, so
+ * naming it would paste kilobytes of base64 into a banner, and its first
+ * characters are the same PNG signature for every image — the media type and
+ * length are what tell one inline image from another.
  */
-const DATA_URL_LABEL_LENGTH = 40
-
-function imageKeyLabel(key: string): string {
-  return isDataUrl(key) && key.length > DATA_URL_LABEL_LENGTH
-    ? `${key.slice(0, DATA_URL_LABEL_LENGTH)}…`
-    : key
+function dataUrlLabel(key: string): string {
+  return `data: ${dataUrlMediaType(key) || 'image'} (${key.length} chars)`
 }
 
 /** Mirrors load-opentype-fonts.ts's isFontAssetAvailable: does the content
@@ -102,16 +101,29 @@ function missingImageMessage(key: string): string {
  * A `data:` URL is self-contained: hand it to the decoder as-is. It consults
  * neither the content map nor the host — and awaits nothing host-related, so
  * the standalone "no resolver, pre-tier path" invariant holds for it trivially.
+ *
+ * Gated to what the real send can render first (`isRenderableImageDataUrl`):
+ * a browser previews SVG or a non-base64 payload that odl-renderer rejects,
+ * which would be exactly the "previews here, fails on the display" gap.
+ * Neither message carries the URL itself — the decoder's error names the
+ * full `src`, so it is deliberately not echoed as a detail here.
  */
 async function loadDataUrlImage(key: string, isStale: () => boolean): Promise<ImageLoadAttempt> {
-  try {
-    return readyAttempt(key, await loadImageElement(key), isStale)
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : 'Unknown error'
+  if (!isRenderableImageDataUrl(key)) {
     return unavailableAttempt(
       key,
       'failed',
-      `${imageKeyLabel(key)} could not be decoded (${detail}).`,
+      `${dataUrlLabel(key)} cannot be sent — Home Assistant renders only base64-encoded raster data: URLs (png, jpeg, gif, bmp, webp).`,
+      isStale,
+    )
+  }
+  try {
+    return readyAttempt(key, await loadImageElement(key), isStale)
+  } catch {
+    return unavailableAttempt(
+      key,
+      'failed',
+      `${dataUrlLabel(key)} could not be decoded — the inline image data is not a valid image.`,
       isStale,
     )
   }

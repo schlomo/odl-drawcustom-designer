@@ -426,7 +426,7 @@ describe('loadAssetImageMapWithOutcomes — data: URLs', () => {
       const result = await loadAssetImageMapWithOutcomes([corrupt])
 
       expect(result.outcomes.get(corrupt)).toMatchObject({ status: 'failed' })
-      expect(result.outcomes.get(corrupt)?.message).toContain('data:image/png;base64,')
+      expect(result.outcomes.get(corrupt)?.message).toContain('data: image/png (34 chars)')
       expect(result.outcomes.get(corrupt)?.message).toContain('could not be decoded')
       expect(result.images.has(corrupt)).toBe(false)
       expect(imageUnavailableMessage(corrupt)).toBeTruthy()
@@ -437,6 +437,77 @@ describe('loadAssetImageMapWithOutcomes — data: URLs', () => {
     await withImmediateImageLoad(async () => {
       const { images } = await loadAssetImageMapWithOutcomes([PNG_1X1_DATA_URL])
       expect(pruneAssetImagesForKeys(images, [PNG_1X1_DATA_URL]).has(PNG_1X1_DATA_URL)).toBe(true)
+    })
+  })
+})
+
+/**
+ * Review round on PR #198. A `data:` image previews in the browser whatever it
+ * carries, but the real send goes through odl-renderer, which decodes only
+ * `;base64,` payloads with Pillow (no SVG). Showing an image the send would
+ * reject is the exact gap the inline demo image exists to close, so the
+ * loader applies the same gate — and names a `data:` key without pasting its
+ * base64 into a banner.
+ */
+describe('loadAssetImageMapWithOutcomes — data: URL parity gate and labels', () => {
+  afterEach(() => {
+    resetContentMap()
+    clearImageAvailabilityRegistry()
+  })
+
+  const HA_ONLY = 'Home Assistant renders only base64-encoded raster'
+
+  it.each([
+    ['any text media type', 'data:text/html,<p>hi</p>'],
+    ['SVG, which Pillow cannot decode', `data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org/2000/svg"/>')}`],
+    ['a non-base64 image payload', 'data:image/png,%89PNG%0D%0A'],
+  ])('settles %s as failed with the Home Assistant parity message, without trying to decode it', async (_label, url) => {
+    let decodeAttempted = false
+    const OriginalImage = globalThis.Image
+    class SpyImage {
+      onload: (() => void) | null = null
+      set src(_value: string) {
+        decodeAttempted = true
+        this.onload?.()
+      }
+    }
+    // @ts-expect-error test double
+    globalThis.Image = SpyImage
+    try {
+      const result = await loadAssetImageMapWithOutcomes([url])
+      expect(result.outcomes.get(url)).toMatchObject({ status: 'failed' })
+      expect(result.outcomes.get(url)?.message).toContain(HA_ONLY)
+      expect(result.images.has(url)).toBe(false)
+      expect(imageUnavailableMessage(url)).toContain(HA_ONLY)
+      expect(decodeAttempted).toBe(false)
+    } finally {
+      globalThis.Image = OriginalImage
+    }
+  })
+
+  it('accepts the demo URI shape (base64 PNG) and an uppercase media type', async () => {
+    await withImmediateImageLoad(async () => {
+      const upper = `data:IMAGE/PNG;base64,${PNG_1X1_BASE64}`
+      const result = await loadAssetImageMapWithOutcomes([PNG_1X1_DATA_URL, upper])
+      expect(result.outcomes.get(PNG_1X1_DATA_URL)).toMatchObject({ status: 'ready' })
+      expect(result.outcomes.get(upper)).toMatchObject({ status: 'ready' })
+    })
+  })
+
+  it('names a failed data: image by media type and length, never by its base64 — not even in the decoder detail', async () => {
+    await withFailingImageLoad(async () => {
+      const base64 = 'QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo'.repeat(4)
+      const corrupt = `data:image/png;base64,${base64}`
+      const result = await loadAssetImageMapWithOutcomes([corrupt])
+
+      const message = result.outcomes.get(corrupt)?.message ?? ''
+      expect(result.outcomes.get(corrupt)).toMatchObject({ status: 'failed' })
+      expect(message).toContain(`data: image/png (${corrupt.length} chars)`)
+      expect(message).toContain('could not be decoded')
+      expect(message).not.toContain(base64.slice(-12))
+      expect(message).not.toContain('base64,')
+      expect(message.length).toBeLessThan(160)
+      expect(imageUnavailableMessage(corrupt)).toBe(message)
     })
   })
 })
