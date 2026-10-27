@@ -28,7 +28,7 @@ describe('encodeMonoPng', () => {
 describe('withShowcaseImageUrl', () => {
   const uri = 'data:image/png;base64,AAAA'
 
-  it('replaces the legacy /local/showcase.png url line', () => {
+  it('replaces a plain url line', () => {
     const yaml = '- type: dlimg\n  url: /local/showcase.png\n  x: 330\n'
     expect(withShowcaseImageUrl(yaml, uri)).toBe(`- type: dlimg\n  url: ${uri}\n  x: 330\n`)
   })

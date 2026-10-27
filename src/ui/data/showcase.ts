@@ -59,39 +59,6 @@ export const SHOWCASE_VARIABLES: StoredVariables = meta.simulator.variables
  */
 export const SHOWCASE_ELEMENTS: DrawElement[] = parseShowcaseElements(showcaseYaml)
 
-/**
- * The demo image's key before it moved inline (PR #198) — resolved by a
- * designer-only bundled tier that no longer exists. Autosaved sessions and
- * `#d=` links from before still carry it.
- */
-export const LEGACY_SHOWCASE_IMAGE_URL = '/local/showcase.png' as const
-
-/** The current demo image, as the `dlimg` in `showcase.yml` carries it. */
-export const SHOWCASE_IMAGE_DATA_URL: string = (() => {
-  const dlimg = SHOWCASE_ELEMENTS.find((element) => element.type === 'dlimg')
-  if (!dlimg?.url) {
-    throw new Error(`${SHOWCASE_YAML_PATH} has no dlimg element`)
-  }
-  return dlimg.url
-})()
-
-/**
- * Rewrite the legacy demo image key to the current inline demo image, where a
- * payload enters from storage or a share link. Bounded to that one exact
- * string — a user's own `/local/…` names are theirs. Returns the same array
- * when nothing matches, so an untouched session stays referentially equal.
- */
-export function migrateLegacyShowcaseImage(elements: DrawElement[]): DrawElement[] {
-  if (!elements.some((element) => element.type === 'dlimg' && element.url === LEGACY_SHOWCASE_IMAGE_URL)) {
-    return elements
-  }
-  return elements.map((element) =>
-    element.type === 'dlimg' && element.url === LEGACY_SHOWCASE_IMAGE_URL
-      ? { ...element, url: SHOWCASE_IMAGE_DATA_URL }
-      : element,
-  )
-}
-
 /** Fresh element copy for Load Demo (avoid shared mutation). */
 export function cloneShowcaseElements(): DrawElement[] {
   return structuredClone(SHOWCASE_ELEMENTS)
