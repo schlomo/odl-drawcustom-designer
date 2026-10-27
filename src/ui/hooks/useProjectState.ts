@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import {
   applyPlotPropertyUpdate,
-  BUNDLED_SHOWCASE_IMAGE_KEY,
   normalizeImportedPayload,
-  resolveAsset,
   type DrawElement,
   type ImportNormalization,
   type HaMockContext,
@@ -61,7 +59,6 @@ import type { DisplayConfig } from '../preferences/displayConfig'
 import type { MockEntityAttributes } from '../preferences/mockStates'
 import { isValidVariableName } from '../preferences/variables'
 import type { StoredVariables } from '../../storage'
-import { allowShowcaseBundledForDemo, suppressShowcaseBundled } from '../preferences/showcaseAsset'
 import { readSnapGridPrefs, writeSnapGridPrefs, type SnapGridPrefs } from '../preferences/snapGrid'
 import {
   readShowHiddenHintsPrefs,
@@ -1501,15 +1498,6 @@ export function useProjectState(
         return
       }
 
-      if (key === BUNDLED_SHOWCASE_IMAGE_KEY) {
-        if (resolveAsset(key).status === 'resolved') {
-          await removePersistedAsset(key)
-        }
-        suppressShowcaseBundled()
-        setAssetRevision((revision) => revision + 1)
-        return
-      }
-
       await removePersistedAsset(key)
       setAssetRevision((revision) => revision + 1)
     },
@@ -1792,7 +1780,6 @@ export function useProjectState(
     // Replaces the design, never reads it — the other escape hatch out of a
     // document that no longer parses.
     yamlArmExternalReplaceRef?.current?.()
-    allowShowcaseBundledForDemo()
     resetEditHistory()
     // The demo replaces the imported document the notice described.
     setImportNormalization(null)

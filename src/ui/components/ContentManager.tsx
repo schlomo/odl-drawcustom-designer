@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { BUNDLED_SHOWCASE_IMAGE_KEY, FONT_UPLOAD_ACCEPT, type AssetKind, type AssetUploadResult, type DrawElement } from '../../core'
+import { FONT_UPLOAD_ACCEPT, type AssetKind, type AssetUploadResult, type DrawElement } from '../../core'
 import { buildContentAssetRows } from '../lib/content-asset-rows'
 import { getScopedElementById } from '../lib/scoped-dom'
 import { shell } from '../styles/shell'
@@ -251,15 +251,6 @@ export function ContentManager({
                       }}
                     >
                       Clear
-                    </button>
-                  ) : onClear && row.status === 'bundled' && row.key === BUNDLED_SHOWCASE_IMAGE_KEY ? (
-                    <button
-                      type="button"
-                      className={shell.button}
-                      onClick={() => onClear(row.key)}
-                      title="Hide the bundled demo image without storing a copy locally"
-                    >
-                      Hide demo
                     </button>
                   ) : null}
                 </div>

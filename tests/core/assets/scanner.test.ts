@@ -170,3 +170,24 @@ describe('scanPayloadForAssets', () => {
     expect(scanPayloadForAssets([])).toEqual({ references: [], keys: [] })
   })
 })
+
+describe('scanPayloadForAssets — inline images', () => {
+  it('does not report a data: URL on dlimg as an asset reference (it is the image itself, nothing to upload or resolve)', () => {
+    const payload: DrawElement[] = [
+      {
+        type: 'dlimg',
+        url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+        x: 0,
+        y: 0,
+        xsize: 10,
+        ysize: 10,
+      },
+      { type: 'dlimg', url: '/local/still-an-asset.png', x: 0, y: 0, xsize: 10, ysize: 10 },
+    ]
+
+    const result = scanPayloadForAssets(payload)
+
+    expect(result.keys).toEqual(['/local/still-an-asset.png'])
+    expect(result.references.map((ref) => ref.path)).toEqual(['[1].url'])
+  })
+})

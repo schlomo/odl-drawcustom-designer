@@ -17,9 +17,7 @@ function collectRequiredImageKeys(elements: readonly DrawElement[]): string[] {
  * Mirrors font-readiness.ts's getFontStatusMessages, scoped to the two error
  * cases images actually have today (issue #55): no "loading"/templated/
  * glyph-coverage equivalents for images yet — those weren't asked for and
- * would be speculative UX no one has approved. 'suppressed' (the dismissed
- * bundled showcase image) is deliberately excluded — see
- * ImageLoadStatus's doc comment.
+ * would be speculative UX no one has approved.
  */
 export function getImageStatusMessages(
   elements: readonly DrawElement[],

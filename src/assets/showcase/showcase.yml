@@ -159,7 +159,7 @@
   color: black
   bgcolor: white
 - type: dlimg
-  url: /local/showcase.png
+  url: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgAQAAAABbAUdZAAAALUlEQVR42mP4DwQMRBAHEiz+MzQoSIAIjv8MfcodJBJAbewgA9hBRrEzEGkvANy8XnMXKVANAAAAAElFTkSuQmCC
   x: 330
   y: 260
   xsize: 100

@@ -63,7 +63,7 @@ proportions, not the absolute bytes; identical ranking in both builds):
 
 **Library build extra (~1 MiB raw):** Vite library mode inlines all assets as
 base64 — the two bundled fonts (`rbm.ttf` 165 KB, `ppb.ttf` 150 KB become
-~420 KB of base64) plus showcase assets. That is the price of the
+~420 KB of base64) plus the showcase payload (its demo image is a ~100-byte `data:` URI inside the YAML). That is the price of the
 single-file, serve-from-anywhere artifact and is deliberate (see below). The
 app build ships the same fonts as separate hashed files in `dist/assets/`.
 

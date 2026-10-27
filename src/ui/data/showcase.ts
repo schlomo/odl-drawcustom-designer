@@ -8,12 +8,16 @@ import type { DisplayConfig } from '../preferences/displayConfig'
 /** Per-entity attribute map for the State Simulator (typed JSON values). */
 export type ShowcaseMockAttributes = Record<string, Record<string, unknown>>
 
-/** Folder for the built-in demo bundle (payload, simulator seed, bundled image). */
+/**
+ * Folder for the built-in demo bundle: payload and simulator seed. The demo's
+ * `dlimg` image lives *inside* the payload as a `data:` URI (generated from
+ * `showcase.png` by `tools/showcaseImage.ts`), so the designer bundles no
+ * separate image and a real display send needs no file on the host.
+ */
 export const SHOWCASE_ASSET_DIR = 'src/assets/showcase' as const
 
 export const SHOWCASE_YAML_PATH = `${SHOWCASE_ASSET_DIR}/showcase.yml` as const
 export const SHOWCASE_JSON_PATH = `${SHOWCASE_ASSET_DIR}/showcase.json` as const
-export const SHOWCASE_IMAGE_PATH = `${SHOWCASE_ASSET_DIR}/showcase.png` as const
 
 export const SHOWCASE_YAML = showcaseYaml
 

@@ -1,15 +1,12 @@
 /** @vitest-environment jsdom */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  BUNDLED_SHOWCASE_IMAGE_KEY,
   clearImageAvailabilityRegistry,
   imageUnavailableMessage,
   markImageUnavailable,
   resetContentMap,
   setAsset,
 } from '../../../src/core'
-import { SHOWCASE_BUNDLED_SUPPRESSED_STORAGE_KEY } from '../../../src/ui/preferences/keys'
-import { suppressShowcaseBundled } from '../../../src/ui/preferences/showcaseAsset'
 import { drawCanvasStub } from '../../../src/ui/lib/draw-canvas-stubs'
 import {
   areAssetImageMapsEqual,
@@ -124,10 +121,6 @@ describe('areAssetImageMapsEqual', () => {
 })
 
 describe('loadAssetImageMap', () => {
-  beforeEach(() => {
-    localStorage.removeItem(SHOWCASE_BUNDLED_SUPPRESSED_STORAGE_KEY)
-  })
-
   afterEach(() => {
     resetContentMap()
   })
@@ -149,23 +142,6 @@ describe('loadAssetImageMap', () => {
 
       const images = await loadAssetImageMap(['/local/missing.png', 'ppb.ttf'])
 
-      expect(images.size).toBe(0)
-    })
-  })
-
-  it('loads the bundled showcase image when not suppressed', async () => {
-    await withImmediateImageLoad(async () => {
-      const images = await loadAssetImageMap([BUNDLED_SHOWCASE_IMAGE_KEY])
-      expect(images.size).toBe(1)
-      expect(images.has(BUNDLED_SHOWCASE_IMAGE_KEY)).toBe(true)
-    })
-  })
-
-  it('skips the bundled showcase image after dismiss', async () => {
-    suppressShowcaseBundled()
-
-    await withImmediateImageLoad(async () => {
-      const images = await loadAssetImageMap([BUNDLED_SHOWCASE_IMAGE_KEY])
       expect(images.size).toBe(0)
     })
   })
@@ -206,10 +182,6 @@ function withFailingImageLoad(run: () => Promise<void> | void): Promise<void> {
  * tests/ui/lib/missing-image-render-error.test.ts for that half).
  */
 describe('loadAssetImageMapWithOutcomes', () => {
-  beforeEach(() => {
-    localStorage.removeItem(SHOWCASE_BUNDLED_SUPPRESSED_STORAGE_KEY)
-  })
-
   afterEach(() => {
     resetContentMap()
     clearImageAvailabilityRegistry()
@@ -420,5 +392,51 @@ describe('drawCanvasStub dlimg preview', () => {
 
     expect(ctx.fillText).toHaveBeenCalled()
     expect(ctx.font).toBe('16px drawcustom-font-missing-preview-ttf, sans-serif')
+  })
+})
+
+/** The 1×1 PNG above as the self-contained form a payload can carry. */
+const PNG_1X1_DATA_URL = `data:image/png;base64,${PNG_1X1_BASE64}`
+
+/**
+ * A `data:` URL is the image — there is nothing to look up. It decodes
+ * directly, consulting neither the content map nor any host (the Load Demo
+ * payload carries its picture this way so it sends to a real display with
+ * no file on the Home Assistant host).
+ */
+describe('loadAssetImageMapWithOutcomes — data: URLs', () => {
+  afterEach(() => {
+    resetContentMap()
+    clearImageAvailabilityRegistry()
+  })
+
+  it('decodes a data:image/png URL with no content-map entry at all', async () => {
+    await withImmediateImageLoad(async () => {
+      const result = await loadAssetImageMapWithOutcomes([PNG_1X1_DATA_URL])
+
+      expect(result.outcomes.get(PNG_1X1_DATA_URL)).toMatchObject({ status: 'ready' })
+      expect(result.images.get(PNG_1X1_DATA_URL)?.src).toBe(PNG_1X1_DATA_URL)
+      expect(imageUnavailableMessage(PNG_1X1_DATA_URL)).toBeUndefined()
+    })
+  })
+
+  it('settles an undecodable data: URL as failed, naming the asset, so renderDlimg shows the render-error marker', async () => {
+    await withFailingImageLoad(async () => {
+      const corrupt = 'data:image/png;base64,bm90LWEtcG5n'
+      const result = await loadAssetImageMapWithOutcomes([corrupt])
+
+      expect(result.outcomes.get(corrupt)).toMatchObject({ status: 'failed' })
+      expect(result.outcomes.get(corrupt)?.message).toContain('data:image/png;base64,')
+      expect(result.outcomes.get(corrupt)?.message).toContain('could not be decoded')
+      expect(result.images.has(corrupt)).toBe(false)
+      expect(imageUnavailableMessage(corrupt)).toBeTruthy()
+    })
+  })
+
+  it('keeps a decoded data: image when pruning the render image map (no content-map entry to vouch for it)', async () => {
+    await withImmediateImageLoad(async () => {
+      const { images } = await loadAssetImageMapWithOutcomes([PNG_1X1_DATA_URL])
+      expect(pruneAssetImagesForKeys(images, [PNG_1X1_DATA_URL]).has(PNG_1X1_DATA_URL)).toBe(true)
+    })
   })
 })

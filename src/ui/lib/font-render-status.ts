@@ -106,10 +106,9 @@ function mergeAssetFailures<TOutcome extends AssetOutcomeLike>(
  * the asset and every affected element, instead of one banner per builder.
  * Anything else — the loading banner, templated-font warnings, glyph-
  * coverage warnings, a missing/failed asset with no associated render error
- * (e.g. a `plot`/`progress_bar` element whose font isn't used), a
- * deliberately 'suppressed' image outcome, and any render error NOT caused
- * by a font/image-unavailable outcome — passes through unchanged from the
- * existing builders.
+ * (e.g. a `plot`/`progress_bar` element whose font isn't used), and any
+ * render error NOT caused by a font/image-unavailable outcome — passes
+ * through unchanged from the existing builders.
  */
 export function getMergedStatusMessages(
   elements: readonly DrawElement[],

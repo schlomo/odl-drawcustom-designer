@@ -1,16 +1,14 @@
 import {
-  BUNDLED_SHOWCASE_IMAGE_KEY,
   clearImageUnavailable,
   hasHostAssetResolver,
   hasHostSuppliedAsset,
+  isDataUrl,
   isImageMime,
   markImageUnavailable,
   resolveAsset,
   resolveHostAsset,
   type DrawElement,
 } from '../../core'
-import { shouldUseBundledShowcaseImage } from '../preferences/showcaseAsset'
-import { bundledImageUrl } from './bundled-image-url'
 import type { ImageLoadBatchResult, ImageLoadOutcome } from './image-load-outcome'
 
 function loadImageElement(src: string): Promise<HTMLImageElement> {
@@ -22,18 +20,35 @@ function loadImageElement(src: string): Promise<HTMLImageElement> {
   })
 }
 
+/**
+ * How a failed image is named in messages. A `data:` URL *is* the image, so
+ * naming it in full would paste kilobytes of base64 into a banner — the
+ * scheme plus the first few characters identify it well enough.
+ */
+const DATA_URL_LABEL_LENGTH = 40
+
+function imageKeyLabel(key: string): string {
+  return isDataUrl(key) && key.length > DATA_URL_LABEL_LENGTH
+    ? `${key.slice(0, DATA_URL_LABEL_LENGTH)}…`
+    : key
+}
+
 /** Mirrors load-opentype-fonts.ts's isFontAssetAvailable: does the content
- * map (or the bundled-asset set) know about this key at all — independent of
- * whether it has actually been decoded successfully yet. */
+ * map know about this key at all — independent of whether it has actually
+ * been decoded successfully yet. */
 function isImageAssetAvailable(key: string): boolean {
+  // A `data:` URL carries the image itself — nothing can be "not uploaded".
+  if (isDataUrl(key)) {
+    return true
+  }
   const resolution = resolveAsset(key)
   if (resolution.status === 'resolved') {
     return isImageMime(resolution.mime ?? '')
   }
   // A host-supplied image (issue #138) is as available as an uploaded one —
-  // the host resolver is the last tier behind the content map and the bundled
-  // assets, not a different kind of asset.
-  return resolution.status === 'bundled' || hasHostSuppliedAsset('image', key)
+  // the host resolver is the last tier behind the content map, not a
+  // different kind of asset.
+  return hasHostSuppliedAsset('image', key)
 }
 
 interface ImageLoadAttempt {
@@ -81,6 +96,25 @@ function unavailableAttempt(
 /** The local-only message, unchanged from before the host tier existed. */
 function missingImageMessage(key: string): string {
   return `${key} is not uploaded — add it in Content Manager.`
+}
+
+/**
+ * A `data:` URL is self-contained: hand it to the decoder as-is. It consults
+ * neither the content map nor the host — and awaits nothing host-related, so
+ * the standalone "no resolver, pre-tier path" invariant holds for it trivially.
+ */
+async function loadDataUrlImage(key: string, isStale: () => boolean): Promise<ImageLoadAttempt> {
+  try {
+    return readyAttempt(key, await loadImageElement(key), isStale)
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'Unknown error'
+    return unavailableAttempt(
+      key,
+      'failed',
+      `${imageKeyLabel(key)} could not be decoded (${detail}).`,
+      isStale,
+    )
+  }
 }
 
 /**
@@ -165,6 +199,10 @@ async function loadAssetImage(key: string, isStale: () => boolean): Promise<Imag
     clearImageUnavailable(key)
   }
 
+  if (isDataUrl(key)) {
+    return loadDataUrlImage(key, isStale)
+  }
+
   // `isImageAssetAvailable` (above) and this `resolveAsset` are two separate
   // calls into the same synchronous, in-memory content-map read — reviewed
   // on PR #58 as a possible TOCTOU race (map mutates between the two).
@@ -172,7 +210,7 @@ async function loadAssetImage(key: string, isStale: () => boolean): Promise<Imag
   // nothing can mutate the content map in the gap; both calls necessarily
   // observe the same snapshot. More importantly, this snapshot is only ever
   // used to pick a branch below — every branch unconditionally settles a
-  // definitive `readyAttempt`/`unavailableAttempt`/`'suppressed'` outcome by
+  // definitive `readyAttempt`/`unavailableAttempt` outcome by
   // the time this function returns, so even a hypothetical future reordering
   // that separated these two reads with a real await could only ever delay
   // which (still self-consistent) branch runs, never leave the mark cleared
@@ -201,27 +239,8 @@ async function loadAssetImage(key: string, isStale: () => boolean): Promise<Imag
     }
   }
 
-  if (resolution.status === 'bundled') {
-    if (!shouldUseBundledShowcaseImage(key, BUNDLED_SHOWCASE_IMAGE_KEY)) {
-      // Deliberately dismissed by the user — not an error, never mark
-      // unavailable, never show a render-error marker or banner for it.
-      return { outcome: { key, status: 'suppressed' } }
-    }
-
-    const url = bundledImageUrl(key)
-    if (!url) {
-      return unavailableAttempt(key, 'failed', `${key} has no bundled asset URL.`, isStale)
-    }
-
-    try {
-      const image = await loadImageElement(url)
-      return readyAttempt(key, image, isStale)
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : 'Unknown error'
-      return unavailableAttempt(key, 'failed', `${key} could not be loaded (${detail}).`, isStale)
-    }
-  }
-
+  // Only fonts have a bundled tier; an image key never resolves as 'bundled'
+  // (the Load Demo carries its picture inline as a `data:` URL instead).
   if (hasHostAssetResolver()) {
     return loadHostImage(key, isStale)
   }
@@ -292,19 +311,18 @@ export function pruneAssetImagesForKeys(
   const next = new Map<string, HTMLImageElement>()
 
   for (const key of keys) {
-    const resolution = resolveAsset(key)
-    if (resolution.status === 'resolved' && current.has(key)) {
-      next.set(key, current.get(key)!)
+    if (!current.has(key)) {
       continue
     }
-    // A host-supplied image has no content-map entry to prove it resolves
-    // (issue #138) — without this it would be pruned out of the render map on
-    // the next repaint and the canvas would lose an image it just loaded.
-    if (hasHostSuppliedAsset('image', key) && current.has(key)) {
-      next.set(key, current.get(key)!)
-      continue
-    }
-    if (shouldUseBundledShowcaseImage(key, BUNDLED_SHOWCASE_IMAGE_KEY) && current.has(key)) {
+    // A `data:` image and a host-supplied image (issue #138) have no
+    // content-map entry to prove they resolve — without this they would be
+    // pruned out of the render map on the next repaint and the canvas would
+    // lose an image it just loaded.
+    if (
+      isDataUrl(key) ||
+      resolveAsset(key).status === 'resolved' ||
+      hasHostSuppliedAsset('image', key)
+    ) {
       next.set(key, current.get(key)!)
     }
   }

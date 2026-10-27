@@ -55,14 +55,6 @@ describe('image readiness messages (issue #55)', () => {
     expect(messages).toHaveLength(0)
   })
 
-  it('reports nothing for a deliberately suppressed (dismissed bundled demo) image', () => {
-    const messages = getImageStatusMessages(
-      [dlimg],
-      new Map([['/local/custom.png', { key: '/local/custom.png', status: 'suppressed' as const }]]),
-    )
-    expect(messages).toHaveLength(0)
-  })
-
   it('reports nothing when no outcome is recorded yet (still loading)', () => {
     expect(getImageStatusMessages([dlimg], new Map())).toHaveLength(0)
   })

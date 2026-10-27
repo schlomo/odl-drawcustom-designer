@@ -1,5 +1,6 @@
 import type { DrawElement } from '../schema/elements'
 import { hasTemplateSyntax } from '../templates/patterns'
+import { isDataUrl } from './data-url'
 import type { AssetKind, AssetReference, AssetScanResult, Payload } from './types'
 
 const FONT_ELEMENT_TYPES = new Set<DrawElement['type']>([
@@ -16,7 +17,8 @@ function addReference(
   key: string,
   kind: AssetKind,
 ): void {
-  if (!key || hasTemplateSyntax(key)) {
+  // A `data:` URL is the image itself — nothing to upload, resolve or warn about.
+  if (!key || hasTemplateSyntax(key) || isDataUrl(key)) {
     return
   }
 

@@ -148,7 +148,7 @@ export {
   listLibraryFontKeys,
   scanFontReferences,
   BUNDLED_FONT_KEYS,
-  BUNDLED_SHOWCASE_IMAGE_KEY,
+  isDataUrl,
   deleteAsset,
   loadAssetsIntoContentMap,
   listContentMapKeys,

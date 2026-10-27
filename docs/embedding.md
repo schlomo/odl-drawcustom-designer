@@ -693,7 +693,7 @@ rows included, exactly as before (a maintainer verified this directly: a
 payload referencing a `/media/…` image never uploaded to that browser still
 listed it, labelled `HOST`). What disappears is every write path into the
 local store: the Upload/Replace button and its hidden file input, the Clear
-and "Hide demo" buttons, and the upload affordances on font and image-URL
+button, and the upload affordances on font and image-URL
 property fields (a select option, a button plus file input) — removed from
 the render tree, not merely `disabled`. `useProjectState`'s `uploadAsset`/
 `clearAsset` also refuse outright, so even a path that somehow still called in
