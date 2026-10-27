@@ -380,3 +380,48 @@ describe('friendly-name fragments in quoted entity arguments (PR #192 review)', 
     expect(completionResult(doc)).toBeNull()
   })
 })
+
+describe('multi-word fragments match every word independently (PR #192 maintainer review)', () => {
+  const ENTITIES = [
+    { id: 'sensor.wohnzimmer_temperatur', name: 'Living Room Temperature' },
+    { id: 'sensor.freezer_temperature', name: 'Freezer' },
+    { id: 'binary_sensor.garage_door', name: 'Garage Entrance' },
+  ]
+
+  it('finds the living room sensor for `liv temp` (words are not adjacent in the name)', () => {
+    const labels = matchEntityCompletions(ENTITIES, 'liv temp').map((option) => option.label)
+    expect(labels).toEqual(['sensor.wohnzimmer_temperatur'])
+  })
+
+  it('requires every word to match somewhere', () => {
+    expect(matchEntityCompletions(ENTITIES, 'liv froz')).toEqual([])
+  })
+
+  it('lets different words match the id and the friendly name', () => {
+    const labels = matchEntityCompletions(ENTITIES, 'wohn temp').map((option) => option.label)
+    expect(labels).toEqual(['sensor.wohnzimmer_temperatur'])
+  })
+
+  it('keeps suggestions while a trailing space is typed between words', () => {
+    const labels = matchEntityCompletions(ENTITIES, 'liv ').map((option) => option.label)
+    expect(labels).toEqual(['sensor.wohnzimmer_temperatur'])
+  })
+
+  it('ranks a contiguous match above a word-split one', () => {
+    const entries = [
+      { id: 'sensor.a', name: 'Garage Light Entrance' },
+      { id: 'sensor.b', name: 'Garage Entrance' },
+    ]
+    const labels = matchEntityCompletions(entries, 'garage en').map((option) => option.label)
+    expect(labels).toEqual(['sensor.b', 'sensor.a'])
+  })
+
+  it('completes `liv temp` through the full source with the fragment-wide from', () => {
+    const doc = "  value: \"{{ states('liv temp"
+    const result = haJinjaCompletionSource(ENTITIES)(mockContext(doc, doc.length))
+    expect(result?.options.map((option) => option.label)).toEqual([
+      'sensor.wohnzimmer_temperatur',
+    ])
+    expect(result?.from).toBe(doc.indexOf('liv temp'))
+  })
+})

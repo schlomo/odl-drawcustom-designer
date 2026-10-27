@@ -366,10 +366,51 @@ function entityMatchRank(haystack: string, query: string): number | null {
   return best
 }
 
+function bestHaystackRank(haystacks: readonly string[], needle: string): number | null {
+  return haystacks
+    .map((haystack) => entityMatchRank(haystack, needle))
+    .reduce<number | null>(
+      (best, current) =>
+        current === null ? best : best === null ? current : Math.min(best, current),
+      null,
+    )
+}
+
+// A contiguous whole-query match always outranks a word-split one; 3 is one
+// past the worst contiguous rank (2, plain mid-word substring).
+const WORD_SPLIT_RANK_OFFSET = 3
+
+/**
+ * Rank one entry against the query. A contiguous substring match wins; failing
+ * that, a query containing whitespace matches when EVERY word matches
+ * independently, each against the id or the friendly name — `liv temp` finds
+ * "Living Room Temperature" — ranked after all contiguous matches.
+ */
+function entityEntryRank(haystacks: readonly string[], needle: string): number | null {
+  const contiguous = bestHaystackRank(haystacks, needle)
+  if (contiguous !== null) {
+    return contiguous
+  }
+  const words = needle.split(/\s+/).filter((word) => word.length > 0)
+  if (words.length === 0 || (words.length === 1 && words[0] === needle)) {
+    return null
+  }
+  let sum = 0
+  for (const word of words) {
+    const rank = bestHaystackRank(haystacks, word)
+    if (rank === null) {
+      return null
+    }
+    sum += rank
+  }
+  return WORD_SPLIT_RANK_OFFSET + sum
+}
+
 /**
  * Entity completions for a typed fragment (issue #170): substring matching,
  * case-insensitive, against the entity id AND the friendly name; ranked
- * prefix → token start → substring, ties broken alphabetically by id.
+ * prefix → token start → substring → word-split multi-word match, ties broken
+ * alphabetically by id.
  */
 export function matchEntityCompletions(
   entities: readonly EntityCompletionEntry[],
@@ -379,16 +420,8 @@ export function matchEntityCompletions(
 
   const ranked: Array<{ entry: EntityCompletionEntry; rank: number }> = []
   for (const entry of entities) {
-    const rank =
-      needle.length === 0
-        ? 0
-        : [entry.id, entry.name ?? '']
-            .map((haystack) => entityMatchRank(haystack.toLowerCase(), needle))
-            .reduce<number | null>(
-              (best, current) =>
-                current === null ? best : best === null ? current : Math.min(best, current),
-              null,
-            )
+    const haystacks = [entry.id.toLowerCase(), (entry.name ?? '').toLowerCase()]
+    const rank = needle.length === 0 ? 0 : entityEntryRank(haystacks, needle)
     if (rank !== null) {
       ranked.push({ entry, rank })
     }
