@@ -35,13 +35,109 @@ function rewriteNamespaceMemberAssignments(template: string): string {
   )
 }
 
+/**
+ * Jinja-parity deferred undefined. In Python Jinja2 (and therefore HA's
+ * default printable `LoggingUndefined`, measured against HA 2026.8.3 /
+ * jinja2 3.1.6), attribute access on None does not raise at the access
+ * itself — it returns an `Undefined` object CARRYING the message
+ * `'None' has no attribute '<name>'` that:
+ *
+ *   - STRINGIFIES to the empty string — `{{ missing.state }}` renders '' in
+ *     HA (a send succeeds with blank text and a log warning), and so do
+ *     concat, `| upper`, `== 'on'` (False) and friends. Throwing here was the
+ *     INVERSE WYSIWYG violation: our preview blocked templates HA sends fine.
+ *   - raises only on FURTHER dereference (`Undefined.__getattr__` re-raises
+ *     the carried message) — that is the real incident
+ *     (`{{ missing.attributes.humidity }}`), and the wrapped `memberLookup`
+ *     in {@link ensureJinjaCompat} keeps throwing it verbatim. That wrapper
+ *     also keeps `.constructor`/`.__proto__` from ever reaching
+ *     Function/Object.prototype through a sentinel.
+ *   - `| default(...)` consumes it and `is defined` on it is false (filter
+ *     and test overrides below).
+ *
+ * Ruling: preview errors only where a send would error; where HA renders
+ * blank, preview renders blank.
+ *
+ * Extending `String` with the empty string is what makes coercion total:
+ * nunjucks string filters call methods DIRECTLY (`val.toUpperCase()`), so a
+ * plain object coercing to '' would still crash them. An empty String wrapper
+ * answers every string filter with '' (HA: ''), `| length` with 0 (HA: '0'),
+ * and `| list` with the empty sequence (HA: '[]'). The carried message is a
+ * frozen NON-enumerable own property so object-shaped filters see an empty
+ * object. Instances are frozen: one hidden message and nothing else.
+ */
+class HaUndefined extends String {
+  declare readonly haMessage: string
+
+  constructor(haMessage: string) {
+    super('')
+    Object.defineProperty(this, 'haMessage', { value: haMessage, enumerable: false })
+    Object.freeze(this)
+  }
+
+  override toString(): string {
+    return ''
+  }
+
+  override valueOf(): string {
+    return ''
+  }
+}
+
+/** The runtime half of nunjucks that `installJinjaCompat` monkey-patches. */
+interface NunjucksRuntimeInternals {
+  memberLookup: (...args: unknown[]) => unknown
+}
+
+/**
+ * `Environment.addTest` ships in nunjucks 3 (`environment.js`) but is missing
+ * from `@types/nunjucks`; type only the slice we call.
+ */
+type EnvironmentWithTests = nunjucks.Environment & {
+  addTest(name: string, test: (value: unknown) => boolean): void
+}
+
 let jinjaCompatInstalled = false
 
+/**
+ * Installs nunjucks' Jinja compat layer once, then wraps the compat
+ * `memberLookup` so member access matches Jinja's None semantics:
+ *
+ *   - lookup on `null` (a missing entity, or any template-level None) returns
+ *     a deferred {@link HaUndefined} named after that FIRST missing hop;
+ *   - lookup on a deferred undefined raises its carried message (Jinja:
+ *     `Undefined.__getattr__` re-raises), so chained hops keep the first name.
+ *
+ * The wrapper sits AFTER `installJinjaCompat` deliberately: compat's own
+ * lookup coalesces `null` to `{}` and would answer dict helpers (`.items`,
+ * `.get`, …) on None silently; wrapping outside it means None member access
+ * always defers-then-raises like HA instead.
+ *
+ * The patch is global to the nunjucks runtime (that is how jinja compat
+ * itself works) but carries no state: sentinels are per-lookup values, so
+ * nothing leaks across evaluations or environments.
+ */
 function ensureJinjaCompat(): void {
   if (jinjaCompatInstalled) {
     return
   }
   nunjucks.installJinjaCompat()
+  const runtime = (nunjucks as unknown as { runtime: NunjucksRuntimeInternals }).runtime
+  const compatMemberLookup = runtime.memberLookup
+  runtime.memberLookup = function patchedMemberLookup(this: unknown, ...args: unknown[]): unknown {
+    // Four arguments is jinja-compat's slice form (`list[1:2]`), not member
+    // access — pass it through untouched.
+    if (args.length !== 4) {
+      const [target, key] = args
+      if (target instanceof HaUndefined) {
+        throw new Error(target.haMessage)
+      }
+      if (target === null) {
+        return new HaUndefined(`'None' has no attribute '${String(key)}'`)
+      }
+    }
+    return compatMemberLookup.apply(this, args)
+  }
   jinjaCompatInstalled = true
 }
 
@@ -102,6 +198,66 @@ type StatesGlobal = ((entityId: string) => string) &
 // enabling prototype pollution from user-controlled entity ids.
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 
+type DomainBucket = Record<string, HaStateObject>
+
+/**
+ * Wrap a domain's entity map so a missing `object_id` resolves to `null` — the
+ * jinja-compat None — instead of `undefined`. In HA, `states.<domain>` is
+ * always a namespace and only the ENTITY lookup yields None. With None a real
+ * `null`, the HA guard idioms hold for free: `{% if states.weather.home %}`
+ * skips, `== none` / `is none` match, `is defined` is true (HA: None is
+ * defined), and only member access produces the deferred {@link HaUndefined}
+ * via the wrapped `memberLookup` — which raises `'None' has no attribute
+ * '<name>'` exactly when HA would. Unsafe keys (`__proto__`, …) resolve to
+ * `null` too: inert, and never a prototype walk.
+ *
+ * Documented divergences from HA (not reachable without replacing nunjucks'
+ * value model; maintainer-accepted, each measured on HA 2026.8.3 — pinned in
+ * tests/core/templates/missing-entity.test.ts):
+ *   - `{{ states.weather.home }}` renders '' here; HA prints `None` (nunjucks
+ *     suppresses null in output).
+ *   - A deferred undefined used as a bare truthiness guard
+ *     (`{{ 'x' if states.weather.home.state else 'y' }}`) is truthy here
+ *     (JS object); HA's Undefined is falsy — silent wrong branch, rare.
+ *     Guarding the ENTITY (`if states.weather.home`), `== 'on'`,
+ *     `is defined`, and `| default(...)` all match HA.
+ *   - `{% for f in states.weather.home %}` renders '' here; HA raises
+ *     `TypeError: 'NoneType' object is not iterable`.
+ *   - Numeric contexts on a deferred undefined coerce instead of raising:
+ *     `{{ states.weather.home.state > 5 }}` → 'false' and `| int(0)` → '0'
+ *     here; HA raises UndefinedError for both. More lenient, never a false
+ *     error. `.items()` on a missing entity likewise throws nunjucks'
+ *     not-a-function error rather than HA's exact text (loud either way).
+ */
+function createDomainBucket(entries: DomainBucket): DomainBucket {
+  return new Proxy(entries, {
+    get(target, key) {
+      if (typeof key === 'symbol') {
+        // Rendering a domain itself (`{{ states.weather }}`) is not an error
+        // in HA; print a stable tag instead of a JS coercion TypeError.
+        return key === Symbol.toPrimitive ? () => '<DomainStates>' : undefined
+      }
+      if (key in target) {
+        return target[key]
+      }
+      return null
+    },
+    set() {
+      return true
+    },
+  })
+}
+
+/** Shared bucket for domains with no mocked entities (`states.nosuchdomain`). */
+const emptyDomainBucket = createDomainBucket(Object.create(null) as DomainBucket)
+
+// Function members nunjucks itself needs on the callable `states` global
+// (`callWrap` invokes `obj.apply`); these mirror the domain names
+// `buildStatesGlobal` already refuses to materialize.
+function isFunctionMemberKey(key: string): boolean {
+  return key in Function.prototype || key === 'name' || key === 'length'
+}
+
 function buildStatesGlobal(context: HaMockContext): StatesGlobal {
   const statesFn = ((entityId: string) => getStateValue(context, entityId)) as StatesGlobal
 
@@ -109,6 +265,8 @@ function buildStatesGlobal(context: HaMockContext): StatesGlobal {
     ...Object.keys(context.states),
     ...Object.keys(context.attributes ?? {}),
   ])
+
+  const domains = new Map<string, DomainBucket>()
 
   for (const entityId of entityIds) {
     const dot = entityId.indexOf('.')
@@ -123,15 +281,15 @@ function buildStatesGlobal(context: HaMockContext): StatesGlobal {
       continue
     }
     // Skip domains that would clash with Function's own non-writable members.
-    if (domain in Function.prototype || domain === 'name' || domain === 'length') {
+    if (isFunctionMemberKey(domain)) {
       continue
     }
     // Null-prototype buckets so dotted lookups (`states.<domain>.<object>`)
     // can never reach Object.prototype members.
-    let bucket = statesFn[domain]
+    let bucket = domains.get(domain)
     if (bucket === undefined) {
-      bucket = Object.create(null) as Record<string, HaStateObject>
-      statesFn[domain] = bucket
+      bucket = Object.create(null) as DomainBucket
+      domains.set(domain, bucket)
     }
     bucket[objectId] = {
       entity_id: entityId,
@@ -140,7 +298,37 @@ function buildStatesGlobal(context: HaMockContext): StatesGlobal {
     }
   }
 
-  return statesFn
+  const buckets = new Map<string, DomainBucket>()
+  for (const [domain, entries] of domains) {
+    buckets.set(domain, createDomainBucket(entries))
+  }
+
+  // Proxy so EVERY domain name resolves to a namespace (HA: `states.<domain>`
+  // always exists; only the entity lookup yields None). Unsafe keys stay
+  // inert (`states.constructor` is undefined — previously it leaked a bound
+  // Function wrapper via nunjucks' memberLookup), and the function members
+  // nunjucks needs to CALL `states('entity.id')` pass through.
+  return new Proxy(statesFn, {
+    get(target, key, receiver) {
+      if (typeof key === 'symbol') {
+        return Reflect.get(target, key, receiver)
+      }
+      if (UNSAFE_KEYS.has(key)) {
+        return undefined
+      }
+      const bucket = buckets.get(key)
+      if (bucket !== undefined) {
+        return bucket
+      }
+      if (isFunctionMemberKey(key)) {
+        return Reflect.get(target, key, receiver)
+      }
+      return emptyDomainBucket
+    },
+    set() {
+      return true
+    },
+  }) as StatesGlobal
 }
 
 /** Globals we register ourselves — a user variable may not shadow these. */
@@ -194,6 +382,22 @@ function collectVariableGlobals(context: HaMockContext): Record<string, unknown>
   return globals
 }
 
+/**
+ * Nunjucks' stock `default` only replaces `undefined`; the deferred
+ * {@link HaUndefined} is a real object, so it must be consumed explicitly
+ * (Jinja: `Undefined | default(x)` → x). Everything else keeps stock behavior,
+ * including the optional truthiness flag.
+ */
+function haDefaultFilter(value: unknown, defaultValue: unknown, truthiness?: boolean): unknown {
+  if (value instanceof HaUndefined) {
+    return defaultValue
+  }
+  if (truthiness) {
+    return value || defaultValue
+  }
+  return value !== undefined ? value : defaultValue
+}
+
 function createEnvironment(context: HaMockContext): nunjucks.Environment {
   ensureJinjaCompat()
 
@@ -201,6 +405,24 @@ function createEnvironment(context: HaMockContext): nunjucks.Environment {
     autoescape: false,
     throwOnUndefined: false,
   })
+
+  // Jinja-parity handling of the deferred undefined: `default` consumes it
+  // (`d` is a separate alias entry in nunjucks' filter table, so it is
+  // overridden explicitly), `defined`/`undefined` classify it as undefined,
+  // and `none` (a Jinja test nunjucks lacks — it only ships `null`) matches
+  // the missing entity's None.
+  env.addFilter('default', haDefaultFilter)
+  env.addFilter('d', haDefaultFilter)
+  const testableEnv = env as EnvironmentWithTests
+  testableEnv.addTest(
+    'defined',
+    (value: unknown) => !(value instanceof HaUndefined) && value !== undefined,
+  )
+  testableEnv.addTest(
+    'undefined',
+    (value: unknown) => value instanceof HaUndefined || value === undefined,
+  )
+  testableEnv.addTest('none', (value: unknown) => value === null)
 
   env.addGlobal('states', buildStatesGlobal(context))
   env.addGlobal('is_state', (entityId: string, state: string) =>
