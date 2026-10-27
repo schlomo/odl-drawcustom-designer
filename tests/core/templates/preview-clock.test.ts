@@ -17,6 +17,8 @@ describe('preview clock interval', () => {
     )
     expect(templateUsesNow("{{ now().strftime('%H:%M') }}")).toBe(true)
     expect(templateNeedsSecondPrecision("{{ now().strftime('%H:%M') }}")).toBe(false)
+    // The showcase progress bar reads the numeric attribute; it must keep ticking live.
+    expect(templateNeedsSecondPrecision('{{ (now().second / 60 * 100) | round(0) }}')).toBe(true)
   })
 
   it('returns off when payload has no now() templates', () => {

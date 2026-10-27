@@ -407,5 +407,15 @@ suffix`
         evaluateTemplate("{{ now().strftime('%d.%m.%Y %H:%M') }}", clockContext),
       ).toBe('06.06.2026 23:44')
     })
+
+    it('evaluates arithmetic on now() attributes like HA (showcase progress bar)', () => {
+      const context: HaMockContext = {
+        states: {},
+        now: new Date(2026, 5, 6, 23, 44, 30),
+      }
+      expect(
+        evaluateTemplate('{{ (now().second / 60 * 100) | round(0) }}', context),
+      ).toBe('50')
+    })
   })
 })
