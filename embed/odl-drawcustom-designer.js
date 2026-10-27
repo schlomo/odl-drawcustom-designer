@@ -9057,7 +9057,7 @@ function re(e) {
 	return `${x}-${e}`;
 }
 // src/core/buildInfo.ts
-var ie = /* @__PURE__ */ new Set(["dev", "test"]), ae = "main", oe = "c06bb73", se = "c06bb73", ce = "3.4.10", le = /^\d+\.\d+\.\d+$/;
+var ie = /* @__PURE__ */ new Set(["dev", "test"]), ae = "main", oe = "54d667d", se = "54d667d", ce = "3.5.0", le = /^\d+\.\d+\.\d+$/;
 function ue(e) {
 	return le.test(e);
 }
