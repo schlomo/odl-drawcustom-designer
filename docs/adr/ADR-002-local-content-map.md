@@ -38,8 +38,15 @@ directories), which no local map can contain. `MountOptions.resolveAsset(kind,
 name)` closes that gap as the **last tier**:
 
 1. local content map (this ADR)
-2. bundled assets (`ppb.ttf`, `rbm.ttf`, showcase image)
+2. bundled assets (`ppb.ttf`, `rbm.ttf` — fonts only)
 3. host resolver — asked only for what tiers 1–2 could not resolve
+
+A `dlimg` whose `url` is a `data:` URI is outside the tiers altogether: the
+URL *is* the image, so it decodes directly, is never a Content Manager row or
+a missing-asset warning, and never reaches the host resolver. The Load Demo
+carries its picture this way (ADR-015), which is why there is no bundled
+*image* tier any more — `/local/showcase.png` used to be a designer-only key
+that odl-renderer treated as a filesystem path on a real send.
 
 Consequences:
 

@@ -588,3 +588,88 @@ describe('host-supplied assets are not reported as locally missing (issue #138)'
     })
   })
 })
+
+/**
+ * The demo image moved from a designer-only bundled tier (`/local/showcase.png`)
+ * to a `data:` URI inside the payload. A `data:` URL is self-contained: it is
+ * never a host question. And with the bundled image tier gone, the content
+ * map → host → missing contract for ordinary `/local/…` names is re-asserted
+ * here exactly as the Content Manager relies on it.
+ */
+describe('data: images and the local tiers (demo image inline)', () => {
+  afterEach(resetAll)
+
+  const DATA_URL = `data:image/png;base64,${PNG_1X1_BASE64}`
+
+  it('never asks the host for a data: image — the resolver stays untouched', async () => {
+    await withImmediateImageLoad(async () => {
+      const resolver = vi.fn(async () => pngBlob())
+      installHostAssetResolver(resolver)
+
+      const { images, outcomes } = await loadAssetImageMapWithOutcomes([DATA_URL])
+
+      expect(outcomes.get(DATA_URL)).toMatchObject({ status: 'ready' })
+      expect(images.has(DATA_URL)).toBe(true)
+      expect(resolver).not.toHaveBeenCalled()
+    })
+  })
+
+  it('an uploaded /local/foo.png still wins over an installed host resolver', async () => {
+    await withImmediateImageLoad(async () => {
+      const resolver = vi.fn(async () => pngBlob())
+      installHostAssetResolver(resolver)
+      setAsset('/local/foo.png', { blob: pngBlob(), mime: 'image/png' })
+
+      const { images, outcomes } = await loadAssetImageMapWithOutcomes(['/local/foo.png'])
+
+      expect(outcomes.get('/local/foo.png')).toMatchObject({ status: 'ready' })
+      expect(images.has('/local/foo.png')).toBe(true)
+      expect(resolver).not.toHaveBeenCalled()
+    })
+  })
+
+  it('a /local/bar.png nobody uploaded reaches the host tier, then the missing state when the host declines', async () => {
+    const resolver = vi.fn(async () => null)
+    installHostAssetResolver(resolver)
+
+    const { outcomes } = await loadAssetImageMapWithOutcomes(['/local/bar.png'])
+
+    expect(resolver).toHaveBeenCalledWith('image', '/local/bar.png')
+    expect(outcomes.get('/local/bar.png')).toMatchObject({ status: 'missing' })
+    const result = safeRenderElement(
+      { type: 'dlimg', url: '/local/bar.png', x: 1, y: 2, xsize: 30, ysize: 20 },
+      ctx,
+    )
+    if (result?.layer !== 'svg' || result.primitive.kind !== 'render-error') {
+      throw new Error(`expected the render-error marker, got ${JSON.stringify(result)}`)
+    }
+    expect(result.primitive.message).toContain('/local/bar.png')
+  })
+
+  it('the former bundled key /local/showcase.png is now an ordinary name: content map, then host, then missing', async () => {
+    const resolver = vi.fn(async () => null)
+    installHostAssetResolver(resolver)
+
+    const { outcomes } = await loadAssetImageMapWithOutcomes(['/local/showcase.png'])
+
+    expect(resolver).toHaveBeenCalledWith('image', '/local/showcase.png')
+    expect(outcomes.get('/local/showcase.png')).toMatchObject({ status: 'missing' })
+  })
+})
+
+describe('data: scheme is case-insensitive (RFC 2397) — review round on PR #198', () => {
+  afterEach(resetAll)
+
+  it('never asks the host for a DATA: image either', async () => {
+    await withImmediateImageLoad(async () => {
+      const resolver = vi.fn(async () => pngBlob())
+      installHostAssetResolver(resolver)
+      const upper = `DATA:image/png;base64,${PNG_1X1_BASE64}`
+
+      const { outcomes } = await loadAssetImageMapWithOutcomes([upper])
+
+      expect(outcomes.get(upper)).toMatchObject({ status: 'ready' })
+      expect(resolver).not.toHaveBeenCalled()
+    })
+  })
+})

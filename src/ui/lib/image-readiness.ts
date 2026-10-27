@@ -1,4 +1,4 @@
-import type { DrawElement } from '../../core'
+import { isDataUrl, type DrawElement } from '../../core'
 import type { ImageLoadOutcome } from './image-load-outcome'
 import type { StatusMessage } from './status-messages'
 
@@ -17,9 +17,7 @@ function collectRequiredImageKeys(elements: readonly DrawElement[]): string[] {
  * Mirrors font-readiness.ts's getFontStatusMessages, scoped to the two error
  * cases images actually have today (issue #55): no "loading"/templated/
  * glyph-coverage equivalents for images yet — those weren't asked for and
- * would be speculative UX no one has approved. 'suppressed' (the dismissed
- * bundled showcase image) is deliberately excluded — see
- * ImageLoadStatus's doc comment.
+ * would be speculative UX no one has approved.
  */
 export function getImageStatusMessages(
   elements: readonly DrawElement[],
@@ -49,7 +47,9 @@ export function getImageStatusMessages(
       severity: 'error',
       title: 'Image failed to load',
       summary: outcome.message ?? `${outcome.key} could not be loaded.`,
-      detail: 'Check the uploaded file is a valid, supported image format.',
+      detail: isDataUrl(outcome.key)
+        ? 'The inline data: image could not be used. Home Assistant renders only base64-encoded raster (png, jpeg, gif, bmp, webp) data: URLs.'
+        : 'Check the uploaded file is a valid, supported image format.',
     })
   }
 

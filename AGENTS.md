@@ -42,7 +42,7 @@ Full set lives in [`docs/adr/`](docs/adr/). Read the rows that match your task b
 - **`src/ui/`** — React shell; calls core via `src/core/index.ts`.
 - **`src/storage/`** — IndexedDB adapters (assets, mocks, variables, session).
 - **`src/embed/`** — the **one** designer mount lifecycle plus its host adapters (issue #72, ADR-017): `mountDesigner()` in `mount.tsx` (DOM/render target, React root, bootstrap, push queue), `host.ts` (`DesignerHost` policy interface — internal, not published), `standaloneHost.ts` (GitHub Pages SPA), `embeddedHost.ts` (what the public `mount()` builds), `types.ts` (host data contract, ADR-010). Library build via `npm run build:lib`, docs in [`docs/embedding.md`](docs/embedding.md).
-- **`src/assets/showcase/`** — built-in **Load Demo** bundle: `showcase.yml` (payload), `showcase.json` (canvas + simulator seed), `showcase.png` (bundled image). Loaded by `src/ui/data/showcase.ts` (ADR-015).
+- **`src/assets/showcase/`** — built-in **Load Demo** bundle: `showcase.yml` (payload), `showcase.json` (canvas + simulator seed), `showcase.png` (the dlimg image, embedded in the YAML as a `data:` URI by `tools/showcaseImage.ts`). Loaded by `src/ui/data/showcase.ts` (ADR-015).
 - **`src/ui/lib/clear-demo-data.ts`** — **Clear all** strips only unmodified showcase simulator entries; user mocks survive.
 
 ### Key paths (orientation)

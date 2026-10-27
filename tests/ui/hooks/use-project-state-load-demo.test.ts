@@ -1,7 +1,9 @@
 /** @vitest-environment jsdom */
 import { act, renderHook } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+import { clearImageAvailabilityRegistry, resetContentMap, resetHostAssetResolvers } from '../../../src/core'
 import { buildAppBootstrap } from '../../../src/ui/bootstrap/appBootstrap'
+import { loadAssetImageMapWithOutcomes } from '../../../src/ui/lib/load-asset-images'
 import {
   SHOWCASE_CANVAS,
   SHOWCASE_ELEMENTS,
@@ -107,5 +109,47 @@ describe('useProjectState loadDemo', () => {
       'sensor.my_power': { unit: 'W' },
     })
     expect(result.current.mockContext.variables).toEqual({ my_theme: 'dark' })
+  })
+})
+
+/**
+ * The demo image is a `data:` URI inside the payload: Load Demo must render it
+ * with nothing uploaded and no host installed — the same state a real Home
+ * Assistant send is in (odl-renderer decodes the URI itself).
+ */
+describe('useProjectState loadDemo — inline demo image', () => {
+  afterEach(() => {
+    resetContentMap()
+    resetHostAssetResolvers()
+    clearImageAvailabilityRegistry()
+  })
+
+  it('loads a dlimg whose url is a data:image/png URI that decodes with no content map and no host', async () => {
+    const { result } = renderHook(() => useProjectState(bootstrapWithCustomText(), STANDALONE_HOST))
+
+    act(() => {
+      result.current.loadDemo()
+    })
+
+    const dlimg = result.current.elements.find((element) => element.type === 'dlimg')
+    expect(dlimg?.url).toMatch(/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/)
+
+    const OriginalImage = globalThis.Image
+    class MockImage {
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      set src(_value: string) {
+        this.onload?.()
+      }
+    }
+    // @ts-expect-error test double
+    globalThis.Image = MockImage
+    try {
+      const { images, outcomes } = await loadAssetImageMapWithOutcomes([dlimg!.url])
+      expect(outcomes.get(dlimg!.url)).toMatchObject({ status: 'ready' })
+      expect(images.has(dlimg!.url)).toBe(true)
+    } finally {
+      globalThis.Image = OriginalImage
+    }
   })
 })

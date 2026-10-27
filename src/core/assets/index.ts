@@ -19,9 +19,9 @@ export {
   type HostAssetResolver,
 } from './host-resolver'
 export { scanPayloadForAssets } from './scanner'
+export { dataUrlMediaType, isDataUrl, isRenderableImageDataUrl } from './data-url'
 export {
   BUNDLED_FONT_KEYS,
-  BUNDLED_SHOWCASE_IMAGE_KEY,
   deleteAsset,
   loadAssetsIntoContentMap,
   listContentMapKeys,

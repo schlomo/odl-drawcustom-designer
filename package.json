@@ -19,7 +19,8 @@
     "build:lib": "vite build --config vite.lib.config.ts",
     "build:site": "npm run build && npm run build:lib && node tools/assembleSite.ts",
     "verify:types": "node tools/verifyNpmTypes.ts",
-    "screenshot": "node tools/screenshot.ts"
+    "screenshot": "node tools/screenshot.ts",
+    "showcase:image": "node tools/showcaseImage.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

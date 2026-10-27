@@ -12,15 +12,10 @@ import {
   type SessionSnapshot,
 } from '../../storage'
 import type { StoredVariables } from '../../storage'
-import {
-  SHOWCASE_CANVAS,
-  SHOWCASE_ELEMENTS,
-  cloneShowcaseSimulator,
-} from '../data/showcase'
+import { SHOWCASE_CANVAS, SHOWCASE_ELEMENTS, cloneShowcaseSimulator } from '../data/showcase'
 import type { DisplayConfig } from '../preferences/displayConfig'
 import { readMockStates, type MockData } from '../preferences/mockStates'
 import { readVariables } from '../preferences/variables'
-import { allowShowcaseBundledForDemo } from '../preferences/showcaseAsset'
 
 export type BootstrapImportSource = 'hash' | 'session' | 'default'
 
@@ -76,9 +71,6 @@ export function buildAppBootstrap(
   variables: StoredVariables = {},
 ): AppBootstrap {
   const elements = resolveElementsForLoad(session)
-  if (!session || session.elements.length === 0) {
-    allowShowcaseBundledForDemo()
-  }
 
   return {
     sessionName: session?.name ?? 'Untitled',

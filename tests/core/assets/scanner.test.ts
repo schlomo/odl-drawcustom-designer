@@ -170,3 +170,42 @@ describe('scanPayloadForAssets', () => {
     expect(scanPayloadForAssets([])).toEqual({ references: [], keys: [] })
   })
 })
+
+describe('scanPayloadForAssets — inline images', () => {
+  it('does not report a data: URL on dlimg as an asset reference (it is the image itself, nothing to upload or resolve)', () => {
+    const payload: DrawElement[] = [
+      {
+        type: 'dlimg',
+        url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+        x: 0,
+        y: 0,
+        xsize: 10,
+        ysize: 10,
+      },
+      { type: 'dlimg', url: '/local/still-an-asset.png', x: 0, y: 0, xsize: 10, ysize: 10 },
+    ]
+
+    const result = scanPayloadForAssets(payload)
+
+    expect(result.keys).toEqual(['/local/still-an-asset.png'])
+    expect(result.references.map((ref) => ref.path)).toEqual(['[1].url'])
+  })
+})
+
+describe('scanPayloadForAssets — data: skip is scoped (review round on PR #198)', () => {
+  it('skips a DATA: image url regardless of scheme case', () => {
+    const result = scanPayloadForAssets([
+      { type: 'dlimg', url: 'DATA:image/png;base64,AAAA', x: 0, y: 0, xsize: 1, ysize: 1 },
+    ])
+    expect(result.keys).toEqual([])
+  })
+
+  it('still reports a font whose name happens to start with data: — font references are untouched by this PR', () => {
+    const result = scanPayloadForAssets([
+      { type: 'text', value: 'x', x: 0, y: 0, font: 'data:font/ttf;base64,AAAA' },
+    ])
+    expect(result.references).toEqual([
+      { path: '[0].font', key: 'data:font/ttf;base64,AAAA', kind: 'font' },
+    ])
+  })
+})

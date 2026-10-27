@@ -1,12 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   buildAppBootstrap,
   loadAppBootstrap,
   resolveCanvasForLoad,
   resolveElementsForLoad,
 } from '../../../src/ui/bootstrap/appBootstrap'
-import { SHOWCASE_BUNDLED_SUPPRESSED_STORAGE_KEY } from '../../../src/ui/preferences/keys'
-import { suppressShowcaseBundled } from '../../../src/ui/preferences/showcaseAsset'
 import {
   buildSharePayload,
   decodeShareHash,
@@ -55,31 +53,6 @@ describe('app bootstrap', () => {
     expect(resolveCanvasForLoad(session)).toEqual(session.canvas)
     expect(buildAppBootstrap(session, {}).elements).toEqual(elements)
     expect(buildAppBootstrap(session, {}).canvas).toEqual(session.canvas)
-  })
-})
-
-describe('showcase bundled demo reset', () => {
-  beforeEach(() => {
-    localStorage.removeItem(SHOWCASE_BUNDLED_SUPPRESSED_STORAGE_KEY)
-  })
-
-  it('re-enables the bundled demo image when loading the sample dashboard', () => {
-    suppressShowcaseBundled()
-    buildAppBootstrap(null, {})
-    expect(localStorage.getItem(SHOWCASE_BUNDLED_SUPPRESSED_STORAGE_KEY)).toBeNull()
-  })
-
-  it('keeps bundled demo suppressed when restoring a saved session', () => {
-    suppressShowcaseBundled()
-    const session = sessionWithElements([{ type: 'text' as const, value: 'Saved', x: 0, y: 0 }])
-    buildAppBootstrap(session, {})
-    expect(localStorage.getItem(SHOWCASE_BUNDLED_SUPPRESSED_STORAGE_KEY)).toBe('1')
-  })
-
-  it('re-enables bundled demo after clear-all reload via empty session', () => {
-    suppressShowcaseBundled()
-    buildAppBootstrap(sessionWithElements([]), {})
-    expect(localStorage.getItem(SHOWCASE_BUNDLED_SUPPRESSED_STORAGE_KEY)).toBeNull()
   })
 })
 

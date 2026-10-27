@@ -57,7 +57,6 @@ describe('ContentManager — read-only when the host owns assets', () => {
     expect(screen.queryByRole('button', { name: 'Upload' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Replace' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Hide demo' })).toBeNull()
     expect(document.querySelector('input[type="file"]')).toBeNull()
   })
 

@@ -155,7 +155,7 @@ OpenDisplay uses the same payload shape with `action: opendisplay.drawcustom`.
 ### Session, demo & sharing
 
 - **Auto-save** — last design, undo history, and mocks restored on reload
-- **Load Demo** — one-click showcase bundle in [`src/assets/showcase/`](https://github.com/schlomo/odl-drawcustom-designer/tree/main/src/assets/showcase): `showcase.yml` (payload), `showcase.json` (canvas + State Simulator seed), `showcase.png` (bundled dlimg)
+- **Load Demo** — one-click showcase bundle in [`src/assets/showcase/`](https://github.com/schlomo/odl-drawcustom-designer/tree/main/src/assets/showcase): `showcase.yml` (payload), `showcase.json` (canvas + State Simulator seed), `showcase.png` (the dlimg image, embedded in the YAML as a `data:` URI so the demo sends to a real display as-is)
 - **Share link** — `#d=eJ…<data>` URL fragment encodes name, canvas, service options (when set), and elements (pako-deflated, base64url; assets/mocks stay local)
 - **Undo / redo** — 50-step history with drag coalescing
 
@@ -252,7 +252,7 @@ npm run build
 - `src/ui/data/showcase.ts` — loads the built-in demo bundle (`src/assets/showcase/`)
 - `src/storage/` — Dexie IndexedDB (assets, mocks, variables, session)
 - `src/embed/` — embeddable `mount()` API + host data contract ([`docs/embedding.md`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/embedding.md))
-- `src/assets/showcase/` — **demo bundle**: `showcase.yml` (payload), `showcase.json` (canvas + simulator seed), `showcase.png` (bundled image)
+- `src/assets/showcase/` — **demo bundle**: `showcase.yml` (payload), `showcase.json` (canvas + simulator seed), `showcase.png` (dlimg image source, embedded in the YAML as a `data:` URI)
 - `docs/adr/` — architecture decision records
 
 Start with [ADR-001](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/adr/ADR-001-core-ui-separation.md) (core/UI boundary), [ADR-007](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/adr/ADR-007-hybrid-rendering.md) (HA preview parity), [ADR-015](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/adr/ADR-015-showcase-demo-bundle.md) (file-based demo), and [ADR-006](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/adr/ADR-006-ui-framework-react.md) (React shell).

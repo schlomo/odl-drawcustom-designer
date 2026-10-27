@@ -174,23 +174,6 @@ describe('one image-unavailable failure produces exactly one banner (issue #55)'
     expect(messages.some((message) => message.title === 'Element failed to render')).toBe(false)
   })
 
-  it('does not touch a suppressed (dismissed bundled demo) image outcome — no banner, no merge', () => {
-    const element: DrawElement = {
-      type: 'dlimg',
-      url: '/local/showcase.png',
-      x: 0,
-      y: 0,
-      xsize: 10,
-      ysize: 10,
-    }
-    const imageOutcomes = new Map([
-      ['/local/showcase.png', { key: '/local/showcase.png', status: 'suppressed' as const }],
-    ])
-
-    const messages = getMergedStatusMessages([element], ctx, new Map(), false, imageOutcomes)
-    expect(messages).toHaveLength(0)
-  })
-
   /**
    * Independent review finding on PR #58 (cheap hardening): `mergeAssetFailures`
    * must keep skipping any outcome status other than 'missing'/'failed' even
@@ -203,7 +186,7 @@ describe('one image-unavailable failure produces exactly one banner (issue #55)'
     // A deliberately out-of-union status value, simulating a future addition
     // nobody has taught mergeAssetFailures about yet.
     const weirdOutcomes = new Map([
-      [URL, { key: URL, status: 'not-a-real-status' } as unknown as { key: string; status: 'missing' | 'failed' | 'ready' | 'suppressed' }],
+      [URL, { key: URL, status: 'not-a-real-status' } as unknown as { key: string; status: 'missing' | 'failed' | 'ready' }],
     ])
     const element: DrawElement = { type: 'dlimg', url: URL, x: 0, y: 0, xsize: 10, ysize: 10 }
 

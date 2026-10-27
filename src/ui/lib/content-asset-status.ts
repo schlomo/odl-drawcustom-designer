@@ -1,11 +1,9 @@
 import {
-  BUNDLED_SHOWCASE_IMAGE_KEY,
   hasHostSuppliedAsset,
   resolveAsset,
   type AssetKind,
   type AssetResolutionStatus,
 } from '../../core'
-import { isShowcaseBundledSuppressed } from '../preferences/showcaseAsset'
 
 /**
  * How an asset reference resolves, as the Content Manager and the missing-asset
@@ -18,7 +16,7 @@ import { isShowcaseBundledSuppressed } from '../preferences/showcaseAsset'
 export type ContentAssetStatus = AssetResolutionStatus | 'host'
 
 /**
- * Content-map status with user dismiss applied for the bundled showcase image.
+ * Content-map status, with the host tier applied.
  *
  * `kind` is what the payload uses the key **as** (the asset scan knows, and
  * infers it from the name otherwise): the host tier answers per `(kind, name)`,
@@ -27,13 +25,6 @@ export type ContentAssetStatus = AssetResolutionStatus | 'host'
  */
 export function resolveContentAssetStatus(key: string, kind: AssetKind): ContentAssetStatus {
   const resolution = resolveAsset(key)
-  if (
-    key === BUNDLED_SHOWCASE_IMAGE_KEY &&
-    isShowcaseBundledSuppressed() &&
-    resolution.status === 'bundled'
-  ) {
-    return 'missing'
-  }
   if (resolution.status === 'missing' && hasHostSuppliedAsset(kind, key)) {
     return 'host'
   }

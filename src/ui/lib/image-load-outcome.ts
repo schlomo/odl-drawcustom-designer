@@ -1,12 +1,8 @@
 /**
  * Mirrors font-load-outcome.ts's FontLoadOutcome shape for dlimg image
- * assets (issue #55). 'suppressed' is image-specific: the bundled showcase
- * demo image, when the user has dismissed it (`shouldUseBundledShowcaseImage`
- * returns false) — a deliberate user choice, not a missing-asset error, so
- * it must never produce a render-error marker or status banner. Handled the
- * same as 'ready' everywhere except it never populates the `images` map.
+ * assets (issue #55).
  */
-export type ImageLoadStatus = 'ready' | 'missing' | 'failed' | 'suppressed'
+export type ImageLoadStatus = 'ready' | 'missing' | 'failed'
 
 export interface ImageLoadOutcome {
   key: string
