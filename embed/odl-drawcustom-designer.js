@@ -8058,7 +8058,7 @@ function ne(e) {
 }
 //#endregion
 //#region src/core/buildInfo.ts
-var re = /* @__PURE__ */ new Set(["dev", "test"]), k = "main", A = "e8f66cf", ie = "e8f66cf", j = "3.4.7", M = /^\d+\.\d+\.\d+$/;
+var re = /* @__PURE__ */ new Set(["dev", "test"]), k = "main", A = "a40c3cc", ie = "a40c3cc", j = "3.4.8", M = /^\d+\.\d+\.\d+$/;
 function ae(e) {
 	return M.test(e);
 }
