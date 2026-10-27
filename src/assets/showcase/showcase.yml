@@ -191,7 +191,7 @@
   x_end: 430
   y_end: 410
   progress: |-
-    {{ (now().strftime('%S')/60*100) | round(0) }}
+    {{ (now().second / 60 * 100) | round(0) }}
   fill: red
   outline: black
   width: 1

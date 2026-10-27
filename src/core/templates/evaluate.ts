@@ -228,6 +228,12 @@ type DomainBucket = Record<string, HaStateObject>
  *     here; HA raises UndefinedError for both. More lenient, never a false
  *     error. `.items()` on a missing entity likewise throws nunjucks'
  *     not-a-function error rather than HA's exact text (loud either way).
+ *   - Arithmetic on a string coerces here (`'42' / 60` → 0.7, JS
+ *     semantics); HA raises `TypeError: unsupported operand type(s) for /:
+ *     'str' and 'int'` (observed on a live send: the showcase progress bar
+ *     once divided a `strftime('%S')` result). A template that previews
+ *     fine here can still fail on the real device — cast with `| int` /
+ *     `| float` or use numeric attributes (`now().second`) in payloads.
  */
 function createDomainBucket(entries: DomainBucket): DomainBucket {
   return new Proxy(entries, {
