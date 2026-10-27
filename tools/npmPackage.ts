@@ -51,6 +51,15 @@ const LIBRARY_FILE = 'odl-drawcustom-designer.js'
  * independently chosen.
  */
 const LIBRARY_TYPES_FILE = 'odl-drawcustom-designer.d.ts'
+/**
+ * The Load Demo bundle's payload and simulator seed (ADR-015), shipped so a
+ * host can render the demo through its own pipeline — the Home Assistant
+ * integration runs showcase.yml through real Python Jinja against
+ * showcase.json's states in its test-suite, which is the only check that
+ * catches a template the designer's JS preview coerces silently but HA
+ * rejects (issue #196). showcase.png stays out: it is bundled into the ESM.
+ */
+export const SHOWCASE_PACKAGE_FILES = ['showcase.yml', 'showcase.json'] as const
 
 /** APP_GITHUB_REPO_URL carries a trailing slash for use as a link target; strip it for git URLs. */
 const REPO_URL_NO_TRAILING_SLASH = APP_GITHUB_REPO_URL.replace(/\/$/, '')
@@ -67,7 +76,15 @@ export function buildNpmPackageJson(version: string): NpmPackageJson {
     main: `./${LIBRARY_FILE}`,
     types: `./${LIBRARY_TYPES_FILE}`,
     exports: { '.': { types: `./${LIBRARY_TYPES_FILE}`, default: `./${LIBRARY_FILE}` } },
-    files: [LIBRARY_FILE, LIBRARY_TYPES_FILE, 'README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY.md'],
+    files: [
+      LIBRARY_FILE,
+      LIBRARY_TYPES_FILE,
+      'README.md',
+      'LICENSE',
+      'NOTICE',
+      'THIRD_PARTY.md',
+      ...SHOWCASE_PACKAGE_FILES,
+    ],
     license: 'Apache-2.0',
     repository: { type: 'git', url: `git+${REPO_URL_NO_TRAILING_SLASH}.git` },
     homepage: APP_GITHUB_REPO_URL,

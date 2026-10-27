@@ -1,11 +1,16 @@
 import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { buildNpmPackageJson } from './npmPackage.ts'
+import { SHOWCASE_PACKAGE_FILES, buildNpmPackageJson } from './npmPackage.ts'
+
+/** Where the Load Demo bundle lives in the checkout (ADR-015). */
+const SHOWCASE_SOURCE_DIR = join('src', 'assets', 'showcase')
 
 /**
  * Assembles the npm-publish staging directory (issue #103): the built ESM,
  * a generated package.json carrying the real derived version, and
- * LICENSE/NOTICE/THIRD_PARTY.md. `npm publish --access public --provenance`
+ * LICENSE/NOTICE/THIRD_PARTY.md, and the Load Demo bundle's showcase.yml +
+ * showcase.json (`SHOWCASE_PACKAGE_FILES`, staged flat at the package root
+ * from the checkout like LICENSE). `npm publish --access public --provenance`
  * (or `--dry-run` for local testing) runs against this directory —
  * assembled by this tested function, not ad hoc shell in the workflow
  * (thin CI, AGENTS.md).
@@ -19,7 +24,7 @@ import { buildNpmPackageJson } from './npmPackage.ts'
 export interface StageNpmPackageOptions {
   /** The derived release version, e.g. "1.2.3" (git tags, not package.json — docs/releasing.md). */
   version: string
-  /** Repository root, for LICENSE/NOTICE. */
+  /** Repository root, for LICENSE/NOTICE/README.md and src/assets/showcase/. */
   repoRoot: string
   /** Path to the built single-file ESM (dist-lib/odl-drawcustom-designer.js). */
   distLibJsPath: string
@@ -46,6 +51,9 @@ export function stageNpmPackage(options: StageNpmPackageOptions): void {
   copyFileSync(join(repoRoot, 'LICENSE'), join(stagingDir, 'LICENSE'))
   copyFileSync(join(repoRoot, 'NOTICE'), join(stagingDir, 'NOTICE'))
   copyFileSync(join(repoRoot, 'README.md'), join(stagingDir, 'README.md'))
+  for (const name of SHOWCASE_PACKAGE_FILES) {
+    copyFileSync(join(repoRoot, SHOWCASE_SOURCE_DIR, name), join(stagingDir, name))
+  }
   writeFileSync(join(stagingDir, 'THIRD_PARTY.md'), thirdPartyMarkdown)
   writeFileSync(join(stagingDir, 'package.json'), `${JSON.stringify(buildNpmPackageJson(version), null, 2)}\n`)
 }
