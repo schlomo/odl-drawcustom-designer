@@ -3,7 +3,7 @@ import { act } from 'react'
 import { fireEvent, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '../../src/embed'
-import type { MountHandle, MountOptions } from '../../src/embed'
+import type { HostAction, HostActionContext, MountHandle, MountOptions } from '../../src/embed'
 import { createEmbeddedHost } from '../../src/embed/embeddedHost'
 import { createStandaloneHost } from '../../src/embed/standaloneHost'
 import { parseYamlPayload, serializeYamlPayload } from '../../src/core'
@@ -80,6 +80,12 @@ const HOST_DEMO: NonNullable<MountOptions['demo']> = {
 }
 
 const HOST_STATES = { 'sun.sun': { state: 'above_horizon', name: 'Sun' } }
+
+const SEND: HostAction = { id: 'send', label: 'Send to display' }
+
+function actionContextOf(call: unknown): HostActionContext {
+  return (call as [string, string, HostActionContext])[2]
+}
 
 let container: HTMLElement
 const handles: MountHandle[] = []
@@ -166,6 +172,32 @@ describe('MountOptions.demo — a host-supplied Load Demo', () => {
     })
     await waitFor(() => {
       expect(variableInputs()).toEqual(HOST_DEMO_VARIABLES)
+    })
+  })
+
+  it('a send right after a host Load Demo reports the host demo variables in context.variables', async () => {
+    // `context.variables` reads a ref the variable writes keep current (PR
+    // #200), so Load Demo's wholesale replace must go through that same
+    // write — a plain state set left the next `onAction` reporting the map
+    // from before the click. Values arrive typed, as the evaluator registers
+    // them: the stored text "false" is the boolean `false`.
+    const onAction = vi.fn()
+    mountDesigner({
+      states: HOST_STATES,
+      demo: { payload: HOST_DEMO_PAYLOAD, variables: { ...HOST_DEMO_VARIABLES, alert: 'false' } },
+      actions: [SEND],
+      onAction,
+    })
+
+    await clickLoadDemo()
+    await act(async () => {
+      fireEvent.click(shadowButton('Send to display'))
+    })
+
+    expect(onAction).toHaveBeenCalledTimes(1)
+    expect(actionContextOf(onAction.mock.calls[0]).variables).toEqual({
+      ...HOST_DEMO_VARIABLES,
+      alert: false,
     })
   })
 
