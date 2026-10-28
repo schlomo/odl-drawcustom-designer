@@ -1,11 +1,38 @@
 import { normalizeImportedPayload, parseYamlPayload } from '../core'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import { DEFAULT_DISPLAY_CONFIG } from '../ui/preferences/displayConfig'
-import type { DesignerHost } from './host'
+import type { DesignerDemo, DesignerHost } from './host'
 import { assertActionsAreHandled, normalizeHostActions } from './hostActions'
 import { autoAdoptedHostTarget, normalizeHostTargets } from './hostTargets'
 import { assertHostStates, displaySpecToCanvas, hostStatesToMockData } from './hostContract'
-import type { HostTarget, MountOptions } from './types'
+import type { HostDemo, HostTarget, MountOptions } from './types'
+
+/**
+ * A host's Load Demo, parsed once at mount: its `payload` gets exactly the
+ * import treatment `MountOptions.payload` gets (parse, then make cursor
+ * positions explicit and drop dead keys) and throws the same errors, so a
+ * malformed demo fails `mount()` instead of the Load Demo click later. The
+ * normalization is silent — a demo is a fresh document the host authored, not
+ * an import the user should be told was adjusted.
+ */
+function normalizeHostDemo(demo: HostDemo): DesignerDemo {
+  if (typeof demo !== 'object' || demo === null || typeof demo.payload !== 'string') {
+    throw new TypeError('Invalid host demo: demo.payload must be a YAML string')
+  }
+  const variables = demo.variables ?? {}
+  if (
+    typeof variables !== 'object' ||
+    variables === null ||
+    Array.isArray(variables) ||
+    Object.values(variables).some((value) => typeof value !== 'string')
+  ) {
+    throw new TypeError('Invalid host demo: demo.variables must map names to strings')
+  }
+  return {
+    elements: normalizeImportedPayload(parseYamlPayload(demo.payload)).elements,
+    variables: { ...variables },
+  }
+}
 
 function buildEmbedBootstrap(
   options: MountOptions,
@@ -69,6 +96,9 @@ export function createEmbeddedHost(options: MountOptions): DesignerHost {
     assertActionsAreHandled(actions, options.onAction, 'mount()')
   }
   const targets = options.targets ? normalizeHostTargets(options.targets) : undefined
+  // The host demo is parsed here for the same reason: a malformed one must
+  // throw out of `mount()` like an invalid `payload`, never out of a click.
+  const demo = options.demo !== undefined ? normalizeHostDemo(options.demo) : undefined
   // The preview provider gets the same eager contract (issue #109): a
   // non-function would otherwise surface as a TypeError from inside a render,
   // long after `mount()` returned successfully and painted its toggle.
@@ -91,6 +121,7 @@ export function createEmbeddedHost(options: MountOptions): DesignerHost {
     targets,
     onTargetSelected: options.onTargetSelected,
     renderPreview: options.renderPreview,
+    demo,
     // Last asset tier (issue #138): the mount lifecycle installs it, so the
     // very first frame can already paint host-supplied fonts and images.
     resolveAsset: options.resolveAsset,

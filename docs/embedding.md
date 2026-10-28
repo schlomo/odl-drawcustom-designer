@@ -56,6 +56,7 @@ import { mount } from './odl-drawcustom-designer.js'
 
 const handle = mount(document.getElementById('designer'), {
   payload: yamlString,          // initial drawcustom YAML (list of elements)
+  demo: { payload, variables }, // optional: your own Load Demo — see below
   states: { /* see below */ },  // initial states for template preview
   theme: 'dark',                // 'light' | 'dark', scoped to the container
   targets: [ /* see below */ ], // the displays you know about
@@ -303,7 +304,7 @@ What the user gets in its place, in the same sidebar tab (now labelled **States*
 
 With no `states` push (standalone, or an embed that pushes none) the Simulator is exactly what it always was, and no panel or States tab exists. Either way, designer-side edits inside an embedded mount — variables, and Simulator values where the Simulator is on — stay in memory only: nothing is written to the standalone profile (ADR-010, the host owns persistence).
 
-**Load Demo loads the payload only** under a host-fed adapter (maintainer ruling 2026-08-16): the showcase's simulator states are Simulator data, and seeding them would flash values the very next host push wholesale-overwrites to unknown. So the demo payload loads, the host stays authoritative for states, and the showcase's own states show as "not supplied" in the panel until the host supplies them. Shared *variables* are not a host channel — nothing can push or clobber them — so the demo still seeds those. Standalone Load Demo is unchanged (payload + mocks + variables).
+**Load Demo loads the payload only** under a host-fed adapter (maintainer ruling 2026-08-16): the showcase's simulator states are Simulator data, and seeding them would flash values the very next host push wholesale-overwrites to unknown. So the demo payload loads, the host stays authoritative for states, and the showcase's own states show as "not supplied" in the panel until the host supplies them. Shared *variables* are not a host channel — nothing can push or clobber them — so the demo still seeds those. Standalone Load Demo is unchanged (payload + mocks + variables). A host may supply its own demo through the [`demo`](#demo) mount option — written against the states its installs actually have — and the same payload-plus-variables rule applies to it.
 
 **Ownership contract ([issue #110](https://github.com/schlomo/odl-drawcustom-designer/issues/110)):** a pushed `states` object is treated as an **immutable snapshot** at the moment `setStates()` is called. Unchanged pushes are diffed structurally against the last-applied object and skipped for cost (no re-render, no template re-evaluation) — this compares by value, not by cloning, so **mutate-and-repush is unsupported**: if a host mutates the same object in place and calls `setStates()` again with that same reference, the mutation is invisible to the diff and the push is incorrectly treated as unchanged. Construct a fresh object (or a fresh copy of the changed parts) per push instead. A host pushing its whole registry several times a second is the design case, not an abuse. [`demo/host.js`](../demo/host.js) demonstrates the pattern: a `sensor.demo_clock` state ticks every second via `setStates()`, building a fresh state object per push. The diff covers `name` too, so a rename-only push lands — the panel never shows a label the host has moved on from — and compares it *trimmed*, so re-padding a label costs nothing. A push that moves only names costs only the panel: the template context, the evaluated preview and the canvas are left alone.
 
@@ -444,7 +445,7 @@ When the design is pinned to a host display, the display config is **host-owned*
 - **Locked** — the resolution and color-mode controls are disabled; rotation stays enabled. Adopting a display (a one-element `targets` push, or an explicit pick) locks.
 - **Unlock** (click the lock, or pick "Virtual display") — the escape hatch: the user may configure any resolution/color mode immediately (rotation was already theirs), and the preview no longer matches a physical display. The selection is remembered, so this is reversible.
 - **Re-lock** (click the lock again) — restores the last-adopted display's dimensions/color mode/palette (the designer-only preview dither setting survives too), **oriented to the rotation currently in effect**. **Rotation is left exactly as it currently is** — it was never lock-owned, so re-locking never snaps it back to whatever the host declared.
-- **Load Demo while locked** loads the demo payload and simulator seed but **keeps** the host display's resolution/palette (and the rotation currently in effect). Accepted consequence: on small displays the demo layout may look bad. Unlocked, Load Demo applies the showcase display config as in standalone.
+- **Load Demo while locked** loads the demo payload and simulator seed but **keeps** the host display's resolution/palette (and the rotation currently in effect). Accepted consequence: on small displays the demo layout may look bad. Unlocked, Load Demo applies the showcase display config as in standalone. A host-supplied [`demo`](#demo) carries no display config and never changes the display, locked or not.
 - **No display** (standalone, or an embed that never pushes targets): no lock icon, controls behave as they always have.
 
 ### `actions` / `onAction` ([issue #108](https://github.com/schlomo/odl-drawcustom-designer/issues/108))
@@ -563,6 +564,21 @@ This fake host has no real backend to render against, so — maintainer ruling o
 ### `payload`
 
 The payload is the drawcustom **element list YAML** (what the YAML panel shows). The host owns persistence: session autosave is disabled in embedded mode, the share-link button is hidden, and the payload leaves the designer only through [`getPayload()`](#getpayload-issue-104) or an [action](#actions--onaction-issue-108) callback. The designer never writes it anywhere itself.
+
+### `demo`
+
+```js
+mount(container, {
+  demo: {
+    payload: demoYaml,                       // same format as `payload`
+    variables: { accent: 'red' },            // optional, seeded on Load Demo
+  },
+})
+```
+
+The designer's **Load Demo** button loads the bundled showcase ([ADR-015](adr/ADR-015-showcase-demo-bundle.md)), which names states no real host has — inside a host it rendered as "unknown" and a send to a real display failed on the states it could not resolve. A host knows which states every install of it can supply, so it may ship its own demo (maintainer decision 2026-10-28): with `demo` set, Load Demo loads **that** payload and seeds **those** variables instead of the showcase's. Everything else about Load Demo stays as documented: the replace confirmation, [payload only under host-fed states](#the-state-simulator-is-off-under-host-fed-states-adr-018), Clear all stripping the demo's unmodified variables (the rule is that Clear all strips exactly what Load Demo seeds). Two differences follow from a host demo carrying only a payload and variables: it changes **no display config** (the showcase applies its own canvas when the display is unlocked; a host demo leaves whatever display is in effect, since the host's displays come through [`targets`](#targets--ontargetselected-issue-106)) and seeds **no states** in either Simulator mode. `variables` absent means the demo seeds none — Load Demo replaces the current variables wholesale either way, exactly as the showcase's do.
+
+`demo.payload` is held to the same import treatment as `payload` and validated the same way: malformed YAML throws out of `mount()` before the container is touched, not out of the Load Demo click. The normalization (missing vertical coordinates written as `0`, dead `multiline` `spacing` dropped) is silent for a demo — it is a fresh document the host authored, not an import to tell the user about. A stable value fixed at mount, not a push channel: there is no `setDemo()`, for the same reason there is no `setRenderPreview()` — a demo is loaded on a click, not painted. Without `demo`, Load Demo is byte-identical to today in every adapter.
 
 ### `resolveAsset` ([issue #138](https://github.com/schlomo/odl-drawcustom-designer/issues/138))
 

@@ -330,6 +330,9 @@ export function useProjectState(
   // which must load the demo *payload only* under a host-fed adapter — never a
   // render dependency, so the Load Demo callback keeps its identity.
   const hostStatesFedRef = useRef(hostStatesFed)
+  // The host's own Load Demo, if it supplied one (`MountOptions.demo`): a
+  // stable value fixed at mount, read by `loadDemo` and `clearElements`.
+  const hostDemo = host.demo
   // Last raw host `states` payload actually applied (issue #110): compared
   // structurally against each new push so an unchanged tick (the upstream
   // OpenDisplay HA integration re-sends its full entity registry up to 4x/s)
@@ -1695,8 +1698,10 @@ export function useProjectState(
     lastHostStatesRef.current = null
     setMockStates((current) => clearDemoMockStates(current))
     setMockAttributes((current) => clearDemoMockAttributes(current))
-    commitVariables((current) => clearDemoVariables(current))
-  }, [commitElements, commitSelectedIndices, commitVariables, resetEditHistory, yamlArmExternalReplaceRef])
+    // Strips what *this* designer's Load Demo seeds: a host demo's variables
+    // where the host supplied one, the showcase's otherwise.
+    commitVariables((current) => clearDemoVariables(current, hostDemo?.variables))
+  }, [commitElements, commitSelectedIndices, commitVariables, hostDemo, resetEditHistory, yamlArmExternalReplaceRef])
 
   const toggleDisplayLock = useCallback(() => {
     // Working the lock is a display choice: it is how the user leaves a display
@@ -1797,6 +1802,17 @@ export function useProjectState(
     resetEditHistory()
     // The demo replaces the imported document the notice described.
     setImportNormalization(null)
+    if (hostDemo) {
+      // A host's own demo (`MountOptions.demo`, maintainer decision
+      // 2026-10-28): payload and variables, nothing else. It carries no canvas
+      // (the host's displays arrive through `targets`, and whatever display is
+      // in effect stays) and no states (they are the host's — the same
+      // payload-only rule as below, which here holds in either Simulator mode).
+      commitElements(structuredClone(hostDemo.elements) as DrawElement[])
+      commitSelectedIndices([])
+      commitVariables({ ...hostDemo.variables })
+      return
+    }
     // While the display is locked to a host-defined config, Load Demo keeps
     // it (issue #70) — the demo payload loads, the display does not change.
     if (!(displayLockedRef.current && hostDisplayRef.current)) {
@@ -1823,7 +1839,7 @@ export function useProjectState(
     // Variables are not a host channel — no push can supply or clobber them —
     // so the demo's own variables seed in either mode.
     commitVariables(simulator.variables)
-  }, [commitCanvas, commitElements, commitSelectedIndices, commitVariables, resetEditHistory, yamlArmExternalReplaceRef])
+  }, [commitCanvas, commitElements, commitSelectedIndices, commitVariables, hostDemo, resetEditHistory, yamlArmExternalReplaceRef])
 
   const nudgeElement = useCallback(
     (index: number, dx: number, dy: number) => {

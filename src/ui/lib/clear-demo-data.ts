@@ -55,9 +55,17 @@ export function clearDemoMockAttributes(
   return result
 }
 
-export function clearDemoVariables(variables: StoredVariables): StoredVariables {
+/**
+ * `seed` is the demo this designer's Load Demo loads: the bundled showcase's
+ * variables by default, or a host demo's (`DesignerHost.demo`) — the one rule
+ * is that Clear all strips exactly what Load Demo would seed.
+ */
+export function clearDemoVariables(
+  variables: StoredVariables,
+  seed: StoredVariables = SHOWCASE_VARIABLES,
+): StoredVariables {
   const result = { ...variables }
-  for (const [name, value] of Object.entries(SHOWCASE_VARIABLES)) {
+  for (const [name, value] of Object.entries(seed)) {
     if (name in result && result[name] === value) {
       delete result[name]
     }
