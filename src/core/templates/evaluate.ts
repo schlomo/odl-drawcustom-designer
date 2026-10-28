@@ -1,11 +1,11 @@
 import nunjucks from 'nunjucks'
-import { attributeValueEquals, coerceAttributeValue } from './attribute-values'
+import { attributeValueEquals } from './attribute-values'
 import { createHaDateTime } from './ha-datetime'
 import { haFloat, haIif, haNamespace, haSetAttr } from './ha-globals'
 import type { HaMockContext } from './types'
+import { SET_ATTR_GLOBAL, collectVariableGlobals } from './variable-globals'
 
 /** Internal global name backing rewritten `{% set ns.member = … %}` assignments. */
-const SET_ATTR_GLOBAL = '__ha_setattr'
 
 /**
  * Nunjucks does not parse member-target assignment (`{% set ns.uv = value %}`),
@@ -337,57 +337,6 @@ function buildStatesGlobal(context: HaMockContext): StatesGlobal {
   }) as StatesGlobal
 }
 
-/** Globals we register ourselves — a user variable may not shadow these. */
-const RESERVED_VARIABLE_NAMES = new Set([
-  'states',
-  'is_state',
-  'state_attr',
-  'is_state_attr',
-  'now',
-  'float',
-  'iif',
-  'namespace',
-  SET_ATTR_GLOBAL,
-])
-
-/** A user variable name must be a bare identifier so `{{ name }}` resolves. */
-function isValidVariableName(name: string): boolean {
-  return /^[A-Za-z_$][\w$]*$/.test(name) && !RESERVED_VARIABLE_NAMES.has(name)
-}
-
-/**
- * User-defined variables are LITERAL mock values — the resolved runtime value
- * the user wants during preview, consistent with how the State Simulator mocks
- * literal entity states and typed attributes (ADR-004). They are NOT rendered
- * as templates (Home Assistant renders script `variables:` once at the
- * automation level and never re-parses the rendered output), so a value that
- * happens to contain `{{ … }}` is emitted as-is.
- *
- * HA renders `variables:` with `parse_result=True`, so a variable's resolved
- * value carries its NATIVE type (bool / int / float / dict / list) into the
- * downstream templates that reference it — it is NOT always a string. We mirror
- * that by inferring the literal type from the user's text with the SAME rules
- * as mock attribute values (`coerceAttributeValue`): `"false"` becomes the
- * boolean `false` (falsy, unlike the truthy string), `"5"` becomes the number
- * `5`, JSON arrays/objects parse to lists/dicts, and a plain word stays a
- * string. Type inference never re-renders the value, so a `{{ … }}`-looking
- * string is kept verbatim.
- */
-function collectVariableGlobals(context: HaMockContext): Record<string, unknown> {
-  const variables = context.variables
-  if (!variables) {
-    return {}
-  }
-
-  const globals: Record<string, unknown> = {}
-  for (const [name, value] of Object.entries(variables)) {
-    if (isValidVariableName(name)) {
-      globals[name] = coerceAttributeValue(value)
-    }
-  }
-  return globals
-}
-
 /**
  * Nunjucks' stock `default` only replaces `undefined`; the deferred
  * {@link HaUndefined} is a real object, so it must be consumed explicitly
@@ -446,7 +395,7 @@ function createEnvironment(context: HaMockContext): nunjucks.Environment {
   env.addGlobal('namespace', haNamespace)
   env.addGlobal(SET_ATTR_GLOBAL, haSetAttr)
 
-  for (const [name, value] of Object.entries(collectVariableGlobals(context))) {
+  for (const [name, value] of Object.entries(collectVariableGlobals(context.variables))) {
     env.addGlobal(name, value)
   }
 

@@ -29,6 +29,7 @@ export type {
   HostPreviewContext,
   HostPreviewRenderer,
   HostRenderOptions,
+  HostVariableValue,
   HostState,
   HostStates,
   HostStatusChangeHandler,

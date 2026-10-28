@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DitherMode } from '../../core'
-import type { HostDisplayGeometry, HostPreviewRenderer } from '../../embed/types'
+import type { HostDisplayGeometry, HostPreviewRenderer, HostVariableValue } from '../../embed/types'
 
 /**
  * A burst of changes collapses into one host render request (issue #109): a
@@ -91,7 +91,7 @@ interface DisplayPreviewOptions {
    * be a **stable, frozen object** (the caller memoizes it): it is an effect
    * dependency and travels into the context as-is.
    */
-  variables: Readonly<Record<string, string>>
+  variables: Readonly<Record<string, HostVariableValue>>
   /**
    * Why entering preview mode is refused right now (a blocked YAML document),
    * or `null`/absent when it is not.

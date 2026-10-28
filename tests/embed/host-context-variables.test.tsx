@@ -4,6 +4,7 @@ import { fireEvent, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '../../src/embed'
 import type { HostAction, HostActionContext, HostPreviewContext, MountHandle } from '../../src/embed'
+import { DISPLAY_PREVIEW_DEBOUNCE_MS } from '../../src/ui/hooks/useDisplayPreview'
 
 // Full-designer mounts plus the preview's 250ms request debounce exceed
 // vitest's 5s default on 2-core CI runners — the documented gotcha.
@@ -189,7 +190,7 @@ describe('host context carries the shared variables (host-context variables slic
 
     expect(onAction).toHaveBeenCalledTimes(1)
     expect(actionContextOf(onAction.mock.calls[0]).variables).toEqual({
-      alert: 'true',
+      alert: true,
       accent_color: 'red',
     })
   })
@@ -221,7 +222,7 @@ describe('host context carries the shared variables (host-context variables slic
     fireEvent.click(actionButton('Send to display'))
 
     expect(actionContextOf(onAction.mock.calls[0]).variables).toEqual({
-      alert: 'true',
+      alert: true,
       accent_color: 'red',
       footer: 'Hello',
     })
@@ -255,7 +256,7 @@ describe('host context carries the shared variables (host-context variables slic
 
     expect(onAction).toHaveBeenCalledTimes(1)
     expect(actionContextOf(onAction.mock.calls[0]).variables).toEqual({
-      alert: 'true',
+      alert: true,
       accent_color: 'red',
     })
   })
@@ -272,7 +273,7 @@ describe('host context carries the shared variables (host-context variables slic
     fireEvent.click(designer().getByRole('button', { name: 'Display preview' }))
     await waitFor(() => expect(renderPreview).toHaveBeenCalledTimes(1))
     expect(previewContextOf(renderPreview.mock.calls[0]).variables).toEqual({
-      alert: 'true',
+      alert: true,
       accent_color: 'red',
     })
 
@@ -281,7 +282,7 @@ describe('host context carries the shared variables (host-context variables slic
     setVariable('accent_color', 'blue')
     await waitFor(() => expect(renderPreview).toHaveBeenCalledTimes(2))
     expect(previewContextOf(renderPreview.mock.calls[1]).variables).toEqual({
-      alert: 'true',
+      alert: true,
       accent_color: 'blue',
     })
 
@@ -290,6 +291,51 @@ describe('host context carries the shared variables (host-context variables slic
     expect(actionContextOf(onAction.mock.calls[0]).variables).toEqual(
       previewContextOf(renderPreview.mock.calls[1]).variables,
     )
+  })
+
+  it('reports the typed values the preview injects — "false" is the boolean false', () => {
+    // The Load Demo circle: `{{ 'red' if alert else 'white' }}` is white in
+    // the designer for `alert = "false"` (ADR-004 typed variables). A host
+    // handed the raw string "false" would render it red — truthy.
+    const onAction = vi.fn()
+    mountRaw({ payload: PAYLOAD, actions: [SEND], onAction })
+
+    openVariablesEditor()
+    setVariable('alert', 'false')
+    setVariable('accent_color', 'red')
+    addVariable('count', '5')
+
+    fireEvent.click(actionButton('Send to display'))
+
+    const reported = actionContextOf(onAction.mock.calls[0]).variables
+    expect(reported).toEqual({ alert: false, accent_color: 'red', count: 5 })
+    expect(reported.alert).toBe(false)
+    expect(reported.count).toBe(5)
+  })
+
+  it('collapses a burst of variable edits into exactly one extra renderPreview request', async () => {
+    const renderPreview = vi.fn(async () => new Blob(['x'], { type: 'image/png' }))
+    mountRaw({ payload: PAYLOAD, renderPreview })
+
+    openVariablesEditor()
+    fireEvent.click(designer().getByRole('button', { name: 'Display preview' }))
+    await waitFor(() => expect(renderPreview).toHaveBeenCalledTimes(1))
+
+    // Three edits well inside one debounce window.
+    setVariable('accent_color', 'r')
+    setVariable('accent_color', 're')
+    setVariable('accent_color', 'red')
+
+    // Assert after a quiet period longer than two debounce windows, so a
+    // third request would have had every chance to fire.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, DISPLAY_PREVIEW_DEBOUNCE_MS * 2 + 50))
+    })
+    expect(renderPreview).toHaveBeenCalledTimes(2)
+    expect(previewContextOf(renderPreview.mock.calls[1]).variables).toEqual({
+      alert: '',
+      accent_color: 'red',
+    })
   })
 
   it('hands over a frozen map on a frozen context, fresh per call', () => {
@@ -307,7 +353,7 @@ describe('host context carries the shared variables (host-context variables slic
 
     // Guard against vacuous freeze assertions: `Object.isFrozen(undefined)`
     // is `true` by spec, so assert the real value first.
-    expect(first.variables).toEqual({ alert: 'true', accent_color: '' })
+    expect(first.variables).toEqual({ alert: true, accent_color: '' })
     expect(Object.isFrozen(first)).toBe(true)
     expect(Object.isFrozen(first.variables)).toBe(true)
     expect(first.variables).not.toBe(second.variables)
