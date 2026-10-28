@@ -227,6 +227,46 @@ const HOST_ASSET_PAYLOAD = `- type: text
   font: no-such-host-font.ttf
 `
 
+// Host-supplied Load Demo (`demo` mount option, maintainer decision
+// 2026-10-28): the designer's bundled showcase names states no real host has,
+// so inside a host it rendered as "unknown" and a send to a real display
+// failed. A host knows which states every install of it can supply, so this
+// page ships a demo written against exactly the states it pushes — including
+// the door it offers but the mount payload never reads — plus the variables it
+// seeds. The designer's own Load Demo button then loads this instead of the
+// showcase: payload and variables only, no display config (the kitchen tag
+// stays) and no states (they are the host's). `?demo=showcase` mounts without
+// it, for the e2e specs that need the bundled showcase's breadth.
+const HOST_DEMO = {
+  payload: `- type: text
+  value: "{{ title }}"
+  x: 8
+  y: 8
+  size: 20
+  color: "{{ accent }}"
+- type: text
+  value: "{{ states('sensor.demo_temperature') }} °C · door {{ states('binary_sensor.demo_door') }}"
+  x: 8
+  y: 40
+  size: 16
+- type: text
+  value: "{{ states('sensor.demo_clock') }}"
+  x: 8
+  y: 68
+  size: 16
+- type: line
+  x_start: 8
+  y_start: 100
+  x_end: 288
+  y_end: 100
+  fill: "{{ accent }}"
+  width: 2
+`,
+  variables: { title: 'Host demo', accent: 'red' },
+}
+
+const mountsHostDemo = new URLSearchParams(location.search).get('demo') !== 'showcase'
+
 // Host-registered actions (issue #108, ADR-018): the host owns what each button
 // means — this page fakes persistence, a display transmission and a payload
 // check. Save is one of them and nothing special (issue #121): the designer has
@@ -358,6 +398,9 @@ const handle = mount(document.getElementById('designer'), {
   // reference the designer cannot resolve locally. Search paths are this host's
   // business — the designer only ever asks by name.
   resolveAsset,
+  // The host's own Load Demo (see HOST_DEMO above): fixed at mount, no push
+  // channel. Left out, Load Demo loads the designer's bundled showcase.
+  demo: mountsHostDemo ? HOST_DEMO : undefined,
   actions: buildActions(displayOnline),
   onAction(id, payload, context) {
     // The designer reports which button fired, the current payload, the

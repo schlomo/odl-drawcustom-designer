@@ -62,6 +62,10 @@ test.describe('embedded with a host display', () => {
   test('Load Demo while locked loads the demo payload but keeps the host display', async ({
     page,
   }) => {
+    // The bundled showcase (the host page's own demo carries no display config
+    // and could not show the lock holding against one).
+    await page.goto(`${embedUrl()}?demo=showcase`)
+    await expect(page.getByTestId('element-list-row')).toHaveCount(3)
     page.once('dialog', (dialog) => void dialog.accept())
     await page.getByRole('button', { name: 'Load Demo' }).click()
 
