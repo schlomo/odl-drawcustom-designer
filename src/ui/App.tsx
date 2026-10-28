@@ -47,7 +47,7 @@ import { useYamlSelectionCoupling } from './hooks/useYamlSelectionCoupling'
 import { shell } from './styles/shell'
 import { hostSuppliedTheme, type DesignerHost } from '../embed/host'
 import type { DesignerStatus } from '../embed/types'
-import { serializeYamlPayload, type DrawElement } from '../core'
+import { reportVariables, serializeYamlPayload, type DrawElement } from '../core'
 import type { AddElementResult } from './hooks/useProjectState'
 import { APP_GITHUB_REPO_URL, APP_HEADER_LEGAL_HTML, APP_TITLE } from '../core'
 import { logoUrl } from '../assets/bundled-urls'
@@ -143,6 +143,7 @@ export function App({ bootstrap, host }: AppProps) {
     elements,
     getElementsSnapshot,
     getCanvasSnapshot,
+    getVariablesSnapshot,
     getActiveTargetIdSnapshot,
     getEditStatus,
     editStatusVersion,
@@ -471,6 +472,16 @@ export function App({ bootstrap, host }: AppProps) {
     () => Object.freeze({ width: canvas.width, height: canvas.height, rotation: canvas.rotation }),
     [canvas.height, canvas.rotation, canvas.width],
   )
+  /**
+   * The shared variables a host render must substitute (maintainer ruling
+   * 2026-10-27: variables are reported out for rendering, never pushed in).
+   * Same memo-for-the-effect / ref-snapshot-for-the-click split as
+   * `previewDisplayGeometry` above, same builder (`reportVariables`) as
+   * `handleHostAction`'s context below — one map, two consumers. `elements`
+   * is a dependency because the referenced-but-unset names it contributes
+   * (reported as `""`) change with the payload.
+   */
+  const previewVariables = useMemo(() => reportVariables(variables, elements), [elements, variables])
   // Host-rendered display preview (issue #109, ADR-018 preview seam). It reads
   // the same payload every other host channel does, so the image the user sees
   // is a render of exactly what an action would send.
@@ -480,6 +491,7 @@ export function App({ bootstrap, host }: AppProps) {
     ditherMode: canvas.previewDitherMode,
     display: previewDisplayGeometry,
     targetId: activeTargetId ?? undefined,
+    variables: previewVariables,
     // Entering a preview of a broken document is refused rather than explained
     // by an error overlay over the host render (maintainer ruling 2026-08-17).
     blockedReason: yamlBlocked ? DISPLAY_PREVIEW_YAML_BLOCKED_REASON : null,
@@ -631,10 +643,21 @@ export function App({ bootstrap, host }: AppProps) {
             rotation: canvasSnapshot.rotation,
           }),
           render: Object.freeze({ dither: canvasSnapshot.previewDitherMode }),
+          // Ref-live like the rest (`getVariablesSnapshot`/`getElementsSnapshot`),
+          // through the same builder the preview memo uses; `reportVariables`
+          // freezes its result.
+          variables: reportVariables(getVariablesSnapshot(), getElementsSnapshot()),
         }),
       )
     },
-    [getActiveTargetIdSnapshot, getCanvasSnapshot, host, readCurrentPayload],
+    [
+      getActiveTargetIdSnapshot,
+      getCanvasSnapshot,
+      getElementsSnapshot,
+      getVariablesSnapshot,
+      host,
+      readCurrentPayload,
+    ],
   )
 
   const handleShare = useCallback(async () => {

@@ -196,6 +196,7 @@ export {
   extractTemplateExpressions,
   extractAttributeReferences,
   extractVariableReferences,
+  reportVariables,
   type AttributeReference,
   coerceAttributeValue,
   attributeValueEquals,

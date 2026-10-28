@@ -7,9 +7,10 @@ import type { HostDisplayGeometry, HostPreviewRenderer } from '../../embed/types
  * host render is a round trip to real hardware or a real rasterizer, so it must
  * not fire per change. What can change while the preview shows is a host
  * `setPayload()` push, the display config (a resolution pick, a
- * re-orientation), the selected display and the dither control — the design
- * itself cannot, since every editing affordance is inert. Long enough to
- * swallow a burst, short enough that the preview visibly follows.
+ * re-orientation), the selected display, the dither control and the shared
+ * variables (the Variables editor stays live) — the design itself cannot,
+ * since every editing affordance is inert. Long enough to swallow a burst,
+ * short enough that the preview visibly follows.
  */
 export const DISPLAY_PREVIEW_DEBOUNCE_MS = 250
 
@@ -83,6 +84,15 @@ interface DisplayPreviewOptions {
   /** The display the design is pinned to, as `onAction` reports it. */
   targetId?: string
   /**
+   * The shared variables the render must substitute, exactly as `onAction`
+   * reports them (`reportVariables`, one builder for both channels). A change
+   * re-requests the render — the Variables editor stays live in preview mode,
+   * and a host that rendered the old map is showing a different design. Must
+   * be a **stable, frozen object** (the caller memoizes it): it is an effect
+   * dependency and travels into the context as-is.
+   */
+  variables: Readonly<Record<string, string>>
+  /**
    * Why entering preview mode is refused right now (a blocked YAML document),
    * or `null`/absent when it is not.
    */
@@ -121,6 +131,7 @@ export function useDisplayPreview({
   ditherMode,
   display,
   targetId,
+  variables,
   blockedReason = null,
   payloadRevision,
 }: DisplayPreviewOptions): DisplayPreviewView {
@@ -241,6 +252,8 @@ export function useDisplayPreview({
             // mutates it gets a `TypeError`, not a silent no-op on a value
             // the designer would ignore anyway.
             render: Object.freeze({ dither: ditherMode }),
+            // Already frozen by `reportVariables`; same map `onAction` reports.
+            variables,
           }),
         )
       } catch (thrown) {
@@ -301,6 +314,7 @@ export function useDisplayPreview({
     releaseOwnedUrl,
     renderPreview,
     targetId,
+    variables,
   ])
 
   const getImageBlob = useCallback(async (): Promise<Blob | null> => {

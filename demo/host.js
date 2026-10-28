@@ -343,7 +343,8 @@ const handle = mount(document.getElementById('designer'), {
       `renderPreview: ${payload.length} bytes` +
       ` · dither=${context.render.dither}` +
       ` · display=${context.targetId ?? '(virtual)'}` +
-      ` · canvas=${context.display.width}x${context.display.height}@${context.display.rotation}°`
+      ` · canvas=${context.display.width}x${context.display.height}@${context.display.rotation}°` +
+      ` · variables=${JSON.stringify(context.variables)}`
     await delay(PREVIEW_RENDER_DELAY_MS)
     if (previewShouldFail) {
       // Rejecting is how a host reports failure; the designer states it in the
@@ -362,7 +363,8 @@ const handle = mount(document.getElementById('designer'), {
     // The designer reports which button fired, the current payload, the
     // opaque id of the display it is pinned to, and — since issue #105's
     // WYSIWYG-send slice — the same live `display`/`render` a
-    // `renderPreview` request would carry at this exact instant; everything
+    // `renderPreview` request would carry at this exact instant, plus the
+    // shared `variables` a real host pre-renders templates with; everything
     // below is host-side meaning.
     if (id === 'save') {
       // What `onSaveRequest` used to be (issue #121): a host action like any
@@ -375,7 +377,8 @@ const handle = mount(document.getElementById('designer'), {
       const canvas = `${context.display.width}x${context.display.height}@${context.display.rotation}°`
       actionLog.textContent =
         `Sent ${payload.length} bytes to ${to}` +
-        ` · canvas=${canvas} · dither=${context.render.dither}:\n${payload}`
+        ` · canvas=${canvas} · dither=${context.render.dither}` +
+        ` · variables=${JSON.stringify(context.variables)}:\n${payload}`
       return
     }
     if (id === 'validate') {
