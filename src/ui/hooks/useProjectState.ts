@@ -1695,11 +1695,16 @@ export function useProjectState(
     // debounced writes). This gives a clean slate without deleting user data.
     // Invalidate the host-push cache (issue #110 follow-up): this is a local
     // mock mutation, same as the Simulator setters above.
+    // Strips what *this* designer's Load Demo seeds, and only that. A host
+    // demo (`MountOptions.demo`) seeds its variables and no states, so under
+    // one the Simulator's states and attributes are all the user's — even one
+    // that happens to equal a showcase value — and only the variables are
+    // stripped. Without a host demo the showcase seed is what Load Demo loads.
     lastHostStatesRef.current = null
-    setMockStates((current) => clearDemoMockStates(current))
-    setMockAttributes((current) => clearDemoMockAttributes(current))
-    // Strips what *this* designer's Load Demo seeds: a host demo's variables
-    // where the host supplied one, the showcase's otherwise.
+    if (!hostDemo) {
+      setMockStates((current) => clearDemoMockStates(current))
+      setMockAttributes((current) => clearDemoMockAttributes(current))
+    }
     commitVariables((current) => clearDemoVariables(current, hostDemo?.variables))
   }, [commitElements, commitSelectedIndices, commitVariables, hostDemo, resetEditHistory, yamlArmExternalReplaceRef])
 

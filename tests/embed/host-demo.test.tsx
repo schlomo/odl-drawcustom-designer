@@ -8,7 +8,13 @@ import { createEmbeddedHost } from '../../src/embed/embeddedHost'
 import { createStandaloneHost } from '../../src/embed/standaloneHost'
 import { parseYamlPayload, serializeYamlPayload } from '../../src/core'
 import { buildAppBootstrap } from '../../src/ui/bootstrap/appBootstrap'
-import { SHOWCASE_ELEMENTS, SHOWCASE_VARIABLES } from '../../src/ui/data/showcase'
+import {
+  SHOWCASE_ELEMENTS,
+  SHOWCASE_MOCK_ATTRIBUTES,
+  SHOWCASE_MOCK_STATES,
+  SHOWCASE_VARIABLES,
+} from '../../src/ui/data/showcase'
+import { LOAD_DEMO_CONFIRM_MESSAGE } from '../../src/ui/lib/replace-confirm'
 import { useProjectState } from '../../src/ui/hooks/useProjectState'
 
 // Full-designer mounts under parallel load exceed vitest's 5s default on
@@ -182,6 +188,20 @@ describe('MountOptions.demo — a host-supplied Load Demo', () => {
     expect(container.childElementCount).toBe(0)
   })
 
+  it('asks before replacing a design, in wording that fits a host demo too', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const handle = mountDesigner({ payload: HOST_DEMO_PAYLOAD.replace('{{ greeting }}', 'mine'), demo: HOST_DEMO })
+    const before = handle.getPayload()
+
+    await clickLoadDemo()
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Replace the current design with the demo design? Unsaved changes will be lost.',
+    )
+    expect(LOAD_DEMO_CONFIRM_MESSAGE).not.toMatch(/showcase/i)
+    expect(handle.getPayload()).toBe(before)
+  })
+
   it('demo.variables must be a map of strings', () => {
     expect(() =>
       mount(container, {
@@ -189,6 +209,46 @@ describe('MountOptions.demo — a host-supplied Load Demo', () => {
       }),
     ).toThrow(/demo\.variables/)
 
+    expect(container.shadowRoot).toBeNull()
+    expect(container.childElementCount).toBe(0)
+  })
+})
+
+/**
+ * `payload` and `demo.payload` are the same kind of thing and follow one parse
+ * rule: an empty string is an empty document, a non-string is a friendly
+ * TypeError out of `mount()`, malformed YAML is the parser's error. Before
+ * this, `payload: 5` surfaced a raw `source.split is not a function` and
+ * `demo.payload: ''` threw where `payload: ''` mounted.
+ */
+describe('payload and demo.payload share one parse rule', () => {
+  it('an empty payload mounts as an empty document', async () => {
+    const handle = mountDesigner({ payload: '' })
+    expect(handle.getPayload()).toBe(serializeYamlPayload([]))
+  })
+
+  it('an empty demo.payload is an empty demo', async () => {
+    const handle = mountDesigner({ demo: { payload: '' } })
+
+    await clickLoadDemo()
+
+    await waitFor(() => {
+      expect(handle.getPayload()).toBe(serializeYamlPayload([]))
+    })
+  })
+
+  it('a non-string payload throws a friendly TypeError and leaves the container pristine', () => {
+    expect(() => mount(container, { payload: 5 as unknown as string })).toThrow(
+      /payload must be a .*YAML string/,
+    )
+    expect(container.shadowRoot).toBeNull()
+    expect(container.childElementCount).toBe(0)
+  })
+
+  it('a non-string demo.payload throws a friendly TypeError and leaves the container pristine', () => {
+    expect(() => mount(container, { demo: { payload: 5 as unknown as string } })).toThrow(
+      /demo\.payload must be a .*YAML string/,
+    )
     expect(container.shadowRoot).toBeNull()
     expect(container.childElementCount).toBe(0)
   })
@@ -260,6 +320,31 @@ describe('useProjectState with a host demo (embedded adapter)', () => {
 
     expect(result.current.elements).toEqual([])
     expect(result.current.mockContext.variables).toEqual({ accent: 'blue', mine: 'kept' })
+  })
+
+  it('Clear all strips no states under a host demo: it seeds none', () => {
+    // No host states, so the Simulator is on and the user can enter states —
+    // including one that happens to equal a showcase value. The host demo
+    // never seeded it, so Clear all must not treat it as demo data.
+    const { result } = renderEmbedded({ demo: HOST_DEMO })
+    const [entityId, showcaseValue] = Object.entries(SHOWCASE_MOCK_STATES)[0]
+    const [attrEntityId, attrs] = Object.entries(SHOWCASE_MOCK_ATTRIBUTES)[0]
+    const [attribute, attrValue] = Object.entries(attrs)[0]
+
+    act(() => {
+      result.current.loadDemo()
+    })
+    act(() => {
+      result.current.setMockState(entityId, showcaseValue)
+      result.current.setMockAttribute(attrEntityId, attribute, attrValue)
+    })
+    act(() => {
+      result.current.clearElements()
+    })
+
+    expect(result.current.elements).toEqual([])
+    expect(result.current.mockContext.states).toEqual({ [entityId]: showcaseValue })
+    expect(result.current.mockContext.attributes).toEqual({ [attrEntityId]: { [attribute]: attrValue } })
   })
 
   it('without demo the embedded adapter loads the bundled showcase and its variables', () => {

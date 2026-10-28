@@ -1,24 +1,30 @@
-import { normalizeImportedPayload, parseYamlPayload } from '../core'
+import { normalizeImportedPayload } from '../core'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import { DEFAULT_DISPLAY_CONFIG } from '../ui/preferences/displayConfig'
 import type { DesignerDemo, DesignerHost } from './host'
 import { assertActionsAreHandled, normalizeHostActions } from './hostActions'
 import { autoAdoptedHostTarget, normalizeHostTargets } from './hostTargets'
-import { assertHostStates, displaySpecToCanvas, hostStatesToMockData } from './hostContract'
+import {
+  assertHostStates,
+  displaySpecToCanvas,
+  hostStatesToMockData,
+  parseHostPayload,
+} from './hostContract'
 import type { HostDemo, HostTarget, MountOptions } from './types'
 
 /**
  * A host's Load Demo, parsed once at mount: its `payload` gets exactly the
- * import treatment `MountOptions.payload` gets (parse, then make cursor
- * positions explicit and drop dead keys) and throws the same errors, so a
- * malformed demo fails `mount()` instead of the Load Demo click later. The
- * normalization is silent — a demo is a fresh document the host authored, not
- * an import the user should be told was adjusted.
+ * treatment `MountOptions.payload` gets (`parseHostPayload`, then cursor
+ * positions made explicit and dead keys dropped) and throws the same errors,
+ * so a malformed demo fails `mount()` instead of the Load Demo click later.
+ * The normalization is silent — a demo is a fresh document the host authored,
+ * not an import the user should be told was adjusted.
  */
 function normalizeHostDemo(demo: HostDemo): DesignerDemo {
-  if (typeof demo !== 'object' || demo === null || typeof demo.payload !== 'string') {
-    throw new TypeError('Invalid host demo: demo.payload must be a YAML string')
+  if (typeof demo !== 'object' || demo === null) {
+    throw new TypeError('Invalid host demo: demo must be { payload, variables? }')
   }
+  const elements = normalizeImportedPayload(parseHostPayload(demo.payload, 'demo.payload')).elements
   const variables = demo.variables ?? {}
   if (
     typeof variables !== 'object' ||
@@ -28,10 +34,7 @@ function normalizeHostDemo(demo: HostDemo): DesignerDemo {
   ) {
     throw new TypeError('Invalid host demo: demo.variables must map names to strings')
   }
-  return {
-    elements: normalizeImportedPayload(parseYamlPayload(demo.payload)).elements,
-    variables: { ...variables },
-  }
+  return { elements, variables: { ...variables } }
 }
 
 function buildEmbedBootstrap(
@@ -56,7 +59,7 @@ function buildEmbedBootstrap(
   // in `useProjectState`: cursor-positioned elements made explicit at `0`, dead
   // `multiline` `spacing` dropped, and the shell told to say so.
   const payload = normalizeImportedPayload(
-    options.payload ? parseYamlPayload(options.payload) : [],
+    options.payload === undefined ? [] : parseHostPayload(options.payload, 'payload'),
   )
   return {
     sessionName: 'Untitled',
