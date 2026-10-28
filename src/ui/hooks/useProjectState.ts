@@ -254,6 +254,20 @@ export function useProjectState(
     bootstrap.mockAttributes,
   )
   const [variables, setVariables] = useState<StoredVariables>(bootstrap.variables)
+  // Ref-paired with its setter, the `canvasRef`/`commitCanvas` shape (issue
+  // #105 review): written *before* `setVariables`, so `getVariablesSnapshot()`
+  // answers from what the current synchronous dispatch just committed — an
+  // `onAction` fired in the same event as a Variables-editor edit reports that
+  // edit in `context.variables`, not the previous render's map.
+  const variablesRef = useRef(variables)
+  const commitVariables = useCallback(
+    (update: StoredVariables | ((current: StoredVariables) => StoredVariables)) => {
+      const next = typeof update === 'function' ? update(variablesRef.current) : update
+      variablesRef.current = next
+      setVariables(next)
+    },
+    [],
+  )
   // Host-fed states (issue #107, ADR-018 state catalog): does a host own the
   // states? Seeded from the adapter — the `states` mount option is an initial
   // push, so the very first painted frame must already show the read-only
@@ -1420,21 +1434,21 @@ export function useProjectState(
     if (!isValidVariableName(name)) {
       return
     }
-    setVariables((current) => ({ ...current, [name]: value }))
-  }, [])
+    commitVariables((current) => ({ ...current, [name]: value }))
+  }, [commitVariables])
 
   const addVariable = useCallback((name: string, value: string) => {
     if (!isValidVariableName(name)) {
       return
     }
-    setVariables((current) => ({ ...current, [name]: value }))
-  }, [])
+    commitVariables((current) => ({ ...current, [name]: value }))
+  }, [commitVariables])
 
   const renameVariable = useCallback((previousName: string, nextName: string) => {
     if (!isValidVariableName(nextName)) {
       return
     }
-    setVariables((current) => {
+    commitVariables((current) => {
       if (!(previousName in current) || previousName === nextName) {
         return current
       }
@@ -1444,10 +1458,10 @@ export function useProjectState(
       }
       return next
     })
-  }, [])
+  }, [commitVariables])
 
   const removeVariable = useCallback((name: string) => {
-    setVariables((current) => {
+    commitVariables((current) => {
       if (!(name in current)) {
         return current
       }
@@ -1455,7 +1469,7 @@ export function useProjectState(
       delete next[name]
       return next
     })
-  }, [])
+  }, [commitVariables])
 
   const uploadAsset = useCallback(
     async (key: string, kind: AssetKind, file: File): Promise<AssetUploadResult> => {
@@ -1681,8 +1695,8 @@ export function useProjectState(
     lastHostStatesRef.current = null
     setMockStates((current) => clearDemoMockStates(current))
     setMockAttributes((current) => clearDemoMockAttributes(current))
-    setVariables((current) => clearDemoVariables(current))
-  }, [commitElements, commitSelectedIndices, resetEditHistory, yamlArmExternalReplaceRef])
+    commitVariables((current) => clearDemoVariables(current))
+  }, [commitElements, commitSelectedIndices, commitVariables, resetEditHistory, yamlArmExternalReplaceRef])
 
   const toggleDisplayLock = useCallback(() => {
     // Working the lock is a display choice: it is how the user leaves a display
@@ -1808,8 +1822,8 @@ export function useProjectState(
     }
     // Variables are not a host channel — no push can supply or clobber them —
     // so the demo's own variables seed in either mode.
-    setVariables(simulator.variables)
-  }, [commitCanvas, commitElements, commitSelectedIndices, resetEditHistory, yamlArmExternalReplaceRef])
+    commitVariables(simulator.variables)
+  }, [commitCanvas, commitElements, commitSelectedIndices, commitVariables, resetEditHistory, yamlArmExternalReplaceRef])
 
   const nudgeElement = useCallback(
     (index: number, dx: number, dy: number) => {
@@ -2077,6 +2091,12 @@ export function useProjectState(
   // `canvas`, for exactly that reason.
   const getCanvasSnapshot = useCallback(() => canvasRef.current, [])
 
+  // Same shape for the shared variables: `commitVariables` writes
+  // `variablesRef.current` before the state setter, so `onAction`'s
+  // `context.variables` (built from this plus `getElementsSnapshot()`) sees a
+  // Variables-editor edit committed in the same synchronous dispatch.
+  const getVariablesSnapshot = useCallback(() => variablesRef.current, [])
+
   // The same shape again for the active target (issue #105 review): every
   // input to `resolveActiveTargetId` is ref-paired with its state setter
   // (`displayLockedRef`, `selectedTargetRef`, `hostTargetsRef`, each written
@@ -2135,6 +2155,8 @@ export function useProjectState(
     setElements: setElementsWithHistory,
     getElementsSnapshot,
     getCanvasSnapshot,
+    /** The stored variables read live from a ref, for `onAction`'s context. */
+    getVariablesSnapshot,
     getEditStatus,
     /**
      * The one authoritative reactivity signal for `getEditStatus()`'s values

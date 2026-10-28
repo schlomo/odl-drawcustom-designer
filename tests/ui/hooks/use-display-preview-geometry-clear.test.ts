@@ -31,6 +31,9 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
+/** A stable, frozen map: the option is an effect dependency, so a per-render object would re-request forever. */
+const NO_VARIABLES: Readonly<Record<string, string>> = Object.freeze({})
+
 function pngBlob(marker: string): Blob {
   return new Blob([marker], { type: 'image/png' })
 }
@@ -75,6 +78,7 @@ describe('useDisplayPreview — geometry change clears the stale image immediate
           readPayload: () => 'payload',
           ditherMode: 0,
           display,
+          variables: NO_VARIABLES,
           payloadRevision: 0,
         }),
       { initialProps: { display: { width: 296, height: 128, rotation: 0 as const } } },
@@ -121,6 +125,7 @@ describe('useDisplayPreview — geometry change clears the stale image immediate
           readPayload: () => 'payload',
           ditherMode,
           display,
+          variables: NO_VARIABLES,
           payloadRevision: 0,
         }),
       { initialProps: { ditherMode: 0 as 0 | 2 } },

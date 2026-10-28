@@ -7,6 +7,8 @@ export {
   extractVariableReferences,
   type AttributeReference,
 } from './scan'
+export { reportVariables } from './report-variables'
+export { collectVariableGlobals, isValidVariableName, type VariableValue } from './variable-globals'
 export { evaluateTemplate, TemplateEvaluationError } from './evaluate'
 export { coerceAttributeValue, attributeValueEquals } from './attribute-values'
 export {
