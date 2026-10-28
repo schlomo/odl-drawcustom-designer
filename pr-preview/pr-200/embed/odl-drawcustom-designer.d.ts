@@ -172,14 +172,17 @@ export declare interface HostActionContext {
      * before calling its service. Variables are still not a host channel —
      * nothing supplies them from outside, and they carry no save semantics.
      *
-     * A name the payload references but holds no stored value is reported as
-     * `""` (the empty row the Variables editor shows; what the preview renders);
-     * a stored variable the payload does not reference is reported too, since a
-     * host may render templates the designer's scanner does not see. Always
-     * present, like `display` and `render` — an empty map when there is nothing
-     * to report, never `undefined`. Frozen, like the rest of the context.
+     * Values are the typed {@link HostVariableValue}s the preview injects, not
+     * the stored text; a name the preview refuses to register (a reserved
+     * global such as `now`) is not reported either. A name the payload
+     * references but holds no stored value is reported as `""` (the empty row
+     * the Variables editor shows); a stored variable the payload does not
+     * reference is reported too, since a host may render templates the
+     * designer's scanner does not see. Always present, like `display` and
+     * `render` — an empty map when there is nothing to report, never
+     * `undefined`. Frozen, like the rest of the context.
      */
-    readonly variables: Readonly<Record<string, string>>;
+    readonly variables: Readonly<Record<string, HostVariableValue>>;
 }
 
 /**
@@ -315,12 +318,14 @@ export declare interface HostPreviewContext {
     /**
      * The designer's shared variables this render must substitute — exactly the
      * map {@link HostActionContext.variables} reports in the same state, with
-     * the same rules (a referenced-but-unset name is `""`; stored-but-unreferenced
-     * names are included). Always present and frozen. A variable edit while the
-     * preview shows re-requests the render, so a provider that ignores the map
-     * answers a changed request with an unchanged image.
+     * the same rules (typed {@link HostVariableValue}s as the preview injects
+     * them; a referenced-but-unset name is `""`; stored-but-unreferenced names
+     * are included; reserved globals are not). Always present and frozen. A
+     * variable edit while the preview shows re-requests the render, so a
+     * provider that ignores the map answers a changed request with an unchanged
+     * image.
      */
-    readonly variables: Readonly<Record<string, string>>;
+    readonly variables: Readonly<Record<string, HostVariableValue>>;
 }
 
 /**
@@ -499,6 +504,16 @@ export declare interface HostTarget {
  * A stable closure fixed at mount: ADR-018 pushes data, never functions.
  */
 export declare type HostTargetSelectedHandler = (targetId: string | null) => void;
+
+/**
+ * One shared variable's value as the designer's own template preview injects
+ * it (ADR-004 typed variables): the stored text coerced exactly as a mock
+ * attribute value is — `"false"` is the boolean `false`, `"5"` the number 5,
+ * `"[1, 2]"` a list, `"none"`/empty `null`, anything else the string itself.
+ * JSON-native throughout, so a host passes the map straight into its own
+ * template engine and agrees with the preview on `{{ 'red' if alert else 'white' }}`.
+ */
+export declare type HostVariableValue = VariableValue;
 
 /**
  * Mount the designer into an arbitrary host container (issue #20, ADR-010).
@@ -808,6 +823,16 @@ export declare interface MountOptions {
      */
     onStatusChange?: HostStatusChangeHandler;
 }
+
+/**
+ * A shared variable's typed value as the preview injects it: what
+ * {@link coerceAttributeValue} produces from the stored text — JSON-native
+ * scalars, or a parsed JSON array/object. Nothing else can appear, so a host
+ * can hand the map straight to its own template engine.
+ */
+declare type VariableValue = string | number | boolean | null | readonly VariableValue[] | {
+    readonly [key: string]: VariableValue;
+};
 
 /**
  * Runtime version (issue #23, reworked 2026-07-29: git tags are the sole
