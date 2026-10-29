@@ -153,7 +153,7 @@ describe('Load Demo UX', () => {
     await clickLoadDemo()
 
     expect(confirmSpy).toHaveBeenCalledWith(
-      'Replace the current design with the showcase demo? Unsaved changes will be lost.',
+      'Replace the current design with the demo design? Unsaved changes will be lost.',
     )
     await waitFor(() => {
       expect(screen.getAllByText('Custom only').length).toBeGreaterThan(0)

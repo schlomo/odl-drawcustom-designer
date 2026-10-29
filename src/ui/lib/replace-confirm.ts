@@ -13,8 +13,13 @@
  * downstream would even record that it existed.
  */
 
+/**
+ * "The demo design", not "the showcase demo": under a host that supplies its
+ * own demo (`MountOptions.demo`) the showcase is not what loads, and one
+ * wording that is true in every adapter beats a second prompt variant.
+ */
 export const LOAD_DEMO_CONFIRM_MESSAGE =
-  'Replace the current design with the showcase demo? Unsaved changes will be lost.'
+  'Replace the current design with the demo design? Unsaved changes will be lost.'
 
 /**
  * Clear all only asks while the document is broken. On a valid document it

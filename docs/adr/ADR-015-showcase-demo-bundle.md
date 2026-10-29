@@ -34,6 +34,7 @@ Colocate the entire demo bundle under **`src/assets/showcase/`** and load it at 
 - Product title strings for the demo live in `showcase.yml` (not `brand.ts`).
 - Tests assert bundle integrity in `tests/ui/data/showcase-bundle.test.ts`.
 - Share links and IndexedDB still exclude showcase seed unless the user has persisted overrides.
+- **Host override (2026-10-28):** an embedding host may replace the showcase for its own mount with `MountOptions.demo` (`{ payload, variables? }`, [`docs/embedding.md`](../embedding.md#demo)) — the showcase names states no real host has, so a host ships a demo written against the states its installs have. Load Demo then loads that payload and variables (no canvas, no states), and Clear all strips that demo's unmodified variables instead of the showcase's. Without `demo` the bundle above is what every adapter loads.
 - `showcase.yml` and `showcase.json` ship in the npm package (`tools/stageNpmPackage.ts`) so a host can render the demo through its own pipeline — the Home Assistant integration's test-suite renders it with real Python Jinja, the only check that catches templates the JS preview coerces silently but HA rejects (issue #196). `showcase.png` is bundled into the ESM and not shipped separately.
 
 ## Alternatives considered

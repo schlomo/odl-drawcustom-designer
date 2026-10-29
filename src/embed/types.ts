@@ -505,9 +505,39 @@ export interface DesignerStatus {
  */
 export type HostStatusChangeHandler = (status: DesignerStatus) => void
 
+/**
+ * A host's own Load Demo (maintainer decision 2026-10-28): what the designer's
+ * **Load Demo** button loads instead of the bundled showcase. The showcase
+ * names states no real host has, so inside a host it rendered as "unknown" and
+ * failed on a real send; a host knows which states every install of it can
+ * supply and ships a demo written against those.
+ */
+export interface HostDemo {
+  /**
+   * The demo's drawcustom YAML — the same string format as
+   * {@link MountOptions.payload}, held to the same import treatment and
+   * validated the same way: malformed YAML throws out of `mount()`.
+   */
+  payload: string
+  /**
+   * Shared variables the demo seeds when loaded (`{{ name }}` substitutions),
+   * replacing the current ones exactly as the bundled showcase's variables do.
+   * Absent means the demo seeds none. States are never part of a demo: under a
+   * host-fed adapter they remain the host's.
+   */
+  variables?: Record<string, string>
+}
+
 export interface MountOptions {
   /** Initial drawcustom YAML payload (list of draw elements). */
   payload?: string
+  /**
+   * The host's own Load Demo, replacing the bundled showcase for this mount.
+   * Fixed at mount — a stable value, not a push channel (ADR-018 pushes data
+   * the shell paints, and a demo is loaded on a click, not painted). Absent
+   * leaves Load Demo exactly as it is without a host.
+   */
+  demo?: HostDemo
   /**
    * Initial states for template preview. A mount option *is* an initial push
    * (ADR-018 seam grammar): identical to calling {@link MountHandle.setStates}

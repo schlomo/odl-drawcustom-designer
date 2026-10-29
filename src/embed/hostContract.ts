@@ -1,4 +1,10 @@
-import { colourSchemeToColorMode, normalizePaletteOverrides, type TagColorMode } from '../core'
+import {
+  colourSchemeToColorMode,
+  normalizePaletteOverrides,
+  parseYamlPayload,
+  type DrawElement,
+  type TagColorMode,
+} from '../core'
 import type { CanvasConfig, CanvasRotation } from '../ui/hooks/useProjectState'
 import { DEFAULT_DISPLAY_CONFIG, type PreviewDitherMode } from '../ui/preferences/displayConfig'
 import type { MockData, MockEntityAttributes } from '../ui/preferences/mockStates'
@@ -63,6 +69,20 @@ function isPrimitiveState(value: unknown): value is string | number | boolean {
  * is exactly the cost that contract exists to avoid. Validation is the same
  * single linear scan the diff already is.
  */
+/**
+ * One parse rule for every drawcustom YAML a host hands over at mount
+ * (`payload`, `demo.payload`): an empty string is an empty document, a
+ * non-string is a friendly `TypeError` naming the option, malformed YAML is
+ * the parser's own error. Both throw out of `mount()`. Before this, a
+ * non-string `payload` surfaced as a raw `source.split is not a function`.
+ */
+export function parseHostPayload(value: unknown, option: 'payload' | 'demo.payload'): DrawElement[] {
+  if (typeof value !== 'string') {
+    throw new TypeError(`Invalid host ${option}: ${option} must be a drawcustom YAML string`)
+  }
+  return value === '' ? [] : parseYamlPayload(value)
+}
+
 export function assertHostStates(states: HostStates): void {
   if (!isRecord(states)) {
     failStates(`expected an object, got ${JSON.stringify(states) ?? typeof states}`)

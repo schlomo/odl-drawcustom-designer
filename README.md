@@ -9,6 +9,14 @@ Visual [feature-rich](#features) editor for **[OpenDisplay Language](https://ope
 
 **[Open the standalone designer →](https://schlomo.github.io/odl-drawcustom-designer/)** · **[Live embed demo →](https://schlomo.github.io/odl-drawcustom-designer/embed/)**
 
+Everything the live site can show, all client-side:
+
+- **[Standalone designer](https://schlomo.github.io/odl-drawcustom-designer/)** — the full app with the State Simulator; Load Demo loads the bundled showcase.
+- **[Embed demo](https://schlomo.github.io/odl-drawcustom-designer/embed/)** — a fake host page mounting the library build: it pushes states, displays and actions, renders host-side previews and resolves assets by name. Load Demo loads the host's **own** demo (the `demo` mount option), written against the states that host pushes, so every row of the States panel resolves.
+- **[Embed demo with the showcase](https://schlomo.github.io/odl-drawcustom-designer/embed/?demo=showcase)** — the same host without `demo`: Load Demo loads the bundled showcase instead, whose states this host does not supply (they read "not supplied" in the States panel).
+- **[Embed demo as a multi-display host](https://schlomo.github.io/odl-drawcustom-designer/embed/?displays=all)** — three displays pushed at mount, so the designer offers a picker instead of adopting the one display.
+- **[Style isolation](https://schlomo.github.io/odl-drawcustom-designer/embed/isolation.html)** — a light and a dark designer on a deliberately hostile host page (`!important` everywhere, colliding utility class names); nothing leaks in either direction.
+
 ![ODL/OEPL Drawcustom Designer — canvas editor with element toolbar, layers, YAML panel, and e-paper preview](https://raw.githubusercontent.com/schlomo/odl-drawcustom-designer/main/docs/assets/designer-screenshot.png)
 
 ## Use it in your own app
@@ -49,7 +57,7 @@ handle.destroy()              // unmount and empty the container
 
 The container needs an explicit height; the designer fills it. Styles and DOM are isolated in a shadow root at the mount boundary — host CSS never leaks in, and the designer never touches the host document.
 
-Full mount API (`setActions`, `setPayload`, `setTheme`, `onTargetSelected`) and every host-data field, plus the release/versioning story: [`docs/embedding.md`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/embedding.md). Live demo: see the link above; its full source (a fake host page pushing states, displays and actions) is at [`demo/`](https://github.com/schlomo/odl-drawcustom-designer/tree/main/demo).
+Full mount API (`setActions`, `setPayload`, `setTheme`, `onTargetSelected`) and every host-data field, plus the release/versioning story: [`docs/embedding.md`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/embedding.md). Live pages: see the list above; their full source (a fake host page pushing states, displays and actions, plus the hostile isolation page) is at [`demo/`](https://github.com/schlomo/odl-drawcustom-designer/tree/main/demo).
 
 ## Home Assistant integrations (`drawcustom`)
 
@@ -155,7 +163,7 @@ OpenDisplay uses the same payload shape with `action: opendisplay.drawcustom`.
 ### Session, demo & sharing
 
 - **Auto-save** — last design, undo history, and mocks restored on reload
-- **Load Demo** — one-click showcase bundle in [`src/assets/showcase/`](https://github.com/schlomo/odl-drawcustom-designer/tree/main/src/assets/showcase): `showcase.yml` (payload), `showcase.json` (canvas + State Simulator seed), `showcase.png` (the dlimg image, embedded in the YAML as a `data:` URI so the demo sends to a real display as-is)
+- **Load Demo** — one click loads the bundled showcase in [`src/assets/showcase/`](https://github.com/schlomo/odl-drawcustom-designer/tree/main/src/assets/showcase): `showcase.yml` (payload), `showcase.json` (canvas + State Simulator seed), `showcase.png` (the dlimg image, embedded in the YAML as a `data:` URI so the demo sends to a real display as-is). That is the standalone default; a host embedding the designer may supply its own demo through [`MountOptions.demo`](https://github.com/schlomo/odl-drawcustom-designer/blob/main/docs/embedding.md#demo) — the [embed demo page](https://schlomo.github.io/odl-drawcustom-designer/embed/) is the example
 - **Share link** — `#d=eJ…<data>` URL fragment encodes name, canvas, service options (when set), and elements (pako-deflated, base64url; assets/mocks stay local)
 - **Undo / redo** — 50-step history with drag coalescing
 

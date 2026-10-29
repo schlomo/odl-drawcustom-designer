@@ -14,6 +14,9 @@ import { yamlContent, yamlLineContaining } from './fixtures/yaml-editor'
  */
 
 const embedUrl = () => `http://localhost:${process.env.PW_EMBED_PORT}/`
+// The host page ships its own Load Demo (`demo` mount option); these specs need
+// the bundled showcase's breadth of states and variables instead.
+const showcaseEmbedUrl = () => `${embedUrl()}?demo=showcase`
 
 test('the States panel replaces the Simulator and names the states the design reads', async ({
   page,
@@ -66,7 +69,7 @@ test('a state pushed by the host lands in the panel, name and value together', a
 test('Load Demo under host-fed states loads the payload only: unreferenced-by-the-host states read "not supplied"', async ({
   page,
 }) => {
-  await page.goto(embedUrl())
+  await page.goto(showcaseEmbedUrl())
   await expect(page.getByTestId('element-list-row')).toHaveCount(3)
 
   page.on('dialog', (dialog) => void dialog.accept())
@@ -114,7 +117,7 @@ test('Load Demo under host-fed states loads the payload only: unreferenced-by-th
 test('clicking a referenced-state row scrolls the YAML editor to its template (#142)', async ({
   page,
 }) => {
-  await page.goto(embedUrl())
+  await page.goto(showcaseEmbedUrl())
   await expect(page.getByTestId('element-list-row')).toHaveCount(3)
 
   page.on('dialog', (dialog) => void dialog.accept())
@@ -143,7 +146,7 @@ test('clicking a referenced-state row scrolls the YAML editor to its template (#
 test('the referenced-states row list stays clickable next to a full Variables editor (#142)', async ({
   page,
 }) => {
-  await page.goto(embedUrl())
+  await page.goto(showcaseEmbedUrl())
   await expect(page.getByTestId('element-list-row')).toHaveCount(3)
 
   page.on('dialog', (dialog) => void dialog.accept())
@@ -215,7 +218,7 @@ test('a long state value keeps the key readable and never scrolls the panel side
  * the fixture that actually uses variables.
  */
 test('variables stay editable next to the host-fed States panel', async ({ page }) => {
-  await page.goto(embedUrl())
+  await page.goto(showcaseEmbedUrl())
   await expect(page.getByTestId('element-list-row')).toHaveCount(3)
 
   page.on('dialog', (dialog) => void dialog.accept())

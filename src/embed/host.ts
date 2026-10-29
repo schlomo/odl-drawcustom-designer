@@ -1,7 +1,7 @@
 import type { SessionWritePayload, StoredVariables } from '../storage'
 import type { AppBootstrap } from '../ui/bootstrap/appBootstrap'
 import type { MockData } from '../ui/preferences/mockStates'
-import type { HostAssetResolver } from '../core'
+import type { DrawElement, HostAssetResolver } from '../core'
 import type {
   DesignerStatus,
   EmbedTheme,
@@ -128,6 +128,14 @@ export interface DesignerHost {
    */
   readonly onStatusChange?: HostStatusChangeHandler
   /**
+   * The host's own Load Demo (`MountOptions.demo`), already parsed and
+   * normalized by the adapter so a malformed one throws out of `mount()`
+   * before anything is touched. Present only for a host that supplied one;
+   * absent, Load Demo loads the bundled showcase in every adapter. Not a push
+   * channel — a stable value fixed at mount, like `renderPreview`.
+   */
+  readonly demo?: DesignerDemo
+  /**
    * Whether the designer may write to its local asset store
    * (`MountOptions.hostOwnsAssets`, ADR-002): `true` for every adapter
    * except an embedded host that declared `hostOwnsAssets`. `false` is
@@ -215,6 +223,17 @@ export interface DesignerPersistence {
   writeSession(payload: SessionWritePayload): void
   writeMocks(mock: MockData): void
   writeVariables(variables: StoredVariables): void
+}
+
+/**
+ * A host demo as the shell loads it: the elements Load Demo commits and the
+ * variables it seeds. It carries no canvas and no states — a host's displays
+ * come through `targets` and its states through `states`, so the shell leaves
+ * both alone when loading it.
+ */
+export interface DesignerDemo {
+  readonly elements: readonly DrawElement[]
+  readonly variables: StoredVariables
 }
 
 /** The theme the shell should paint, or `null` when the designer owns it. */
